@@ -1,0 +1,530 @@
+import {waveChart} from './wave-chart.js';
+import {sitePalettes,darkPalette,loadAppearance} from './theme.js';
+import {paginate} from './paged.js';
+export async function opsFetch(path,body,scope){
+ const response=await fetch(path,body?{method:'POST',headers:{'Content-Type':'application/json',...(scope?{'X-VeTNet-Scope':scope}:{})},body:JSON.stringify(body)}:{});
+ const data=await response.json();if(!response.ok)throw Error(data.error||'İşlem tamamlanamadı.');return data;
+}
+export async function mountCenterSuite(ui,session){
+ const {view,el,heading,field,makeForm,status,logoutButton}=ui;
+ const tabs=[
+  ['genel','Genel Bakış',overview],['bayiler','Bayiler ve Yetkiler',list],
+  ['muhasebe','Muhasebe',()=>finance('all')],['satislar','Satışlardan Alınan Ödemeler',()=>finance('sales')],
+  ['tahsilatlar','Ek Tahsilatlar',()=>finance('collections')],['raporlar','Mali Raporlar',()=>finance('summary')],
+  ['basvurular','Demo İstek-Değerlendirme',crm],['paketler','Yazılım Paketleri',plans],
+  ['abonelikler','Bayi Abonelikleri',subscriptions],['destek','Destek Talepleri',support],
+  ['tema','Ayarlar ve Tema',theme],['guvenlik','Güvenlik',security],['kayitlar','İşlem Günlüğü',audit],
+  ['odemeler','Ödeme Onayları',()=>manage('payments')],['site','Satış Sitesi Yönetimi',()=>manage('market')],
+  ['duyurular','Duyurular',()=>manage('announcements')],['reklam','Reklam Yönetimi',()=>manage('ads')],
+  ['degisiklikler','Son Değişiklikler',()=>manage('releases')],
+  ['yedekleme','Yedekleme',()=>backup(false)],['aktarim','Klinik Verisi İçe Aktar',()=>backup(true)],
+  ['okc','Entegrasyonlar · ÖKC',()=>manage('okc')]
+ ];
+ const params=new URLSearchParams(location.search);
+ const tab=tabs.find(([key])=>key===params.get('tab'))||tabs[0];
+ const url=(key,extra={})=>'/yonetim?'+new URLSearchParams({tab:key,...extra});
+ const call=(action,body)=>opsFetch('/api/cpanel-center/'+action,body,session.scopeId);
+ const applyAppearance=appearance=>{
+  const palette=appearance.palette||'classic';
+  document.body.dataset.centerPalette=palette;
+  document.body.classList.toggle('center-dark',darkPalette(palette));
+ };
+ document.body.classList.add('center-suite');
+ applyAppearance(await loadAppearance());
+ heading('Merkez Yönetimi');
+ view.firstChild.className='visually-hidden';
+ const shell=el('div','',{className:'center-shell'});
+ const sidebar=el('aside','',{className:'center-sidebar'});
+ const nav=el('nav','',{id:'center-navigation'});
+ nav.setAttribute('aria-label','Yönetim menüsü');
+ const menu=el('button','☰ Menü',{type:'button',className:'center-menu-toggle'});
+ menu.setAttribute('aria-controls',nav.id);
+ const mobile=matchMedia('(max-width:850px)');
+ const setMenu=open=>{nav.hidden=!open;menu.setAttribute('aria-expanded',String(open));};
+ setMenu(!mobile.matches);
+ menu.addEventListener('click',()=>setMenu(nav.hidden));
+ mobile.addEventListener('change',()=>setMenu(!mobile.matches));
+ nav.append(el('p','VeTNeT Yönetim',{className:'center-kicker'}),el('small','Merkez paneli · R6'));
+ for(const [key,label] of tabs){
+  const item=el('a',label,{href:url(key),className:'center-nav-item'});
+  if(key===tab[0]) {item.classList.add('active');item.setAttribute('aria-current','page');}
+  nav.append(item);
+ }
+ sidebar.append(menu,nav);
+ const main=el('div','',{className:'center-main'}),top=el('header','',{className:'center-top'});
+ const account=el('div','',{className:'center-toolbar'});
+ const reauthUrl=url('guvenlik',{returnTab:tab[0]});
+ account.append(el('span',session.identifier||session.name||'Merkez yöneticisi'));
+ if(session.reauthRequired) account.append(el('a','İşlemler için doğrula',{href:reauthUrl}));
+ account.append(logoutButton());
+ top.append(el('h2',tab[1],{className:'center-title'}),account);
+ const content=el('section','',{className:'center-card'});
+ const button=(text,fn)=>{
+  const b=el('button',text,{type:'button',className:'secondary'});
+  b.addEventListener('click',async()=>{
+   b.disabled=true;status.textContent='';delete status.dataset.tone;
+   try{await fn();}catch(error){status.dataset.tone='error';status.textContent=error.message;}
+   finally{b.disabled=false;}
+  });
+  return b;
+ };
+ main.append(top,content);
+ shell.append(sidebar,main);
+ view.append(shell,status);
+ const table=(headers,rows)=>{if(!rows.length)return el('p','Kayıt bulunamadı.',{className:'muted'});const wrap=el('div','',{className:'center-table-wrap'}),t=el('table','',{className:'center-table'}),head=t.createTHead().insertRow();for(const h of headers)head.append(el('th',h));const body=t.createTBody();for(const cells of rows){const row=body.insertRow();for(const value of cells){const td=row.insertCell();td.append(value instanceof Node?value:document.createTextNode(String(value??'—')));}}wrap.append(t);return wrap;};
+ const labels={partners:'Toplam bayi',active:'Etkin bayi',team:'Etkin ekip üyeliği',
+  subscriptions:'Geçerli abonelik',applications:'Yeni başvuru',support:'Açık destek talebi',receipts:'Bugünkü klinik tahsilatı'};
+ const roleLabels={dealer:'Bayi yöneticisi',branch:'Şube yöneticisi',staff:'Personel',customer:'Hasta sahibi'};
+ const statuses={active:'Etkin',pending:'Beklemede',revoked:'Kapalı'};
+ const moduleLabels={appointments:'Randevular',clients:'Müşteriler',patients:'Hastalar ve klinik kayıtlar',
+  followups:'Aşı ve takip',sales:'Satışlar',products:'Ürünler ve stok',expenses:'Muhasebe',
+  reports:'Raporlar',messages:'Mesajlar ve şablonlar',support:'Destek',esmm:'e-SMM ayarları',
+  overviewClients:'Genel bakış · Müşteri grafiği',overviewPatients:'Genel bakış · Hasta grafiği',
+  vaccines:'Aşı kayıtları',shares:'Paylaşılan belgeler'};
+ const number=new Intl.NumberFormat('tr-TR');
+ async function overview(){
+  const {metrics,day,daily,stages:stageCounts}=await call('overview');
+  const cards=el('div','',{className:'center-metrics'});
+  const destinations={partners:'bayiler',active:'bayiler',team:'bayiler',subscriptions:'abonelikler',applications:'basvurular',support:'destek',receipts:'muhasebe'};
+  for(const [key,label] of Object.entries(labels)){
+   const card=el('a','',{className:'center-metric',href:url(destinations[key])});
+   card.append(el('small',label),el('strong',key==='receipts'?currency(metrics[key]):number.format(metrics[key])));cards.append(card);
+  }
+  const counts=new Map(daily.map(row=>[row.day,Number(row.total)]));
+  const days=Array.from({length:30},(_,index)=>{
+   const date=new Date(day+'T12:00:00Z');
+   date.setUTCDate(date.getUTCDate()-29+index);
+   const key=date.toISOString().slice(0,10);
+   return [key,counts.get(key)||0];
+  });
+  const countsByStage=new Map(stageCounts.map(row=>[row.stage,Number(row.total)]));
+  const steps=Object.entries(stages).map(([key,label])=>[label,countsByStage.get(key)||0]);
+  content.replaceChildren(cards);
+  if(Number(metrics.applications)>0){
+   content.append(el('a',number.format(metrics.applications)+' yeni başvuruyu incele',
+    {className:'center-alert center-demo-alert',href:url('basvurular',{stage:'new'})}));
+  }
+  content.append(chart('Son 30 gün · Günlük başvurular',days,'blue'),chart('Değerlendirme aşamalarına göre',steps,'teal'));
+ }
+ const currency=cents=>new Intl.NumberFormat('tr-TR',{style:'currency',currency:'TRY'}).format(Number(cents)/100);
+ const financeLabels={sales:'Satışta alınan ödeme',collections:'Ek tahsilat',payments:'Tedarikçi ödemesi',expenses:'Gelir / gider',purchases:'Ürün alışı'};
+ function chart(title,points,tone){
+  const esc=value=>String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[char]);
+  const section=el('section');
+  const plot=el('div');
+  plot.innerHTML=waveChart(points,[['Başvuru',tone]],value=>number.format(value),esc,{label:title});
+  section.append(el('h3',title),plot);
+  return section;
+ }
+ async function finance(mode){
+  const current=new Intl.DateTimeFormat('en-CA',{year:'numeric',month:'2-digit',timeZone:'Europe/Istanbul'}).formatToParts();
+  const part=name=>current.find(item=>item.type===name).value;
+  const month=params.get('month')||part('year')+'-'+part('month');
+  const {totals,entries}=await call('finance?'+new URLSearchParams({month}));
+  const monthPicker=makeForm([field('month','Ay',{type:'month',value:month,min:'2000-01',max:'2099-12'})],'Ayı göster',values=>{
+   location.assign(url(tab[0],values));
+  });
+  const visible=row=>mode==='all'||mode==='summary'||row.source_type===mode;
+  content.replaceChildren(monthPicker,table(['Hareket türü','İşlem adedi','Tutar'],totals.filter(visible)
+   .map(row=>[financeLabels[row.source_type],row.quantity,currency(row.cents)])));
+  if(mode!=='summary')content.append(el('h3','Son hareketler'),paginate(entries.filter(visible),rows=>table(
+   ['Tarih','Bayi','Hareket türü','Tutar'],rows.map(row=>[row.entry_date,row.name,financeLabels[row.source_type],currency(row.amount_cents)]))));
+ }
+ async function plans(){
+  const {plans}=await call('plans');
+  content.replaceChildren(table(['Paket','İçerik','Aylık','Yıllık'],plans.map(plan=>[
+   plan.name,plan.description,plan.monthly??'Teklif ile',plan.yearly??'Teklif ile'])));
+ }
+ async function subscriptions(){
+  const {terms}=await call('subscriptions');
+  content.replaceChildren(el('a','Paket atamak için bayi seçin',{href:url('bayiler')}),
+   paginate(terms,rows=>table(['Bayi','Paket','Tür','Başlangıç','Bitiş','İşlem'],rows.map(term=>[
+    term.name,term.plan_name,term.kind==='trial'?'Deneme':'Yönetici ataması',term.starts_on,term.ends_on,
+    button('Dönemleri aç',()=>subscription(term.partner_id))]))));
+ }
+ function security(){
+  const form=makeForm([
+   field('password','Mevcut merkez yönetici şifresi',{type:'password',autocomplete:'current-password'}),
+   field('otp','Yeni doğrulama kodu',{inputMode:'numeric',autocomplete:'one-time-code',pattern:'[0-9]{6}',maxLength:6})
+  ],'Kimliği doğrula',async (values,form)=>{
+   await call('reauth',values);
+   form.reset();
+   account.querySelector('a')?.remove();
+   status.textContent='Kimliğiniz doğrulandı. Yönetim işlemlerini beş dakika boyunca yapabilirsiniz.';
+  });
+  const target=tabs.find(([key])=>key===params.get('returnTab'))||tabs[0];
+  content.replaceChildren(el('h3','Kimliği yeniden doğrula'),el('p',
+   'Telefonunuzdaki doğrulama uygulamasının yeni altı haneli kodunu kullanın. Girişte bir kod kullandıysanız uygulamada sonraki kodu bekleyin.'),form,
+   el('a','Önceki bölüme dön',{href:url(target[0])}));
+ }
+ const managementFields={
+  payments:[['partner','Bayi'],['reference','Dekont / işlem referansı'],['amount','Tutar (₺)'],['note','Not'],['plan','Abonelik paketi'],['starts_on','Başlangıç'],['ends_on','Bitiş']],
+  market:[['path','Satış sayfası yolu'],['title','Başlık'],['description','Arama sonucu açıklaması']],
+  announcements:[['partner','Hedef bayi'],['title','Başlık'],['text','Duyuru']],
+  ads:[['partner','Hedef bayi'],['title','Başlık'],['text','Reklam metni'],['url','HTTPS bağlantısı']],
+  releases:[['title','Sürüm veya değişiklik başlığı'],['text','Değişiklik açıklaması']],
+  okc:[['partner','Bayi'],['branch','Şube'],['brand','Marka'],['model','Model'],['serial','Seri numarası'],['note','Bağlantı notu']]
+ };
+ async function publicationImage(file){
+  if(file.size>8000000||!['image/jpeg','image/png','image/webp'].includes(file.type))throw Error('En fazla 8 MB boyutunda JPEG, PNG veya WebP seçin.');
+  const image=await createImageBitmap(file);
+  try{
+   const ratio=Math.min(1,1000/Math.max(image.width,image.height));
+   const canvas=el('canvas','',{width:Math.max(1,Math.round(image.width*ratio)),height:Math.max(1,Math.round(image.height*ratio))});
+   const context=canvas.getContext('2d');
+   context.fillStyle='#fff';context.fillRect(0,0,canvas.width,canvas.height);
+   context.drawImage(image,0,0,canvas.width,canvas.height);
+   for(const quality of [.82,.65,.48,.32]){
+    const encoded=canvas.toDataURL('image/jpeg',quality);
+    if(encoded.length<=165000)return encoded;
+   }
+   throw Error('Görsel sıkıştırıldıktan sonra boyut sınırını aşıyor.');
+  }finally{image.close();}
+ }
+ async function manage(kind,editing=null){
+  const fields=managementFields[kind];
+  const [{rows},{partners}]=await Promise.all([call(kind),call('partners')]);
+  const paymentPlans=kind==='payments'?(await call('plans')).plans:[];
+  const names=new Map(partners.map(partner=>[partner.id,partner.name]));
+  const optionalPartner=['announcements','ads'].includes(kind);
+  const controls=fields.map(([name,label])=>{
+   let control;
+   if(name==='partner') control=selectField(name,label,[['',optionalPartner?'Tüm bayiler':'Bayi seçin'],...names]);
+   else if(name==='plan') control=selectField(name,label,[['','Yalnız ödeme kaydı'],...paymentPlans.map(plan=>[plan.id,plan.name])]);
+   else if(name==='starts_on'||name==='ends_on') control=field(name,label,{type:'date',required:false});
+   else if(name==='branch') control=selectField(name,label,[['','Önce bayi seçin']]);
+   else if(name==='brand') control=selectField(name,label,['Beko','Ingenico','Hugin','Paygo','inPOS'].map(brand=>[brand,brand]));
+   else if(name==='text'||name==='description') control=textArea(name,label,kind==='releases'?1500:kind==='announcements'?1600:kind==='ads'?500:350);
+   else control=field(name,label,{required:!['url','note'].includes(name),value:editing?.[name]||(name==='path'?'/platform':'')});
+   if(editing && name!=='branch') control.querySelector('input,select,textarea').value=editing[name]??'';
+   if(editing && name==='path') control.querySelector('input').readOnly=true;
+   if(optionalPartner && ['title','text'].includes(name))control.querySelector('input,textarea').required=false;
+   return control;
+  });
+  if(optionalPartner){
+   const slot=selectField('slot','Yayın konumu',[
+    ['1','Kutu 1'],['2','Kutu 2'],['3','Kutu 3'],...(kind==='announcements'?[['0','Üst duyuru']]:[])
+   ]);
+   slot.querySelector('select').value=String(editing?.slot??1);
+   const active=field('active','Yayında',{type:'checkbox',required:false,checked:editing?.active??true});
+   const image=field('imageFile','Görsel ekle',{type:'file',accept:'image/jpeg,image/png,image/webp',required:false});
+   controls.push(slot,active,image);
+   if(editing?.image)controls.push(field('removeImage','Mevcut görseli kaldır',{type:'checkbox',required:false}));
+  }
+  const form=makeForm(controls,'Kaydet',async values=>{
+   if(optionalPartner){
+    const {imageFile,removeImage,...publication}=values;
+    values={...publication,slot:Number(values.slot),active:values.active==='on'};
+    if(removeImage==='on')values.image='';
+    if(imageFile?.size)values.image=await publicationImage(imageFile);
+   }
+   await call(kind,{...values,id:editing?.id||''});
+   await manage(kind);
+   status.textContent='Kayıt kaydedildi.';
+  });
+  if(kind==='okc'){
+   const partner=form.elements.partner;
+   const branch=form.elements.branch;
+   const refresh=async()=>{
+    const id=partner.value;
+    branch.replaceChildren(el('option','Şube seçin',{value:''}));
+    if(!id)return;
+    const data=await call('partner?'+new URLSearchParams({id}));
+    if(id!==partner.value)return;
+    for(const item of data.branches)branch.append(el('option',item.name,{value:item.id}));
+    if(id===editing?.partner)branch.value=editing.branch;
+   };
+   partner.addEventListener('change',()=>refresh().catch(error=>{status.textContent=error.message;}));
+   await refresh();
+  }
+  const actions=row=>{
+   const group=el('div','',{className:'center-toolbar'});
+   const act=action=>async()=>{
+    if(!confirm('İşlem uygulansın mı?'))return;
+    await call(kind,{id:row.id,action});await manage(kind);
+   };
+   if(kind==='payments'){
+    if(row.status==='pending')group.append(button('Dekontu incele',()=>{
+     const verified=field('verified','Bankadaki başarılı işlemi ve tutarı kontrol ettim',{type:'checkbox',required:true});
+     const amount=field('verifiedAmount','Dekonttaki tutar (₺)',{inputMode:'decimal'});
+     content.replaceChildren(button('Ödemelere dön',()=>manage(kind)),el('h3',row.reference),
+      el('p',(names.get(row.partner)||'Bayi')+' · '+row.amount+' ₺'),
+      makeForm([amount,verified],row.plan?'Onayla ve abonelik dönemini aç':'Onayla',async values=>{
+       await call(kind,{id:row.id,action:'approved',verified:values.verified==='on',verifiedAmount:values.verifiedAmount});
+       await manage(kind);status.textContent='Ödeme incelemesi kaydedildi.';
+      }));
+    }),button('Reddet',act('rejected')));
+   }else group.append(button('Düzenle',()=>manage(kind,row)),button('Sil',act('delete')));
+   return group;
+  };
+  const extra=kind==='payments'?['Durum','İnceleyen']:optionalPartner?['Konum','Durum','Görsel']:[];
+  const entries=paginate(rows,page=>table([...fields.map(([,label])=>label),...extra,'İşlem'],page.map(row=>[
+   ...fields.map(([key])=>key==='partner'?names.get(row.partner)||(row.partner?'Bayi bulunamadı':'Tüm bayiler'):row[key]),
+   ...(kind==='payments'?[{pending:'Bekliyor',approved:'Onaylandı',rejected:'Reddedildi'}[row.status],row.reviewedBy]:optionalPartner?[row.slot===0?'Üst duyuru':'Kutu '+(row.slot??1),row.active===false?'Taslak':'Yayında',row.image?el('img','',{src:row.image,alt:'Yayın görseli',width:100}):'—']:[]),actions(row)
+  ])));
+  content.replaceChildren();
+  if(kind==='payments')content.append(el('p','Banka dekontunu kontrol ederek onaylayın. Paket ve tarihler seçildiyse onayla birlikte abonelik dönemi oluşturulur.'));
+  if(kind==='okc')content.append(el('p','Bayi ve şubeye göre cihaz envanteri. Mali işlem başlatmak için üreticinin etkin bağlantısı gerekir.'));
+  content.append(entries,el('h3',editing?'Kaydı düzenle':'Yeni kayıt'),form);
+  if(editing)content.append(button('Düzenlemeyi iptal et',()=>manage(kind)));
+ }
+ async function backup(importing){
+  const {partners}=await call('partners');
+  const partner=selectField('partner','Bayi',[['','Bayi seçin'],...partners.map(item=>[item.id,item.name])]);
+  partner.querySelector('select').required=true;
+  if(!importing){
+   content.replaceChildren(el('p','Bayi çalışma alanını JSON olarak indirin. Dosya klinik ve müşteri verisi içerir.'),
+    makeForm([partner],'JSON yedeğini indir',async values=>{
+     const data=await call('backup?'+new URLSearchParams({id:values.partner}));
+     const href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));
+     const link=el('a','',{href,download:'vetnet-'+values.partner+'-yedek.json'});link.click();
+     setTimeout(()=>URL.revokeObjectURL(href),1000);
+    }));
+   return;
+  }
+  const upload=field('backup','VeTNeT JSON yedeği',{type:'file',accept:'.json,application/json'});
+  const file=upload.querySelector('input');
+  const result=el('div');
+  const form=makeForm([partner,upload],'Önizle',async values=>{
+   result.replaceChildren();
+   if(!file.files[0]||file.files[0].size>1250000)throw Error('En fazla 1,25 MB boyutunda JSON dosyası seçin.');
+   const data=JSON.parse(await file.files[0].text());
+   const path='import?'+new URLSearchParams({id:values.partner});
+   const {added}=await call(path,{backup:data,preview:true});
+   result.append(el('p',added.clients+' yeni müşteri ve '+added.patients+' yeni hasta bulundu.'));
+   if(added.clients+added.patients>0)result.append(button('İçe aktarmayı onayla',async()=>{
+    const saved=await call(path,{backup:data});
+    result.textContent=saved.added.clients+' müşteri ve '+saved.added.patients+' hasta eklendi.';
+   }));
+  });
+  form.addEventListener('change',()=>result.replaceChildren());
+  content.replaceChildren(el('p','Aynı bayinin JSON yedeğinden eksik müşteri ve hasta kayıtları eklenir.'),form,result);
+ }
+ async function list(){
+  const {partners}=await call('partners');content.replaceChildren();
+  const search=field('search','Bayi ara',{type:'search',required:false}),results=el('div');
+  const state=selectField('status','Bayi durumu',[['','Tümü'],['active','Etkin'],['closed','Kapalı']]);
+  const filter=state.querySelector('select');
+  const draw=()=>{const term=search.querySelector('input').value.trim().toLocaleLowerCase('tr-TR');const rows=partners.filter(p=>[p.name,p.code,p.phone,p.email].join(' ').toLocaleLowerCase('tr-TR').includes(term)&&(filter.value===''||Boolean(Number(p.active))===(filter.value==='active')));results.replaceChildren(paginate(rows,page=>table(['Bayi','Şube','Kullanıcı','Müşteri','Hasta','Durum'],page.map(p=>[button(p.name,()=>detail(p.id)),p.branches,p.users,p.clients,p.patients,p.active?'Etkin':'Kapalı']))));};
+  search.addEventListener('input',draw);filter.addEventListener('change',draw);
+  const controls=el('div','',{className:'center-columns'});controls.append(search,state);content.append(controls,results);draw();
+  const add=el('details');add.append(el('summary','+ Bayi oluştur'));
+  add.append(makeForm([field('name','Bayi / klinik adı',{maxLength:160}),field('phone','Yetkili cep telefonu',{type:'tel'}),field('email','Bayi e-postası',{type:'email'})],'Bayi oluştur',async values=>{
+   const result=await call('partners',values);await list();const link=el('a','Tek kullanımlık aktivasyon bağlantısı',{href:result.link});status.replaceChildren('Bayi oluşturuldu. Bu bağlantıyı yalnızca kimliği doğrulanan bayi yetkilisine iletin; 15 dakika geçerlidir. ',link);
+  }));content.append(add);
+ }
+ async function detail(id){
+  const [data,subscriptionData]=await Promise.all([
+   call('partner?'+new URLSearchParams({id})),call('subscription?'+new URLSearchParams({id}))
+  ]);
+  const p=data.partner;
+  const actions=el('div','',{className:'center-toolbar'});
+  actions.append(button('Bayi listesine dön',list),button('Paket ve abonelik',()=>subscription(id)));
+  const active=Boolean(Number(p.active));
+  actions.append(button(active?'Bayiyi kapat':'Bayiyi etkinleştir',async()=>{
+   if(active&&!confirm('Bu bayinin aktif oturumları kapatılacak. Devam edilsin mi?'))return;
+   await call('status',{partnerId:id,active:!active});await detail(id);
+  }));
+  const current=subscriptionData.current;
+  const branches=selectField('branch','Şube',[['','Tüm şubeler'],...data.branches.map(b=>[b.id,b.name])]);
+  const roles=selectField('role','Üyelik türü',[['','Tüm roller'],...Object.entries(roleLabels)]);
+  const filters=el('div','',{className:'center-columns'});filters.append(branches,roles);
+  const results=el('div');
+  const draw=()=>{
+   const branch=branches.querySelector('select').value;
+   const role=roles.querySelector('select').value;
+   const rows=data.members.filter(m=>(!branch||m.branch_id===branch)&&(!role||m.role===role));
+   results.replaceChildren(paginate(rows,page=>table(['Ad','Telefon','Rol','Şube','Durum','İzinler'],page.map(m=>[
+    m.name,m.phone,roleLabels[m.role],data.branches.find(b=>b.id===m.branch_id)?.name,statuses[m.status],
+    m.role!=='dealer'&&m.status!=='revoked'?button('Yetkileri düzenle',()=>permissions(id,m)):'—'
+   ]))));
+  };
+  filters.addEventListener('change',draw);
+  content.replaceChildren(actions,el('h3',p.name),el('p',[p.code,p.phone,p.email,active?'Etkin':'Kapalı'].join(' · ')),
+   el('p',current?current.plan_name+' · '+current.ends_on+' tarihine kadar':'Geçerli abonelik bulunmuyor.'),
+   el('h3','Şubeler'),table(['Şube','Durum','Veri düzeni'],data.branches.map(b=>[b.name,b.status,b.sharedWith?'Ortak':'Bağımsız'])),
+   el('h3','Üyelikler'),filters,results);
+  draw();
+ }
+ function permissions(id,member){
+  const keys=member.role==='customer'?['vaccines','appointments','shares']:Object.keys(moduleLabels).filter(key=>!['vaccines','shares'].includes(key));
+  const choices=[['none','İzin yok'],['read','Görüntüleme']];
+  if(member.role!=='customer')choices.push(['write','Görüntüleme ve düzenleme']);
+  const grants=JSON.parse(member.modules||'{}');
+  const selects=keys.map(key=>{
+   const wrapper=selectField(key,moduleLabels[key],choices);
+   const select=wrapper.querySelector('select');
+   select.setAttribute('aria-label',moduleLabels[key]);select.value=grants[key]||'none';
+   return select;
+  });
+  const form=makeForm([],'Yetkileri kaydet',async values=>{
+   if(!confirm('Yeni yetkilerin uygulanması için üyenin açık oturumları kapatılacak. Devam edilsin mi?'))return;
+   await call('permissions',{partnerId:id,membershipId:member.id,modules:values});
+   await detail(id);status.textContent='Üyelik yetkileri kaydedildi.';
+  });
+  form.prepend(table(['Modül','Erişim düzeyi'],keys.map((key,index)=>[moduleLabels[key],selects[index]])));
+  content.replaceChildren(button('Bayiye dön',()=>detail(id)),el('h3',member.name),el('p',roleLabels[member.role]),form);
+ }
+ const stages={new:'Yeni',contacted:'Görüşüldü',qualified:'Değerlendiriliyor',won:'Olumlu',lost:'Olumsuz'};
+ function textArea(name,label,maxLength){
+  const wrapper=el('label',label);
+  wrapper.append(el('textarea','',{name,maxLength,required:true,rows:5}));
+  return wrapper;
+ }
+ function selectField(name,label,options){
+  const select=el('select','',{name});
+  for(const [value,title] of options) select.append(el('option',title,{value}));
+  const wrapper=el('label',label);
+  wrapper.append(select);
+  return wrapper;
+ }
+ async function theme(){
+  const current=await call('appearance');
+  const palette=selectField('palette','Varsayılan tema',[['default','Sistem teması'],...sitePalettes.map(([key,label])=>[key,label])]);
+  palette.querySelector('select').value=current.palette||'default';
+  const lock=selectField('lock','Kullanıcı tema seçimi',[['open','Kullanıcı seçebilir'],['locked','Merkez teması zorunlu']]);
+  lock.querySelector('select').value=current.locked?'locked':'open';
+  content.replaceChildren(el('h2','Tema ayarları'),makeForm([palette,lock],'Kaydet',async values=>{
+   const saved=await call('appearance',{palette:values.palette==='default'?'':values.palette,locked:values.lock==='locked'});
+   applyAppearance(saved);
+   status.textContent='Tema ayarları kaydedildi.';
+  }));
+ }
+ const leadKinds={demo:'Demo',trial:'Deneme',contact:'İletişim'};
+ async function crm(){
+  const {leads}=await call('crm');
+  const search=field('query','Klinik, telefon veya program ara',{type:'search',required:false});
+  const filter=selectField('stage','Başvuru durumu',[['','Tümü'],...Object.entries(stages)]);
+  const kinds=selectField('kind','Başvuru türü',[['','Tümü'],...Object.entries(leadKinds)]);
+  const programs=selectField('program','Kullanılan program',[['','Tümü'],...Array.from(new Set(
+   leads.map(lead=>lead.current_program).filter(Boolean))).sort((a,b)=>a.localeCompare(b,'tr')).map(name=>[name,name])]);
+  filter.querySelector('select').value=Object.hasOwn(stages,params.get('stage'))?params.get('stage'):'';
+  const controls=el('div','',{className:'center-columns'});controls.append(search,filter,kinds,programs);
+  const stats=el('div','',{className:'center-metrics'});
+  for(const [stage,label] of Object.entries(stages)){
+   const card=el('div','',{className:'center-metric'});
+   card.append(el('small',label),el('strong',number.format(leads.filter(lead=>lead.stage===stage).length)));stats.append(card);
+  }
+  const results=el('div');
+  const draw=()=>{
+   const term=search.querySelector('input').value.trim().toLocaleLowerCase('tr-TR');
+   const stage=filter.querySelector('select').value;
+   const kind=kinds.querySelector('select').value;
+   const program=programs.querySelector('select').value;
+   const shown=leads.filter(lead=>(!stage||lead.stage===stage)&&(!kind||lead.kind===kind)&&
+    (!program||lead.current_program===program)&&
+    [lead.id,lead.clinic,lead.name,lead.email,lead.phone,lead.current_program].join(' ').toLocaleLowerCase('tr-TR').includes(term));
+   results.replaceChildren(el('p',shown.length+' eşleşen başvuru'),paginate(shown,rows=>table(
+    ['Klinik','Başvuran','Tür','Mevcut program','Tarih','Durum','İşlem'],
+    rows.map(lead=>[lead.clinic,lead.name,leadKinds[lead.kind],lead.current_program||'—',lead.created_at,stages[lead.stage],
+     button('Başvuruyu aç',()=>leadDetail(lead.id))]))));
+  };
+  controls.addEventListener('input',draw);
+  content.replaceChildren(el('p','Son 200 başvuru'),stats,controls,results);draw();
+ }
+ async function leadDetail(id){
+  const [{lead,history},{plans}]=await Promise.all([call('crm?'+new URLSearchParams({id})),call('plans')]);
+  const version=String(history[0]?.id??'0');
+  const stage=selectField('stage','Görüşme durumu',Object.entries(stages));
+  stage.querySelector('select').value=lead.stage;
+  const note=textArea('note','İç görüşme notu',1200);note.querySelector('textarea').required=false;
+  const save=async values=>{
+   await call('crm',{...values,id,version});
+   await leadDetail(id);status.textContent='Başvuru değerlendirmesi kaydedildi.';
+  };
+  content.replaceChildren(button('Başvurulara dön',crm),el('h2',lead.clinic),table(['Bilgi','Değer'],[
+   ['Başvuran',lead.name],['E-posta',lead.email],['Telefon',lead.phone],['Tür',leadKinds[lead.kind]],
+   ['Paket',plans.find(plan=>plan.id===lead.plan_id)?.name||lead.plan_id||'—'],
+   ['Faturalama',lead.billing==='yearly'?'Yıllık':'Aylık'],['Kullanılan program',lead.current_program||'—'],
+   ['Mesaj',lead.message||'—'],['Takip numarası',lead.id],['Başvuru zamanı',lead.created_at]
+  ]),makeForm([stage,note],'Durumu ve notu kaydet',save));
+  const trial=history.find(event=>event.trial_partner);
+  if(trial)content.append(button('Açılan abonelik dönemini göster',()=>subscription(trial.trial_partner)));
+  else if(['demo','trial'].includes(lead.kind)&&['qualified','won'].includes(lead.stage)&&lead.phone){
+   const {partners}=await call('partners');
+   const choices=partners.filter(partner=>Number(partner.active));
+   if(choices.length){
+    const partner=selectField('partnerId','Etkin bayi',[['','Bayi seçin'],...choices.map(item=>[item.id,item.name])]);
+    partner.querySelector('select').required=true;
+    const plan=selectField('plan','Deneme paketi',plans.map(item=>[item.id,item.name]));
+    if(plans.some(item=>item.id===lead.plan_id))plan.querySelector('select').value=lead.plan_id;
+    content.append(el('h3','Deneme dönemini başlat'),el('p','Başvurudaki telefon, seçilen bayinin etkin ve doğrulanmış yönetici hesabıyla eşleşmelidir.'),
+     makeForm([partner,plan,field('days','Deneme süresi (gün)',{type:'number',min:1,max:90,value:14}),
+      field('verified','Başvuru sahibinin kimliğini doğruladım',{type:'checkbox',required:true})],
+      'Deneme dönemini başlat',values=>save({...values,action:'trial',stage:'won',verified:values.verified==='on'})));
+   }
+  }
+  content.append(el('h3','Başvuru geçmişi'),paginate(history,rows=>table(['Zaman','Yönetici','İşlem','İç not'],rows.map(row=>[
+   row.created_at,row.actor,row.trial_partner?'Deneme başlatıldı':stages[row.stage],row.note||'—'
+  ]))));
+ }
+ async function subscription(id){
+  const {terms,plans,day}=await call('subscription?'+new URLSearchParams({id}));
+  const years=selectField('years','Abonelik süresi',[
+   ['','Bitiş tarihini elle seç'],...Array.from({length:10},(_,i)=>[String(i+1),(i+1)+' yıl'])
+  ]);
+  const start=field('starts_on','Başlangıç',{type:'date',value:day});
+  const end=field('ends_on','Bitiş',{type:'date'});
+  const updateEnd=()=>{
+   const value=start.querySelector('input').value;
+   const duration=Number(years.querySelector('select').value);
+   const input=end.querySelector('input');input.readOnly=Boolean(duration);
+   if(!value||!duration)return;
+   const [year,month,day]=value.split('-').map(Number);
+   const target=year+duration;
+   const lastDay=new Date(Date.UTC(target,month,0)).getUTCDate();
+   const date=new Date(Date.UTC(target,month-1,Math.min(day,lastDay)));
+   date.setUTCDate(date.getUTCDate()-1);
+   input.value=date.toISOString().slice(0,10);
+  };
+  start.addEventListener('input',updateEnd);years.addEventListener('change',updateEnd);
+  content.replaceChildren(button('Bayiye dön',()=>detail(id)),el('h3','Paket ve abonelik'),
+   table(['Paket','Başlangıç','Bitiş','Durum'],terms.map(term=>[
+    term.plan_name,term.starts_on,term.ends_on,({active:'Etkin',expired:'Süresi doldu',scheduled:'Planlandı'})[term.status]
+   ])),
+   makeForm([selectField('plan','Paket',plans.map(plan=>[plan.id,plan.name])),
+    selectField('kind','Dönem türü',[['assigned','Yönetici ataması'],['trial','Deneme']]),
+    years,start,end
+   ],'Paketi ve dönemi kaydet',async ({years,...values})=>{
+    await call('subscription',{...values,partnerId:id});await subscription(id);
+    status.textContent='Abonelik dönemi kaydedildi.';
+   })
+  );
+ }
+ const supportCall=(path='',body)=>opsFetch('/api/support'+path,body,session.scopeId);
+ async function support(){
+  const {tickets}=await supportCall();
+  const search=field('query','Konu, bayi veya şube ara',{type:'search',required:false});
+  const filter=selectField('state','Talep durumu',[['','Tümü'],['Açık','Açık'],['Çözüldü','Çözüldü']]);
+  const controls=el('div','',{className:'center-columns'});controls.append(search,filter);
+  const results=el('div');
+  const draw=()=>{
+   const query=search.querySelector('input').value.trim().toLocaleLowerCase('tr-TR');
+   const state=filter.querySelector('select').value;
+   const shown=tickets.filter(ticket=>(!state||ticket.status===state)&&
+    [ticket.subject,ticket.partner_name,ticket.branch_name].join(' ').toLocaleLowerCase('tr-TR').includes(query));
+   results.replaceChildren(paginate(shown,rows=>table(['Talep','Bayi / Şube','Departman','Öncelik','Son yanıt','Durum'],
+    rows.map(ticket=>[button(ticket.subject,()=>supportDetail(ticket.id)),
+     [ticket.partner_name,ticket.branch_name].join(' · '),ticket.department,ticket.urgency,ticket.last_reply_at,ticket.status]))));
+  };
+  controls.addEventListener('input',draw);
+  content.replaceChildren(controls,results);draw();
+ }
+ async function supportDetail(id){
+  const path='/'+encodeURIComponent(id);
+  const {ticket,replies}=await supportCall(path);
+  content.replaceChildren(button('Taleplere dön',support),el('h2',ticket.subject),el('p',[ticket.status,ticket.department,ticket.urgency,ticket.last_reply_at].filter(Boolean).join(' · ')));
+  for(const reply of replies) {
+   const message=el('article','',{className:'center-edit center-reply'});
+   message.append(el('strong',reply.author+' · '+reply.side),el('p',reply.body),el('small',reply.created_at));
+   content.append(message);
+  }
+  if(ticket.status==='Açık'){
+   content.append(makeForm([textArea('body','Yanıt',5000)],'Yanıtla',async values=>{
+    await supportCall(path,values);await supportDetail(id);
+   }),button('Talebi kapat',async()=>{await supportCall(path,{action:'close'});await supportDetail(id);}));
+  }
+ }
+ async function audit(){const {events}=await call('audit');content.replaceChildren(el('h2','Son 100 yönetim işlemi'),paginate(events,rows=>table(['Tarih','İşlem','Hedef'],rows.map(e=>[e.created_at,e.action,e.target_id]))));}
+ await tab[2]();
+}

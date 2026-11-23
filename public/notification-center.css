@@ -1,0 +1,82 @@
+.notification-center {
+  --line: var(--theme-line);
+  --accent: var(--theme-on, var(--theme-primary));
+  --soft: var(--theme-tint);
+  background: var(--theme-work);
+  color: var(--theme-ink);
+  accent-color: var(--accent);
+}
+.notification-center body > header {
+  background: linear-gradient(110deg, var(--theme-primary), var(--theme-secondary));
+}
+.notification-center header > div, .notification-center main { max-width: 1240px }
+.notification-center header a { text-underline-offset: 4px }
+.notification-center main { padding-block: clamp(24px, 4vw, 44px) 56px }
+.notification-center h1 { letter-spacing: -.045em; margin-bottom: 22px }
+.notification-center h2 { font-size: clamp(1.1rem, 2vw, 1.3rem); letter-spacing: -.025em; margin-bottom: .35rem }
+.notification-center section, .notification-summary > div {
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  background: var(--theme-paper);
+}
+.notification-center section:first-of-type { border-top: 2px solid var(--accent) }
+.notification-center p { margin-block: .35rem .75rem; color: var(--theme-muted) }
+.notification-center section > p:last-child { margin-bottom: 0 }
+.notification-center .notification-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-block: 14px;
+}
+.notification-summary > div { padding: 14px 18px; background: var(--soft) }
+.notification-summary span { color: var(--accent); font-size: .82rem; font-weight: 750 }
+.notification-summary strong { display: block; font-size: 1.12rem; margin-top: .15rem }
+.notification-summary p { margin: .15rem 0 0; font-size: .9rem }
+.notification-center fieldset {
+  display: grid;
+  gap: .64rem;
+  padding: .9rem 1rem 1rem;
+  background: var(--theme-plot, var(--theme-work));
+}
+.notification-center legend { font-weight: 800; padding-inline: .4rem }
+.notification-center fieldset p { margin: 0; font-size: .82rem }
+.notification-center input:not([type=checkbox]), .notification-center select {
+  background: var(--theme-paper);
+  border-color: var(--line);
+  color: var(--theme-ink);
+}
+.notification-center .check { font-weight: 550; min-height: 30px }
+.notification-center .check input { flex: none }
+.notification-center button { color: #fff; background: var(--theme-primary); border-color: var(--theme-primary); border-radius: 999px }
+.notification-center button:hover { filter: brightness(1.14) }
+.notification-center :focus-visible { outline-color: var(--accent) }
+.notification-center .notification-tests { display: flex; flex-wrap: wrap; gap: 10px }
+.notification-tests .visit-form, .notification-table .visit-form { display: block }
+.notification-tests button, .notification-table button {
+  color: var(--accent);
+  border-color: var(--line);
+  background: var(--soft);
+}
+.notification-center .visit-success, .notification-center .visit-error {
+  color: var(--theme-ink);
+  background: var(--soft);
+  border-color: var(--line);
+  border-inline-start: 4px solid var(--accent);
+}
+.notification-center .visit-error { border-inline-start-color: #e25f76 }
+.notification-table { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px }
+.notification-table table { width: 100%; border-collapse: collapse; min-width: 620px; text-align: start; font-size: .88rem }
+.notification-table th, .notification-table td { padding: .62rem .8rem; text-align: start; vertical-align: middle }
+.notification-table td { border-top: 1px solid var(--line) }
+.notification-table th { color: var(--theme-muted); background: var(--theme-plot, var(--soft)) }
+.notification-table td:first-child { white-space: nowrap; font-variant-numeric: tabular-nums }
+.notification-table .state { white-space: nowrap; font-size: .8rem }
+.notification-table button { min-height: 36px; white-space: nowrap }
+.notification-empty { padding: .8rem .95rem; border-radius: 8px; background: var(--theme-work) }
+@media (max-width: 660px) {
+  .notification-center .notification-summary { grid-template-columns: minmax(0, 1fr); gap: 8px }
+}
+
+.notification-center [data-mail-feedback]:empty { display: none }
+.notification-center [data-mail-feedback]:not(:empty) { padding: .65rem .85rem; background: var(--soft); border-radius: 8px; color: var(--theme-ink) }
+.notification-table button:disabled { opacity: .7; cursor: wait }

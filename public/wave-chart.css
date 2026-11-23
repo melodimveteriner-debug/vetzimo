@@ -1,0 +1,25 @@
+.wave-chart{--wave-blue:var(--theme-chart-a,#295cc6);--wave-teal:color-mix(in srgb,var(--theme-accent,#07816e) 66%,#07816e);--wave-coral:#b83255;--wave-purple:var(--theme-chart-b,#7b43b8);--wave-gold:#956016;--wave-bg:var(--theme-plot,#f5f8fd);--wave-grid:var(--theme-line,#d6e2ee);--wave-text:var(--theme-muted,#4c5a70);min-width:0;margin:0 10px 10px;padding:7px clamp(5px,1.5vw,14px) 9px;background:var(--wave-bg);border:1px solid var(--wave-grid);border-radius:12px}
+:is([data-theme=dark],[data-theme=midnight],[data-clinic-palette=dark],[data-clinic-palette=midnight],[data-center-palette=dark],[data-center-palette=midnight]) .wave-chart{--wave-teal:#67e6bb;--wave-coral:#ff9ab0;--wave-gold:#ffd58f}
+.wave-chart svg{display:block;width:100%;height:auto;overflow:visible}
+.wave-blue{color:var(--wave-blue)}.wave-teal{color:var(--wave-teal)}.wave-coral{color:var(--wave-coral)}.wave-purple{color:var(--wave-purple)}.wave-gold{color:var(--wave-gold)}
+.wave-chart .wave-grid{fill:none;stroke:var(--wave-grid);stroke-dasharray:3 5}
+.wave-chart text{font:600 12px system-ui,sans-serif;fill:var(--wave-text)}
+.wave-line{fill:none;stroke:currentColor;stroke-width:var(--wave-stroke,2.6px);stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+.wave-area{fill:currentColor;opacity:.10;animation:wave-area-in 1s ease-out both}
+.wave-dot{fill:currentColor;animation:wave-reveal .25s .85s both}
+.wave-chart .wave-value{fill:currentColor;font-size:11px;font-weight:750;animation:wave-reveal .25s .85s both}
+.wave-hit{outline:none}
+.wave-hit rect{fill:transparent;pointer-events:all}
+.wave-hit path,.wave-hit circle{opacity:0;pointer-events:none}
+.wave-hit:is(:hover,:focus-visible) :is(path,circle){opacity:1}
+.wave-hit path{stroke:var(--wave-text);stroke-dasharray:3 5}
+.wave-hit circle{fill:currentColor;stroke:var(--wave-bg);stroke-width:1.5}
+.wave-legend{display:flex;justify-content:center;gap:.5rem 1.1rem;flex-wrap:wrap;padding-top:5px;font-size:.82rem;font-weight:700}
+.wave-legend span::before{content:"";display:inline-block;width:.7em;height:.7em;margin-right:.4em;border-radius:50%;background:currentColor}
+.wave-chart.wave-compact{margin:4px 6px;padding:2px 5px 4px}
+.wave-chart .wave-hit:focus-visible rect{stroke:var(--wave-text);stroke-dasharray:2 4}
+@keyframes wave-area-in{from{opacity:0}to{opacity:.10}}
+.wave-reveal{animation:wave-travel 1.05s ease-out both}
+@keyframes wave-travel{from{clip-path:inset(-8px 100% -8px -8px)}to{clip-path:inset(-8px -8px -8px -8px)}}
+@keyframes wave-reveal{from{opacity:0}to{opacity:1}}
+@media(prefers-reduced-motion:reduce){.wave-chart :is(.wave-reveal,.wave-area,.wave-dot,.wave-value){animation:none}}

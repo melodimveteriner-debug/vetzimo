@@ -1,0 +1,164 @@
+{
+  "templates": [
+    {
+      "id": "system-vaccine",
+      "title": "Aşı Kartı / 1 · Uygulama",
+      "category": "patient",
+      "body": "## Aşı uygulama kaydı\n**{{asi}}** · {{asi_durum}}\nPlanlanan {{asi_tarihi}} · Uygulanan {{uygulama_tarihi}}\nLot {{lot}} · Sonraki aşı {{sonraki_asi}}\nVeteriner hekim {{hekim}}\n\nEk açıklama · {{not}}",
+      "active": 1,
+      "system": true
+    },
+    {
+      "id": "system-vaccine-schedule",
+      "title": "Aşı Kartı / 2 · Planlama",
+      "category": "patient",
+      "body": "## Aşı randevusu\n**{{asi}}** · {{asi_durum}}\nPlanlanan {{asi_tarihi}} · Uygulanan {{uygulama_tarihi}}\nLot {{lot}} · Sonraki aşı {{sonraki_asi}}\nVeteriner hekim {{hekim}}\n\nRandevu saati ____________________\nKlinik iletişim {{klinik_telefon}}",
+      "active": 1,
+      "system": true
+    },
+    {
+      "id": "system-vaccine-followup",
+      "title": "Aşı Kartı / 3 · Takip",
+      "category": "patient",
+      "body": "## Aşı takip bilgisi\n**{{asi}}** · {{asi_durum}}\nPlanlanan {{asi_tarihi}} · Uygulanan {{uygulama_tarihi}}\nLot {{lot}} · Sonraki aşı {{sonraki_asi}}\nVeteriner hekim {{hekim}}\n\n## İzlem notları\n{{not}}",
+      "active": 1,
+      "system": true
+    },
+    {
+      "id": "system-vaccine-exam",
+      "title": "Aşılama ve Muayene Formu",
+      "category": "patient",
+      "body": "## Klinik değerlendirme\nMuayene tarihi {{muayene_tarihi}} · Hekim {{hekim}}\nŞikâyet ve anamnez · {{sikayet}}\nBulgular · {{bulgular}}\nDeğerlendirme · {{tani}}\nİzlem ve tedavi planı · {{plan}}\nKontrol tarihi · {{kontrol}}\n\n## Aşı bilgisi\n**{{asi}}** · {{asi_durum}}\nPlanlanan {{asi_tarihi}} · Uygulanan {{uygulama_tarihi}}\nLot {{lot}} · Sonraki aşı {{sonraki_asi}}\nVeteriner hekim {{hekim}}\n\n{{not}}",
+      "active": 1,
+      "system": true
+    },
+    {
+      "id": "system-epicrisis",
+      "title": "Epikriz Raporu · Hasta",
+      "category": "patient",
+      "body": "## Klinik değerlendirme\nMuayene tarihi {{muayene_tarihi}} · Hekim {{hekim}}\nŞikâyet ve anamnez · {{sikayet}}\nBulgular · {{bulgular}}\nDeğerlendirme · {{tani}}\nİzlem ve tedavi planı · {{plan}}\nKontrol tarihi · {{kontrol}}\n\n## Klinik seyir ve taburculuk özeti\n{{not}}",
+      "active": 1,
+      "system": true
+    },
+    {
+      "id": "system-deceased",
+      "title": "Hasta Kapanış Raporu",
+      "category": "patient",
+      "body": "## Kayıt kapanış bilgileri\nİşlem ve tarih · {{islem}} / {{tarih}}\nHekim · {{hekim}}\nKlinik seyir ve kayıt açıklaması · {{not}}\n\nDüzenleyen ____________________",
+      "active": 1,
+      "system": true
+    },
+    {
+      "id": "system-exam",
+      "title": "Hasta Muayene Formu",
+      "category": "exam",
+      "body": "## Klinik değerlendirme\nMuayene tarihi {{muayene_tarihi}} · Hekim {{hekim}}\nŞikâyet ve anamnez · {{sikayet}}\nBulgular · {{bulgular}}\nDeğerlendirme · {{tani}}\nİzlem ve tedavi planı · {{plan}}\nKontrol tarihi · {{kontrol}}\n\n## Ek kayıtlar\n{{not}}",
+      "active": 1,
+      "system": true
+    },
+    {
+      "id": "system-exam-epicrisis",
+      "title": "Epikriz Raporu · Muayene",
+      "category": "exam",
+      "body": "## Klinik değerlendirme\nMuayene tarihi {{muayene_tarihi}} · Hekim {{hekim}}\nŞikâyet ve anamnez · {{sikayet}}\nBulgular · {{bulgular}}\nDeğerlendirme · {{tani}}\nİzlem ve tedavi planı · {{plan}}\nKontrol tarihi · {{kontrol}}\n\n## Sonuç ve izlem\n{{not}}",
+      "active": 1,
+      "system": true
+    },
+    {
+      "id": "system-exam-card",
+      "title": "Muayene Kartı",
+      "category": "exam",
+      "body": "## Klinik değerlendirme\nMuayene tarihi {{muayene_tarihi}} · Hekim {{hekim}}\nŞikâyet ve anamnez · {{sikayet}}\nBulgular · {{bulgular}}\nDeğerlendirme · {{tani}}\nİzlem ve tedavi planı · {{plan}}\nKontrol tarihi · {{kontrol}}",
+      "active": 1,
+      "system": true
+    },
+    {
+      "id": "system-euthanasia",
+      "title": "Ötenazi Görüşme ve Onam Taslağı",
+      "category": "patient",
+      "body": "## Hekim görüşmesi\nKlinik değerlendirme ve gerekçe · {{tani}}\nGörüşülen seçenekler ve sorular · {{not}}\nHasta sahibi kararı ____________________\n\nHasta sahibi imzası ____________________    Hekim / görevli imzası ____________________",
+      "active": 1,
+      "system": true
+    },
+    {
+      "id": "system-fee",
+      "title": "İşlem ve Ücret Bilgilendirme",
+      "category": "owner",
+      "body": "## Planlanan hizmet\nİşlem · {{islem}}\nİşlem ve tahmini ücret bilgisi · {{not}}\n\n| İşlem / malzeme | Adet | Birim fiyat | Tutar |\n| ______ | ___ | ______ | ______ |\n| ______ | ___ | ______ | ______ |\n\nÖdeme koşulları ____________________\nHasta sahibine aktarılan bilgiler ____________________\n\nHasta sahibi imzası ____________________    Hekim / görevli imzası ____________________",
+      "active": 1,
+      "system": true
+    },
+    {
+      "id": "system-treatment",
+      "title": "Tedavi İzni ve Ücret Bilgilendirme Taslağı",
+      "category": "exam",
+      "body": "## Tedavi görüşmesi\nİşlem · {{islem}}\nHekim · {{hekim}}\nİzlem planı · {{plan}}\nÜcret kalemleri ve görüşülen seçenekler · {{not}}\n\n| İşlem / malzeme | Adet | Birim fiyat | Tutar |\n| ______ | ___ | ______ | ______ |\n| ______ | ___ | ______ | ______ |\n\nHasta sahibi kararı ____________________\n\nHasta sahibi imzası ____________________    Hekim / görevli imzası ____________________",
+      "active": 1,
+      "system": true
+    },
+    {
+      "id": "system-anesthesia",
+      "title": "Anestezi Onam Taslağı",
+      "category": "owner",
+      "body": "## Anestezi görüşmesi\nPlanlanan işlem · {{islem}}\nVeteriner hekim · {{hekim}}\nDeğerlendirme, açıklanan riskler ve sorular · {{not}}\nHasta sahibi kararı ____________________\n\nHasta sahibi imzası ____________________    Hekim / görevli imzası ____________________",
+      "active": 1,
+      "system": true
+    },
+    {
+      "id": "system-acceptance",
+      "title": "Hasta Kabul ve Bilgilendirme",
+      "category": "owner",
+      "body": "## Başvuru bilgisi\nBaşvuru nedeni · {{islem}}\nİletişim bilgisi · {{musteri_telefon}}\nGörüşülen seçenekler ve notlar · {{not}}\n\nHasta sahibi imzası ____________________    Hekim / görevli imzası ____________________",
+      "active": 1,
+      "system": true
+    },
+    {
+      "id": "system-privacy",
+      "title": "Kişisel Veriler Bilgilendirme ve Rıza Taslağı",
+      "category": "owner",
+      "body": "## Kliniğin dolduracağı alanlar\nVeri sorumlusu · {{klinik}}\nİletişim · {{klinik_telefon}} / {{klinik_adres}}\nBilgilendirme metni ve varsa ayrı onay seçenekleri · {{not}}\nBeyan ve tarih ____________________\n\nHasta sahibi imzası ____________________    Hekim / görevli imzası ____________________",
+      "active": 1,
+      "system": true
+    },
+    {
+      "id": "system-sales",
+      "title": "Satış Bilgi Kartı",
+      "category": "sale",
+      "body": "Belge no {{belge_no}} · Satış tarihi {{satis_tarihi}}\n\n## Satış kalemleri\n{{kalemler}}\n\n**Toplam {{toplam}}** · Tahsilat {{tahsilat}} · Yöntem {{odeme}}\nMüşteriye iletilecek not · {{not}}",
+      "active": 1,
+      "system": true
+    },
+    {
+      "id": "system-sales-patient",
+      "title": "Satış Kartı · Hasta Bilgili",
+      "category": "sale",
+      "body": "Hasta {{hasta}} · Protokol {{protokol}}\n\nBelge no {{belge_no}} · Satış tarihi {{satis_tarihi}}\n\n## Satış kalemleri\n{{kalemler}}\n\n**Toplam {{toplam}}** · Tahsilat {{tahsilat}} · Yöntem {{odeme}}\nMüşteriye iletilecek not · {{not}}",
+      "active": 1,
+      "system": true
+    },
+    {
+      "id": "system-stay",
+      "title": "Yatış ve Konaklama Formu",
+      "category": "stay",
+      "body": "## Konaklama bilgileri\nYatış {{yatis}} · Çıkış {{cikis}}\nOda / kafes {{oda}} · Sorumlu {{hekim}}\nTeslim alınan eşyalar ve özel ihtiyaçlar · {{not}}\n\nHasta sahibi imzası ____________________    Hekim / görevli imzası ____________________",
+      "active": 1,
+      "system": true
+    },
+    {
+      "id": "system-purchase",
+      "title": "Alış ve Teslim Alma Formu",
+      "category": "purchase",
+      "body": "## Teslimat kaydı\nTedarikçi {{tedarikci}} · Belge {{belge_no}}\nÜrün {{urun}} · Miktar {{adet}}\nLot {{lot}} · Toplam {{toplam}}\nTeslim notu · {{not}}\nTeslim alan ____________________",
+      "active": 1,
+      "system": true
+    }
+  ],
+  "permissions": {
+    "owner": "clients",
+    "patient": "patients",
+    "sale": "sales",
+    "exam": "patients",
+    "stay": "patients",
+    "purchase": "products"
+  }
+}

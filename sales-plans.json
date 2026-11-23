@@ -1,0 +1,5 @@
+[
+ {"id":"baslangic","name":"Başlangıç","description":"Hasta takibi, randevu ve klinik kayıtları için.","monthly":null,"yearly":null,"vat":"included","terms":{}},
+ {"id":"profesyonel","name":"Profesyonel","description":"Satış, stok ve klinik ekip süreçlerini birlikte yöneten işletmeler için.","monthly":null,"yearly":null,"vat":"included","terms":{}},
+ {"id":"kurumsal","name":"Kurumsal","description":"Birden fazla şubesi olan işletmeler için teklif alın.","monthly":null,"yearly":null,"vat":"included","terms":{}}
+]

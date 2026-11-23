@@ -1,0 +1,25 @@
+Options -Indexes
+DirectoryIndex index.php
+RewriteEngine On
+RewriteRule "(^|/)(?:\.git|\.svn|\.env(?:\.[^/]*)?)(/|$)" - [F,END,NC]
+<FilesMatch "(?i)(?:\.(?:bak|sql|orig|swp)|~)$">
+    Require all denied
+</FilesMatch>
+RewriteRule ^(?:uygulama|\.well-known/assetlinks\.json)$ index.php [END]
+RewriteRule ^(?:market-pages(?:/|$)|vendor/vebot(?:/|$)|vebot(?:-[a-z0-9-]+)?\.(?:js|svg)$) - [R=404,END,NC]
+RewriteRule ^(?:(?:giris|hasta-sahibi|yonetim|klinik)/?$|platform(?:/|$)|api/) index.php [END]
+
+RewriteRule ^(?:web-sitem(?:/|$)|(?:web|siteler)(?:/|$)|yonetim/web-siteleri$) index.php [END]
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.php [END]
+
+<FilesMatch "(?i)^(?:config\.php|initial-workspace\.json|identity(?:-merkez-[a-z0-9-]+)?\.html|index\.html|legacy-portal\.html)$">
+    Require all denied
+</FilesMatch>
+
+<IfModule mod_mime.c>
+    AddType application/wasm .wasm
+    AddType application/manifest+json .webmanifest
+    AddType text/javascript .mjs
+</IfModule>

@@ -1,0 +1,9 @@
+.vz-care-fields,.vz-care-meta,.vz-care-actions{display:flex;gap:.65rem;align-items:center;flex-wrap:wrap}
+.vz-care-fields{align-items:end}
+.vz-care-fields[hidden]{display:none}
+.vz-care-fields label{flex:1 1 12rem;min-width:0}
+.vz-care-fields input{width:100%;box-sizing:border-box}
+.vz-care-list{display:grid;gap:.5rem;padding:0;list-style:none}
+.vz-care-item{display:grid;gap:.35rem;border-inline-start:.2rem solid currentColor;padding:.5rem .75rem;overflow-wrap:anywhere}
+.vz-care-summary{white-space:normal;max-width:28rem}
+.vz-care-summary summary{cursor:pointer}
