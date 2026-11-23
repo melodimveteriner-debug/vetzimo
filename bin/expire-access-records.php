@@ -23,6 +23,8 @@ try {
     foreach ([
         ['DELETE FROM identity_session WHERE expires<=? ORDER BY expires LIMIT 500',$now],
         ['DELETE FROM identity_login_window WHERE window_start<? ORDER BY window_start LIMIT 500',$now-86400],
+        // Kullanılmamış ve süresi 7 günden önce dolmuş aktivasyon bağlantıları
+        ['DELETE FROM identity_activation WHERE expires<? ORDER BY expires LIMIT 500',$now-7*86400],
     ] as [$sql,$cutoff]) {
         $delete=$db->prepare($sql);
         for ($batch=0;$batch<5;$batch++) {
