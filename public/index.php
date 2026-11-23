@@ -50,6 +50,8 @@ function sessionCookie(string $name, string $value, int $expires): void {
 }
 
 ini_set('display_errors','0');
+// JSON yanıtlarını sıkıştır (büyük çalışma alanlarında aktarımı ~10 kat küçültür).
+if (extension_loaded('zlib') && !ini_get('zlib.output_compression')) ini_set('zlib.output_compression','1');
 header('Cache-Control: no-store');
 header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: no-referrer');

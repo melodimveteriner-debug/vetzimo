@@ -42,6 +42,7 @@ final class ClinicApi
             throw new RuntimeException('Kayıt alanı güncellendi.', 409);
         }
         $original = $current['state'];
+        $fingerprint = self::fingerprint($original);
         $state = property_exists($request,'patch') ?
             self::applyPatch(ClinicAccess::visible($original,$actor),$request->patch) : $request->state;
         if (!$state instanceof stdClass || ($state->version ?? null) !== 1) {
@@ -223,9 +224,26 @@ final class ClinicApi
         $clinicUpdates = VaccineInventory::reconcile($original, $next, $actor, $today);
         if ($sealedStays) $clinicUpdates['stays'] = $sealedStays;
         Finance::validate($original,$next,ClinicAccess::allowed($actor,'expenses',true) && ClinicAccess::action($actor,'cashCorrect',true));
-        $saved = $this->workspaces->writeValidated($cookies, $scope, $now, $current['revision'], $next);
+        // Yüklenen durum doğrulama sırasında hiç değişmediyse yeniden yüklemeden yaz; aksi halde güvenli yol.
+        $preloaded = self::fingerprint($original) === $fingerprint ? $current : null;
+        $saved = $this->workspaces->writeValidated($cookies, $scope, $now, $current['revision'], $next, $preloaded);
         if ($saved === null) throw new RuntimeException('Kayıt alanı güncellendi.', 409);
         return $saved;
+    }
+
+    /** Durumun içerik özeti; satırlar tek tek kodlandığı için ek bellek kullanımı düşüktür. */
+    private static function fingerprint(object $state): string
+    {
+        $hash = hash_init('sha256');
+        foreach (get_object_vars($state) as $key => $value) {
+            hash_update($hash, "\0".$key."\0");
+            if (is_array($value) && array_is_list($value)) {
+                foreach ($value as $row) hash_update($hash, json_encode($row, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)."\n");
+            } else {
+                hash_update($hash, json_encode($value, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
+            }
+        }
+        return hash_final($hash);
     }
 
     private static function applyPatch(object $visible, mixed $patch): object

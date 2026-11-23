@@ -40,7 +40,11 @@ final class DealerWorkspace
      * Internal persistence boundary. Domain validation, audit, and subscription
      * checks must run in the caller before exposing a workspace write API.
      */
-    public function writeValidated(array $cookies, string $scope, int $now, int $revision, object $state): ?int
+    /**
+     * @param array{revision:int,state:object}|null $preloaded Çağıranın aynı revizyonda daha önce yüklediği
+     *        ve değiştirmediği durum. Verilirse ikinci kez tam yükleme yapılmaz (büyük kliniklerde bellek ve süre).
+     */
+    public function writeValidated(array $cookies, string $scope, int $now, int $revision, object $state, ?array $preloaded = null): ?int
     {
         $this->database->beginTransaction();
         try {
@@ -49,7 +53,9 @@ final class DealerWorkspace
                 throw new RuntimeException('Çalışma alanı oturumu değişti.', 409);
             }
 
-            $original=$this->workspaces->load('partner:'.$actor['partner_id']);
+            $original = $preloaded !== null && $preloaded['revision'] === $revision
+                && $this->workspaces->revision('partner:'.$actor['partner_id']) === $revision
+                ? $preloaded : $this->workspaces->load('partner:'.$actor['partner_id']);
             if ($original['revision'] !== $revision) { $this->database->rollBack(); return null; }
             if ($actor['role'] !== 'dealer' || isset($actor['packageModules'])) $this->checkChanges($original['state'],$state,$actor);
             $result = $this->workspaces->save('partner:' . $actor['partner_id'], $revision, $state, $original['state']);

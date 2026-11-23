@@ -32,6 +32,13 @@ final class WorkspaceRepository
         return $result;
     }
 
+    public function revision(string $workspaceId): int
+    {
+        $query = $this->database->prepare('SELECT revision FROM clinic_workspace WHERE user_id = ?');
+        $query->execute([$workspaceId]);
+        return (int)$query->fetchColumn();
+    }
+
     public function branches(string $workspaceId): array
     {
         $query = $this->database->prepare('SELECT request_branches FROM clinic_workspace WHERE user_id = ?');
