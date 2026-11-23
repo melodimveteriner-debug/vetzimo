@@ -39,3 +39,8 @@ RewriteRule ^ index.php [END]
 <Files "install.php">
     Require all denied
 </Files>
+
+# Sunucu ayar ve hata kayıt dosyaları (cPanel bunları public/ içine yazar) dışarıya kapalı.
+<FilesMatch "(?i)^(?:error_log|php\.ini|\.user\.ini|php_errorlog)$">
+    Require all denied
+</FilesMatch>
