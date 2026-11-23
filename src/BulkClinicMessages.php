@@ -139,6 +139,63 @@ final class BulkClinicMessages
         }
     }
 
+    /** Klinik "Kredi ve limitler" ekranı için kanal bağlantı durumu. */
+    public function session(array $actor): array
+    {
+        $connections=$this->config['appointmentReminderConnections'][$actor['partner_id']]??[];
+        return ['role'=>$actor['role'],'provider'=>[
+            'sms'=>!empty($connections['sms']),
+            'whatsapp'=>!empty($connections['whatsapp']),
+        ]];
+    }
+
+    /** Bayi hesabı: profil, kanal bakiyeleri, kullanım, kredi hareketleri ve gönderim özeti. */
+    public function account(array $actor): array
+    {
+        if ($actor['role']!=='dealer') throw new RuntimeException('Kredi ve limit bilgileri yalnızca bayi yöneticisine açıktır.',403);
+        $partner=$actor['partner_id'];
+        $q=$this->db->prepare('SELECT id,code,name,email,contact,phone,city,active,created_at,last_seen FROM partner_account WHERE id=?');
+        $q->execute([$partner]);
+        $account=$q->fetch(PDO::FETCH_ASSOC);
+        if (!$account) throw new RuntimeException('Bayi hesabı bulunamadı.',404);
+        $account['active']=(int)$account['active'];
+        $session=$this->session($actor)['provider'];
+        // Gün ve ay sınırları Türkiye saatine göre hesaplanır.
+        $local=new \DateTimeImmutable('now',new \DateTimeZone('Europe/Istanbul'));
+        $utc=new \DateTimeZone('UTC');
+        $day=$local->setTime(0,0)->setTimezone($utc)->format('Y-m-d H:i:s');
+        $month=$local->modify('first day of this month')->setTime(0,0)->setTimezone($utc)->format('Y-m-d H:i:s');
+        $used=$this->db->prepare("SELECT channel,
+                COALESCE(SUM(CASE WHEN created_at>=? THEN units END),0) AS day_used,
+                COALESCE(SUM(CASE WHEN created_at>=? THEN units END),0) AS month_used
+            FROM clinic_bulk_message WHERE partner_id=? AND status<>'rejected' AND created_at>=? GROUP BY channel");
+        $used->execute([$day,$month,$partner,min($day,$month)]);
+        $usage=array_column($used->fetchAll(PDO::FETCH_ASSOC),null,'channel');
+        $limits=[];
+        foreach (['sms','whatsapp'] as $channel) {
+            $balance=max(0,$this->balance($partner,$channel));
+            $dayUsed=(int)($usage[$channel]['day_used']??0);
+            $monthUsed=(int)($usage[$channel]['month_used']??0);
+            // Ayrı bir kota yok; üst sınır kalan kredi kadardır.
+            $limits[]=['channel'=>$channel,'balance'=>$balance,'day_used'=>$dayUsed,'day_cap'=>$dayUsed+$balance,
+                'month_used'=>$monthUsed,'month_cap'=>$monthUsed+$balance,'enabled'=>$session[$channel]?1:0];
+        }
+        $ledger=$this->db->prepare("SELECT g.channel,g.units AS delta,m.updated_at AS created_at,
+                COALESCE(JSON_UNQUOTE(JSON_EXTRACT(m.payload,'$.name')),'Kredi paketi') AS reason
+            FROM clinic_credit_grant g LEFT JOIN center_management m ON m.id=g.order_id AND m.kind='credit_order'
+            WHERE g.partner_id=? ORDER BY m.updated_at DESC LIMIT 50");
+        $ledger->execute([$partner]);
+        $rows=array_map(static function(array $row): array {
+            $row['delta']=(int)$row['delta'];
+            $row['created_at']=$row['created_at']?str_replace(' ','T',$row['created_at']).'Z':null;
+            return $row;
+        },$ledger->fetchAll(PDO::FETCH_ASSOC));
+        $counts=$this->db->prepare('SELECT channel,status,COUNT(*) AS count FROM clinic_bulk_message WHERE partner_id=? GROUP BY channel,status ORDER BY channel,status');
+        $counts->execute([$partner]);
+        return ['account'=>$account,'limits'=>$limits,'ledger'=>$rows,
+            'counts'=>array_map(static fn($row)=>[...$row,'count'=>(int)$row['count']],$counts->fetchAll(PDO::FETCH_ASSOC))];
+    }
+
     private function balance(string $partner,string $channel): int
     {
         $q=$this->db->prepare("SELECT COALESCE((SELECT SUM(units) FROM clinic_credit_grant WHERE partner_id=? AND channel=?),0)

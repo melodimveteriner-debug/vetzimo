@@ -93,6 +93,43 @@ final class Support
         return ['ok'=>true,'id'=>$id];
     }
 
+    /**
+     * Klinik kullanıcısının okumadığı merkez yanıtları.
+     * GET: {count, rows:[{ticket,subject,unread}]}  ·  POST {ticket}: bileti okundu işaretler.
+     */
+    public function notices(array $actor, ?object $input): array
+    {
+        $grant = ClinicAccess::modules($actor)->support ?? '';
+        if ($actor['role'] !== 'dealer' && !in_array($grant, ['read','write'], true)) return ['count'=>0,'rows'=>[]];
+        $where = 't.partner_id=?';
+        $params = [$actor['partner_id']];
+        if ($actor['role'] !== 'dealer') {
+            $where .= ' AND t.branch=?';
+            $params[] = $actor['branch_id'];
+        }
+        if ($input !== null) {
+            $ticket = $input->ticket ?? null;
+            if (!is_string($ticket) || !preg_match('/\A[0-9a-f]{32}\z/', $ticket)) throw new RuntimeException('Destek talebi geçersiz.', 422);
+            $last = $this->db->prepare("SELECT MAX(r.id) FROM clinic_support t JOIN clinic_support_reply r ON r.ticket_id=t.id WHERE $where AND t.id=?");
+            $last->execute([...$params, $ticket]);
+            $id = $last->fetchColumn();
+            if ($id) {
+                $this->db->prepare('INSERT INTO clinic_support_read(membership_id,ticket_id,last_reply_id) VALUES (?,?,?)
+                    ON DUPLICATE KEY UPDATE last_reply_id=GREATEST(last_reply_id,VALUES(last_reply_id))')
+                    ->execute([$actor['membership_id'], $ticket, $id]);
+            }
+            return ['ok'=>true];
+        }
+        $query = $this->db->prepare("SELECT t.id AS ticket, t.subject FROM clinic_support t
+            LEFT JOIN clinic_support_read s ON s.ticket_id=t.id AND s.membership_id=?
+            WHERE $where AND EXISTS (SELECT 1 FROM clinic_support_reply r
+                WHERE r.ticket_id=t.id AND r.side='Yönetim' AND r.id>COALESCE(s.last_reply_id,0))
+            ORDER BY t.updated_at DESC LIMIT 50");
+        $query->execute([$actor['membership_id'], ...$params]);
+        $rows = array_map(static fn($row) => ['ticket'=>$row['ticket'],'subject'=>$row['subject'],'unread'=>true], $query->fetchAll(PDO::FETCH_ASSOC));
+        return ['count'=>count($rows),'rows'=>$rows];
+    }
+
     private function requiredText(mixed $value, int $length): string
     {
         if (!is_string($value) || !preg_match('/\A.{1,'.$length.'}\z/us',trim($value))) {

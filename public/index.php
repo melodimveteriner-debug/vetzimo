@@ -327,6 +327,17 @@ try {
         header('Clear-Site-Data: "cache"');
         reply(['ok'=>true]);
     }
+    if ($path==='/api/ops/notices' && in_array($method,['GET','POST'],true)) {
+        $actor=$workspaces->actor($_COOKIE,$now);
+        $grant=ClinicAccess::modules($actor)->support ?? 'none';
+        if (isset($actor['packageModules']) && !in_array($grant,['read','write'],true)) reply(['count'=>0,'rows'=>[]]);
+        reply((new VetNet\Cpanel\Support($db))->notices($actor,$method==='POST' ? input(1024) : null));
+    }
+    if ($path==='/api/ops/feed' && in_array($method,['GET','POST'],true)) {
+        // Eski içerik akışı merkez yayınlarına (/api/clinic/center-publications) taşındı.
+        $workspaces->actor($_COOKIE,$now);
+        reply($method==='POST' ? ['ok'=>true] : ['items'=>[],'urgent'=>null]);
+    }
     if ($method==='GET' && $path==='/api/ops/releases') {
         $workspaces->actor($_COOKIE,$now);
         $management=new VetNet\Cpanel\CenterManagement($db,new Center($db,$config));
@@ -819,6 +830,11 @@ try {
         $query = $db->prepare("SELECT DISTINCT name FROM identity_membership WHERE partner_id=? AND status='active' AND (role='dealer' OR (role IN ('branch','staff') AND branch_id=?)) ORDER BY name");
         $query->execute([$actor['partner_id'],$branch]);
         reply(['names'=>$query->fetchAll(PDO::FETCH_COLUMN)]);
+    }
+    if ($method==='GET' && in_array($path,['/api/dealer/session','/api/dealer/account'],true)) {
+        $actor=$workspaces->actor($_COOKIE,$now);
+        $bulk=new VetNet\Cpanel\BulkClinicMessages($db,$config);
+        reply($path==='/api/dealer/session' ? $bulk->session($actor) : $bulk->account($actor));
     }
     if (in_array($path,['/api/dealer/messages/history','/api/dealer/messages/bulk-preview','/api/dealer/messages/bulk'],true)) {
         $actor=$workspaces->actor($_COOKIE,$now);

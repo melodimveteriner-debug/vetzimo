@@ -126,7 +126,7 @@ final class Notifications
                 throw new RuntimeException('Sağlayıcı gönderimi kabul etmedi. Yanıt: '.$code.', bağlantı: '.curl_errno($curl).($provider?', Meta: '.$provider:''),502);
             }
         } finally {
-            curl_close($curl);
+            unset($curl); // curl_close PHP 8.5 itibarıyla kullanımdan kalktı
             if (isset($stream)) fclose($stream);
         }
     }

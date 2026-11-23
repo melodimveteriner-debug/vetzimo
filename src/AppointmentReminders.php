@@ -163,7 +163,7 @@ final class AppointmentReminders
             CURLOPT_SSL_VERIFYPEER=>true, CURLOPT_SSL_VERIFYHOST=>2]);
         $raw = curl_exec($curl);
         $http = (int)curl_getinfo($curl,CURLINFO_RESPONSE_CODE);
-        curl_close($curl);
+        unset($curl); // curl_close PHP 8.5 itibarıyla kullanımdan kalktı
         $data = is_string($raw) ? json_decode($raw,true) : null;
         if ($channel === 'sms') {
             $code = str_pad((string)($data['code'] ?? ''),2,'0',STR_PAD_LEFT);

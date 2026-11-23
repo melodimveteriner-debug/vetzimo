@@ -376,7 +376,7 @@ final class WebBuilder
                 CURLOPT_CONNECTTIMEOUT=>4,CURLOPT_TIMEOUT=>6,CURLOPT_SSL_VERIFYPEER=>true,CURLOPT_SSL_VERIFYHOST=>2,CURLOPT_PROXY=>'']);
             if (curl_exec($curl)===false) throw new RuntimeException('Alan adının HTTPS sertifikası doğrulanamadı.',422);
         } finally {
-            curl_close($curl);
+            unset($curl); // curl_close PHP 8.5 itibarıyla kullanımdan kalktı
         }
         $this->query('UPDATE clinic_web_site SET domain_verified=1 WHERE partner_id=? AND custom_host=? AND domain_token=?',[$row['partner_id'],$host,$row['domain_token']]);
     }

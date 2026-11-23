@@ -2,7 +2,7 @@
 declare(strict_types=1);
 use VetNet\Cpanel\Database;
 use VetNet\Cpanel\Installer;
-foreach (['Totp','ClinicAccess','WorkspaceRepository','Database','DealerLogin','Installer'] as $class) require dirname(__DIR__).'/src/'.$class.'.php';
+foreach (['Totp','ClinicAccess','WorkspaceRepository','Database','DealerLogin','Migrations','Installer'] as $class) require dirname(__DIR__).'/src/'.$class.'.php';
 header('Cache-Control: no-store');
 header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: same-origin');

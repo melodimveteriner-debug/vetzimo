@@ -46,11 +46,7 @@ final class Installer
             }
             // DDL commits implicitly in MySQL. A failed migration must be inspected,
             // never retried automatically or cleaned by dropping user tables.
-            foreach (glob($this->root . '/database/*.sql') as $migration) {
-                foreach (explode(';', (string)file_get_contents($migration)) as $statement) {
-                    if (trim($statement) !== '') $this->db->exec($statement);
-                }
-            }
+            (new Migrations($this->db, $this->root))->installFresh();
             $partner = bin2hex(random_bytes(16));
             $account = bin2hex(random_bytes(16));
             $membership = bin2hex(random_bytes(16));

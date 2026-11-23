@@ -52,7 +52,7 @@ final class VeBot
         $ok=curl_exec($curl);
         $code=curl_getinfo($curl,CURLINFO_RESPONSE_CODE);
         $networkError=curl_errno($curl);
-        curl_close($curl);
+        unset($curl); // curl_close PHP 8.5 itibarıyla kullanımdan kalktı
         $result=json_decode($raw,true);
         if (!$ok || $code!==200 || !is_array($result)) {
             if ($groq) {

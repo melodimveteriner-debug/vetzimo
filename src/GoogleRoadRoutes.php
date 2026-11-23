@@ -41,7 +41,7 @@ final class GoogleRoadRoutes
             $body=curl_exec($transfer);
             $status=(int)curl_getinfo($transfer,CURLINFO_RESPONSE_CODE);
         } finally {
-            curl_close($transfer);
+            unset($transfer); // curl_close PHP 8.5 itibarıyla kullanımdan kalktı
         }
         if ($status===429) throw new RuntimeException('Google yol hesabı kotası dolu. Daha sonra yeniden deneyin.',503);
         if (in_array($status,[400,401,403],true)) throw new RuntimeException('Google yol hesabı reddedildi. Routes API ayarlarını ve anahtar izinlerini kontrol edin.',503);
