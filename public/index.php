@@ -49,6 +49,7 @@ function sessionCookie(string $name, string $value, int $expires): void {
     ]);
 }
 
+ini_set('display_errors','0');
 header('Cache-Control: no-store');
 header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: no-referrer');

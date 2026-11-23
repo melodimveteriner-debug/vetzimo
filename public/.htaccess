@@ -23,3 +23,19 @@ RewriteRule ^ index.php [END]
     AddType application/manifest+json .webmanifest
     AddType text/javascript .mjs
 </IfModule>
+
+# Güvenlik başlıkları (tüm yanıtlar: sayfalar, API ve statik dosyalar)
+<IfModule mod_headers.c>
+    Header always set Strict-Transport-Security "max-age=31536000"
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Permissions-Policy "camera=(self), microphone=(self), geolocation=(self), payment=(), usb=(), serial=(), bluetooth=(), interest-cohort=()"
+    Header always set Cross-Origin-Opener-Policy "same-origin"
+    Header always setifempty Referrer-Policy "strict-origin-when-cross-origin"
+    Header always unset X-Powered-By
+</IfModule>
+
+# Kurulum sihirbazı yalnızca ilk kurulumda gereklidir; kurulumdan sonra erişime kapalı.
+<Files "install.php">
+    Require all denied
+</Files>
