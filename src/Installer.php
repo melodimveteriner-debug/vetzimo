@@ -2,6 +2,8 @@
 declare(strict_types=1);
 namespace VetNet\Cpanel;
 
+require_once __DIR__.'/Migrations.php';
+
 use PDO;
 use RuntimeException;
 

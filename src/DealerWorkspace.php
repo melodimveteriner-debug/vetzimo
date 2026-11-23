@@ -54,7 +54,7 @@ final class DealerWorkspace
             if ($actor['role'] !== 'dealer' || isset($actor['packageModules'])) $this->checkChanges($original['state'],$state,$actor);
             $result = $this->workspaces->save('partner:' . $actor['partner_id'], $revision, $state, $original['state']);
             if ($result !== null) {
-                if (class_exists(DeliveryNotice::class)) (new DeliveryNotice($this->database))->appointments($actor['partner_id'],$original['state'],$state,$result);
+                if (class_exists(DeliveryNotice::class)) (new DeliveryNotice($this->database))->appointments($actor['partner_id'],$original['state'] ?? (object)[],$state,$result);
                 $hasWebAppointments = array_filter($original['state']->appointments ?? [],
                     static fn($row) => preg_match('/\Aweb-[a-f0-9]{32}\z/D', $row->id));
                 if ($hasWebAppointments) {

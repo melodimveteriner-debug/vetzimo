@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 use VetNet\Cpanel\{Database,Installer,DealerLogin,SessionRepository,WorkspaceRepository,DealerWorkspace,ClinicAccess,ClinicApi,IdentityApi};
-foreach(['Database','Installer','DealerLogin','SessionRepository','WorkspaceRepository','DealerWorkspace','ClinicAccess','Finance','ClinicApi','IdentityApi'] as $class) require __DIR__.'/../src/'.$class.'.php';
+require __DIR__.'/bootstrap.php';
 function ok(bool $value,string $message): void { if(!$value) throw new RuntimeException($message); }
 function rejected(int $code,callable $callback): void { try{$callback();}catch(RuntimeException $e){if($e->getCode()===$code)return;throw $e;} throw new RuntimeException('Expected '.$code); }
 $db=Database::connect(getenv('VETNET_TEST_DSN'),'root','');

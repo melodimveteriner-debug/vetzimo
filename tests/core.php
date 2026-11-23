@@ -6,9 +6,7 @@ use VetNet\Cpanel\DealerLogin;
 use VetNet\Cpanel\DealerWorkspace;
 use VetNet\Cpanel\SessionRepository;
 
-foreach (['Finance','ClinicAccess','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace'] as $class) {
-    require __DIR__ . '/../src/' . $class . '.php';
-}
+require __DIR__.'/bootstrap.php';
 
 function check(bool $condition, string $message): void {
     if (!$condition) throw new RuntimeException($message);

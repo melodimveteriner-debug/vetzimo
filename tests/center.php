@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 use VetNet\Cpanel\{Database,Installer,DealerLogin,SessionRepository,WorkspaceRepository,ClinicAccess,IdentityApi,Center,Totp};
-foreach(['Database','Installer','DealerLogin','SessionRepository','WorkspaceRepository','ClinicAccess','IdentityApi','Center','Totp','Commerce'] as $class) require __DIR__.'/../src/'.$class.'.php';
+require __DIR__.'/bootstrap.php';
 function good(bool $test,string $message): void {if(!$test)throw new RuntimeException($message);}
 function denied(callable $callback):void {try{$callback();}catch(RuntimeException $e){if(in_array($e->getCode(),[401,403],true))return;throw $e;}throw new RuntimeException('Access unexpectedly granted');}
 $secret='GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';

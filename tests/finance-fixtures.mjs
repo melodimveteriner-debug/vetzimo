@@ -1,4 +1,4 @@
-import {empty,propose} from '../../app/model.js';
+import {empty,propose} from '../public/model.js';
 import {writeFile} from 'node:fs/promises';
 const date='2026-11-12';
 let state=empty();

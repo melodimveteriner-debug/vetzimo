@@ -3,7 +3,7 @@ declare(strict_types=1);
 use VetNet\Cpanel\Database;
 use VetNet\Cpanel\Installer;
 use VetNet\Cpanel\DealerLogin;
-foreach (['ClinicAccess','WorkspaceRepository','Database','DealerLogin','Installer'] as $class) require __DIR__.'/../src/'.$class.'.php';
+require __DIR__.'/bootstrap.php';
 $db = Database::connect(getenv('VETNET_TEST_DSN'), 'root', '');
 $installer = new Installer($db,dirname(__DIR__));
 try { $installer->install('Test','invalid','vet@example.test','short'); throw new Exception('Invalid input accepted'); }
