@@ -6,6 +6,7 @@ namespace VetNet\Cpanel;
 require_once __DIR__ . '/ClinicProtocol.php';
 require_once __DIR__ . '/VaccineInventory.php';
 require_once __DIR__ . '/StayCarePlan.php';
+require_once __DIR__ . '/StayIcu.php';
 require_once __DIR__ . '/VisitorConversion.php';
 require_once __DIR__ . '/PartialSave.php';
 
@@ -142,7 +143,8 @@ final class ClinicApi
                 if ($key === 'stays' && ($previous[$id] ?? null) != $row) {
                     $row = $rows[$position] = clone $row;
                     StayCarePlan::seal($row, $previous[$id] ?? null, $actor, $now);
-                    if (isset($row->careOrders)) $sealedStays[] = $row;
+                    StayIcu::seal($row, $previous[$id] ?? null, $actor, $now);
+                    if (isset($row->careOrders) || isset($row->icuVitals) || isset($row->icuInfusions)) $sealedStays[] = $row;
                 }
                 if($key==='vaccineCatalog') {
                     foreach(['offsetDays','renewEvery'] as $field) if(isset($row->$field) && !preg_match('/\A[0-9]{1,4}\z/',$row->$field)) throw new RuntimeException('Yenileme aralığı sıfır veya pozitif tamsayı olmalıdır.',422);
