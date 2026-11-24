@@ -75,3 +75,4 @@ html:has(.visit-embedded){background:transparent;color:var(--visit-ink,#20352c)}
 .visit-list-entry>.visit-delete{margin:.25rem 0 .5rem}
 .visit-list-entry>.visit-delete:not([open]){justify-self:end;width:fit-content}
 .visit-auto-branch{margin:.15rem 0}
+.visit-language{flex:0 0 auto;margin-inline-start:auto}header>div>span:not(.visit-language){margin-inline-start:auto}

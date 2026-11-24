@@ -423,7 +423,7 @@ final class WebBuilderPublic
             if ($visitLink && $visitCatalog['home_section']) $body.='<section class="block section-about"><h2>Evinize veteriner hizmeti</h2><p>Ziyaret veya klinik transferi için talep gönderip klinikten teklif alın.</p>'.$visitLink.'</section>';
         } else {
             $body.='<nav class="crumb" aria-label="Sayfa konumu"><a href="'.self::href($base).'">Ana Sayfa</a> / '.
-                ($post!==''?'<a href="'.self::href($base,'blog').'">Blog</a> / ':'').self::e($title).'</nav><h1>'.self::e($title).'</h1>';
+                ($post!==''?'<a href="'.self::href($base,'blog').'">Blog</a> / ':'').'<span>'.self::e($title).'</span></nav><h1>'.self::e($title).'</h1>';
             if (!$article) $body.=self::image($record,$media,'page-image').
                 '<div class="prose">'.self::rich(($record['summary']??'')."\n".($record['body']??'')).'</div>';
             if (!empty($record['link'])) $body.='<p><a href="'.self::e($record['link']).'">Bağlantıyı aç</a></p>';
@@ -489,11 +489,11 @@ final class WebBuilderPublic
         }
         $homeCareLink=$preview?'':' <a href="'.self::href($base,'evden-takip').'">Evden Takip</a>';
         $html='<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'.
-            self::e($seoTitle).'</title>'.$head.'<link rel="stylesheet" href="/web-builder-site.css?v=53"><script src="/web-builder-site.js?v=38" defer></script>'.
+            self::e($seoTitle).'</title>'.$head.'<link rel="stylesheet" href="/web-builder-site.css?v=54"><script src="/web-builder-site.js?v=38" defer></script>'.
             ($visitPage?'<script src="/home-visits.js?v=44" defer></script>':'').'</head>'.
             '<body class="theme-'.self::e($d['theme']).' palette-'.self::e($d['palette']).'"><a class="skip" href="#icerik">İçeriğe geç</a><header class="site-header"><div class="header-inner">'.
-            '<a class="site-brand" href="'.self::href($base).'">'.$logo.'<span>'.self::e($clinic).'</span></a>'.
-            '<nav class="primary-nav" aria-label="Ana menü">'.$nav.'</nav></div></header><main id="icerik">'.$body.'</main>'.
+            '<a class="site-brand" href="'.self::href($base).'">'.$logo.'<span data-ui-preserve>'.self::e($clinic).'</span></a>'.
+            '<nav class="primary-nav" aria-label="Ana menü">'.$nav.'</nav><div class="site-language" data-ui-language></div></div></header><main id="icerik">'.$body.'</main>'.
             '<footer><div><strong>'.self::e($clinic).'</strong> '.$footerHours.$homeCareLink.' <a href="'.self::href($base,'iletisim').'">İletişim</a></div>'.
             '<div class="site-platform-credit"><span>Bu site <a href="https://www.vetzimo.com"><img src="/vetzimo-mark.png" width="18" height="18" alt="">VetZimo</a> tarafından sağlanmaktadır.</span></div></footer>'.
             '<dialog id="gallery-dialog" aria-label="Galeri fotoğrafı"><button type="button" aria-label="Önceki fotoğraf" data-previous>‹</button><img alt="">'.

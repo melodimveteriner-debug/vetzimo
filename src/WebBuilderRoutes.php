@@ -103,7 +103,7 @@ final class WebBuilderRoutes
             $stats=$web->query('SELECT COUNT(*) total,COALESCE(SUM(s.published IS NOT NULL AND c.status IS NULL),0) live FROM clinic_web_site s LEFT JOIN clinic_web_site_control c ON c.partner_id=s.partner_id WHERE c.status IS NULL OR c.status=\'paused\'')->fetch();
             $resources=$web->query('SELECT COUNT(*) AS images,COALESCE(SUM(byte_size),0) AS bytes FROM clinic_web_media')->fetch();
             $mail=$web->query("SELECT COUNT(*) FROM clinic_web_mail WHERE sent_at IS NULL AND last_error<>''")->fetchColumn();
-            $html='<header class="builder-bar"><a href="/yonetim">‹ Merkez paneli</a><strong>Web Sitesi Yönetimi</strong></header><main class="center-view"><h1>Web Sitesi Yönetimi</h1><dl class="metrics">'.
+            $html='<header class="builder-bar"><a href="/yonetim">‹ Merkez paneli</a><strong>Web Sitesi Yönetimi</strong><span class="builder-language" data-ui-language></span></header><main class="center-view"><h1>Web Sitesi Yönetimi</h1><dl class="metrics">'.
                 '<div><dt>Toplam</dt><dd>'.(int)$stats['total'].'</dd></div><div><dt>Yayında</dt><dd>'.(int)$stats['live'].'</dd></div>'.
                 '<div><dt>Taslak / kapalı</dt><dd>'.((int)$stats['total']-(int)$stats['live']).'</dd></div><div><dt>Görseller</dt><dd>'.(int)$resources['images'].' · '.number_format((int)$resources['bytes']/1048576,1,',','.').' MB</dd></div>'.
                 '<div><dt>Yeniden denenecek e-posta hatası</dt><dd>'.(int)$mail.'</dd></div></dl>';

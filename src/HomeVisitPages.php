@@ -77,13 +77,13 @@ final class HomeVisitPages
         http_response_code($code);
         $classes=trim(($notificationSkin?'notification-center ':'').(self::$clinicPanel?'clinic-visit-panel':'').($surface?'visit-surface':''));
         echo '<!doctype html><html lang="tr"'.($palette!==''?' data-theme="'.self::e($palette).'" class="'.$classes.'"':'').'><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'.
-            '<title>'.self::e($title).' · VetZimo</title><link rel="icon" href="/favicon.ico?v=51" type="image/x-icon"><link rel="stylesheet" href="/home-visits.css?v=61"><script src="/home-visits.js?v=53" defer></script>'.
+            '<title>'.self::e($title).' · VetZimo</title><link rel="icon" href="/favicon.ico?v=51" type="image/x-icon"><link rel="stylesheet" href="/home-visits.css?v=62"><script src="/home-visits.js?v=53" defer></script>'.
             ($palette!==''?'<link rel="stylesheet" href="/themes.css?v=20261126-r9">':'').
             ($surface?'<link rel="stylesheet" href="/surface-themes.css?v=20261126-r5">':'').
             ($notificationSkin?'<link rel="stylesheet" href="/notification-center.css?v=53">':'').
             (self::$clinicPanel?'<link rel="stylesheet" href="/clinic-visit-panel.css?v=51">':'').'</head>'.
             ($embedded?'<body class="visit-embedded">':'<body><header><div><a href="'.self::e($return).'"><img class="visit-brand-logo" src="/vetzimo-logo.webp" alt="VetZimo" width="140" height="38"></a>'.
-                ($notificationSkin?'<a href="/clinic#settings">Ayarlara dön</a>':'<span>Evde Hizmet</span>').'</div></header>').
+                ($notificationSkin?'<a href="/clinic#settings">Ayarlara dön</a>':'<span>Evde Hizmet</span>').'<span class="visit-language" data-ui-language></span></div></header>').
             '<main><h1>'.self::e($title).'</h1>'.$html.'</main></body></html>';
         exit;
     }

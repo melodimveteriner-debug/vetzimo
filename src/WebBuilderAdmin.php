@@ -321,8 +321,8 @@ final class WebBuilderAdmin
     {
         $current=$record[$key]??'';
         $input='<label class="upload-box"><input type="file" name="'.$key.'" accept="image/jpeg,image/png,image/webp,image/avif"><span class="upload-plus" aria-hidden="true">+</span>'.
-            '<strong>'.self::e($label).'</strong><small data-file-name>'.($dimensions??($key==='favicon'?'Önerilen 256 × 256 px':'Önerilen 1200 × 800 px')).
-            ' · JPEG, PNG, WebP, AVIF · En fazla 6,5 MB ve 16 MP</small></label>';
+            '<strong>'.self::e($label).'</strong><small data-file-name><span>'.($dimensions??($key==='favicon'?'Önerilen 256 × 256 px':'Önerilen 1200 × 800 px')).'</span>'.
+            ' · <span>JPEG, PNG, WebP, AVIF · En fazla 6,5 MB ve 16 MP</span></small></label>';
         return '<div class="upload-field">'.$input.($current?'<div class="asset"><img alt="" src="'.self::e($this->editor).'/medya/'.self::e($current).'">'.
             self::check('remove_'.$key,'Görseli kalıcı olarak sil',false).'</div>':'').'</div>';
     }
@@ -332,7 +332,7 @@ final class WebBuilderAdmin
     {
         $palette=preg_match('/\A[a-z]{3,12}\z/',self::$palette)?self::$palette:'';
         return '<!doctype html><html lang="tr"'.($palette!==''?' data-theme="'.$palette.'" class="builder-surface"':'').'><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'.
-            '<meta name="robots" content="noindex,nofollow"><title>'.self::e($title).' · VetZimo</title><link rel="stylesheet" href="/web-builder-admin.css?v=38">'.
+            '<meta name="robots" content="noindex,nofollow"><title>'.self::e($title).' · VetZimo</title><link rel="stylesheet" href="/web-builder-admin.css?v=39">'.
             ($palette!==''?'<link rel="stylesheet" href="/themes.css?v=20261126-r9"><link rel="stylesheet" href="/surface-themes.css?v=20261126-r5">':'').
             '<script src="/web-builder-admin.js?v=38" defer></script></head>'.
             '<body class="'.self::e($class).'">'.$contents.'</body></html>';
@@ -356,7 +356,7 @@ final class WebBuilderAdmin
         $actions=$back.'<button class="secondary">'.($site&&$site['published']?'Kaydet':'Taslağı kaydet').'</button>'.$next;
         $body=$this->panel($actor,$site,$draft,$tab,$get,$actions,$submitted);
         $notice='<div id="builder-error" class="builder-error" role="alert" tabindex="-1"'.($error===null?' hidden':'').'>'.self::e($error??'').'</div>';
-        return self::page(self::TABS[$tab],'<header class="builder-bar"><a href="'.($this->editor==='/web-sitem'?'/clinic#settings':'/yonetim/web-siteleri').'">‹ VetZimo</a><strong>Web Sitem</strong></header>'.
+        return self::page(self::TABS[$tab],'<header class="builder-bar"><a href="'.($this->editor==='/web-sitem'?'/clinic#settings':'/yonetim/web-siteleri').'">‹ VetZimo</a><strong>Web Sitem</strong><span class="builder-language" data-ui-language></span></header>'.
             '<div class="builder-layout">'.($nav?'<nav aria-label="Site yönetimi">'.$nav.'</nav>':'').'<main><h1>'.self::e(self::TABS[$tab]).'</h1>'.$steps.$notice.($site&&$site['control_status']==='paused'?'<p class="hint">Site merkez yönetimi tarafından yayından kaldırıldı.</p>':
                 ($site&&$site['published']?'<p class="hint">Yayındaki sitede kaydedilen değişiklikler hemen görünür.</p>':'')).
             ($site&&in_array($tab,['iletisim','duzen','hakkimizda','ekibimiz','blog','ailemiz','medya'],true)?
@@ -381,7 +381,7 @@ final class WebBuilderAdmin
             foreach ($this->web->branches($site['partner_id']) as $branch) {
                 $input=$submitted['branchContact'][$branch->id]??[];
                 $data=array_replace($d['contact']['branches'][$branch->id]??[],is_array($input)?array_filter($input,'is_string'):[]);
-                $branches.='<fieldset class="wide branch-hours"><legend>'.self::e($branch->name).' · isteğe bağlı</legend>';
+                $branches.='<fieldset class="wide branch-hours"><legend><span data-ui-preserve>'.self::e($branch->name).'</span> · <span>isteğe bağlı</span></legend>';
                 foreach (self::BRANCH_CONTACT as $key=>$label) $branches.='<label>'.$label.'<input name="branchContact['.self::e($branch->id).']['.$key.']" value="'.self::e($data[$key]??'').'"></label>';
                 $branches.='</fieldset>';
             }

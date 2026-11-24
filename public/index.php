@@ -203,7 +203,8 @@ try {
         }
         reply(['items'=>$items]);
     }
-    if (!$externalWeb && preg_match('~\A/(?:web-sitem(?:/[^/]+)?|yonetim/web-siteleri|(?:klinik/|yonetim/|hasta-sahibi/)?evde-hizmet(?:/takip)?)\z~D',$path)) {
+    // Oluşturulan klinik siteleri (kendi alan adındakiler dahil) ve yönetim ekranları seçilen dilde açılır.
+    if ($externalWeb || preg_match('~\A/(?:web|siteler)/~',$path) || !$externalWeb && preg_match('~\A/(?:web-sitem(?:/.*)?|yonetim/web-siteleri|(?:clinic/|klinik/|yonetim/|hasta-sahibi/)?evde-hizmet(?:/takip)?)\z~D',$path)) {
         ob_start(static fn(string $html): string => stripos($html,'<!doctype html')===0
             ? VetNet\Cpanel\UiLocale::page($html,$config) : $html);
     }

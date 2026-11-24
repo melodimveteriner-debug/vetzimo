@@ -271,3 +271,4 @@ footer>.site-platform-credit{justify-content:flex-end;margin-top:15px;padding-to
   .sa-launcher.is-open{display:none}
 }
 @media print{.sa-launcher,.sa-panel{display:none!important}}
+.site-language{flex:0 0 auto;margin-inline-start:12px}
