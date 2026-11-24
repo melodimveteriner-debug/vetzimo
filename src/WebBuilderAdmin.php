@@ -351,7 +351,7 @@ final class WebBuilderAdmin
         $actions=$back.'<button class="secondary">'.($site&&$site['published']?'Kaydet':'Taslağı kaydet').'</button>'.$next;
         $body=$this->panel($actor,$site,$draft,$tab,$get,$actions,$submitted);
         $notice='<div id="builder-error" class="builder-error" role="alert" tabindex="-1"'.($error===null?' hidden':'').'>'.self::e($error??'').'</div>';
-        return self::page(self::TABS[$tab],'<header class="builder-bar"><a href="'.($this->editor==='/web-sitem'?'/klinik#settings':'/yonetim/web-siteleri').'">‹ VetZimo</a><strong>Web Sitem</strong></header>'.
+        return self::page(self::TABS[$tab],'<header class="builder-bar"><a href="'.($this->editor==='/web-sitem'?'/clinic#settings':'/yonetim/web-siteleri').'">‹ VetZimo</a><strong>Web Sitem</strong></header>'.
             '<div class="builder-layout">'.($nav?'<nav aria-label="Site yönetimi">'.$nav.'</nav>':'').'<main><h1>'.self::e(self::TABS[$tab]).'</h1>'.$steps.$notice.($site&&$site['control_status']==='paused'?'<p class="hint">Site merkez yönetimi tarafından yayından kaldırıldı.</p>':
                 ($site&&$site['published']?'<p class="hint">Yayındaki sitede kaydedilen değişiklikler hemen görünür.</p>':'')).
             ($site&&in_array($tab,['iletisim','duzen','hakkimizda','ekibimiz','blog','ailemiz','medya'],true)?
@@ -702,14 +702,14 @@ final class WebBuilderAdmin
         }
         $html.='</details><details><summary>Randevu e-postaları</summary><ul class="report">';
         foreach ($this->web->query('SELECT appointment_id,attempts,sent_at,last_error FROM clinic_web_mail WHERE partner_id=? ORDER BY next_at DESC LIMIT 50',[$partner])->fetchAll() as $row) {
-            $html.='<li><a href="/klinik#record/appointments/'.rawurlencode($row['appointment_id']).'">Randevu</a> · '.
+            $html.='<li><a href="/clinic#record/appointments/'.rawurlencode($row['appointment_id']).'">Randevu</a> · '.
                 ($row['sent_at']?'Gönderildi':self::e($row['last_error']?:'Sırada')).' · '.(int)$row['attempts'].' deneme</li>';
         }
         $html.='</ul></details><details><summary>Randevu işlem geçmişi</summary><ul class="report">';
         foreach ($this->web->query('SELECT appointment_id,actor_name,actor_role,event,occurred_at FROM clinic_web_appointment_event WHERE partner_id=? ORDER BY id DESC LIMIT 50',[$partner])->fetchAll() as $row) {
             $change=WebBuilder::decode($row['event'])['after'];
             $when=new \DateTimeImmutable($row['occurred_at'],new \DateTimeZone('UTC'));
-            $html.='<li><a href="/klinik#record/appointments/'.rawurlencode($row['appointment_id']).'">Randevu</a> · '.self::e($change['status']??'').
+            $html.='<li><a href="/clinic#record/appointments/'.rawurlencode($row['appointment_id']).'">Randevu</a> · '.self::e($change['status']??'').
                 ' · '.self::e($row['actor_name'].' ('.$row['actor_role'].')').' · '.$when->setTimezone(new \DateTimeZone('Europe/Istanbul'))->format('d.m.Y H:i').'</li>';
         }
         return $html.'</ul></details></section>';

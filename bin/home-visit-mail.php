@@ -37,7 +37,7 @@ try {
                 $message=implode("\n",['Başvuru '.$job['id'],'Durum '.$state,$visit['name'].' · '.$visit['phone'],
                     $visit['animal'].' · '.$visit['species'],implode(', ',array_column($visit['services'],'label')),
                     $visit['date'].' '.$visit['from'].'–'.$visit['to'],$loc['province'].' / '.$loc['district'].' / '.$loc['neighborhood'],
-                    $origin.'/klinik#evde-hizmet/'.$job['id']]);
+                    $origin.'/clinic#evde-hizmet/'.$job['id']]);
             } else {
                 $email=$visit['email'];
                 if (!$email) {

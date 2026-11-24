@@ -158,9 +158,9 @@ final class ClinicRecordDeletion
     {
         $id = rawurlencode($id);
         return match ($type) {
-            'appointments' => ['/klinik#record/appointments/'.$id, '/hasta-sahibi?bildirim=appointments&kayit='.$id],
-            'stays', 'followups' => ['/klinik#record/'.$type.'/'.$id],
-            'patients' => ['/klinik#patient/'.$id.'/homecare'],
+            'appointments' => ['/clinic#record/appointments/'.$id, '/hasta-sahibi?bildirim=appointments&kayit='.$id],
+            'stays', 'followups' => ['/clinic#record/'.$type.'/'.$id],
+            'patients' => ['/clinic#patient/'.$id.'/homecare'],
             'exams', 'labs' => ['/hasta-sahibi?bildirim=health&kayit='.$id],
             default => [],
         };

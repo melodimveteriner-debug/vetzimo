@@ -34,7 +34,7 @@ final class DeliveryNotice
             $label=$prior?'Randevu güncellendi':'Yeni randevu';
             $status=$row->status??'';
             if (in_array($status,['Onaylandı','İptal Edildi','İptal','Reddedildi','Tamamlandı'],true)) $label='Randevu · '.$status;
-            $clinicTarget='/klinik#record/appointments/'.rawurlencode($row->id);
+            $clinicTarget='/clinic#record/appointments/'.rawurlencode($row->id);
             $this->add($partner,$row->branch,'','clinic',"appointment:clinic:$revision:$row->id",$label,$clinicTarget);
             $patient=$patients[$row->patient??'']??null;
             $clientId=$patient&&$patient->branch===$row->branch?$patient->owner:($row->client??'');
@@ -71,18 +71,18 @@ final class DeliveryNotice
                 $timestamp=strtotime($when.'+03:00');
                 if ($timestamp===false||$timestamp<$now||$timestamp>$now+86400||($row->reviewedFor??'')===$when) continue;
                 $this->add($partner,$row->branch,'','clinic',"reminder:$type:$row->id:$when",
-                    $type==='stays'?'Konaklama süresi yaklaşıyor':'Yaklaşan randevu','/klinik#record/'.$type.'/'.rawurlencode($row->id));
+                    $type==='stays'?'Konaklama süresi yaklaşıyor':'Yaklaşan randevu','/clinic#record/'.$type.'/'.rawurlencode($row->id));
             }
             foreach ($state->followups??[] as $row) {
                 if (empty($row->date)||$row->date>$day||in_array($row->status??'',$closed,true)||($row->status??'')==='Yapıldı') continue;
                 $this->add($partner,$row->branch,'','clinic',"followup:$row->id:$row->date",
-                    'Aşı ve takip uyarısı','/klinik#record/followups/'.rawurlencode($row->id));
+                    'Aşı ve takip uyarısı','/clinic#record/followups/'.rawurlencode($row->id));
             }
             $lots=[];
             foreach ($state->stockLots??[] as $lot) $lots[$lot->product][]=$lot;
             foreach ($state->products??[] as $row) {
                 if (($row->archived??'')==='Evet'||($row->track??'')==='Hayır'||($row->category??'')==='Hizmet') continue;
-                $target='/klinik#product/'.rawurlencode($row->id);
+                $target='/clinic#product/'.rawurlencode($row->id);
                 $min=$row->min??'';
                 $stock=$row->stock??'';
                 $key=$stock.':'.$min;

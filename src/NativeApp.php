@@ -353,10 +353,10 @@ final class NativeApp
             }
         } else {
             $rules=['appointments'=>['appointments','appointments'],'followups'=>['followups','vaccines'],'stays'=>['stays','vaccines']];
-            if (preg_match('~\A/klinik#record/(appointments|followups|stays)/([A-Za-z0-9_-]{1,80})\z~D',$target,$match)) {
+            if (preg_match('~\A/(?:clinic|klinik)#record/(appointments|followups|stays)/([A-Za-z0-9_-]{1,80})\z~D',$target,$match)) {
                 [$collection,$key]=$rules[$match[1]];
                 if (ClinicAccess::allowed($actor,$collection)) { $category=$key; if ($key==='appointments') $record=$match[2]; }
-            } elseif (preg_match('~\A/klinik#product/([A-Za-z0-9_-]{1,80})\z~D',$target,$match) && ClinicAccess::allowed($actor,'products')) {
+            } elseif (preg_match('~\A/(?:clinic|klinik)#product/([A-Za-z0-9_-]{1,80})\z~D',$target,$match) && ClinicAccess::allowed($actor,'products')) {
                 $category='stock'; $record=$match[1];
             }
             elseif (str_contains($target,'homecare') && ClinicAccess::allowed($actor,'patients')) $category='homecare';

@@ -11,14 +11,14 @@ final class HomeVisitPages
     private static bool $clinicPanel=false;
     private static string $clinicPalette='classic';
     private const COOKIE='__Host-vetnet-visit';
-    private const SETTINGS='/klinik/evde-hizmet?gorunum=ayarlar';
-    private const NOTIFICATIONS='/klinik/evde-hizmet?gorunum=bildirim-ayarlari';
+    private const SETTINGS='/clinic/evde-hizmet?gorunum=ayarlar';
+    private const NOTIFICATIONS='/clinic/evde-hizmet?gorunum=bildirim-ayarlari';
     public function __construct(private readonly HomeVisit $visits,private readonly PDO $db) {}
     private static function e(mixed $text): string {return WebBuilderAdmin::e((string)$text);}
     private static function cost(int $money): string {return number_format($money/100,2,',','.').' ₺';}
     private static function redirect(string $route): never
     {
-        if (self::$clinicPanel && (str_starts_with($route,'/klinik/evde-hizmet')||str_starts_with($route,'/yonetim/evde-hizmet'))) {
+        if (self::$clinicPanel && (str_starts_with($route,'/clinic/evde-hizmet')||str_starts_with($route,'/yonetim/evde-hizmet'))) {
             $route.=(str_contains($route,'?')?'&':'?').'panel=1';
         }
         header('Location: '.$route,true,303);
@@ -78,7 +78,7 @@ final class HomeVisitPages
             ($notificationSkin?'<link rel="stylesheet" href="/notification-center.css?v=53">':'').
             (self::$clinicPanel?'<link rel="stylesheet" href="/clinic-visit-panel.css?v=51">':'').'</head>'.
             ($embedded?'<body class="visit-embedded">':'<body><header><div><a href="'.self::e($return).'"><img class="visit-brand-logo" src="/vetzimo-logo.webp" alt="VetZimo" width="140" height="38"></a>'.
-                ($notificationSkin?'<a href="/klinik#settings">Ayarlara dön</a>':'<span>Evde Hizmet</span>').'</div></header>').
+                ($notificationSkin?'<a href="/clinic#settings">Ayarlara dön</a>':'<span>Evde Hizmet</span>').'</div></header>').
             '<main><h1>'.self::e($title).'</h1>'.$html.'</main></body></html>';
         exit;
     }
@@ -90,7 +90,7 @@ final class HomeVisitPages
 
     public static function settingsError(string $message,int $status): never
     {
-        self::page('Evde Hizmet Ayarları','/klinik/evde-hizmet',self::warning($message).
+        self::page('Evde Hizmet Ayarları','/clinic/evde-hizmet',self::warning($message).
             '<p><a class="visit-link" href="'.self::e(self::SETTINGS).'">Ayarları yeniden aç</a></p>',$status);
     }
 
@@ -278,7 +278,7 @@ final class HomeVisitPages
             '<p>Meta’da onaylanmış bir şablon kullanın. Belirteci boş bırakırsanız kayıtlı belirteç korunur.</p></fieldset>';
         $count=(int)$this->visits->web->query("SELECT COUNT(*) FROM clinic_visit_request WHERE partner_id=? AND status IN ('new','review')",[$partner])->fetchColumn();
         $review='<section><h2>İçerik inceleme uyarıları</h2><p>'.
-            ($count?self::e($count).' Evde Hizmet başvurusu inceleme bekliyor. <a href="/klinik/evde-hizmet">Başvuruları aç</a>':'Bekleyen Evde Hizmet incelemesi yok.').'</p></section>';
+            ($count?self::e($count).' Evde Hizmet başvurusu inceleme bekliyor. <a href="/clinic/evde-hizmet">Başvuruları aç</a>':'Bekleyen Evde Hizmet incelemesi yok.').'</p></section>';
         $center=new Notifications($this->db,$this->visits->config['encryptionKey']);
         $smtpHint=$values['smtpEnabled']?$values['admin']:($center->settings()['smtpEnabled']?'Merkez SMTP bağlantısı kullanılıyor.':'SMTP bağlantısını yapılandırın.');
         $summary='<div class="notification-summary"><div><span>E-posta</span><strong>'.($values['smtpEnabled']?'Yapılandırıldı':'Ayar bekliyor').
@@ -286,7 +286,7 @@ final class HomeVisitPages
             '</strong><p>'.self::e($values['recipient']?:'Test alıcısı tanımlayın.').'</p></div></div>';
         $palette=$this->clinicPalette($actor);
 
-        self::page('Bildirim Merkezi','/klinik#settings',$review.$message.$summary.
+        self::page('Bildirim Merkezi','/clinic#settings',$review.$message.$summary.
             '<section><h2>Bildirim bağlantıları</h2><p>SMTP ve WhatsApp Business ayarlarınızı kaydedin, ardından test gönderimi yapın.</p>'.
             self::form(self::hidden('action','save').$smtp.$whatsapp,'Ayarları kaydet',$path).'</section>'.
             '<div class="notification-tests">'.self::form(self::hidden('action','smtp'),'Test e-postası gönder',$path).
@@ -348,7 +348,7 @@ final class HomeVisitPages
         }
         $feedback=$message!==''?self::warning($message):
             (($_GET['saved']??'')==='1'?'<p class="visit-success" role="status">Ayarlar kaydedildi.</p>':'');
-        self::page('Evde Hizmet Ayarları','/klinik/evde-hizmet',
+        self::page('Evde Hizmet Ayarları','/clinic/evde-hizmet',
             $feedback.$this->publicationPanel($partner,$settings).$this->settings($partner,$settings,$post?$_POST:null),$status);
     }
 
@@ -397,7 +397,7 @@ final class HomeVisitPages
             \reply(['items'=>$items]);
         }
 
-        $staff=$path==='/klinik/evde-hizmet';
+        $staff=$path==='/clinic/evde-hizmet';
         $owner=$path==='/hasta-sahibi/evde-hizmet';
         $embedded=$owner&&($_GET['panel']??'')==='1';
         $panelQuery=$embedded?'&panel=1':'';
@@ -422,10 +422,10 @@ final class HomeVisitPages
             if ($staff && !$post && ($_GET['panel']??'')!=='1' && ($_SERVER['HTTP_SEC_FETCH_DEST']??'')==='document' && ($_GET['format']??'')!=='mail-status') {
                 $view=$_GET['gorunum']??'';
                 $visit=$_GET['talep']??'';
-                if ($view==='bildirim-ayarlari') self::redirect('/klinik#bildirim-merkezi');
+                if ($view==='bildirim-ayarlari') self::redirect('/clinic#bildirim-merkezi');
                 $suffix=is_string($visit)&&preg_match('/\A[a-f0-9]{32}\z/D',$visit)?$visit:
                     (in_array($view,['rota','takvim','ayarlar'],true)?$view:'');
-                self::redirect('/klinik#evde-hizmet'.($suffix?'/'.$suffix:''));
+                self::redirect('/clinic#evde-hizmet'.($suffix?'/'.$suffix:''));
             }
             if ($staff && ($_GET['panel']??'')==='1') {
                 self::$clinicPanel=true;
@@ -511,7 +511,7 @@ final class HomeVisitPages
         $html=$error.$this->listing($items,$staff,$actor,$show,$canRequest,$embedded);
         if ($canRequest) $html.=$this->requestForm($partner,$settings,$actor,$post?$_POST:[]);
         if ($owner) $html='<div class="visit-owner">'.$html.'</div>';
-        self::page('Evde Hizmet',$staff?'/klinik':'/hasta-sahibi',$html,$status,false,$embedded);
+        self::page('Evde Hizmet',$staff?'/clinic':'/hasta-sahibi',$html,$status,false,$embedded);
     }
 
 
@@ -787,7 +787,7 @@ final class HomeVisitPages
             $mailStatus=$mail?($mail['sent_at']?'Sağlayıcıya teslim edildi':($mail['failure']?:'Gönderim kuyruğunda')):'Henüz e-posta kaydı yok.';
             $html.='<section><h2>Müşteri e-postası</h2><p>'.self::e($visit['email']?:'E-posta yok').' · '.self::e($mailStatus).'</p>'.
                 ($dealer && !$row['customer_id'] && !in_array($status,['closed','cancelled'],true)&&$visit['email']?self::button($row,'resend','Yeni takip bağlantısı gönder'):'').
-                ($dealer?'<p><a href="/klinik#bildirim-merkezi">Bildirim Merkezi</a></p>':'').'</section>';
+                ($dealer?'<p><a href="/clinic#bildirim-merkezi">Bildirim Merkezi</a></p>':'').'</section>';
         }
         if ($q) {
             $html.='<section><h2>Fiyat teklifi</h2>';
@@ -821,7 +821,7 @@ final class HomeVisitPages
             if ($payment['status']==='paid') {
                 $html.='<p><strong>Tahsilat tarihi:</strong> '.self::e($payment['verified_at']).' UTC</p>'.
                     '<p><strong>İşlem referansı:</strong> '.self::e($row['id']).'</p>'.
-                    ($staff&&ClinicAccess::allowed($actor,'sales')&&isset(Finance::index($this->visits->workspace($row['partner_id'])['state']->sales)['visit-'.$row['id']])?'<p><a href="/klinik#record/sales/visit-'.rawurlencode($row['id']).'">Satış ve tahsilat kaydını aç</a></p>':'');
+                    ($staff&&ClinicAccess::allowed($actor,'sales')&&isset(Finance::index($this->visits->workspace($row['partner_id'])['state']->sales)['visit-'.$row['id']])?'<p><a href="/clinic#record/sales/visit-'.rawurlencode($row['id']).'">Satış ve tahsilat kaydını aç</a></p>':'');
             }
             if ($payment['destination']) {
                 $transfer=$this->visits->decode($payment['destination']);
@@ -886,7 +886,7 @@ final class HomeVisitPages
             }
             if ($manager&&$status==='completed'&&($payment['status']??'')==='paid') $actions.=self::button($row,'close','Kapat');
             if ($row['patient_id']&&in_array($status,['started','completed','closed'],true)) {
-                $actions.='<a class="visit-link" href="/klinik#patient/'.rawurlencode($row['patient_id']).'">Hasta dosyasında yapılan işlemleri kaydet</a>';
+                $actions.='<a class="visit-link" href="/clinic#patient/'.rawurlencode($row['patient_id']).'">Hasta dosyasında yapılan işlemleri kaydet</a>';
             }
         }
         if ((!$staff||$manager)&&in_array($status,['new','review','quoted','revision','address','payment','planning','assigned','postponed'],true)&&($payment['status']??'')!=='paid') {

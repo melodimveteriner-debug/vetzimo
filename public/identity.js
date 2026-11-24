@@ -216,7 +216,7 @@ function login(mode="login") {
     else if (result.destination) {
       let redirect=result.destination;
       if (!center) {
-        try {if (sessionStorage.getItem("vetnet-support-email-token") && redirect==="/klinik") redirect="/klinik#bildirim-epostasi";} catch {}
+        try {if (sessionStorage.getItem("vetnet-support-email-token") && redirect==="/clinic") redirect="/clinic#bildirim-epostasi";} catch {}
       }
       location.assign(redirect);
     }
@@ -280,8 +280,8 @@ async function workspaceChoice() {
       button.disabled=true;
       try {
         await api("select",{membershipId:member.id});
-        let destination=member.role==="customer"?"/hasta-sahibi":"/klinik";
-        try {if(destination==="/klinik"&&sessionStorage.getItem("vetnet-support-email-token"))destination="/klinik#bildirim-epostasi";} catch {}
+        let destination=member.role==="customer"?"/hasta-sahibi":"/clinic";
+        try {if(destination==="/clinic"&&sessionStorage.getItem("vetnet-support-email-token"))destination="/clinic#bildirim-epostasi";} catch {}
         location.assign(destination);
       } catch(error) {status.textContent=error.message;button.disabled=false;}
     });
@@ -811,7 +811,7 @@ if (route==="/iletisim") {
   if (fragment[0]==="dogrula" && fragment[1]) {
     try {sessionStorage.setItem("vetnet-support-email-token",fragment[1]);} catch {}
   }
-  location.replace("/klinik#bildirim-epostasi");
+  location.replace("/clinic#bildirim-epostasi");
 } else try {
   const query=new URLSearchParams();
   for (const key of ["clinic","branch"]) if (params.has(key)) query.set(key,params.get(key));
@@ -827,7 +827,7 @@ if (route==="/iletisim") {
     try {
       sessionStorage.setItem("vetnet-support-email-token",fragment[1]);
       const session=await api("session");
-      if(session.active?.role==="dealer")location.replace("/klinik#bildirim-epostasi");
+      if(session.active?.role==="dealer")location.replace("/clinic#bildirim-epostasi");
       else login();
     } catch {login();}
   }

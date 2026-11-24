@@ -75,7 +75,7 @@ export async function mountClinicAccounts(ui,params) {
       input.select();
     });
     const visitHint=el("p","Saha görevi için Randevular iznini seçin ve personeli Evde Hizmet ayarlarında yetkilendirin.",{className:"muted"});
-    visitHint.append(" ",link("Evde Hizmet ayarları","/klinik#evde-hizmet/ayarlar"));
+    visitHint.append(" ",link("Evde Hizmet ayarları","/clinic#evde-hizmet/ayarlar"));
     const approval=field("verifiedInPerson","Kimliği yüz yüze doğruladım",{type:"checkbox",required:false});
     const modules=moduleFields(), portalModules=moduleFields({},true);
     const reopen=field("reopen","Kapalı üyeliği yeniden aç ve aktivasyon gönder",{type:"checkbox",required:false});

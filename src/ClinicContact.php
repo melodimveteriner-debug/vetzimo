@@ -63,7 +63,7 @@ final class ClinicContact
         foreach ($query->fetchAll(PDO::FETCH_COLUMN) as $email) {
             try {
                 $this->notifications->send('smtp',$email,'VetZimo destek talebinize yanıt geldi',
-                    "Yanıtı VetZimo panelinden açabilirsiniz.\n".$this->origin.'/klinik#bayi-destek/'.$ticket);
+                    "Yanıtı VetZimo panelinden açabilirsiniz.\n".$this->origin.'/clinic#bayi-destek/'.$ticket);
             } catch (\Throwable $error) { error_log('VetZimo support notification: '.get_class($error)); }
         }
     }

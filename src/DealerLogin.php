@@ -78,7 +78,7 @@ final class DealerLogin
             return null;
         }
 
-        return ['token' => $token, 'device' => $device, 'age' => self::SESSION_SECONDS, 'partner_id'=>$account['partner_id'], 'destination'=>$account['role']==='customer'?'/hasta-sahibi':'/klinik'];
+        return ['token' => $token, 'device' => $device, 'age' => self::SESSION_SECONDS, 'partner_id'=>$account['partner_id'], 'destination'=>$account['role']==='customer'?'/hasta-sahibi':'/clinic'];
     }
 
     public function changePassword(array $cookies, string $current, string $next, string $address, int $now): void

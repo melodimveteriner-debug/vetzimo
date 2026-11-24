@@ -165,7 +165,7 @@ final class WebBooking
             $this->event($partner,$row->id,$actor,$before,self::eventFields($row));
             if (class_exists(DeliveryNotice::class)) (new DeliveryNotice($this->db))->add($partner,$branch,'','clinic',
                 'web-change:'.$row->id.':'.$this->db->lastInsertId(),$row->status==='İptal Edildi'?'Web randevusu iptal edildi':'Web randevusu güncellendi',
-                '/klinik#record/appointments/'.rawurlencode($row->id));
+                '/clinic#record/appointments/'.rawurlencode($row->id));
         });
     }
 

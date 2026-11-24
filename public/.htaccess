@@ -7,7 +7,7 @@ RewriteRule "(^|/)(?:\.git|\.svn|\.env(?:\.[^/]*)?)(/|$)" - [F,END,NC]
 </FilesMatch>
 RewriteRule ^(?:uygulama|\.well-known/assetlinks\.json)$ index.php [END]
 RewriteRule ^(?:market-pages(?:/|$)|vendor/vebot(?:/|$)) - [R=404,END,NC]
-RewriteRule ^(?:(?:app|giris|hasta-sahibi|yonetim|klinik)/?$|platform(?:/|$)|api/) index.php [END]
+RewriteRule ^(?:(?:app|giris|hasta-sahibi|yonetim|clinic|klinik)/?$|platform(?:/|$)|api/) index.php [END]
 
 RewriteRule ^(?:web-sitem(?:/|$)|(?:web|siteler)(?:/|$)|yonetim/web-siteleri$) index.php [END]
 RewriteCond %{REQUEST_FILENAME} !-f

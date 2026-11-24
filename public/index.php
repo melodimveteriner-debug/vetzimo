@@ -68,16 +68,21 @@ try {
     // REQUEST_URI is a request target. Leading // is part of its path.
     [$rawPath,$queryString] = array_pad(explode('?',$_SERVER['REQUEST_URI'],2),2,'');
     $path = '/'.ltrim($rawPath,'/');
-    if ($method==='GET' && $rawPath!==$path && in_array(rtrim($path,'/'),['/klinik','/yonetim','/app','/giris','/hasta-sahibi'],true)) {
+    if ($method==='GET' && $rawPath!==$path && in_array(rtrim($path,'/'),['/clinic','/yonetim','/app','/giris','/hasta-sahibi'],true)) {
         header('Location: '.rtrim($path,'/').($queryString!=='' ? '?'.$queryString : ''),true,308);
         exit;
     }
-    if (in_array($path, ['/app/','/giris/','/hasta-sahibi/','/yonetim/','/klinik/'], true)) {
+    if (in_array($path, ['/app/','/giris/','/hasta-sahibi/','/yonetim/','/clinic/'], true)) {
         header('Location: '.rtrim($path,'/'),true,308);
         exit;
     }
     // Giriş adresi /app oldu. Eski /giris bağlantıları (e-postalardaki etkinleştirme bağlantıları dahil)
     // kalıcı olarak yönlenir; tarayıcı # sonrasını korur.
+    // Klinik paneli /clinic oldu. Eski /klinik bağlantıları (bildirim ve e-posta bağlantıları dahil) kalıcı yönlenir.
+    if ($path === '/klinik' || str_starts_with($path,'/klinik/')) {
+        header('Location: /clinic'.substr($path,7).($queryString!=='' ? '?'.$queryString : ''),true,$method==='GET'||$method==='HEAD'?301:308);
+        exit;
+    }
     if ($path === '/giris') {
         header('Location: /app'.($queryString!=='' ? '?'.$queryString : ''),true,$method==='GET'||$method==='HEAD'?301:308);
         exit;
@@ -108,7 +113,7 @@ try {
         exit;
     }
     if ($method !== 'GET' && !hash_equals($externalWeb ? 'https://'.$host : $origin, $_SERVER['HTTP_ORIGIN'] ?? '')) {
-        if (!$externalWeb && $path==='/klinik/evde-hizmet' && ($_GET['gorunum']??'')==='ayarlar') {
+        if (!$externalWeb && $path==='/clinic/evde-hizmet' && ($_GET['gorunum']??'')==='ayarlar') {
             VetNet\Cpanel\HomeVisitPages::settingsError('İstek kaynağı doğrulanamadı. Ayarları VetZimo üzerinden yeniden açıp kaydetmeyi deneyin.',403);
         }
         if (!$externalWeb && $path==='/web-sitem') {
@@ -154,8 +159,8 @@ try {
         echo VetNet\Cpanel\UiLocale::page($html,$config);
         exit;
     }
-    if (!$externalWeb && $method === 'GET' && in_array($path, ['/klinik', '/app','/hasta-sahibi','/yonetim'], true)) {
-        if ($path === '/klinik') {
+    if (!$externalWeb && $method === 'GET' && in_array($path, ['/clinic', '/app','/hasta-sahibi','/yonetim'], true)) {
+        if ($path === '/clinic') {
             $db = Database::connect($config['dsn'], $config['username'], $config['password']);
             $actor = (new SessionRepository($db))->resolve($_COOKIE, time());
             if (!in_array($actor['role'] ?? '',['dealer','branch','staff'],true)) {
@@ -164,7 +169,7 @@ try {
             }
         }
         $file = rtrim($config['assets'], '/') . (match ($path) {
-            '/klinik' => '/index.html',
+            '/clinic' => '/index.html',
             '/yonetim' => '/identity-merkez-20261123-r65.html',
             default => '/identity.html',
         });
@@ -260,7 +265,7 @@ try {
         echo '<!doctype html><html lang="tr"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>VetZimo · Hesap silme</title><style>body{font:1rem/1.6 system-ui;margin:3rem auto;padding:0 1.2rem;max-width:38rem}input,button{font:inherit}</style><main><h1>Hesap silme talebi</h1><p>Talep mevcut VetZimo hesabınız için kaydedilir ve yönetim tarafından incelenir. Talep kaydı, silmenin tamamlandığı anlamına gelmez.</p>'.$form.'<p><a href="/platform/gizlilik">Gizlilik bilgilendirmesi</a></p></main></html>';
         exit;
     }
-    if ($path==='/api/evde-hizmet/konum'||(!$externalWeb && in_array($path,['/klinik/evde-hizmet','/hasta-sahibi/evde-hizmet','/yonetim/evde-hizmet',
+    if ($path==='/api/evde-hizmet/konum'||(!$externalWeb && in_array($path,['/clinic/evde-hizmet','/hasta-sahibi/evde-hizmet','/yonetim/evde-hizmet',
         '/evde-hizmet','/evde-hizmet/takip','/api/evde-hizmet/bildirim'],true))) {
         $actor=$sessions->resolve($_COOKIE,$now);
         if ($actor && in_array($actor['role']??'',['dealer','branch','staff'],true)) {

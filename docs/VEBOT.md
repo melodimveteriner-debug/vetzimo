@@ -31,7 +31,7 @@ Arama kutusuna hasta adı, telefon veya diğer kişisel bilgileri girmeyin.
 5. Yönetim → VeBot AI bölümünde etkin abonelik paketleri için izinli
    modları, rolleri ve günlük mesaj sınırını belirleyin. Üyelik kimliği listesi
    doldurulursa yalnızca listedeki kullanıcılar seçilen rollerle erişebilir.
-   Klinik ekranında VeBot açılır. Doğrudan yol /klinik#vebot.
+   Klinik ekranında VeBot açılır. Doğrudan yol /clinic#vebot.
 
 PHP cURL gereklidir. DOCX ve XLSX için ZIP ve DOM uzantıları gerekir.
 PDF desteği ilk 15 sayfadaki mevcut metin katmanını okur. OCR içermez.

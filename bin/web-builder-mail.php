@@ -35,7 +35,7 @@ try {
             if (!$appointment) throw new RuntimeException('Randevu bulunamadı.',422);
             $visitor=WebBuilder::decode($job['visitor']);
             $branch=array_column($state->branches??[],'name','id')[$job['visit_branch']]??'Şube';
-            $link=rtrim($config['origin'],'/').'/klinik#record/appointments/'.rawurlencode($appointment->id);
+            $link=rtrim($config['origin'],'/').'/clinic#record/appointments/'.rawurlencode($appointment->id);
             $dealer=$smtp->dealer($job['partner_id']);
             $mailer=$dealer->settings()['smtpEnabled']?$dealer:$smtp;
             $mailer->send('smtp',$recipient,'VetZimo — Yeni Web Sitesi Randevu Talebi',

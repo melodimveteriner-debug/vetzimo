@@ -257,7 +257,7 @@ final class HomeCare
                     default=>['soon','Evden Takip · Öncelikli gözlem'],
                 };
                 (new DeliveryNotice($this->db))->add($scope[0],$scope[3],'','clinic','homecare:'.$kind.':'.$id,
-                    $title,'/klinik#patient/'.rawurlencode($scope[1]).'/homecare');
+                    $title,'/clinic#patient/'.rawurlencode($scope[1]).'/homecare');
             }
             return;
         }

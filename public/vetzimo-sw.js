@@ -1,6 +1,6 @@
-const CACHE = 'vetzimo-public-offline-r68';
+const CACHE = 'vetzimo-public-offline-r69';
 const OFFLINE = '/vetzimo-offline.html';
-const PANELS = new Set(['/app', '/giris', '/klinik', '/hasta-sahibi', '/yonetim', '/uygulama']);
+const PANELS = new Set(['/app', '/giris', '/clinic', '/klinik', '/hasta-sahibi', '/yonetim', '/uygulama']);
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.add(new Request(OFFLINE, {cache: 'reload'}))));

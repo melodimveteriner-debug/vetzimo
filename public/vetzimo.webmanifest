@@ -14,7 +14,7 @@
     {"src":"/vetzimo-pwa-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}
   ],
   "shortcuts": [
-    {"name":"Klinik paneli","url":"/klinik#overview","icons":[{"src":"/vetzimo-pwa-192.png","sizes":"192x192"}]},
+    {"name":"Klinik paneli","url":"/clinic#overview","icons":[{"src":"/vetzimo-pwa-192.png","sizes":"192x192"}]},
     {"name":"Hasta sahibi","url":"/hasta-sahibi","icons":[{"src":"/vetzimo-pwa-192.png","sizes":"192x192"}]}
   ]
 }
