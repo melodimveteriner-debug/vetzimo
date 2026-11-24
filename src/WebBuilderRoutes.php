@@ -9,7 +9,7 @@ final class WebBuilderRoutes
 {
     private static function body(string $html,int $code=200,bool $preview=false): never
     {
-        header("Content-Security-Policy: default-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'; frame-src 'self' https://www.google.com https://maps.google.com https://www.google.com.tr https://maps.google.com.tr; frame-ancestors ".($preview?"'self'":"'none'"));
+        header("Content-Security-Policy: default-src 'self'; img-src 'self' data: blob:; base-uri 'none'; object-src 'none'; form-action 'self'; frame-src 'self' https://www.google.com https://maps.google.com https://www.google.com.tr https://maps.google.com.tr; frame-ancestors ".($preview?"'self'":"'none'"));
         header('Content-Type: text/html; charset=utf-8');
         header('Referrer-Policy: same-origin');
         http_response_code($code);

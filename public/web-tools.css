@@ -1,0 +1,46 @@
+/* Klinik web sitesi: Evcil Hayvan Araçları. Renkler site temasının değişkenlerini kullanır. */
+.pet-tools{display:grid;gap:18px;margin-top:10px}
+.tool-tabs{display:flex;flex-wrap:wrap;gap:8px}
+.tool-tabs a{padding:9px 16px;border-radius:999px;border:1px solid currentColor;text-decoration:none;color:inherit;font-weight:700;opacity:.75}
+.tool-tabs a[aria-current=true]{opacity:1;background:var(--accent,#0f766e);border-color:var(--accent,#0f766e);color:#fff}
+.tool-panel{display:grid;gap:14px}
+.tool-panel h2{margin:0}
+.tool-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:12px}
+.tool-form label{display:grid;gap:5px;font-weight:600;font-size:.92rem}
+.tool-form label.wide{grid-column:1/-1}
+.tool-form label.check{display:flex;align-items:center;gap:8px}
+.tool-form input,.tool-form select{font:inherit;padding:10px 12px;border:1px solid rgba(127,127,127,.45);border-radius:10px;background:transparent;color:inherit;min-width:0}
+.tool-note{margin:0;opacity:.75;font-size:.88rem}
+.tool-actions{display:flex;gap:8px;flex-wrap:wrap}
+.age-result{display:grid;gap:10px;padding:20px;border-radius:18px;border:1px solid rgba(127,127,127,.3)}
+.age-big{display:flex;align-items:baseline;gap:10px;margin:0}.age-big strong{font-size:clamp(3rem,10vw,5rem);line-height:1;color:var(--accent,#0f766e)}.age-big span{font-size:1.1rem;opacity:.8}
+.age-stage{margin:0;font-size:1.05rem}
+.age-bar{height:10px;border-radius:999px;background:rgba(127,127,127,.2);overflow:hidden}.age-bar i{display:block;height:100%;background:linear-gradient(90deg,#14b8a6,#f59e0b,#ef4444);border-radius:inherit}
+.age-tip{margin:0}
+.poster-wrap,.card-wrap{display:grid;justify-items:center;padding:16px;border-radius:18px;background:rgba(127,127,127,.12);overflow:auto}
+.lost-poster{width:min(100%,560px);aspect-ratio:1/1.414;box-sizing:border-box;padding:26px 28px;background:#fff;color:#111;display:grid;grid-template-rows:auto auto minmax(0,1fr) auto auto auto auto;gap:8px;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,.18);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.lp-title{margin:0;font-size:clamp(2.6rem,9vw,4.6rem);font-weight:900;letter-spacing:.12em;color:#dc2626;line-height:1}
+.lp-kind{margin:0;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#444}
+.lp-photo{display:grid;place-items:center;border:3px solid #111;border-radius:6px;overflow:hidden;min-height:160px;background:#f3f4f6}
+.lp-photo img{width:100%;height:100%;object-fit:cover}.lp-photo span{color:#888}
+.lp-name{margin:0;font-size:2rem}
+.lp-facts{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;margin:0;text-align:start;font-size:.95rem}.lp-facts dt{font-weight:700}.lp-facts dd{margin:0}
+.lp-reward{margin:0;font-size:1.2rem;font-weight:900;color:#b45309}
+.lp-call{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 14px;background:#111;color:#fff;border-radius:8px;text-align:start}
+.lp-call div:first-child{display:grid}.lp-call strong{font-size:1.6rem;letter-spacing:.03em}
+.lp-qr{background:#fff;padding:4px;border-radius:4px;line-height:0}.lp-qr svg{width:84px;height:84px}
+.lp-clinic{margin:0;font-size:.8rem;color:#555}
+.id-card{width:min(100%,428px);aspect-ratio:85.6/54;box-sizing:border-box;padding:14px 16px;border-radius:14px;background:linear-gradient(135deg,#0f766e,#1e3a8a);color:#fff;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;box-shadow:0 10px 30px rgba(0,0,0,.2);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.ic-info{display:grid;gap:4px;min-width:0}.ic-head{margin:0;font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;opacity:.85}
+.id-card h3{margin:0;font-size:1.45rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.id-card dl{display:grid;grid-template-columns:auto 1fr;gap:1px 8px;margin:0;font-size:.74rem}.id-card dt{opacity:.8}.id-card dd{margin:0;font-weight:700;overflow-wrap:anywhere}
+.ic-clinic{margin:0;font-size:.62rem;opacity:.85}
+.ic-qr{background:#fff;padding:5px;border-radius:8px;line-height:0}.ic-qr svg{width:112px;height:112px}
+@media print{
+  body[data-print] *{visibility:hidden}
+  body[data-print=lost] .lost-poster,body[data-print=lost] .lost-poster *,body[data-print=card] .id-card,body[data-print=card] .id-card *{visibility:visible}
+  body[data-print] .lost-poster,body[data-print] .id-card{position:fixed;left:0;top:0;box-shadow:none}
+  body[data-print=lost] .lost-poster{width:190mm;height:270mm;aspect-ratio:auto}
+  body[data-print=card] .id-card{width:85.6mm;height:54mm;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  @page{size:A4;margin:10mm}
+}

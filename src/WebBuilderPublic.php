@@ -415,9 +415,11 @@ final class WebBuilderPublic
         [$page,$post]=array_pad(explode('/',$path,2),2,'');
         $media=$base.'/medya/';
         $visitPage=$page==='evde-hizmet' && $visitCatalog;
-        $notFound=(!$visitPage&&!isset(WebBuilder::PAGES[$page])) || ($page!=='blog' && $post!=='');
+        $toolsPage=$page==='araclar';
+        $notFound=(!$visitPage&&!$toolsPage&&!isset(WebBuilder::PAGES[$page])) || ($page!=='blog' && $post!=='');
         $record=$d['content'][$page]??[];
-        $title=$notFound?'Sayfa bulunamadı':($visitPage?'Evde Hizmet':self::label($d,$page));
+        $title=$notFound?'Sayfa bulunamadı':($visitPage?'Evde Hizmet':($toolsPage?'Evcil Hayvan Araçları':self::label($d,$page)));
+        if ($toolsPage && !$notFound) $record=['summary'=>'Evcil hayvanınızın insan yaşı karşılığını hesaplayın, kayıp ilanı afişi ve QR kimlik kartı hazırlayın. Bilgiler cihazınızda kalır, hiçbir yere gönderilmez.'];
         $description=$record['summary']??'';
         $article=[];
         $articleId=null;
@@ -442,6 +444,8 @@ final class WebBuilderPublic
             if (!empty($record['link'])) $body.='<p><a href="'.self::e($record['link']).'">Bağlantıyı aç</a></p>';
             if ($visitPage) {
                 $body.=$visitForm;
+            } elseif ($toolsPage) {
+                $body.=self::toolsPage($d);
             } elseif ($page==='hakkimizda') {
                 foreach (['story'=>'Kuruluş hikâyesi','mission'=>'Misyon ve vizyon','services'=>'Hizmetler','facilities'=>'Klinik imkânları'] as $key=>$label)
                     if (!empty($record[$key])) $body.='<section class="prose"><h2>'.$label.'</h2>'.self::rich($record[$key]).'</section>';
@@ -505,15 +509,39 @@ final class WebBuilderPublic
         $homeCareLink=$preview?'':' <a href="'.self::href($base,'evden-takip').'">Evden Takip</a>';
         $html='<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'.
             self::e($seoTitle).'</title>'.$head.'<link rel="stylesheet" href="/web-builder-site.css?v=55"><link rel="stylesheet" href="/web-builder-themes.css?v=3"><script src="/web-builder-site.js?v=39" defer></script>'.
+            ($toolsPage&&!$notFound?'<link rel="stylesheet" href="/web-tools.css?v=1"><script type="module" src="/web-tools.js?v=1"></script>':'').
             ($visitPage?'<script src="/home-visits.js?v=44" defer></script>':'').'</head>'.
             '<body class="theme-'.self::e($d['theme']).' palette-'.self::e($d['palette']).'"><a class="skip" href="#icerik">İçeriğe geç</a><header class="site-header">'.$strip.'<div class="header-inner">'.
             '<a class="site-brand" href="'.self::href($base).'">'.$logo.'<span data-ui-preserve>'.self::e($clinic).'</span></a>'.
             '<nav class="primary-nav" aria-label="Ana menü">'.$nav.'</nav><div class="site-language" data-ui-language></div></div></header><main id="icerik">'.$body.'</main>'.
-            '<footer><div><strong>'.self::e($clinic).'</strong> '.$footerHours.$homeCareLink.' <a href="'.self::href($base,'iletisim').'">İletişim</a></div>'.
+            '<footer><div><strong>'.self::e($clinic).'</strong> '.$footerHours.$homeCareLink.' <a href="'.self::href($base,'araclar').'">Evcil Hayvan Araçları</a> <a href="'.self::href($base,'iletisim').'">İletişim</a></div>'.
             '<div class="site-platform-credit"><span>Bu site <a href="https://www.vetzimo.com"><img src="/vetzimo-mark.png" width="18" height="18" alt="">VetZimo</a> tarafından sağlanmaktadır.</span></div></footer>'.
             '<dialog id="gallery-dialog" aria-label="Galeri fotoğrafı"><button type="button" aria-label="Önceki fotoğraf" data-previous>‹</button><img alt="">'.
             '<button type="button" aria-label="Sonraki fotoğraf" data-next>›</button><button type="button" data-close>Kapat</button></dialog>'.($notFound?'':$this->assistant($site,$d,$base,$preview,(bool)$visitCatalog)).'</body></html>';
         return [$notFound?404:200,$html,$articleId];
+    }
+    /** Evcil hayvan araçları: yaş hesaplayıcı, kayıp ilanı afişi, QR kimlik kartı. Tümü tarayıcıda çalışır (web-tools.js). */
+    private static function toolsPage(array $d): string
+    {
+        $phone=self::e($d['contact']['phone']??'');
+        $clinic=self::e($d['identity']['name']??'');
+        $species='<option value="cat">Kedi</option><option value="dog-small">Köpek (küçük ırk, 10 kg altı)</option><option value="dog-medium">Köpek (orta ırk, 10–25 kg)</option><option value="dog-large">Köpek (büyük ırk, 25 kg üstü)</option>';
+        return '<div class="pet-tools" data-clinic="'.$clinic.'" data-clinic-phone="'.$phone.'">'.
+            '<nav class="tool-tabs" aria-label="Araçlar"><a href="#yas" data-tool="yas">Yaş hesaplayıcı</a><a href="#kayip" data-tool="kayip">Kayıp ilanı afişi</a><a href="#kimlik" data-tool="kimlik">QR kimlik kartı</a></nav>'.
+            '<section id="yas" class="tool-panel"><h2>İnsan yaşı karşılığı</h2><form class="tool-form" data-age><label>Tür ve boyut<select name="species">'.$species.'</select></label>'.
+            '<label>Yaş (yıl)<input name="years" type="number" min="0" max="30" value="3" inputmode="numeric"></label><label>Ay<input name="months" type="number" min="0" max="11" value="0" inputmode="numeric"></label></form>'.
+            '<div class="age-result" aria-live="polite"></div><p class="tool-note">Hesaplama Amerikan Veteriner Hekimler Birliği (AVMA) yaş tablosunu temel alır; ırk ve sağlık durumuna göre farklılık gösterebilir.</p></section>'.
+            '<section id="kayip" class="tool-panel" hidden><h2>Kayıp ilanı afişi</h2><form class="tool-form" data-lost>'.
+            '<label>Hayvanın adı<input name="name" maxlength="40" required></label><label>Tür<select name="species"><option>Kedi</option><option>Köpek</option><option>Kuş</option><option>Diğer</option></select></label>'.
+            '<label>Irk<input name="breed" maxlength="40"></label><label>Renk ve belirgin özellikler<input name="marks" maxlength="120"></label>'.
+            '<label>Kaybolduğu tarih<input name="date" type="date"></label><label>Kaybolduğu bölge<input name="area" maxlength="80"></label>'.
+            '<label>İletişim telefonu<input name="phone" type="tel" maxlength="20" required></label><label>Ödül (isteğe bağlı)<input name="reward" maxlength="40"></label>'.
+            '<label class="wide">Fotoğraf<input name="photo" type="file" accept="image/*"></label><label class="check wide"><input type="checkbox" name="chip" value="1">Mikroçipli</label></form>'.
+            '<div class="tool-actions"><button type="button" class="button" data-print="lost">Afişi yazdır / PDF kaydet</button></div><div class="poster-wrap"><article class="lost-poster" aria-label="Afiş önizlemesi"></article></div></section>'.
+            '<section id="kimlik" class="tool-panel" hidden><h2>QR kimlik kartı</h2><p class="tool-note">Kartı yazdırıp tasmaya ya da taşıma çantasına takın. QR okutulduğunda sahibin telefonu ve notlar görünür.</p><form class="tool-form" data-card>'.
+            '<label>Hayvanın adı<input name="name" maxlength="40" required></label><label>Sahibinin telefonu<input name="phone" type="tel" maxlength="20" required></label>'.
+            '<label>Mikroçip numarası<input name="chip" maxlength="20" inputmode="numeric"></label><label>Önemli not (alerji, ilaç)<input name="note" maxlength="80"></label></form>'.
+            '<div class="tool-actions"><button type="button" class="button" data-print="card">Kartı yazdır</button></div><div class="card-wrap"><article class="id-card" aria-label="Kimlik kartı önizlemesi"></article></div></section></div>';
     }
     public function sitemap(array $site,array $draft): string
     {
