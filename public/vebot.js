@@ -374,6 +374,50 @@ export function createEngine(ctx) {
 
   // Kelimeler kelime başında aranır: "hastasının" içindeki "aşı" aşı sorusu sayılmaz.
   const words = list => new RegExp("\\b(?:" + list + ")");
+  // Tedavi sonrası arama listesi: dünkü/önceki günkü muayeneler, kaçırılan kontroller, geciken aşılar.
+  function callList() {
+    if (!can("patients")) return denied("Hastalar");
+    const today = todayISO(), yesterday = addDays(today, -1), twoDays = addDays(today, -2), since = addDays(today, -60);
+    const patients = new Map(rows("patients").map(row => [row.id, row]));
+    const clients = can("clients") ? new Map(rows("clients").map(row => [row.id, row])) : new Map();
+    const appointments = can("appointments") ? rows("appointments").filter(active) : [];
+    const seen = new Set(), items = [];
+    const push = (patientId, reason, date) => {
+      const pet = patients.get(patientId);
+      if (!pet || seen.has(patientId) || pet.archived === "Evet" || pet.deceased === "Evet") return false;
+      seen.add(patientId);
+      const owner = clients.get(pet.owner);
+      items.push([[pet.name, owner?.name].filter(Boolean).join(" · "), [reason, dateText(date), owner?.phone].filter(Boolean).join(" · "), "#patient/" + encodeURIComponent(pet.id)]);
+      return true;
+    };
+    let visits = 0, missed = 0, overdue = 0;
+    if (can("exams")) {
+      for (const exam of rows("exams").filter(active)) {
+        const date = day(exam);
+        if (date === yesterday || date === twoDays) { if (push(exam.patient, "Muayene sonrası arama", date)) visits++; }
+      }
+      for (const exam of rows("exams").filter(active)) {
+        if (!exam.next || exam.next >= today || exam.next < since) continue;
+        const came = appointments.some(item => item.patient === exam.patient && day(item) >= exam.next) ||
+          rows("exams").some(item => item.patient === exam.patient && day(item) >= exam.next && item.id !== exam.id);
+        if (!came) { if (push(exam.patient, "Kontrole gelmedi", exam.next)) missed++; }
+      }
+    }
+    if (can("followups")) {
+      for (const item of rows("followups")) {
+        if (item.status === "Tamamlandı" || item.done || item.status === "İptal") continue;
+        const date = day(item);
+        if (date < today && date >= since) { if (push(item.patient, item.title || item.vaccine || "Aşı / takip gecikti", date)) overdue++; }
+      }
+    }
+    return answer("Bugünkü arama listesi", {
+      stats:[["Muayene sonrası", String(visits)], ["Kaçırılan kontrol", String(missed)], ["Geciken aşı/takip", String(overdue)]],
+      items:items.slice(0, 25),
+      empty:"Bugün aranması önerilen hasta yok.",
+      note:"Arama sırasında sorulabilecekler: iştah ve su tüketimi, ilaçların düzenli verilmesi, yara veya dikiş durumu, kusma, ishal ve halsizlik. Endişe verici bir yanıt varsa hekime danışın.",
+    });
+  }
+
   const intents = [
     {test:words("ciro|satis|satildi|kazanc|hasilat|revenue|sales|turnover"), run:sales, skip:/en cok|best|top/},
     {test:words("tahsilat|kasa|gelir|nakit|payment|cash|income"), run:receipts},
@@ -381,6 +425,7 @@ export function createEngine(ctx) {
     {test:words("alacak|borc|bakiye|acik hesap|odenmemis|veresiye|debt|unpaid|balance"), run:debts},
     {test:/\ben cok (satan|satilan|kullanilan)|\ben populer|\bbest ?sell|\btop (product|service)/, run:topSellers},
     {test:words("stok|skt|son kullanma|miad|stock|inventory|expir"), run:stock},
+    {test:/\b(aranacak|arama listesi|kimi? ?(ara|arayal)|kimleri ara|geri ara|takip arama|tedavi sonrasi|muayene sonrasi|kontrole gelme|kontrolu kacir|follow.?up call|call list|who should i call)/, run:callList},
     {test:words("asi|takip|parazit|vaccin|reminder|hatirlat"), run:vaccines},
     {test:words("randevu|takvim|program|appointment|schedule|calendar"), run:appointments},
     {test:words("muayene|exam|vaka|visit"), run:exams},
@@ -471,7 +516,7 @@ export function mountVeBot(ctx) {
   panel.setAttribute("aria-label", "VeBot klinik asistanı");
   document.body.append(launcher, panel);
 
-  const suggestions = [["Günün özeti", "summary"], ["Bugünkü ciro", "sales"], ["Kritik stok", "products"], ["Yarınki randevular", "appointments"], ["Geciken aşılar", "followups"], ["Açık bakiyeler", "sales"], ["Faturadan stok", "products"]];
+  const suggestions = [["Günün özeti", "summary"], ["Bugünkü ciro", "sales"], ["Kritik stok", "products"], ["Yarınki randevular", "appointments"], ["Geciken aşılar", "followups"], ["Açık bakiyeler", "sales"], ["Faturadan stok", "products"], ["Bugün kimi aramalıyım?", "patients"]];
   const renderChips = () => {
     chips.replaceChildren(...suggestions.filter(([, module]) => module === "summary" || safeCan(module)).map(([label]) => {
       const chip = el("button", {type:"button", className:"vebot-chip", textContent:label});
