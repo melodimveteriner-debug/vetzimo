@@ -268,6 +268,10 @@ final class WebBuilderAdmin
                 $provider=WebBuilder::text($post['provider'][$branch]??'',80);
                 if ($provider!=='' && !isset($this->web->roster($site['partner_id'],$branch)[$provider])) throw new RuntimeException('Hekim veya personel seçimi geçersiz.',422);
                 $booking['providers'][$branch]=$provider;
+                if (is_array($post['staffSet']??null) && isset($post['staffSet'][$branch])) {
+                    $picked=is_array($post['staff'][$branch]??null)?array_map('strval',$post['staff'][$branch]):[];
+                    $booking['staff'][$branch]=array_values(array_filter(array_map('strval',array_keys($this->web->roster($site['partner_id'],$branch))),static fn($id)=>in_array($id,$picked,true)));
+                }
                 foreach (WebBuilder::DAYS as $day=>$label) {
                     $booking['hours'][$branch][$day]=self::hours(WebBuilder::text($post['hours'][$branch][$day]??'',160));
                     if ($provider) $booking['providerHours'][$branch][$day]=self::hours(WebBuilder::text($post['providerHours'][$branch][$day]??'',160));
@@ -474,7 +478,13 @@ final class WebBuilderAdmin
                     $hours=implode(', ',array_map(static fn($r)=>implode('-',$r),$booking['hours'][$branch->id][$day]??[]));
                     $fields.='<label>'.$label.'<input name="hours['.$branchId.']['.$day.']" value="'.self::e($hours).'" placeholder="09:00-13:00, 14:00-18:00"></label>';
                 }
-                $fields.='<details class="wide"><summary>Hekim / personel uygunluğu</summary><div class="branch-hours"><label class="wide">Randevu görevlisi<select name="provider['.$branchId.']"><option value="">Klinik daha sonra atayacak</option>';
+                $roster=$this->web->roster($site['partner_id'],$branch->id);
+                $chosen=$booking['staff'][$branch->id]??null;
+                $fields.='<fieldset class="wide staff-pick"><legend>Randevuda seçilebilecek hekim / personel</legend><input type="hidden" name="staffSet['.$branchId.']" value="1">';
+                foreach ($roster as $id=>$name) $fields.='<label class="check"><input type="checkbox" name="staff['.$branchId.'][]" value="'.self::e((string)$id).'"'.
+                    (!is_array($chosen)||in_array((string)$id,$chosen,true)?' checked':'').'><span data-ui-preserve>'.self::e($name).'</span></label>';
+                $fields.=($roster?'':'<p class="hint">Bu şubede aktif personel hesabı yok.</p>').'<p class="hint">Ziyaretçi randevu alırken işaretli kişilerden birini seçer ya da “Fark etmez” der; her kişinin takvimi ayrı tutulur ve aynı saate iki randevu verilmez. İzindeki personele randevu açılmaz.</p></fieldset>';
+                $fields.='<details class="wide"><summary>Tek görevli ve özel saatler</summary><div class="branch-hours"><label class="wide">Randevu görevlisi<select name="provider['.$branchId.']"><option value="">Yukarıdaki personel listesi</option>';
                 foreach ($this->web->roster($site['partner_id'],$branch->id) as $id=>$name) {
                     $fields.='<option value="'.self::e($id).'"'.(($booking['providers'][$branch->id]??'')===$id?' selected':'').'>'.self::e($name).'</option>';
                 }

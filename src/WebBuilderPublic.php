@@ -279,16 +279,26 @@ final class WebBuilderPublic
         $branchField=count($branches)===1
             ? '<input type="hidden" name="branch" value="'.self::e($branch).'"><p><strong>'.self::e($this->web->partnerName($site['partner_id'])).'</strong></p>'
             : '<label>Şube<select name="branch" required>'.$options.'</select></label>';
+        $team=$branch!==''&&!$current?$this->booking->staffOptions($site,$d,$branch):[];
+        $staff=is_string($get['staff']??null)&&isset($team[$get['staff']])?$get['staff']:'';
+        $staffField='';
+        if ($team) {
+            $staffField='<label>Hekim / personel<select name="staff"><option value="">Fark etmez · ilk uygun kişi</option>';
+            foreach ($team as $id=>$name) $staffField.='<option value="'.self::e((string)$id).'"'.((string)$id===$staff?' selected':'').' data-ui-preserve>'.self::e($name).'</option>';
+            $staffField.='</select></label>';
+        }
         $html.='<form class="public-form slot-form" method="get" action="'.$url.'">'.
-            ($current?'<input type="hidden" name="duzenle" value="'.self::e($edit).'">':$branchField).
+            ($current?'<input type="hidden" name="duzenle" value="'.self::e($edit).'">':$branchField.$staffField).
             '<label>'.($current?'Yeni randevu tarihi':'Randevu tarihi').'<input type="date" name="date" required min="'.WebBuilder::today().'" value="'.self::e($day).'"></label>'.
             '<button class="button">Uygun saatleri göster</button></form>';
         if ($branch==='') return $html;
-        $slots=$this->booking->slots($site,$d,$branch,$day);
-        if (!$slots) return $html.'<p class="booking-notice">Bu şube ve gün için boş saat yok.</p>';
+        $slots=$current?$this->booking->slots($site,$d,$branch,$day,null,$this->booking->staffFor($site,$d,$branch,$current->clinician??''),$current->id):$this->booking->slots($site,$d,$branch,$day,null,$staff);
+        if (!$slots) return $html.'<p class="booking-notice">'.($staff!==''?'Seçilen kişi için bu gün boş saat yok. Başka bir gün ya da “Fark etmez” seçeneğini deneyin.':'Bu şube ve gün için boş saat yok.').'</p>';
         $times='';
-        foreach (array_keys($slots) as $time) $times.='<option value="'.self::e($time).'"'.(($get['time']??'')===$time?' selected':'').'>'.self::e($time).'</option>';
+        foreach ($slots as $time=>$slot) $times.='<option value="'.self::e($time).'"'.(($get['time']??'')===$time?' selected':'').'>'.self::e($time).
+            ($team&&$staff===''?' · '.self::e($slot->clinician):'').'</option>';
         $fields='<input type="hidden" name="branch" value="'.self::e($branch).'"><input type="hidden" name="date" value="'.self::e($day).'">'.
+            ($staff!==''?'<input type="hidden" name="staff" value="'.self::e($staff).'"><p class="booking-staff">'.self::e($team[$staff]).'</p>':'').
             '<label>Uygun saat<select name="time" required>'.$times.'</select></label>';
         if ($current) return $html.'<form class="public-form" method="post" action="'.$url.'">'.$fields.
             '<input type="hidden" name="action" value="move"><input type="hidden" name="duzenle" value="'.self::e($edit).'">'.

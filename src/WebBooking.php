@@ -154,7 +154,7 @@ final class WebBooking
             } else {
                 $date=WebBuilder::text($post['date']??'',10);
                 $time=WebBuilder::text($post['time']??'',5);
-                $slot=$this->slots($site,$draft,$branch,$date,$state)[$time]??null;
+                $slot=$this->slots($site,$draft,$branch,$date,$state,$this->staffFor($site,$draft,$branch,$row->clinician??''),$row->id)[$time]??null;
                 if (!$slot || $slot->branch!==$row->branch) throw new RuntimeException('Bu saat uygun değil. Başka bir saat seçin.',409);
                 foreach (['date','time','endTime','clinician'] as $key) $row->$key=$slot->$key;
                 $row->status=!empty($draft['booking']['autoConfirm'])?'Onaylandı':'Onay Bekliyor';
@@ -169,7 +169,38 @@ final class WebBooking
         });
     }
 
-    public function slots(array $site,array $draft,string $branch,string $day,?object $state=null): array
+    /** Aynı kişiyi farklı yazımlarda (büyük/küçük harf, aksan, ı/i, fazla boşluk) eşleştirir. */
+    public static function person(string $name): string
+    {
+        $name=mb_strtolower(str_replace(['I','İ'],['ı','i'],trim($name)),'UTF-8');
+        if (class_exists(\Normalizer::class)) $name=(string)\Normalizer::normalize($name,\Normalizer::FORM_D);
+        return str_replace('ı','i',preg_replace(['/\p{Mn}+/u','/\s+/u'],['',' '],$name)??$name);
+    }
+    /** Web randevusunda ziyaretçinin seçebileceği personel: [üyelik kimliği => ad]. Tek görevli seçildiyse ya da liste boşsa seçim yoktur. */
+    public function staffOptions(array $site,array $draft,string $branch): array
+    {
+        $rules=$draft['booking']??[];
+        if (($rules['providers'][$branch]??'')!=='') return [];
+        $roster=$this->web->roster($site['partner_id'],$branch);
+        $chosen=$rules['staff'][$branch]??null;
+        return is_array($chosen)?array_intersect_key($roster,array_flip($chosen)):$roster;
+    }
+    /** Taşınan randevu aynı kişide kalır; kişi artık listede değilse ilk uygun kişiye geçer. */
+    public function staffFor(array $site,array $draft,string $branch,string $name): string
+    {
+        $hit=array_search(self::person($name),array_map([self::class,'person'],$this->staffOptions($site,$draft,$branch)),true);
+        return $hit===false?'':(string)$hit;
+    }
+    private function onLeave(string $partner,array $members,string $day): array
+    {
+        if (!$members) return [];
+        $query=$this->db->prepare('SELECT member_id,starts,ends FROM clinic_staff_plan WHERE partner_id=? AND kind=\'leave\' AND status=\'approved\' AND starts<? AND ends>? AND member_id IN ('.implode(',',array_fill(0,count($members),'?')).')');
+        $query->execute([$partner,$day.' 23:59:59',$day.' 00:00:00',...$members]);
+        $leave=[];
+        foreach ($query->fetchAll(PDO::FETCH_ASSOC) as $row) $leave[$row['member_id']][]=[substr($row['starts'],0,16),substr($row['ends'],0,16)];
+        return $leave;
+    }
+    public function slots(array $site,array $draft,string $branch,string $day,?object $state=null,string $staff='',string $ignore=''): array
     {
         $rules=$draft['booking']??[];
         $start=date_create_immutable_from_format('!Y-m-d',$day,new DateTimeZone('Europe/Istanbul'));
@@ -188,7 +219,15 @@ final class WebBooking
         $roster=$provider!==''?$this->web->roster($site['partner_id'],$branch):[];
         if ($provider!=='' && !isset($roster[$provider])) return [];
         $providerHours=$rules['providerHours'][$branch][$start->format('N')]??[];
-        $busy=array_filter($state->appointments??[],static fn($row)=>$row->branch===$dataBranch && $row->date===$day && self::booked($row));
+        $busy=array_filter($state->appointments??[],static fn($row)=>$row->branch===$dataBranch && $row->date===$day && self::booked($row) && ($ignore==='' || ($row->id??'')!==$ignore));
+        $team=$provider===''?$this->staffOptions($site,$draft,$branch):[];
+        if ($staff!=='' && !isset($team[$staff])) return [];
+        if ($team) {
+            // Personel kipinde her çalışan ayrı bir takvimdir; adı eşleşmeyen (atanmamış) randevular ortak kapasiteden düşer.
+            $everyone=array_map([self::class,'person'],$this->web->roster($site['partner_id'],$branch));
+            $keys=array_map([self::class,'person'],$team);
+            $leave=$this->onLeave($site['partner_id'],array_map('strval',array_keys($team)),$day);
+        }
         $times=[];
         foreach ($rules['hours'][$branch][$start->format('N')]??[] as [$from,$to]) {
             $startMinute=self::minutes($from);$endMinute=self::minutes($to);
@@ -198,6 +237,21 @@ final class WebBooking
                 $end=self::clock($minute+$duration);
                 if ($provider!=='' && !array_filter($providerHours,static fn($range)=>$range[0]<=$time && $end<=$range[1])) continue;
                 $slot=(object)['id'=>'','branch'=>$dataBranch,'date'=>$day,'time'=>$time,'endTime'=>$end,'clinician'=>$roster[$provider]??'Klinik ataması bekleniyor'];
+                if ($team) {
+                    $free=$team;$shared=0;
+                    foreach ($busy as $other) if (self::overlap($slot,$other)) {
+                        $who=self::person($other->clinician??'');
+                        $hit=$who===''?false:array_search($who,$keys,true);
+                        if ($hit!==false) unset($free[$hit]); elseif ($who==='' || !in_array($who,$everyone,true)) $shared++;
+                    }
+                    foreach ($leave as $member=>$ranges) foreach ($ranges as [$from,$to]) {
+                        if ($from<$day.' '.$end && $day.' '.$time<$to) unset($free[$member]);
+                    }
+                    if (count($free)-$shared<1 || ($staff!=='' && !isset($free[$staff]))) continue;
+                    $slot->clinician=$staff!==''?$team[$staff]:reset($free);
+                    $times[$time]=$slot;
+                    continue;
+                }
                 foreach ($busy as $other) if (self::overlap($slot,$other)) continue 2;
                 $times[$time]=$slot;
             }
@@ -236,7 +290,8 @@ final class WebBooking
                     ($row->status??'')!=='Pasif' && in_array($row->id,$draft['booking']['branches']??[],true)));
                 if (count($enabled)===1) $requested=$enabled[0]->id;
             }
-            $slot=$state?$this->slots($site,$draft,$requested,$day,$state)[$time]??null:null;
+            $staff=WebBuilder::text($post['staff']??'',80);
+            $slot=$state?$this->slots($site,$draft,$requested,$day,$state,$staff)[$time]??null:null;
             if (!$slot) throw new RuntimeException('Bu saat artık uygun değil. Başka bir saat seçin.',409);
             $slot->client='';
             $slot->patient='';

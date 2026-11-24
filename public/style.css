@@ -1015,3 +1015,13 @@ body[data-clinic-palette]:has(#main) .clinic-delete-dialog .button.clinic-delete
 }
 .kv-metric-data:has(.metric-privacy){grid-template-rows:auto minmax(0,1fr) auto}
 .kv-metric-data:has(.metric-privacy)>small{margin:2px 9px 6px}
+/* Personel görünümü: her personel bir sütun, randevuları kendi sütununda */
+.staff-grid{min-width:calc(56px + var(--staff-cols,3)*190px)}
+.staff-grid thead th.staff-head{vertical-align:bottom;padding:10px 6px 8px}
+.staff-head>span,.staff-head>small{display:block}
+.staff-avatar{width:34px;height:34px;margin:0 auto 6px;border-radius:50%;display:grid!important;place-items:center;font-weight:700;font-size:.8rem;color:#fff;background:linear-gradient(135deg,var(--accent),var(--ocean))}
+.staff-unassigned .staff-avatar{background:var(--muted,#8a8698)}
+.staff-name{font-weight:650;overflow-wrap:anywhere}
+.staff-head small{font-weight:400;opacity:.75;margin-top:2px}
+.schedule-grid td.staff-unassigned{background:repeating-linear-gradient(135deg,transparent 0 8px,color-mix(in srgb,currentColor 4%,transparent) 8px 16px)}
+@media (max-width:700px){.staff-grid{min-width:calc(48px + var(--staff-cols,3)*150px)}}
