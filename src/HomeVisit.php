@@ -95,6 +95,22 @@ final class HomeVisit
         return $this->workspaces->load('partner:'.$partner);
     }
 
+    /**
+     * Yetki ve talep doğrulaması için hafif durum: şubeler, ayarlar, hasta sahibinin kendi müşteri kaydı ve
+     * istenen hastalar. Büyük klinikte tüm alanı yüklemez; bir satır bulunamazsa güvenli tam yüklemeye geçer.
+     */
+    public function accessState(string $partner,?array $actor,array $patients=[]): ?object
+    {
+        $customer=($actor['role']??'')==='customer'?(string)($actor['customer_id']??''):'';
+        $wanted=['clients'=>$customer===''?[]:[$customer],'patients'=>array_values(array_filter($patients,static fn($id)=>is_string($id)&&$id!==''))];
+        $state=(new ClinicRecords($this->db))->slice('partner:'.$partner,$wanted);
+        if ($state) foreach ($wanted as $collection=>$ids) {
+            $found=array_column($state->$collection,null,'id');
+            foreach ($ids as $id) if (!isset($found[$id])) return $this->workspace($partner)['state'];
+        }
+        return $state ?? $this->workspace($partner)['state'];
+    }
+
     public function lock(string $partner): void
     {
         if (!$this->web->query('SELECT id FROM partner_account WHERE id=? AND active=1 FOR UPDATE',[$partner])->fetchColumn()) {
@@ -217,7 +233,7 @@ final class HomeVisit
                 throw new RuntimeException('Evde hizmet başvurusu kapalı.',403);
             }
             if (($post['consent']??'')!=='yes'||($post['address_confirm']??'')!=='yes') throw new RuntimeException('Adres doğruluğu ve aydınlatma metnini onaylayın.',422);
-            $state=$this->workspace($partner)['state'];
+            $state=$this->accessState($partner,$actor,$actor?[self::text($post['patient']??'',80)]:[]);
             $branch=self::text($post['branch']??'',80);
             $branches=array_values(array_filter($state->branches??[],static fn($row)=>($row->status??'')!=='Pasif'));
             if ($branch==='' && count($branches)===1) $branch=$branches[0]->id;

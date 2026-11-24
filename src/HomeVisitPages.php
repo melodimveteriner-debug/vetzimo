@@ -419,7 +419,7 @@ final class HomeVisitPages
             if ($settingsPage && $actor['role']!=='dealer') self::settingsError('Evde Hizmet ayarlarını değiştirmek için bayi yöneticisi hesabıyla giriş yapın.',403);
             if ($owner!==($actor['role']==='customer')) throw new RuntimeException('Hesap yetkiniz yeterli değil.',403);
             if ($owner) self::$surfacePalette=(new Appearance($this->db))->read()['palette']?:'classic';
-            $state=$this->visits->workspace($actor['partner_id'])['state'];
+            $state=$this->visits->accessState($actor['partner_id'],$actor);
             if (!ClinicAccess::valid($actor,$state)) {
                 if ($settingsPage) self::settingsError('Çalışma alanı doğrulanamadı. Hesabınızla yeniden giriş yapın.',403);
                 throw new RuntimeException('Çalışma alanı doğrulanamadı.',403);

@@ -21,6 +21,7 @@ fresh test_roles empty;     run roles.php   env VETNET_TEST_DSN='mysql:host=127.
 fresh test_partial empty;  run partial-save.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_partial' php tests/partial-save.php
 fresh test_triage empty;  run homecare-triage.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_triage' php tests/homecare-triage.php
 command -v node >/dev/null && run homecare-triage.mjs node tests/homecare-triage.mjs
+fresh test_visit empty;    run home-visit.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_visit' php tests/home-visit.php
 fresh test_center empty;   run center.php  env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_center' php tests/center.php
 if command -v node >/dev/null; then
   fx=$(mktemp); node tests/finance-fixtures.mjs "$fx" >/dev/null 2>&1 && run finance.php php tests/finance.php "$fx"; rm -f "$fx"
