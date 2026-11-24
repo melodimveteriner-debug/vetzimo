@@ -12,7 +12,7 @@ use VetNet\Cpanel\SessionRepository;
 
 require_once dirname(__DIR__).'/src/StaffPlan.php';
 
-foreach (['NativeApp','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','CreditShop','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','PrintTemplates','Support','Commerce','Appearance'] as $class) {
+foreach (['NativeApp','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','CreditShop','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','PrintTemplates','Support','Commerce','Appearance'] as $class) {
     require dirname(__DIR__) . '/src/' . $class . '.php';
 }
 
@@ -719,6 +719,38 @@ try {
         }
         $actor=(new VetNet\Cpanel\Commerce($db))->packageActor($actor);
         reply($identity->examPhotos($actor,$examRoute[1],$method==='POST'?input(2800000):null));
+    }
+    if ($path==='/api/consents' && in_array($method,['GET','POST'],true)) {
+        // Dijital onam: klinik hazırlar/iptal eder/klinikte imzalatır; hasta sahibi kendi formunu imzalar veya reddeder.
+        $actor=$identity->actor($_COOKIE,$now);
+        if ($method==='POST' && !hash_equals($actor['membership_id'] ?? '',$_SERVER['HTTP_X_VETNET_SCOPE'] ?? '')) {
+            throw new RuntimeException('Çalışma alanı oturumu değişti.',409);
+        }
+        if ($actor['role']!=='customer') $actor=(new VetNet\Cpanel\Commerce($db))->packageActor($actor);
+        else if ($method==='POST') (new DealerLogin($db,$config['rateSecret']))->throttle('consent:'.$actor['account_id'],$now);
+        $consents=new VetNet\Cpanel\ClinicConsent($db);
+        try {
+            if ($method==='GET') {
+                $id=$_GET['id'] ?? '';
+                if (is_string($id) && $id!=='') reply($consents->get($actor,$id));
+                if ($actor['role']==='customer') reply(['items'=>$consents->ownerList($actor)]);
+                reply($consents->list($actor,array_map(static fn($v)=>is_string($v)?$v:'',array_intersect_key($_GET,array_flip(['patient','customer','record','status'])))));
+            }
+            $body=input(450000);
+            $op=$body->action ?? '';
+            $id=is_string($body->id ?? null)?$body->id:'';
+            if ($actor['role']==='customer') {
+                if ($op!=='decide') throw new RuntimeException('İşlem geçersiz.',422);
+                reply($consents->ownerDecide($actor,$id,$body,$now,$_SERVER));
+            }
+            if ($op==='create') reply($consents->create($actor,$body,$now));
+            if ($op==='cancel') reply($consents->cancel($actor,$id,$now));
+            if ($op==='decide') reply($consents->signInClinic($actor,$id,$body,$now,$_SERVER));
+            throw new RuntimeException('İşlem geçersiz.',422);
+        } catch (PDOException $error) {
+            if ($error->getCode()==='42S02') throw new RuntimeException('Onam tablosu henüz kurulmadı; güncellemeyi tamamlayın.',503);
+            throw $error;
+        }
     }
     if (str_starts_with($path,'/api/identity/')) {
         $actor=$identity->actor($_COOKIE,$now);

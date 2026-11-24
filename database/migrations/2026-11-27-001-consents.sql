@@ -1,0 +1,30 @@
+-- Dijital onam formları: klinik hazırlar, hasta sahibi portalda ya da klinikte imzalar.
+-- Metin oluşturulduğu anda SHA-256 ile mühürlenir, imzalı form değiştirilemez.
+CREATE TABLE IF NOT EXISTS clinic_consent (
+  id char(32) CHARACTER SET ascii NOT NULL,
+  partner_id varchar(80) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  branch_id varchar(80) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  customer_id varchar(80) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  patient_id varchar(80) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  record_type varchar(20) CHARACTER SET ascii NOT NULL DEFAULT '',
+  record_id varchar(80) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT '',
+  title varchar(200) NOT NULL,
+  body mediumtext NOT NULL,
+  body_hash char(64) CHARACTER SET ascii NOT NULL,
+  status varchar(12) CHARACTER SET ascii NOT NULL DEFAULT 'pending',
+  created_by varchar(120) NOT NULL DEFAULT '',
+  created_at int unsigned NOT NULL,
+  decided_at int unsigned DEFAULT NULL,
+  signer_name varchar(120) NOT NULL DEFAULT '',
+  signer_channel varchar(10) CHARACTER SET ascii NOT NULL DEFAULT '',
+  signer_ip varchar(64) CHARACTER SET ascii NOT NULL DEFAULT '',
+  signer_agent varchar(255) NOT NULL DEFAULT '',
+  signature mediumtext DEFAULT NULL,
+  note varchar(500) NOT NULL DEFAULT '',
+  PRIMARY KEY (id),
+  KEY clinic_consent_customer (partner_id, customer_id, created_at),
+  KEY clinic_consent_patient (partner_id, patient_id, created_at),
+  KEY clinic_consent_record (partner_id, record_type, record_id),
+  KEY clinic_consent_status (partner_id, branch_id, status, created_at),
+  CONSTRAINT clinic_consent_partner FOREIGN KEY (partner_id) REFERENCES partner_account (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

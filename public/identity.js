@@ -7,6 +7,7 @@ import {mountAccessLayout} from "./access-layout.js?v=20261123-r64";
 import {paginate} from "./paged.js";
 import {mountCenterSuite,opsFetch} from "./center-ops.js";
 import {vaccineLabels} from "./vaccine-progress.js";
+import {openSignDialog,openConsentViewer,consentStatus} from "./consent-sign.js?v=1";
 const view=document.querySelector("#view");
 const status=document.querySelector("#status");
 const captchaBox=document.querySelector("#captcha");
@@ -533,6 +534,7 @@ async function portal() {
   }
   pets.append(data.pets.length?petGrid:el("p",uiLabel("Bağlı hasta kaydı yok.")));
   overview.append(pets);
+  if (session.scopeId) mountOwnerConsents({overview,panel,show,names,scope:session.scopeId,ownerName:data.name});
   if(data.homeCare===true&&names.size&&session.scopeId){
     const section=el("section","",{className:"identity-card"});
     const observations=el("div");
@@ -846,4 +848,61 @@ if (route==="/iletisim") {
     accessHeading("VetZimo erişimi",error.message,"Hesap erişimi");
   } else heading("VetZimo erişimi",error.message);
   view.append(link("Giriş ekranı","/app"));
+}
+
+// Dijital onam: klinik tarafından gönderilen formlar. Bekleyenler genel bakışta öne çıkar, imza bu sayfada atılır.
+async function mountOwnerConsents({overview,panel,show,names,scope,ownerName}) {
+  const request=async(url,body)=>{
+    const response=await fetch(url,body?{method:"POST",headers:{"Content-Type":"application/json","X-VeTNeT-Scope":scope},body:JSON.stringify(body)}:{});
+    const data=await response.json().catch(()=>({}));
+    if (!response.ok) throw Object.assign(Error(data.error||uiLabel("İşlem tamamlanamadı.")),{status:response.status});
+    return data;
+  };
+  let items;
+  try { items=(await request("/api/consents")).items||[]; } catch { return; }
+  if (!items.length) return;
+  const section=el("section","",{className:"identity-card owner-consents"});
+  const alert=el("section","",{className:"owner-consent-alert",role:"status"});
+  const fmt=t=>t?new Intl.DateTimeFormat(uiLanguage,{dateStyle:"medium",timeStyle:"short"}).format(new Date(t*1000)):"";
+  const open=async item=>{
+    try {
+      const full=await request("/api/consents?id="+encodeURIComponent(item.id));
+      if (full.status==="pending") {
+        const done=await openSignDialog({consent:full,tr:uiLabel,defaultName:ownerName||"",subtitle:names.get(full.patient)||"",
+          submit:payload=>request("/api/consents",{action:"decide",id:full.id,...payload})});
+        if (done) { Object.assign(item,done); draw(); }
+      } else openConsentViewer({consent:full,tr:uiLabel,meta:{patient:names.get(full.patient)||"",owner:ownerName||""}});
+    } catch (error) { alert.textContent=error.message; }
+  };
+  function draw() {
+    const pending=items.filter(i=>i.status==="pending");
+    alert.replaceChildren();
+    alert.hidden=!pending.length;
+    if (pending.length) {
+      alert.append(el("strong",uiLabel("İmzanızı bekleyen onam formu var")+" ("+pending.length+")"));
+      const go=el("button",uiLabel("Formu oku ve imzala"),{type:"button"});
+      go.addEventListener("click",()=>{show("consents");open(pending[0]);});
+      alert.append(go);
+    }
+    const list=el("ul","",{className:"owner-consent-list"});
+    for (const item of items) {
+      const row=el("li","",{className:"owner-consent"});
+      row.dataset.status=item.status;
+      const text=el("div");
+      const title=el("strong",item.title);
+      title.setAttribute("data-ui-preserve","");
+      text.append(title,el("span",[names.get(item.patient),uiLabel(consentStatus[item.status]||item.status),fmt(item.decidedAt||item.createdAt)].filter(Boolean).join(" · ")));
+      const action=el("button",uiLabel(item.status==="pending"?"Oku ve imzala":"Görüntüle"),{type:"button",className:item.status==="pending"?"":"secondary"});
+      action.addEventListener("click",()=>open(item));
+      row.append(text,action);
+      list.append(row);
+    }
+    section.replaceChildren(el("h2",uiLabel("Onam formlarım")),el("p",uiLabel("Kliniğinizin hazırladığı onam formlarını okuyup elektronik olarak imzalayabilirsiniz."),{className:"muted"}),list);
+  }
+  draw();
+  overview.prepend(alert);
+  panel("consents","Onam formları").append(section);
+  const wanted=new URLSearchParams(location.search).get("onam");
+  const target=items.find(i=>i.id===wanted);
+  if (target) { show("consents"); open(target); }
 }
