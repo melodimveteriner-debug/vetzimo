@@ -20,7 +20,7 @@ final class Appearance
     public function save(string $key, object $body): array
     {
         $palette = $body->palette ?? null;
-        if (!in_array($palette,['','classic','blue','olive','coral','orchid','aurora','dark','midnight'],true)) {
+        if (!in_array($palette,['','classic','blue','olive','coral','orchid','aurora','prizma','nebula','dark','midnight'],true)) {
             throw new RuntimeException('Geçerli bir tema seçin.',422);
         }
         $locked = $key === 'global' && ($body->locked ?? false) === true;

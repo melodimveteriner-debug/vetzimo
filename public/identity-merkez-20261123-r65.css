@@ -165,6 +165,8 @@ body:not(.center-suite):not(.login-surface)[data-identity-palette=dark] :is(a,.m
 .center-suite[data-center-palette="coral"]{--admin-bg:#fdf1f1;--admin-ink:#412337;--admin-muted:#715261;--admin-line:#efd9df;--admin-brand:#a43654;--admin-sidebar:#742743;--admin-sidebar-ink:#fff0f5}
 .center-suite[data-center-palette="orchid"]{--admin-bg:#f6f0ff;--admin-ink:#302349;--admin-muted:#665881;--admin-line:#e7dcf5;--admin-brand:#713fa9;--admin-sidebar:#51317d;--admin-sidebar-ink:#f9f2ff}
 .center-suite[data-center-palette="midnight"]{--admin-bg:#211827;--admin-card:#302539;--admin-ink:#f7eff9;--admin-muted:#d6bedf;--admin-line:#574361;--admin-brand:#e6bdf3;--admin-sidebar:#301e3a;--admin-sidebar-ink:#f8eafa}
+.center-suite[data-center-palette="prizma"]{--admin-bg:#f7f5fe;--admin-ink:#1b1640;--admin-muted:#544e72;--admin-line:#e4defa;--admin-brand:#6a3df0;--admin-sidebar:#4b2bc0;--admin-sidebar-ink:#fff}
+.center-suite[data-center-palette="nebula"]{--admin-bg:#0c0b1d;--admin-card:#16142e;--admin-ink:#f1eeff;--admin-muted:#bcb6e0;--admin-line:#352e63;--admin-brand:#b9a8ff;--admin-sidebar:#1a1640;--admin-sidebar-ink:#f1eeff}
 .center-suite[data-center-palette="dark"]{--admin-bg:#15232b;--admin-card:#21333c;--admin-ink:#eff9fb;--admin-muted:#b5cbd4;--admin-line:#385361;--admin-brand:#a6dcea;--admin-sidebar:#102d39;--admin-sidebar-ink:#eff9fb}
 .center-suite .center-main button[type="submit"]{background:var(--admin-sidebar);color:var(--admin-sidebar-ink)}
 .center-suite .center-chart-row{grid-template-columns:minmax(66px,100px) minmax(24px,1fr) auto}

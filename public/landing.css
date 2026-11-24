@@ -1,6 +1,6 @@
 /* VetZimo açılış sayfası · kendi renk sistemi: varsayılan Aurora (mor-turkuaz), Gece/Mürdüm temalarında koyu sürüm. */
 .lp{--lp-bg:#fbfaff;--lp-ink:#17132e;--lp-muted:#56507a;--lp-line:#e4def8;--lp-card:#ffffff;--lp-tint:#f1edff;--lp-a:#5b3fd6;--lp-a2:#4c32c4;--lp-deep:#120d33;--lp-shadow:0 22px 60px #2a1d7a1f;background:var(--lp-bg);color:var(--lp-ink)}
-:root:is([data-theme=dark],[data-theme=midnight]) .lp{--lp-bg:#0c0a1f;--lp-ink:#f1eeff;--lp-muted:#b7b0d9;--lp-line:#2c2650;--lp-card:#151231;--lp-tint:#211c47;--lp-a:#a996ff;--lp-a2:#6d55e8;--lp-deep:#07051a;--lp-shadow:0 22px 60px #0009}
+:root:is([data-theme=dark],[data-theme=midnight],[data-theme=nebula]) .lp{--lp-bg:#0c0a1f;--lp-ink:#f1eeff;--lp-muted:#b7b0d9;--lp-line:#2c2650;--lp-card:#151231;--lp-tint:#211c47;--lp-a:#a996ff;--lp-a2:#6d55e8;--lp-deep:#07051a;--lp-shadow:0 22px 60px #0009}
 .lp p{color:var(--lp-muted)}
 .lp{--v:#7c3aed;--t:#0ea5a4;--o:#f97316;--p:#ec4899;--b:#2563eb;--r:22px;overflow-x:clip}
 .lp .wrap{width:min(1200px,calc(100% - 2.5rem))}

@@ -1,0 +1,163 @@
+/* VetZimo tema stüdyosu: Prizma (açık) ve Nebula (koyu) temaları için hareket ve derinlik katmanı.
+   Yalnız bu iki palet seçiliyken etkindir. Hareket azaltma tercihi ve yazdırma için sade görünüm korunur.
+   Not: bu dosya theme-studio.src.css kaynağından üretilir; :root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) = iki tema, :root body[data-clinic-palette=prizma]:has(#main) = Prizma, :root body[data-clinic-palette=nebula]:has(#main) = Nebula. */
+
+/* ——— Ortak katman ——— */
+:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main){
+  --vz-a:var(--theme-glow-a);--vz-b:var(--theme-glow-b);--vz-c:var(--theme-glow-c);
+  --vz-grad:linear-gradient(120deg,var(--theme-primary),var(--theme-secondary));
+  --vz-grad-wide:linear-gradient(115deg,#5b2ee0,#c4306e 55%,#0b7f99);
+  --vz-grad-text:var(--vz-grad-wide);
+  --vz-radius:18px;
+  --vz-shadow:0 1px 2px rgb(20 12 60 / .05),0 12px 32px -18px color-mix(in srgb,var(--theme-primary) 55%,transparent);
+  --vz-shadow-hover:0 2px 4px rgb(20 12 60 / .06),0 22px 44px -20px color-mix(in srgb,var(--theme-primary) 70%,transparent);
+  background:var(--theme-work);
+  scrollbar-color:color-mix(in srgb,var(--theme-primary) 55%,transparent) transparent;
+}
+:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main)::selection{background:color-mix(in srgb,var(--theme-primary) 30%,transparent)}
+
+/* Süzülen renk bulutları: yalnız dönüşüm ve saydamlık hareket eder (ekran kartı çizer, işlemci yorulmaz). */
+:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main)::before{
+  content:"";position:fixed;inset:-20vmax;z-index:-1;pointer-events:none;
+  background:
+    radial-gradient(38vmax 32vmax at 18% 22%,color-mix(in srgb,var(--vz-a) 34%,transparent),transparent 70%),
+    radial-gradient(34vmax 30vmax at 82% 18%,color-mix(in srgb,var(--vz-b) 22%,transparent),transparent 70%),
+    radial-gradient(40vmax 34vmax at 70% 85%,color-mix(in srgb,var(--vz-c) 22%,transparent),transparent 70%);
+  animation:vz-drift 32s ease-in-out infinite alternate;
+  will-change:transform;
+}
+@keyframes vz-drift{
+  0%{transform:translate3d(0,0,0) rotate(0deg) scale(1)}
+  50%{transform:translate3d(3vmax,-2vmax,0) rotate(8deg) scale(1.06)}
+  100%{transform:translate3d(-3vmax,2vmax,0) rotate(-6deg) scale(1.02)}
+}
+:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) :is(.layout,.workspace,main){background:transparent}
+
+/* Üst çubuk: canlı renk geçişi ve aralıklı ışık süpürmesi */
+:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) .topbar{background:var(--vz-grad-wide);box-shadow:0 10px 30px -18px var(--vz-a);border-bottom:0}
+
+/* Kenar menüsü */
+:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) #sidebar{background:color-mix(in srgb,var(--theme-paper) 82%,transparent);backdrop-filter:blur(14px) saturate(1.4);-webkit-backdrop-filter:blur(14px) saturate(1.4);border-right:1px solid color-mix(in srgb,var(--theme-line) 70%,transparent)}
+:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) #sidebar .nav-item{border-radius:12px;transition:background-color .25s,color .25s,transform .25s cubic-bezier(.2,.8,.2,1)}
+:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) #sidebar .nav-item:hover{background:color-mix(in srgb,var(--theme-primary) 10%,transparent);color:var(--theme-ink);transform:translateX(3px)}
+:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) #sidebar .nav-item:is(.active,[aria-current=page]){background:var(--vz-grad);color:#fff;box-shadow:0 8px 20px -10px var(--vz-a)}
+:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) #sidebar .nav-item:is(.active,[aria-current=page]) :is(svg,span){color:#fff}
+
+/* Genel bakış vitrini: renk geçişli kart, süzülen ışık küreleri */
+:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) .kv-welcome{position:relative;isolation:isolate;overflow:hidden;border-radius:24px;padding:clamp(18px,3vw,30px);background:var(--vz-grad-wide);box-shadow:0 24px 50px -28px var(--vz-a);color:#fff}
+:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) .kv-welcome::before,:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) .kv-welcome::after{content:"";position:absolute;z-index:-1;border-radius:50%;pointer-events:none}
+:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) .kv-welcome::before{width:340px;height:340px;right:-80px;top:-160px;background:radial-gradient(circle at 35% 35%,rgb(255 255 255 / .55),rgb(255 255 255 / 0) 62%);animation:vz-orb 14s ease-in-out infinite alternate}
+:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) .kv-welcome::after{width:260px;height:260px;left:30%;bottom:-170px;background:radial-gradient(circle at 50% 50%,color-mix(in srgb,var(--vz-c) 70%,#fff),transparent 65%);opacity:.55;animation:vz-orb 18s ease-in-out infinite alternate-reverse}
+@keyframes vz-orb{from{transform:translate3d(0,0,0) scale(1)}to{transform:translate3d(-60px,40px,0) scale(1.15)}}
+:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) main .kv-welcome :is(h1,.eyebrow,p){color:#fff;text-shadow:0 1px 18px rgb(0 0 0 / .18)}
+:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) main .kv-welcome h1{font-size:clamp(1.6rem,3.2vw,2.4rem)}
+:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) .kv-welcome .clinic-weather{background:rgb(255 255 255 / .16);border:1px solid rgb(255 255 255 / .35);color:#fff;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-radius:18px}
+:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) .kv-welcome .clinic-weather :is(strong,span,button){color:#fff}
+
+/* Sayfa başlıkları ve küçük etiketler */
+:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) main .page-head h1{background:var(--vz-grad-text);-webkit-background-clip:text;background-clip:text;color:transparent;letter-spacing:-.02em}
+:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) main :not(.kv-welcome-copy)>.eyebrow{color:var(--theme-on,var(--theme-primary));letter-spacing:.12em}
+
+/* Paneller: renk geçişli ince kenar, yumuşak gölge, imleci izleyen parıltı */
+:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) .panel{
+  border:1px solid transparent;border-radius:var(--vz-radius);box-shadow:var(--vz-shadow);
+  background:
+    radial-gradient(420px circle at var(--vz-mx,-500px) var(--vz-my,-500px),color-mix(in srgb,var(--vz-a) 9%,transparent),transparent 65%) padding-box,
+    linear-gradient(var(--theme-paper),var(--theme-paper)) padding-box,
+    linear-gradient(135deg,color-mix(in srgb,var(--vz-a) 45%,var(--theme-line)),var(--theme-line) 40%,var(--theme-line) 60%,color-mix(in srgb,var(--vz-c) 45%,var(--theme-line))) border-box;
+  transition:box-shadow .35s,transform .35s cubic-bezier(.2,.8,.2,1);
+}
+:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) :is(.kv-metric,.kv-quick,.kv-work-card,.suite-metric,.metric):hover{transform:translateY(-3px);box-shadow:var(--vz-shadow-hover)}
+:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) .kv-metric strong{background:var(--vz-grad-text);-webkit-background-clip:text;background-clip:text;color:transparent}
+
+/* Düğmeler */
+:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) .button{border-radius:12px;transition:transform .2s,box-shadow .25s,background-color .25s,border-color .25s}
+:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) .button:not(.primary):hover{border-color:color-mix(in srgb,var(--theme-primary) 45%,var(--theme-line));box-shadow:0 6px 16px -10px var(--vz-a)}
+:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) .button.primary{position:relative;overflow:hidden;background:var(--vz-grad);border-color:transparent;box-shadow:0 10px 22px -12px var(--vz-a)}
+:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) .button.primary::after{content:"";position:absolute;inset:0;background:linear-gradient(110deg,transparent 30%,rgb(255 255 255 / .35) 50%,transparent 70%);transform:translateX(-120%);transition:transform .7s ease;pointer-events:none}
+:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) .button.primary:hover{transform:translateY(-1px);box-shadow:0 14px 28px -12px var(--vz-a)}
+:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) .button.primary:hover::after{transform:translateX(120%)}
+:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) .button:active{transform:translateY(0) scale(.98)}
+
+/* Form alanları */
+:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) :is(input:not([type=checkbox]):not([type=radio]),select,textarea){border-radius:12px;transition:border-color .2s,box-shadow .2s}
+:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) :is(input:not([type=checkbox]):not([type=radio]),select,textarea):focus{border-color:var(--theme-primary);box-shadow:0 0 0 4px color-mix(in srgb,var(--theme-primary) 18%,transparent);outline:none}
+:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) :is(input[type=checkbox],input[type=radio]){accent-color:var(--theme-primary)}
+
+/* Tablolar */
+:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) .table-wrap thead th{background:color-mix(in srgb,var(--theme-primary) 7%,var(--theme-paper));color:var(--theme-muted);letter-spacing:.03em}
+:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) .table-wrap tbody tr{transition:background-color .2s,box-shadow .2s}
+:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) .table-wrap tbody tr:hover{background:color-mix(in srgb,var(--theme-primary) 6%,var(--theme-paper));box-shadow:inset 3px 0 0 var(--theme-primary)}
+:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) .vet-pages button[aria-current=page]{background:var(--vz-grad);color:#fff;border-color:transparent}
+
+/* Modül sekmeleri ve rozetler */
+:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) #main .module-nav a{border-radius:999px;transition:background-color .2s,color .2s,transform .2s}
+:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) #main .module-nav a:hover{transform:translateY(-1px)}
+:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) #main .module-nav a:is(.active,.current,[aria-current=page]){background:var(--vz-grad);color:#fff}
+:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) .avatar{box-shadow:0 0 0 2px var(--theme-paper),0 0 0 4px color-mix(in srgb,var(--vz-a) 55%,transparent)}
+
+/* VeBot düğmesi: yavaş dönen ışık halkası */
+:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) .vebot-launcher{background:var(--vz-grad);box-shadow:0 12px 30px -10px var(--vz-a)}
+:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) .vebot-launcher::before{content:"";position:absolute;inset:-4px;border-radius:inherit;background:conic-gradient(from 0deg,var(--vz-a),var(--vz-b),var(--vz-c),var(--vz-a));z-index:-1;animation:vz-spin 6s linear infinite;opacity:.75;filter:blur(3px)}
+@keyframes vz-spin{to{transform:rotate(1turn)}}
+
+/* Sayfa değişiminde içeriğin kademeli belirmesi (yalnız yeni ekrana geçerken) */
+:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) main.vz-enter>*{animation:vz-rise .6s cubic-bezier(.2,.8,.2,1) both}
+:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) main.vz-enter>*:nth-child(2){animation-delay:.06s}
+:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) main.vz-enter>*:nth-child(3){animation-delay:.12s}
+:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) main.vz-enter>*:nth-child(4){animation-delay:.18s}
+:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) main.vz-enter>*:nth-child(n+5){animation-delay:.24s}
+:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) main.vz-enter .kv-metrics>*{animation:vz-rise .7s cubic-bezier(.2,.8,.2,1) both}
+:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) main.vz-enter .kv-metrics>*:nth-child(2){animation-delay:.1s}
+:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) main.vz-enter .kv-metrics>*:nth-child(3){animation-delay:.2s}
+@keyframes vz-rise{from{opacity:0;transform:translateY(14px) scale(.985)}to{opacity:1;transform:none}}
+
+/* ——— Prizma: aydınlık, canlı ——— */
+:root body[data-clinic-palette=prizma]:has(#main) .topbar{color:#fff}
+:root body[data-clinic-palette=prizma]:has(#main) #sidebar .nav-item:not(.active):not([aria-current=page]){color:#3d3760}
+
+/* ——— Nebula: derin gece, neon ve yıldızlar ——— */
+:root body[data-clinic-palette=nebula]:has(#main){--vz-grad-wide:linear-gradient(115deg,#5a3ae6,#0b7f99 55%,#a3266b);--vz-grad-text:linear-gradient(115deg,#c4b5fd,#67e8f9 55%,#f9a8d4)}
+:root body[data-clinic-palette=nebula]:has(#main)::after{
+  content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.55;
+  background-image:
+    radial-gradient(1px 1px at 12% 18%,#fff 50%,transparent 51%),radial-gradient(1px 1px at 38% 72%,#fff 50%,transparent 51%),
+    radial-gradient(1.5px 1.5px at 64% 30%,#cfc4ff 50%,transparent 51%),radial-gradient(1px 1px at 86% 62%,#fff 50%,transparent 51%),
+    radial-gradient(1.5px 1.5px at 24% 88%,#a5f3fc 50%,transparent 51%),radial-gradient(1px 1px at 74% 90%,#fff 50%,transparent 51%),
+    radial-gradient(1px 1px at 52% 8%,#fff 50%,transparent 51%),radial-gradient(1.5px 1.5px at 92% 12%,#f5d0fe 50%,transparent 51%);
+  background-size:620px 620px;
+  animation:vz-twinkle 7s ease-in-out infinite alternate;
+}
+@keyframes vz-twinkle{from{opacity:.3}to{opacity:.7}}
+:root body[data-clinic-palette=nebula]:has(#main) .panel{box-shadow:0 0 0 1px rgb(255 255 255 / .02),0 18px 40px -22px rgb(0 0 0 / .9),0 0 32px -18px color-mix(in srgb,var(--vz-a) 60%,transparent)}
+:root body[data-clinic-palette=nebula]:has(#main) :is(.kv-metric,.kv-quick,.kv-work-card,.suite-metric,.metric):hover{box-shadow:0 22px 44px -20px rgb(0 0 0 / .9),0 0 36px -12px color-mix(in srgb,var(--vz-b) 55%,transparent)}
+:root body[data-clinic-palette=nebula]:has(#main) #sidebar .nav-item:not(.active):not([aria-current=page]){color:var(--theme-muted)}
+:root body[data-clinic-palette=nebula]:has(#main) #sidebar .nav-item:not(.active):not([aria-current=page]):hover{color:var(--theme-ink)}
+:root body[data-clinic-palette=nebula]:has(#main) .button:not(.primary){background:color-mix(in srgb,var(--theme-paper) 85%,var(--theme-primary));color:var(--theme-ink);border-color:var(--theme-line)}
+:root body[data-clinic-palette=nebula]:has(#main) .table-wrap tbody tr:hover{box-shadow:inset 3px 0 0 var(--vz-b)}
+:root body[data-clinic-palette=nebula]:has(#main) :is(input:not([type=checkbox]):not([type=radio]),select,textarea):focus{border-color:var(--vz-b);box-shadow:0 0 0 4px color-mix(in srgb,var(--vz-b) 22%,transparent)}
+:root body[data-clinic-palette=nebula]:has(#main) main .page-head p{color:var(--theme-muted)}
+:root body[data-clinic-palette=nebula]:has(#main) .global-search kbd{background:var(--theme-tint);color:var(--theme-ink);border-color:var(--theme-line)}
+:root body[data-clinic-palette=nebula]:has(#main) :is(.arrow-button,.icon-button):not(.vebot-icon-button){background:var(--theme-tint);color:var(--theme-ink);border-color:var(--theme-line)}
+:root body[data-clinic-palette=nebula]:has(#main) .voice-launcher{background:linear-gradient(135deg,var(--vz-b),var(--theme-primary));color:#fff}
+
+/* Telefon: hafif hareket, yumuşak kenarlar korunur */
+@media (max-width:760px){
+  :root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main)::before{inset:-30vmax;animation-duration:44s}
+  :root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) :is(.kv-metric,.kv-quick,.kv-work-card,.suite-metric,.metric):hover{transform:none}
+  :root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) #sidebar .nav-item:hover{transform:none}
+  :root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) .kv-dashboard .kv-welcome :is(h1,p){white-space:normal;overflow:visible;text-overflow:clip}
+}
+/* Hareket azaltma tercihi: tüm hareketler durur, renkler kalır */
+@media (prefers-reduced-motion:reduce){
+  :root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main)::before,:root body[data-clinic-palette=nebula]:has(#main)::after,:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) .kv-welcome::before,:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) .kv-welcome::after,:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) .vebot-launcher::before,:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) main.vz-enter>*,:root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) main.vz-enter .kv-metrics>*{animation:none!important}
+  :root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) *{transition:none!important}
+}
+/* Yazdırma: süsler kapanır */
+@media print{
+  :root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main)::before,:root body[data-clinic-palette=nebula]:has(#main)::after{display:none!important}
+  :root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) .panel{box-shadow:none;background:#fff;border:1px solid #ccc}
+  :root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) main .page-head h1{background:none;color:#000}
+  :root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) .kv-welcome{background:none;color:#000;box-shadow:none}
+  :root :is(body[data-clinic-palette=prizma],body[data-clinic-palette=nebula]):has(#main) main .kv-welcome :is(h1,.eyebrow,p){color:#000;text-shadow:none}
+}

@@ -115,8 +115,8 @@
 .lab-insight-trends em.down{color:#1f6fb2}
 .is-notes ul{color:var(--muted,#666)}
 .lab-insight-actions{display:flex;justify-content:flex-end}
-:is([data-clinic-palette=dark],[data-clinic-palette=midnight]) .lab-insight-abnormal li.is-low em,:is([data-clinic-palette=dark],[data-clinic-palette=midnight]) .lab-insight-trends em.down{color:#7cb8f0}
-:is([data-clinic-palette=dark],[data-clinic-palette=midnight]) .lab-insight-abnormal li.is-high em,:is([data-clinic-palette=dark],[data-clinic-palette=midnight]) .lab-insight-trends em.up,:is([data-clinic-palette=dark],[data-clinic-palette=midnight]) .lab-insight-critical h4{color:#ff8a9a}
+:is([data-clinic-palette=dark],[data-clinic-palette=midnight],[data-clinic-palette=nebula]) .lab-insight-abnormal li.is-low em,:is([data-clinic-palette=dark],[data-clinic-palette=midnight],[data-clinic-palette=nebula]) .lab-insight-trends em.down{color:#7cb8f0}
+:is([data-clinic-palette=dark],[data-clinic-palette=midnight],[data-clinic-palette=nebula]) .lab-insight-abnormal li.is-high em,:is([data-clinic-palette=dark],[data-clinic-palette=midnight],[data-clinic-palette=nebula]) .lab-insight-trends em.up,:is([data-clinic-palette=dark],[data-clinic-palette=midnight],[data-clinic-palette=nebula]) .lab-insight-critical h4{color:#ff8a9a}
 @media (max-width:620px){
   .lab-insight-abnormal li{grid-template-columns:1fr 1fr}
   .lab-insight-trends li{grid-template-columns:1fr 1fr}
