@@ -31,7 +31,7 @@ export const defaults = {menu:"left",customerLabel:"Müşteriler",showPublicNote
 export const empty = () => ({
   preferences:{...defaults},
   version:1, demo:false, branches:[{id:"merkez",name:"Eskişehir Merkez",city:"Eskişehir",status:"Aktif"}],
-  clients:[], patients:[], appointments:[], exams:[], labs:[], treatments:[], followups:[], prescriptions:[], stays:[], products:[], suppliers:[], purchases:[], sales:[], collections:[], payments:[], expenses:[], templates:[],
+  clients:[], patients:[], appointments:[], exams:[], labs:[], treatments:[], followups:[], prescriptions:[], stays:[], surgeries:[], products:[], suppliers:[], purchases:[], sales:[], collections:[], payments:[], expenses:[], templates:[],
   weights:[], stockLots:[], stockMoves:[], clinicNotes:[],
   messages:[], users:[], dealers:[], activity:[], visitors:[], vaccineCatalog:[], documents:[], support:[],
 });

@@ -812,8 +812,14 @@ try {
         $actor = $workspaces->actor($_COOKIE, $now);
         $scope = $_SERVER['HTTP_X_VETNET_SCOPE'] ?? $actor['membership_id'];
         if ($scope !== $actor['membership_id']) throw new RuntimeException('Klinik oturumu değişti.', 409);
-        $workspace = (new VetNet\Cpanel\WorkspaceRepository($db))->load('partner:'.$actor['partner_id']);
-        reply((new VetNet\Cpanel\PrintTemplates($db))->listing($actor, ClinicAccess::visible($workspace['state'], $actor)));
+        // Yalnız açılan kayıt ve ilgili hasta/sahip satırları okunur; eski biçimdeki alanda tüm klinik yüklenir.
+        $ref = [];
+        foreach (['client','patient','vaccine','exam','stay','surgery','sale','purchase'] as $key) {
+            if (is_string($_GET[$key] ?? null) && preg_match('/\A[A-Za-z0-9_.:-]{1,80}\z/D', $_GET[$key])) $ref[$key] = $_GET[$key];
+        }
+        $state = (new VetNet\Cpanel\ClinicRecords($db))->printSlice('partner:'.$actor['partner_id'], $ref)
+            ?? (new VetNet\Cpanel\WorkspaceRepository($db))->load('partner:'.$actor['partner_id'])['state'];
+        reply((new VetNet\Cpanel\PrintTemplates($db))->listing($actor, ClinicAccess::visible($state, $actor)));
     }
     if ($method === 'POST' && in_array($path, ['/api/ops/templates/save', '/api/ops/templates/delete'], true)) {
         $body = input(100000);

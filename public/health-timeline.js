@@ -5,6 +5,7 @@ const categories={
   followups:{label:"Aşı ve takip",title:"title",summary:"notes"},
   prescriptions:{label:"Reçete",title:"drug"},
   stays:{label:"Yatış ve konaklama",title:"kind"},
+  surgeries:{label:"Ameliyat",title:"procedure",summary:"postop"},
   appointments:{label:"Randevu",title:"service"},
   weights:{label:"Kilo kaydı"},
 };

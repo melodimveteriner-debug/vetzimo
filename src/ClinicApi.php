@@ -14,7 +14,7 @@ use stdClass;
 
 final class ClinicApi
 {
-    private const RECORDS = ['visitors','clients','patients','appointments','exams','followups','weights','vaccineCatalog','labs','treatments','prescriptions','stays','clinicNotes','products','suppliers','sales','purchases','collections','payments','expenses','stockLots','stockMoves','messages','templates'];
+    private const RECORDS = ['visitors','clients','patients','appointments','exams','followups','weights','vaccineCatalog','labs','treatments','prescriptions','stays','surgeries','clinicNotes','products','suppliers','sales','purchases','collections','payments','expenses','stockLots','stockMoves','messages','templates'];
     private const LINKS = [
         'patients' => ['owner'=>'clients'],
         'messages'=>['client'=>'clients','patient'=>'patients','template'=>'templates'],
@@ -23,7 +23,7 @@ final class ClinicApi
         'followups' => ['patient'=>'patients','vaccine'=>'vaccineCatalog'],
         'sales'=>['client'=>'clients','patient'=>'patients'],'purchases'=>['supplier'=>'suppliers','product'=>'products'],'collections'=>['sale'=>'sales'],'payments'=>['purchase'=>'purchases'],'stockLots'=>['product'=>'products'],'stockMoves'=>['product'=>'products'],
         'weights'=>['patient'=>'patients'], 'labs'=>['patient'=>'patients','exam'=>'exams'],
-        'treatments'=>['patient'=>'patients'], 'prescriptions'=>['patient'=>'patients'], 'stays'=>['patient'=>'patients'],
+        'treatments'=>['patient'=>'patients'], 'prescriptions'=>['patient'=>'patients'], 'stays'=>['patient'=>'patients'], 'surgeries'=>['patient'=>'patients'],
     ];
     private const ID = '/\A[A-Za-z0-9_-]{1,80}\z/';
     /** Yalnız testler için: yazmadan hemen önce doğrulanmış sonucu görür (null: kapalı). */
@@ -94,7 +94,8 @@ final class ClinicApi
         $next->preferences=$submitted->preferences;
         $indexed = [];
         foreach (self::RECORDS as $key) {
-            $rows = $submitted->$key ?? ($key === 'visitors' ? [] : null);
+            // Ameliyat kayıtlarını bilmeyen eski önbellekli istemciler listeyi göndermezse mevcut kayıtlar korunur.
+            $rows = $submitted->$key ?? ($key === 'visitors' ? [] : ($key === 'surgeries' ? array_values($original->surgeries ?? []) : null));
             if (!is_array($rows) || !array_is_list($rows)) {
                 throw new RuntimeException('Kayıt listesi geçersiz.', 422);
             }
@@ -124,12 +125,13 @@ final class ClinicApi
                     'prescriptions' => $row->drug ?? $row->title ?? '',
                     'messages' => $row->message ?? '',
                     'stays' => $row->patient ?? '',
+                    'surgeries' => $row->procedure ?? '',
                     'clinicNotes' => $row->text ?? $row->notes ?? $row->title ?? '',
                     'appointments' => $row->service ?? '',
                     default => $row->title ?? '',
                 };
                 if (trim($label) === '') throw new RuntimeException('Kayıt adı boş bırakılamaz.', 422);
-                if (in_array($key,['appointments','exams','followups','weights','labs','treatments','prescriptions','sales','purchases','collections','payments','expenses','stockMoves'],true)) {
+                if (in_array($key,['appointments','exams','followups','weights','labs','treatments','prescriptions','surgeries','sales','purchases','collections','payments','expenses','stockMoves'],true)) {
                     $date = $row->date ?? '';
                     $parts = explode('-', $date);
                     if (!preg_match('/^\d{4}-\d{2}-\d{2}$/D', $date)
@@ -184,7 +186,7 @@ final class ClinicApi
                 }
             }
         }
-        foreach(['exams','followups','weights','labs','treatments','prescriptions','stays'] as $type) {
+        foreach(['exams','followups','weights','labs','treatments','prescriptions','stays','surgeries'] as $type) {
             foreach($next->$type as $row) if(empty($row->patient)) throw new RuntimeException('Hasta seçilmelidir.',422);
         }
         $this->checkControlAppointments($original,$indexed);
@@ -212,8 +214,8 @@ final class ClinicApi
         foreach(['sales','appointments'] as $type) foreach($next->$type as $row) {
             if(!empty($row->patient) && !empty($row->client) && ($indexed['patients'][$row->patient]->owner ?? '')!==$row->client) throw new RuntimeException('Hasta seçilen müşteriye bağlı olmalıdır.',422);
         }
-        foreach(['patients','clients','exams','followups','weights','labs','treatments','prescriptions','stays','appointments','clinicNotes'] as $type) {
-            $oldIndex=[];foreach($original->$type as $row)$oldIndex[$row->id]=$row;
+        foreach(['patients','clients','exams','followups','weights','labs','treatments','prescriptions','stays','surgeries','appointments','clinicNotes'] as $type) {
+            $oldIndex=[];foreach($original->$type ?? [] as $row)$oldIndex[$row->id]=$row;
             foreach($next->$type as $row) {
                 $prior=$oldIndex[$row->id] ?? null;
                 if($prior==$row) continue;

@@ -1,5 +1,5 @@
-export const printCategories={owner:"Hasta sahibi",patient:"Hasta",sale:"Satış",exam:"Muayene",stay:"Konaklama",purchase:"Alış"};
-export const printPermissions={owner:"clients",patient:"patients",sale:"sales",exam:"patients",stay:"patients",purchase:"products"};
+export const printCategories={owner:"Hasta sahibi",patient:"Hasta",sale:"Satış",exam:"Muayene",stay:"Konaklama",surgery:"Ameliyat",purchase:"Alış"};
+export const printPermissions={owner:"clients",patient:"patients",sale:"sales",exam:"patients",stay:"patients",surgery:"patients",purchase:"products"};
 export const printFields={
   klinik:"Klinik adı",sube:"Şube",klinik_telefon:"Klinik telefonu",klinik_adres:"Klinik adresi",
   musteri:"Hasta sahibi adı",musteri_telefon:"Hasta sahibi telefonu",musteri_eposta:"Hasta sahibi e-postası",musteri_adres:"Hasta sahibi adresi",
@@ -9,6 +9,8 @@ export const printFields={
   muayene_tarihi:"Muayene tarihi",sikayet:"Şikâyet / anamnez",bulgular:"Bulgular",tani:"Değerlendirme",plan:"İzlem planı",kontrol:"Kontrol tarihi",
   satis_tarihi:"Satış tarihi",belge_no:"Belge numarası",kalemler:"Satış kalemleri",toplam:"Toplam tutar",tahsilat:"Tahsilat",odeme:"Ödeme yöntemi",
   yatis:"Yatış tarihi",cikis:"Çıkış tarihi",oda:"Oda / kafes",tedarikci:"Tedarikçi",urun:"Ürün",adet:"Miktar",
+  ameliyat_tarihi:"Ameliyat tarihi",operasyon:"Operasyon / girişim",cerrah:"Cerrah",anestezist:"Anestezi sorumlusu",asa:"ASA sınıfı",
+  premedikasyon:"Premedikasyon",anestezi:"Anestezi protokolü",operasyon_notu:"Operasyon notu",komplikasyon:"Komplikasyonlar",bakim_plani:"Ameliyat sonrası bakım planı",dikis_kontrol:"Kontrol / dikiş alma tarihi",onam_veren:"Onamı veren kişi",
 };
 
 const feeTable="\n\n| İşlem / malzeme | Adet | Birim fiyat | Tutar |\n| ______ | ___ | ______ | ______ |\n| ______ | ___ | ______ | ______ |\n\n";
@@ -35,6 +37,9 @@ export const builtInPrintTemplates=[
   ["sales","Satış Bilgi Kartı","sale",sale],
   ["sales-patient","Satış Kartı · Hasta Bilgili","sale","Hasta {{hasta}} · Protokol {{protokol}}\n\n"+sale],
   ["stay","Yatış ve Konaklama Formu","stay","## Konaklama bilgileri\nYatış {{yatis}} · Çıkış {{cikis}}\nOda / kafes {{oda}} · Sorumlu {{hekim}}\nTeslim alınan eşyalar ve özel ihtiyaçlar · {{not}}"+signatures],
+  ["surgery-consent","Ameliyat ve Anestezi Onam Formu","surgery","## Planlanan işlem\nOperasyon · {{operasyon}}\nPlanlanan tarih · {{ameliyat_tarihi}}\nCerrah · {{cerrah}} · Anestezi sorumlusu · {{anestezist}}\nASA sınıfı · {{asa}} · Kilo · {{kilo}}\n\n## Bilgilendirme\nPlanlanan işlem, anestezinin olası riskleri (solunum ve dolaşım sorunları, ilaç tepkileri, beklenmeyen kanama, enfeksiyon ve nadir durumlarda ölüm), işlem sırasında gerekebilecek ek girişimler ve ameliyat sonrası bakım gereksinimleri tarafıma anlatıldı. Sorularım yanıtlandı.\nAçıklanan özel riskler ve notlar · {{not}}\n\nOnamı veren · {{onam_veren}}\nAçlık ve hazırlık talimatlarını aldım ____________________"+signatures],
+  ["surgery-report","Ameliyat Raporu","surgery","## Operasyon\n{{operasyon}} · {{ameliyat_tarihi}}\nCerrah · {{cerrah}} · Anestezi sorumlusu · {{anestezist}} · ASA · {{asa}}\n\n## Anestezi\nPremedikasyon · {{premedikasyon}}\nAnestezi protokolü ve izlem · {{anestezi}}\n\n## Operasyon notu ve bulgular\n{{operasyon_notu}}\n\n## Komplikasyonlar\n{{komplikasyon}}\n\n## Ameliyat sonrası plan\n{{bakim_plani}}\nKontrol / dikiş alma · {{dikis_kontrol}}\n\nDüzenleyen hekim ____________________"],
+  ["surgery-aftercare","Ameliyat Sonrası Bakım Talimatı","surgery","## {{hasta}} için evde bakım\nYapılan işlem · {{operasyon}} · {{ameliyat_tarihi}}\nSorumlu hekim · {{cerrah}}\n\n## İlaç ve bakım planı\n{{bakim_plani}}\n\n## Genel kurallar\nDikiş bölgesini kuru ve temiz tutun; yalamasını önleyen koruyucu yakalığı çıkarmayın.\nDikişler alınana kadar zıplama, koşma ve banyodan kaçının.\nİlk saatlerde az miktarda su ve hekiminizin önerdiği zamanda hafif mama verin.\nKanama, belirgin şişlik, akıntı, kusma, iştahsızlık veya halsizlik görürseniz hemen kliniği arayın · {{klinik_telefon}}\n\nKontrol / dikiş alma tarihi · {{dikis_kontrol}}\nEk açıklama · {{not}}"],
   ["purchase","Alış ve Teslim Alma Formu","purchase","## Teslimat kaydı\nTedarikçi {{tedarikci}} · Belge {{belge_no}}\nÜrün {{urun}} · Miktar {{adet}}\nLot {{lot}} · Toplam {{toplam}}\nTeslim notu · {{not}}\nTeslim alan ____________________"],
 ].map(([id,title,category,body])=>({id:"system-"+id,title,category,body,active:1,system:true}));
 

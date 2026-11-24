@@ -145,6 +145,30 @@
       "system": true
     },
     {
+      "id": "system-surgery-consent",
+      "title": "Ameliyat ve Anestezi Onam Formu",
+      "category": "surgery",
+      "body": "## Planlanan işlem\nOperasyon · {{operasyon}}\nPlanlanan tarih · {{ameliyat_tarihi}}\nCerrah · {{cerrah}} · Anestezi sorumlusu · {{anestezist}}\nASA sınıfı · {{asa}} · Kilo · {{kilo}}\n\n## Bilgilendirme\nPlanlanan işlem, anestezinin olası riskleri (solunum ve dolaşım sorunları, ilaç tepkileri, beklenmeyen kanama, enfeksiyon ve nadir durumlarda ölüm), işlem sırasında gerekebilecek ek girişimler ve ameliyat sonrası bakım gereksinimleri tarafıma anlatıldı. Sorularım yanıtlandı.\nAçıklanan özel riskler ve notlar · {{not}}\n\nOnamı veren · {{onam_veren}}\nAçlık ve hazırlık talimatlarını aldım ____________________\n\nHasta sahibi imzası ____________________    Hekim / görevli imzası ____________________",
+      "active": 1,
+      "system": true
+    },
+    {
+      "id": "system-surgery-report",
+      "title": "Ameliyat Raporu",
+      "category": "surgery",
+      "body": "## Operasyon\n{{operasyon}} · {{ameliyat_tarihi}}\nCerrah · {{cerrah}} · Anestezi sorumlusu · {{anestezist}} · ASA · {{asa}}\n\n## Anestezi\nPremedikasyon · {{premedikasyon}}\nAnestezi protokolü ve izlem · {{anestezi}}\n\n## Operasyon notu ve bulgular\n{{operasyon_notu}}\n\n## Komplikasyonlar\n{{komplikasyon}}\n\n## Ameliyat sonrası plan\n{{bakim_plani}}\nKontrol / dikiş alma · {{dikis_kontrol}}\n\nDüzenleyen hekim ____________________",
+      "active": 1,
+      "system": true
+    },
+    {
+      "id": "system-surgery-aftercare",
+      "title": "Ameliyat Sonrası Bakım Talimatı",
+      "category": "surgery",
+      "body": "## {{hasta}} için evde bakım\nYapılan işlem · {{operasyon}} · {{ameliyat_tarihi}}\nSorumlu hekim · {{cerrah}}\n\n## İlaç ve bakım planı\n{{bakim_plani}}\n\n## Genel kurallar\nDikiş bölgesini kuru ve temiz tutun; yalamasını önleyen koruyucu yakalığı çıkarmayın.\nDikişler alınana kadar zıplama, koşma ve banyodan kaçının.\nİlk saatlerde az miktarda su ve hekiminizin önerdiği zamanda hafif mama verin.\nKanama, belirgin şişlik, akıntı, kusma, iştahsızlık veya halsizlik görürseniz hemen kliniği arayın · {{klinik_telefon}}\n\nKontrol / dikiş alma tarihi · {{dikis_kontrol}}\nEk açıklama · {{not}}",
+      "active": 1,
+      "system": true
+    },
+    {
       "id": "system-purchase",
       "title": "Alış ve Teslim Alma Formu",
       "category": "purchase",
@@ -159,6 +183,7 @@
     "sale": "sales",
     "exam": "patients",
     "stay": "patients",
+    "surgery": "patients",
     "purchase": "products"
   }
 }

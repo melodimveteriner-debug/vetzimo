@@ -1,7 +1,7 @@
 export const accessModules = {
   appointments:["Randevular","appointments"],
   clients:["Müşteriler","clients","documents","visitors"],
-  patients:["Hastalar","patients","weights","exams","labs","treatments","prescriptions","stays"],
+  patients:["Hastalar","patients","weights","exams","labs","treatments","prescriptions","stays","surgeries"],
   followups:["Aşı ve takip","followups","vaccineCatalog"],
   sales:["Satışlar","sales"],
   products:["Ürünler, alış ve stok","products","suppliers","purchases","stockLots","stockMoves"],

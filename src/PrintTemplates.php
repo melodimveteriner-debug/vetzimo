@@ -44,6 +44,7 @@ final class PrintTemplates
             'products'=>$select($state->products ?? [], 'id name'), 'suppliers'=>$select($state->suppliers ?? [], 'id name'),
             'branches'=>array_map(static fn ($branch) => ['dataId'=>($branch->sharedWith ?? '') ?: $branch->id] + (array)$branch, $state->branches ?? []),
             'records'=>['sale'=>$select($sales, 'id detail client patient date invoice amount paid method publicNotes lines'),'exam'=>$select($state->exams ?? [], 'id title patient date clinician complaint findings assessment plan next'),'stay'=>$select($state->stays ?? [], 'id kind patient start end room'),
+                'surgery'=>$select($state->surgeries ?? [], 'id procedure patient date time surgeon anesthetist asa weight premed anesthesia findings complications postop next consentBy status'),
                 'purchase'=>$state->purchases ?? [],'vaccine'=>array_values(array_filter($state->followups ?? [], static fn ($row) => ($row->kind ?? '') === 'Aşı'))],
             'clinic'=>['name'=>$state->preferences->clinic ?? $actor['name'],'phone'=>$state->preferences->phone ?? '', 'address'=>$state->preferences->address ?? '', 'logo'=>''],
         ];

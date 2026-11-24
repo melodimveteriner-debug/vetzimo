@@ -45,7 +45,7 @@ final class ClinicRecordDeletion
             static fn($row) => isset($removed['exams'][$row->controlExamId ?? '']));
         $related = static fn(object $row): bool => $belongs($row) || $byVisit($row) ||
             isset($removed['exams'][$row->examId ?? $row->exam ?? '']) || isset($removed['appointments'][$row->appointmentId ?? '']);
-        foreach (['labs','followups','weights','treatments','prescriptions','stays','documents','messages','visitors','clinicNotes'] as $type) {
+        foreach (['labs','followups','weights','treatments','prescriptions','stays','surgeries','documents','messages','visitors','clinicNotes'] as $type) {
             if (isset($state->$type)) $state->$type = $discard($type, $state->$type, $related);
         }
 
@@ -159,7 +159,7 @@ final class ClinicRecordDeletion
         $id = rawurlencode($id);
         return match ($type) {
             'appointments' => ['/clinic#record/appointments/'.$id, '/hasta-sahibi?bildirim=appointments&kayit='.$id],
-            'stays', 'followups' => ['/clinic#record/'.$type.'/'.$id],
+            'stays', 'followups', 'surgeries' => ['/clinic#record/'.$type.'/'.$id],
             'patients' => ['/clinic#patient/'.$id.'/homecare'],
             'exams', 'labs' => ['/hasta-sahibi?bildirim=health&kayit='.$id],
             default => [],

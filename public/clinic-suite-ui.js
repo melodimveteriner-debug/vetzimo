@@ -113,7 +113,7 @@ export async function mountClinicSuite(root,page,{id,ref,branch,preview,scope}) 
       await mountStaffPlan(ui,scope);
     } else if (page==="cikti-sablonlari") {
       const params=new URLSearchParams();
-      if (["patient","client","vaccine","sale","exam","stay","purchase"].includes(id) && ref) params.set(id,ref);
+      if (["patient","client","vaccine","sale","exam","stay","surgery","purchase"].includes(id) && ref) params.set(id,ref);
       await mountTemplates(ui,params,{branch,preview,scope});
     } else if (page==="merkezi-hesaplar") {
       await mountClinicAccounts(ui,new URLSearchParams(ref&&id==="musteri"?{customer:ref}:{}));

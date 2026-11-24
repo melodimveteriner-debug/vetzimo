@@ -9,7 +9,7 @@ final class ClinicRecords
 {
     public const COLLECTIONS = [
         'clients','patients','appointments','exams','followups','weights','vaccineCatalog','labs',
-        'treatments','prescriptions','stays','clinicNotes','products','suppliers','sales','purchases',
+        'treatments','prescriptions','stays','surgeries','clinicNotes','products','suppliers','sales','purchases',
         'collections','payments','expenses','stockLots','stockMoves','templates','messages','users',
         'dealers','activity','visitors','documents','support','services',
     ];
@@ -74,6 +74,64 @@ final class ClinicRecords
                 $query->execute([$row[1], $collection, ...$chunk]);
                 while (($json = $query->fetchColumn()) !== false) $state->$collection[] = json_decode($json, false, 512, JSON_THROW_ON_ERROR);
             }
+        }
+        return $state;
+    }
+
+    /**
+     * Çıktı şablonları için: açılan kayıt, hastası, sahibi, sahibin diğer hayvanları ve bu hayvanlara bağlı
+     * muayene, aşı, yatış, ameliyat ve satış satırları; ürün ve tedarikçi listesi. Büyük klinikte tüm kliniği
+     * belleğe almadan çalışır. Eski biçimde null döner.
+     * @param array<string,string> $ref client, patient, vaccine, exam, stay, surgery, sale, purchase
+     */
+    public function printSlice(string $workspace, array $ref): ?object
+    {
+        $types = ['vaccine'=>'followups','exam'=>'exams','stay'=>'stays','surgery'=>'surgeries','sale'=>'sales','purchase'=>'purchases'];
+        $wanted = [];
+        foreach ($types as $key => $collection) if (isset($ref[$key])) $wanted[$collection][] = $ref[$key];
+        if (isset($ref['patient'])) $wanted['patients'][] = $ref['patient'];
+        if (isset($ref['client'])) $wanted['clients'][] = $ref['client'];
+        $state = $this->slice($workspace, $wanted);
+        if ($state === null) return null;
+        $set = $this->db->prepare('SELECT id FROM clinic_record_set WHERE workspace_id=?');
+        $set->execute([$workspace]);
+        $set = (int)$set->fetchColumn();
+        $read = function (string $collection, string $column, array $values) use ($set, $state): void {
+            $have = array_flip(array_map(static fn($row) => $row->id ?? '', $state->$collection));
+            $values = array_values(array_unique(array_filter($values, static fn($value) => is_string($value) && self::key($value) !== null)));
+            foreach (array_chunk($values, 500) as $chunk) {
+                $query = $this->db->prepare("SELECT record_data FROM clinic_record WHERE set_id=? AND collection=? AND $column IN (".implode(',', array_fill(0, count($chunk), '?')).') ORDER BY ordinal');
+                $query->execute([$set, $collection, ...($column === 'row_key' ? array_map(static fn($id) => '@'.$id, $chunk) : $chunk)]);
+                while (($json = $query->fetchColumn()) !== false) {
+                    $row = json_decode($json, false, 512, JSON_THROW_ON_ERROR);
+                    if (isset($have[$row->id ?? ''])) continue;
+                    $have[$row->id ?? ''] = true;
+                    $state->$collection[] = $row;
+                }
+            }
+        };
+        $records = [];
+        foreach ($types as $collection) foreach ($state->$collection as $row) $records[] = $row;
+        $read('patients', 'row_key', array_map(static fn($row) => $row->patient ?? '', $records));
+        $clients = array_merge(array_column($state->clients, 'id'), array_map(static fn($row) => $row->owner ?? '', $state->patients),
+            array_map(static fn($row) => $row->client ?? '', $records));
+        $read('clients', 'row_key', $clients);
+        $read('patients', 'owner_id', array_column($state->clients, 'id'));
+        $pets = array_column($state->patients, 'id');
+        foreach (['exams', 'followups', 'stays', 'surgeries'] as $collection) $read($collection, 'patient_key', $pets);
+        $read('sales', 'client_key', array_column($state->clients, 'id'));
+        foreach (['products', 'suppliers'] as $collection) {
+            $query = $this->db->prepare('SELECT record_data FROM clinic_record WHERE set_id=? AND collection=? ORDER BY ordinal LIMIT 5000');
+            $query->execute([$set, $collection]);
+            $state->$collection = [];
+            while (($json = $query->fetchColumn()) !== false) $state->$collection[] = json_decode($json, false, 512, JSON_THROW_ON_ERROR);
+        }
+        $query = $this->db->prepare("SELECT record_data FROM clinic_record WHERE set_id=? AND collection='purchases' ORDER BY ordinal DESC LIMIT 200");
+        $query->execute([$set]);
+        $have = array_flip(array_column($state->purchases, 'id'));
+        while (($json = $query->fetchColumn()) !== false) {
+            $row = json_decode($json, false, 512, JSON_THROW_ON_ERROR);
+            if (!isset($have[$row->id ?? ''])) $state->purchases[] = $row;
         }
         return $state;
     }

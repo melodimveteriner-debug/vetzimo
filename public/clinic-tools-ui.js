@@ -6,14 +6,14 @@ import {fillPrintTemplate,printCategories,printFields} from "./print-model.js";
 
 const asDate=value=>/^\d{4}-\d{2}-\d{2}$/.test(value||"")?dateLabel(value,{day:"numeric",month:"long",year:"numeric"}):String(value||"").replace("T"," ");
 const asMoney=value=>value!==null&&value!==undefined&&value!==""&&Number.isFinite(Number(value))?currency.format(Number(value)):"";
-const recordNames={vaccine:"Aşı kaydı",exam:"Muayene",stay:"Konaklama",sale:"Satış",purchase:"Alış"};
-const recordCategories={patient:["vaccine","exam"],owner:["exam"],exam:["exam","vaccine"],stay:["stay"],sale:["sale"],purchase:["purchase"]};
+const recordNames={vaccine:"Aşı kaydı",exam:"Muayene",stay:"Konaklama",surgery:"Ameliyat",sale:"Satış",purchase:"Alış"};
+const recordCategories={patient:["vaccine","exam"],owner:["exam"],exam:["exam","vaccine"],stay:["stay"],surgery:["surgery"],sale:["sale"],purchase:["purchase"]};
 
 export async function mountTemplates(ui,params,{branch:activeBranch}) {
   const {view,heading,el,field,selectField,makeForm,status,reauth}=ui;
   const endpoint="/api/ops/templates";
   const read=async()=>{
-    const response=await clinicFetch(endpoint);
+    const response=await clinicFetch(endpoint+(params.toString()?"?"+params:""));
     const result=await response.json();
     if (!response.ok) throw Error(result.error||"Şablonlar yüklenemedi.");
     return result;
@@ -186,7 +186,7 @@ export async function mountTemplates(ui,params,{branch:activeBranch}) {
       open("Örnek çıktı",row.title,printButton,preview);
       return;
     }
-    const initialRecordType=["vaccine","exam","stay","sale","purchase"].find(key=>params.has(key));
+    const initialRecordType=["vaccine","exam","stay","surgery","sale","purchase"].find(key=>params.has(key));
     const initialRecord=data.records[initialRecordType]?.find(item=>item.id===params.get(initialRecordType));
     const initialPatient=data.patients.find(item=>item.id===(params.get("patient")||initialRecord?.patient));
     const initialClient=data.clients.find(item=>item.id===(params.get("client")||initialRecord?.client||initialPatient?.owner));
@@ -217,22 +217,24 @@ export async function mountTemplates(ui,params,{branch:activeBranch}) {
       const selectedRecords=Object.fromEntries(Object.entries(selectors).map(([key,wrap])=>[
         key,data.records[key].find(item=>inBranch(item)&&item.id===input(wrap).value),
       ]));
-      const {vaccine,exam,stay,sale,purchase}=selectedRecords;
-      const p=data.patients.find(item=>inBranch(item)&&item.id===(patientId||sale?.patient||exam?.patient||stay?.patient||vaccine?.patient));
+      const {vaccine,exam,stay,surgery,sale,purchase}=selectedRecords;
+      const p=data.patients.find(item=>inBranch(item)&&item.id===(patientId||sale?.patient||exam?.patient||stay?.patient||surgery?.patient||vaccine?.patient));
       const c=data.clients.find(item=>inBranch(item)&&item.id===(clientId||sale?.client||p?.owner));
       const product=data.products.find(item=>inBranch(item)&&item.id===purchase?.product);
       const supplier=data.suppliers.find(item=>inBranch(item)&&item.id===purchase?.supplier);
       const values={klinik:data.clinic.name,sube:office?.name,klinik_telefon:office?.phone||data.clinic.phone,
         klinik_adres:office?.address||data.clinic.address,logo:data.clinic.logo,
         musteri:input(manualClient).value.trim()||c?.name,musteri_telefon:c?.phone,musteri_eposta:c?.email,musteri_adres:c?.address,
-        hasta:input(manualPatient).value.trim()||p?.name,tur:p?.species,irk:p?.breed,cinsiyet:p?.sex,dogum:asDate(p?.birth),kilo:p?.weight,
-        protokol:p?.protocol,cip:p?.chip,islem:input(procedure).value.trim()||exam?.title||vaccine?.title||sale?.detail||stay?.kind||product?.name,
-        tarih:asDate(input(date).value),not:input(note).value.trim()||sale?.publicNotes,hekim:exam?.clinician||vaccine?.clinician,
+        hasta:input(manualPatient).value.trim()||p?.name,tur:p?.species,irk:p?.breed,cinsiyet:p?.sex,dogum:asDate(p?.birth),kilo:surgery?.weight||p?.weight,
+        protokol:p?.protocol,cip:p?.chip,islem:input(procedure).value.trim()||exam?.title||vaccine?.title||surgery?.procedure||sale?.detail||stay?.kind||product?.name,
+        tarih:asDate(input(date).value),not:input(note).value.trim()||sale?.publicNotes,hekim:exam?.clinician||vaccine?.clinician||surgery?.surgeon,
         asi:vaccine?.title,asi_tarihi:asDate(vaccine?.date),uygulama_tarihi:asDate(vaccine?.done),sonraki_asi:asDate(vaccine?.next),lot:vaccine?.batch||purchase?.serial,asi_durum:vaccine?.status,
         muayene_tarihi:asDate(exam?.date),sikayet:exam?.complaint,bulgular:exam?.findings,tani:exam?.assessment,plan:exam?.plan,kontrol:asDate(exam?.next),
         satis_tarihi:asDate(sale?.date),belge_no:sale?.invoice||purchase?.invoice,kalemler:sale?.lines.map(item=>item.name+" × "+item.quantity).join("\n"),
         toplam:asMoney(sale?.amount??purchase?.amount),tahsilat:asMoney(sale?.paid),odeme:sale?.method,
-        yatis:asDate(stay?.start),cikis:asDate(stay?.end),oda:stay?.room,tedarikci:supplier?.name,urun:product?.name,adet:purchase?.quantity};
+        yatis:asDate(stay?.start),cikis:asDate(stay?.end),oda:stay?.room,
+        ameliyat_tarihi:[asDate(surgery?.date),surgery?.time].filter(Boolean).join(" "),operasyon:surgery?.procedure,cerrah:surgery?.surgeon,anestezist:surgery?.anesthetist,asa:surgery?.asa,
+        premedikasyon:surgery?.premed,anestezi:surgery?.anesthesia,operasyon_notu:surgery?.findings,komplikasyon:surgery?.complications,bakim_plani:surgery?.postop,dikis_kontrol:asDate(surgery?.next),onam_veren:surgery?.consentBy,tedarikci:supplier?.name,urun:product?.name,adet:purchase?.quantity};
       preview.replaceChildren(documentPreview(row,values));
     }
     function records(values={}) {

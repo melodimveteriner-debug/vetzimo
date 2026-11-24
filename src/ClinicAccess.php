@@ -7,7 +7,7 @@ final class ClinicAccess
 {
     public const MODULES = [
         'appointments'=>['appointments'],'clients'=>['clients','documents','visitors'],
-        'patients'=>['patients','weights','exams','labs','treatments','prescriptions','stays'],
+        'patients'=>['patients','weights','exams','labs','treatments','prescriptions','stays','surgeries'],
         'followups'=>['followups','vaccineCatalog'],'sales'=>['sales'],
         'products'=>['products','suppliers','purchases','stockLots','stockMoves'],
         'expenses'=>['expenses','collections','payments'],'reports'=>[],

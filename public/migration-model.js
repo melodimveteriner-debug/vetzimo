@@ -7,7 +7,7 @@ export const migrationSources=[
 export const migrationNames={
  clients:"Hasta Sahipleri",patients:"Hastalar",suppliers:"Tedarikçiler",products:"Ürünler",
  vaccineCatalog:"Aşı Tanımları",followups:"Aşı ve Takip",appointments:"Randevular",exams:"Muayeneler",labs:"Tetkikler",
- treatments:"Tedaviler",prescriptions:"Reçeteler",stays:"Konaklama",purchases:"Alışlar",sales:"Satışlar",
+ treatments:"Tedaviler",prescriptions:"Reçeteler",stays:"Konaklama",surgeries:"Ameliyatlar",purchases:"Alışlar",sales:"Satışlar",
  collections:"Tahsilatlar",payments:"Tedarikçi Ödemeleri",expenses:"Kasa Hareketleri",
  stockLots:"Stok Partileri",stockMoves:"Stok Hareketleri",weights:"Kilo Geçmişi",documents:"Doküman Kayıtları"
 };
@@ -37,13 +37,13 @@ const required={
  sales:["date","amount"],collections:["sale","date","amount"],payments:["purchase","date","amount"],
  expenses:["date","type","amount","detail"],stockLots:["product","received","remaining"],stockMoves:["product","delta"],
  appointments:["date","time","patient"],exams:["patient","date"],labs:["patient","date","title"],
- treatments:["patient","date","title"],prescriptions:["patient","date","drug"],stays:["patient","start"],
+ treatments:["patient","date","title"],prescriptions:["patient","date","drug"],stays:["patient","start"],surgeries:["patient","date","procedure"],
  weights:["patient","date","weight"],documents:["title"]
 };
 const refs={
  patients:{owner:"clients"},followups:{patient:"patients",vaccine:"vaccineCatalog",examId:"exams"},
  appointments:{patient:"patients",client:"clients"},exams:{patient:"patients"},labs:{patient:"patients",exam:"exams"},
- treatments:{patient:"patients"},prescriptions:{patient:"patients",product:"products"},stays:{patient:"patients"},
+ treatments:{patient:"patients"},prescriptions:{patient:"patients",product:"products"},stays:{patient:"patients"},surgeries:{patient:"patients"},
  purchases:{product:"products",supplier:"suppliers"},sales:{client:"clients",patient:"patients",product:"products",examId:"exams"},
  vaccineCatalog:{product:"products"},collections:{sale:"sales"},payments:{purchase:"purchases"},
  stockLots:{product:"products",supplier:"suppliers"},stockMoves:{product:"products",lot:"stockLots",sale:"sales",purchase:"purchases"},
