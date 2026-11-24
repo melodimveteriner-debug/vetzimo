@@ -115,6 +115,9 @@ export async function mountClinicSuite(root,page,{id,ref,branch,preview,scope}) 
       const params=new URLSearchParams();
       if (["patient","client","vaccine","sale","exam","stay","surgery","purchase"].includes(id) && ref) params.set(id,ref);
       await mountTemplates(ui,params,{branch,preview,scope});
+    } else if (page==="hesaplayicilar") {
+      const {mountCalculators}=await import("./clinic-calculators.js?v=1");
+      mountCalculators(ui,{weight:id==="kilo"&&/^[0-9]+([.,][0-9]+)?$/.test(ref||"")?ref:""});
     } else if (page==="merkezi-hesaplar") {
       await mountClinicAccounts(ui,new URLSearchParams(ref&&id==="musteri"?{customer:ref}:{}));
     } else if (page==="kredi-magazasi") await mountCreditShop(ui,{section:id});

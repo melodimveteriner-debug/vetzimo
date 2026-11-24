@@ -1059,3 +1059,33 @@ body[data-clinic-palette]:has(#main) .clinic-delete-dialog .button.clinic-delete
 .calendar-legend [data-legend=planned]{--lg:#2563eb}.calendar-legend [data-legend=waiting]{--lg:#d97706}.calendar-legend [data-legend=confirmed]{--lg:#059669}
 .calendar-legend [data-legend=inroom]{--lg:#7c3aed}.calendar-legend [data-legend=done]{--lg:#64748b}.calendar-legend [data-legend=noshow]{--lg:#dc2626}
 .calendar-legend small{opacity:.75;flex-basis:100%}
+/* Klinik hesaplayıcılar */
+.calc-suite{display:grid;grid-template-columns:minmax(210px,260px) minmax(0,1fr);gap:16px;align-items:start}
+.calc-nav{display:grid;gap:6px;position:sticky;top:12px}
+.calc-nav button{display:flex;align-items:center;gap:10px;min-height:46px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--paper);color:var(--ink);font:inherit;font-weight:700;text-align:start;cursor:pointer;transition:border-color .2s,transform .2s,background .2s}
+.calc-nav button span{font-size:1.15rem;width:1.6rem;text-align:center}
+.calc-nav button:hover{transform:translateX(2px);border-color:var(--accent,#5b43c2)}
+.calc-nav button[aria-pressed=true]{border-color:var(--accent,#5b43c2);background:color-mix(in srgb,var(--accent,#5b43c2) 12%,var(--paper))}
+.calc-panel{padding:20px;display:grid;gap:16px;min-width:0}
+.calc-panel header{display:flex;gap:14px;align-items:flex-start}
+.calc-panel header h2{margin:0}
+.calc-panel header p{margin:.2rem 0 0;opacity:.8}
+.calc-icon{display:grid;place-items:center;width:52px;height:52px;flex:none;border-radius:16px;font-size:1.6rem;background:color-mix(in srgb,var(--accent,#5b43c2) 14%,var(--paper))}
+.calc-form{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,220px),1fr));gap:12px}
+.calc-form label{display:grid;gap:5px;font-weight:700;font-size:.88rem}
+.calc-form small{font-weight:500;opacity:.7}
+.calc-form :is(input,select){min-height:46px;font-size:1.05rem}
+.calc-result{border:1px solid var(--line);border-radius:16px;padding:16px;background:color-mix(in srgb,var(--accent,#5b43c2) 6%,var(--paper));display:grid;gap:12px}
+.calc-result dl{margin:0;display:grid;gap:8px}
+.calc-result dl>div{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;padding-bottom:8px;border-bottom:1px solid var(--line)}
+.calc-result dl>div:last-child{border:0;padding:0}
+.calc-result dt{font-weight:600;opacity:.8}
+.calc-result dd{margin:0;font-weight:800;font-size:1.08rem;text-align:end;max-width:100%}
+.calc-result[data-level=danger]{border-color:#dc2626;background:color-mix(in srgb,#dc2626 10%,var(--paper))}
+.calc-result[data-level=warn]{border-color:#d97706;background:color-mix(in srgb,#d97706 10%,var(--paper))}
+.calc-result[data-level=ok]{border-color:#059669}
+.calc-result .button{justify-self:start}
+.calc-empty{margin:0;opacity:.75}
+.calc-note{margin:0;font-size:.82rem;opacity:.72}
+@media(max-width:820px){.calc-suite{grid-template-columns:minmax(0,1fr)}.calc-nav{position:static;grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}}
+.calc-nav button[aria-pressed=true]{border-color:var(--accent,#5b43c2)!important;box-shadow:inset 4px 0 0 var(--accent,#5b43c2),0 10px 24px -14px var(--accent,#5b43c2)!important;font-weight:800}
