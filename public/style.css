@@ -1399,3 +1399,21 @@ button.dr-tile{cursor:pointer}button.dr-tile[aria-pressed=true]{outline:2px soli
 .tb-muted{margin:0;color:var(--muted);font-size:.8rem}
 @media (max-width:760px){.tb-board{grid-template-columns:repeat(4,minmax(78vw,1fr))}.tb-form{grid-template-columns:1fr}}
 @media (prefers-reduced-motion:reduce){.tb-card{transition:none}}
+/* Web mesajları */
+.wi-page{display:grid;gap:12px}
+.wi-head h1{margin:0;font-size:clamp(1.35rem,2.4vw,1.8rem)}.wi-head p{margin:.25rem 0 0;color:var(--muted)}
+.wi-filters{display:flex;gap:6px;flex-wrap:wrap}
+.wi-filters button{font:inherit;padding:7px 14px;border-radius:999px;border:1px solid var(--line);background:var(--paper);color:var(--ink);cursor:pointer}
+.wi-filters button[aria-pressed=true]{background:var(--accent,#5b43c2)!important;border-color:var(--accent,#5b43c2)!important;color:#fff!important;font-weight:700}
+.wi-list{display:grid;gap:10px}
+.wi-item{display:grid;gap:10px;padding:14px 16px;border:1px solid var(--line);border-radius:16px;background:var(--paper);border-inline-start:5px solid #2563eb}
+.wi-item[data-state=done]{border-inline-start-color:#059669;opacity:.85}
+.wi-item header{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.wi-item header div{display:grid;gap:2px}.wi-item header span,.wi-item time{color:var(--muted);font-size:.85rem}
+.wi-body{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.55;padding:10px 12px;border-radius:10px;background:color-mix(in srgb,var(--ink) 4%,var(--paper))}
+.wi-match{display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:.88rem}.wi-match a{font-weight:700;color:inherit}
+.wi-actions{display:flex;gap:6px;flex-wrap:wrap}
+.wi-search{display:grid;gap:6px}.wi-search input{font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--paper);color:var(--ink)}
+.wi-search div{display:grid;gap:4px}.wi-search button{font:inherit;text-align:start;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink);cursor:pointer}
+.wi-muted{color:var(--muted);font-size:.82rem}
+.wi-empty{margin:0;padding:24px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:14px}

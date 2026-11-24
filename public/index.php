@@ -12,7 +12,7 @@ use VetNet\Cpanel\SessionRepository;
 
 require_once dirname(__DIR__).'/src/StaffPlan.php';
 
-foreach (['NativeApp','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','CreditShop','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','TeamTotp','PrintTemplates','Support','Commerce','Appearance'] as $class) {
+foreach (['NativeApp','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','CreditShop','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','TeamTotp','WebInbox','PrintTemplates','Support','Commerce','Appearance'] as $class) {
     require dirname(__DIR__) . '/src/' . $class . '.php';
 }
 
@@ -740,6 +740,19 @@ try {
             throw new RuntimeException('İşlem geçersiz.',422);
         } catch (PDOException $error) {
             if ($error->getCode()==='42S02') throw new RuntimeException('İki adımlı doğrulama tablosu henüz kurulmadı; güncellemeyi tamamlayın.',503);
+            throw $error;
+        }
+    }
+    if ($path==='/api/web-inbox' && in_array($method,['GET','POST'],true)) {
+        // Web sitesi iletişim mesajları: liste, işlendi işareti, müşteri kartı bağlantısı.
+        $actor=(new VetNet\Cpanel\Commerce($db))->packageActor($identity->actor($_COOKIE,$now));
+        $inbox=new VetNet\Cpanel\WebInbox($db);
+        try {
+            if ($method==='GET') reply($inbox->list($actor,is_string($_GET['durum']??null)?$_GET['durum']:'open'));
+            if (!hash_equals($actor['membership_id'] ?? '',$_SERVER['HTTP_X_VETNET_SCOPE'] ?? '')) throw new RuntimeException('Çalışma alanı oturumu değişti.',409);
+            reply($inbox->update($actor,input(2048),$now));
+        } catch (PDOException $error) {
+            if (in_array($error->getCode(),['42S02','42S22'],true)) reply(['items'=>[],'open'=>0,'unavailable'=>true]);
             throw $error;
         }
     }

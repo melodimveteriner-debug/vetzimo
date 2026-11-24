@@ -712,7 +712,7 @@ final class WebBuilderAdmin
         $html.='</section><section class="management-list"><h2>İletişim ve randevu hareketleri</h2><details><summary>İletişim mesajları</summary>';
         foreach ($this->web->query('SELECT message,created_at,notified_at,notify_at,notify_error FROM clinic_web_inbox WHERE partner_id=? ORDER BY id DESC LIMIT 100',[$partner])->fetchAll() as $row) {
             $msg=WebBuilder::decode($row['message']);
-            $html.='<article class="message"><h3>'.self::e($msg['name']).'</h3><small>'.self::e($row['created_at'].' · '.$msg['email']).'</small><p>'.nl2br(self::e($msg['body'])).'</p>'.
+            $html.='<article class="message"><h3>'.self::e($msg['name']).'</h3><small>'.self::e(implode(' · ',array_filter([$row['created_at'],$msg['email'],$msg['phone']??'']))).'</small><p>'.nl2br(self::e($msg['body'])).'</p>'.
                 ($row['notify_at']?'<small>E-posta: '.($row['notified_at']?'Gönderildi':self::e($row['notify_error']?:'Sırada')).'</small>':'').'</article>';
         }
         $html.='</details><details><summary>Randevu e-postaları</summary><ul class="report">';

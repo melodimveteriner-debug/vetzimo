@@ -356,7 +356,8 @@ final class WebBuilderRoutes
                 } else {
                     if (empty($draft['settings']['contact'])) self::missing();
                     WebBooking::verifyMath('contact:'.$row['partner_id'],$config['rateSecret'],$now,$_POST);
-                    $message=['name'=>WebBuilder::text($_POST['name']??'',160),'email'=>WebBuilder::text($_POST['email']??'',254),
+                    $phone=preg_replace('/[^0-9+ ()-]/','',WebBuilder::text($_POST['phone']??'',24));
+                    $message=['name'=>WebBuilder::text($_POST['name']??'',160),'email'=>WebBuilder::text($_POST['email']??'',254),'phone'=>$phone,
                         'body'=>WebBuilder::text($_POST['body']??'',3000)];
                     if (!$message['name'] || !$message['body'] || !filter_var($message['email'],FILTER_VALIDATE_EMAIL) ||
                         ($_POST['consent']??'')!=='yes') throw new RuntimeException('Ad, geçerli e-posta, mesaj ve aydınlatma onayı gerekli.',422);

@@ -469,6 +469,7 @@ final class WebBuilderPublic
                     '<form class="public-form" method="post" action="'.self::href($base,'iletisim').'">'.
                     '<label>Ad soyad<input name="name" required maxlength="160" value="'.self::e(self::formValue($get,'name')).'"></label>'.
                     '<label>E-posta<input name="email" type="email" required maxlength="254" value="'.self::e(self::formValue($get,'email')).'"></label>'.
+                    '<label>Telefon (isteğe bağlı)<input name="phone" type="tel" maxlength="24" autocomplete="tel" value="'.self::e(self::formValue($get,'phone')).'"></label>'.
                     '<label class="wide">Mesaj<textarea name="body" required maxlength="3000">'.self::e(self::formValue($get,'body')).'</textarea></label>'.
                     '<details class="wide"><summary>Aydınlatma metni</summary>'.self::rich($d['settings']['contactPrivacy']??'').'</details>'.
                     '<label class="check wide"><input type="checkbox" name="consent" value="yes" required'.(($get['consent']??'')==='yes'?' checked':'').'>Aydınlatma metnini okudum.</label>'.
