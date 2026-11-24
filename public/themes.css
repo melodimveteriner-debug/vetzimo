@@ -158,3 +158,12 @@ body[data-clinic-palette]:has(#main) :is(.cash-banner p,.hero p){color:#fff}
 body[data-clinic-palette]:has(#main) :is(.schedule-grid td:hover,.is-today,.settings-group[open] summary,.queue button:hover,.shortcuts button:hover,.find-row:hover){
  background:var(--clinic-hover);color:var(--ink);border-color:var(--line);
 }
+/* Koyu temalarda sabit açık zeminli bileşenler */
+:is([data-clinic-palette=dark],[data-clinic-palette=midnight]) .lab-editor{background:var(--brand-tint,var(--paper));color:var(--ink)}
+:is([data-clinic-palette=dark],[data-clinic-palette=midnight]) .lab-editor .lab-hint,:is([data-clinic-palette=dark],[data-clinic-palette=midnight]) .lab-editor small{color:var(--muted)}
+:is([data-clinic-palette=dark],[data-clinic-palette=midnight]) .cash-pagination{background:var(--brand-tint,var(--paper));color:var(--ink)}
+:is([data-clinic-palette=dark],[data-clinic-palette=midnight]) .version-pill{background:var(--brand-tint,var(--paper));border-color:var(--line);color:var(--ink)!important}
+:is([data-clinic-palette=dark],[data-clinic-palette=midnight]) .mode{color:#9fd3ae}
+:is([data-clinic-palette=dark],[data-clinic-palette=midnight]) .photo-zone{background:var(--paper);color:var(--ink);border-color:var(--line)}
+:is([data-clinic-palette=dark],[data-clinic-palette=midnight]) .photo-zone :is(strong,span){color:var(--ink)}
+:is([data-clinic-palette=dark],[data-clinic-palette=midnight]) .version-pulse{animation:none}
