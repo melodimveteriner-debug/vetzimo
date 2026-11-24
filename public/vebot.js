@@ -370,6 +370,7 @@ export function createEngine(ctx) {
     [/asi (ekle|planla)|yeni asi|new vaccin/, "Yeni aşı", "new:followups"],
     [/rapor/, "Raporları aç", "#reports"],
   ];
+  const canDocs = () => { try { return !!(ctx.canEdit && ctx.save && ctx.canEdit("products")); } catch { return false; } };
 
   // Kelimeler kelime başında aranır: "hastasının" içindeki "aşı" aşı sorusu sayılmaz.
   const words = list => new RegExp("\\b(?:" + list + ")");
@@ -405,6 +406,13 @@ export function createEngine(ctx) {
     }
     if (/^(yardim|help|ne yapabilirsin|neler yapabilirsin|merhaba|selam|hello|hi)\b/.test(t)) return help();
     const counting = /\b(kac|sayi|ne kadar|how many|count)|\b(bu|gecen) (ay|hafta|yil)|\bbugun|\bson \d/.test(t);
+    if (/\b(tahlil|tetkik|hemogram|biyokimya|lab)\w*\b.*\b(fotograf|foto|resim|tara|goruntu)/.test(t)) {
+      return answer("Tetkik formundaki «Fotoğraftan oku» ile sonuç kâğıdının fotoğrafını tabloya aktarabilirsiniz.", {note:"Okuma cihazınızda yapılır; değerleri kaydetmeden önce kontrol edin.", links:[["Yeni tetkik", "new:labs"]]});
+    }
+    if (/\b(fatura|irsaliye|fiyat listesi|e-?fatura|belge)\w*\b/.test(t) && !counting) {
+      if (!canDocs()) return answer("Belgeden stok aktarmak için ürün ve stok düzenleme yetkisi gerekir.");
+      return answer("Faturanın veya fiyat listesinin fotoğrafını, e-Fatura XML dosyasını ya da Excel/CSV listesini ekleyin. Kalemleri okuyup stok ürünleriyle eşleştiririm; siz onaylayınca kaydedilir.", {note:"PDF yerine e-Faturanın XML dosyasını veya sayfanın fotoğrafını kullanın.", links:[["Belge seç", "doc:pick"]]});
+    }
     if (!counting) for (const [pattern, label, hash] of actions) if (pattern.test(t)) return answer(fill("{0} ekranını açabilirim.", label), {links:[[label, hash]]});
     const pets = findPatients(text);
     if (pets.length) return patient(text, pets);
@@ -416,6 +424,7 @@ export function createEngine(ctx) {
 // ---- Arayüz ----
 const icon = '<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v2"/><rect x="4" y="6" width="16" height="12" rx="4"/><circle cx="9" cy="12" r="1.3" fill="currentColor"/><circle cx="15" cy="12" r="1.3" fill="currentColor"/><path d="M9.5 15.5h5"/><path d="M2 11v3M22 11v3"/></svg>';
 const micIcon = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>';
+const clipIcon = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5 12.6 20a5 5 0 0 1-7.1-7.1l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4l7.8-7.8"/></svg>';
 const sendIcon = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13M13 6l6 6-6 6"/></svg>';
 
 export function mountVeBot(ctx) {
@@ -445,7 +454,11 @@ export function mountVeBot(ctx) {
   const send = el("button", {type:"submit", className:"vebot-icon-button vebot-send", innerHTML:sendIcon});
   send.setAttribute("aria-label", "Gönder");
   const status = el("p", {className:"vebot-status"});
-  const form = el("form", {className:"vebot-form"}, input, mic, send);
+  const attach = el("button", {type:"button", className:"vebot-icon-button", innerHTML:clipIcon, hidden:true});
+  attach.setAttribute("aria-label", "Belge ekle (fatura, fiyat listesi)");
+  attach.title = "Belge ekle (fatura, fiyat listesi)";
+  const fileInput = el("input", {type:"file", hidden:true, accept:"image/*,.xml,.xlsx,.csv,.tsv,.pdf,application/xml,text/xml"});
+  const form = el("form", {className:"vebot-form"}, attach, fileInput, input, mic, send);
   const chips = el("div", {className:"vebot-chips"});
   const close = el("button", {type:"button", className:"icon-button vebot-close", textContent:"×"});
   close.setAttribute("aria-label", "VeBot’u kapat");
@@ -458,7 +471,7 @@ export function mountVeBot(ctx) {
   panel.setAttribute("aria-label", "VeBot klinik asistanı");
   document.body.append(launcher, panel);
 
-  const suggestions = [["Günün özeti", "summary"], ["Bugünkü ciro", "sales"], ["Kritik stok", "products"], ["Yarınki randevular", "appointments"], ["Geciken aşılar", "followups"], ["Açık bakiyeler", "sales"]];
+  const suggestions = [["Günün özeti", "summary"], ["Bugünkü ciro", "sales"], ["Kritik stok", "products"], ["Yarınki randevular", "appointments"], ["Geciken aşılar", "followups"], ["Açık bakiyeler", "sales"], ["Faturadan stok", "products"]];
   const renderChips = () => {
     chips.replaceChildren(...suggestions.filter(([, module]) => module === "summary" || safeCan(module)).map(([label]) => {
       const chip = el("button", {type:"button", className:"vebot-chip", textContent:label});
@@ -493,7 +506,9 @@ export function mountVeBot(ctx) {
     }
     if (result.note) box.append(el("p", {className:"vebot-note", textContent:result.note}));
     if (result.links?.length) {
-      box.append(el("div", {className:"vebot-links"}, ...result.links.map(([label, href]) => href.startsWith("new:")
+      box.append(el("div", {className:"vebot-links"}, ...result.links.map(([label, href]) => href === "doc:pick"
+        ? el("button", {type:"button", className:"button small", textContent:label, dataset:{vebotDoc:"1"}})
+        : href.startsWith("new:")
         ? el("button", {type:"button", className:"button small", textContent:label, dataset:{vebotNew:href.slice(4)}})
         : el("a", {className:"button small", href, textContent:label}))));
     }
@@ -513,6 +528,41 @@ export function mountVeBot(ctx) {
     bubble("bot", renderAnswer(result));
   }
 
+  const docsAllowed = () => { try { return !!(ctx.save && ctx.canEdit && ctx.canEdit("products")); } catch { return false; } };
+  let reading = false;
+  function pickDocument() {
+    if (reading) return;
+    if (!docsAllowed()) { bubble("bot", renderAnswer({text:"Belgeden stok aktarmak için ürün ve stok düzenleme yetkisi gerekir."})); return; }
+    fileInput.value = "";
+    fileInput.click();
+  }
+  attach.addEventListener("click", pickDocument);
+  fileInput.addEventListener("change", async () => {
+    const file = fileInput.files?.[0];
+    if (!file || reading) return;
+    reading = true;
+    attach.disabled = true;
+    bubble("user", el("p", {textContent:"📎 " + file.name}));
+    try {
+      const docs = await import("./vebot-docs.js?v=20261124-r1");
+      const parsed = await docs.readDocument(file, {
+        ocr: ctx.ocr,
+        readSheets: f => import("./migration-file.js").then(module => module.readMigrationFile(f)),
+        onStatus: text => { status.textContent = text; },
+      });
+      status.textContent = "";
+      bubble("bot", renderAnswer({text:fill("Belgede {0} kalem okundu.", parsed.lines.length), note:"Taslağı kontrol edip onaylayın; onaylamadan hiçbir kayıt değişmez."}));
+      docs.openDocDraft(ctx, parsed, file.name, result => bubble("bot", renderAnswer(result)));
+    } catch (error) {
+      status.textContent = "";
+      bubble("bot", renderAnswer({text:error?.message || "Belge okunamadı."}));
+    } finally {
+      reading = false;
+      attach.disabled = false;
+      fileInput.value = "";
+    }
+  });
+
   form.addEventListener("submit", event => {
     event.preventDefault();
     const text = input.value;
@@ -526,6 +576,7 @@ export function mountVeBot(ctx) {
     if (event.key === "Enter" && !event.shiftKey && !event.isComposing) { event.preventDefault(); form.requestSubmit(); }
   });
   log.addEventListener("click", event => {
+    if (event.target.closest("button[data-vebot-doc]")) { pickDocument(); return; }
     const create = event.target.closest("button[data-vebot-new]");
     if (create && typeof ctx.open === "function") {
       if (matchMedia("(max-width: 720px)").matches) setOpen(false);
@@ -543,6 +594,7 @@ export function mountVeBot(ctx) {
     launcher.classList.toggle("is-open", open);
     if (open) {
       renderChips();
+      attach.hidden = !docsAllowed();
       if (!greeted) {
         greeted = true;
         bubble("bot", renderAnswer({text:"Merhaba, ben VeBot. Kliniğinizle ilgili sorunuzu yazın veya sesle sorun.", note:"Yanıtlar yalnızca bu cihazda, görmeye yetkili olduğunuz kayıtlardan hazırlanır. Veriler dışarı gönderilmez."}));

@@ -40,7 +40,7 @@ final class WebBuilderAdmin
             $value=self::e(is_scalar($values[$key]??null)?$values[$key]:'');
             $needed=in_array($key,$required,true);
             $type=match($key){'date'=>'date','email'=>'email','phone','whatsapp'=>'tel','position'=>'number', default=>'text'};
-            $large=in_array($key,['body','summary','description','maps','mission','story','services','facilities','privacy','holidays','redirects','notes'],true);
+            $large=in_array($key,['body','summary','description','maps','mission','story','services','facilities','privacy','holidays','redirects','notes','assistantNote'],true);
             $html.='<label'.($large?' class="wide"':'').'>'.self::e($label).($needed?' <small class="hint">(zorunlu)</small>':'').
                 ($large?'<textarea name="'.$key.'" rows="'.($key==='body'?7:3).'">'.$value.'</textarea>':
                     '<input type="'.$type.'" name="'.$key.'" value="'.$value.'"'.($needed?' required':'').'>').'</label>';
@@ -279,7 +279,8 @@ final class WebBuilderAdmin
             $draft['booking']=$booking;
         } elseif ($tab==='ayarlar') {
             $draft['settings']=['index'=>self::selected($post['index']??null),'contact'=>self::selected($post['contact']??null),
-                'contactPrivacy'=>WebBuilder::text($post['privacy']??'',24000),'contactMail'=>self::selected($post['contactMail']??null),'redirects'=>[]];
+                'contactPrivacy'=>WebBuilder::text($post['privacy']??'',24000),'contactMail'=>self::selected($post['contactMail']??null),'redirects'=>[],
+                'assistant'=>self::selected($post['assistant']??null),'assistantNote'=>WebBuilder::text($post['assistantNote']??'',3000)];
             if ($draft['settings']['contact'] && !$draft['settings']['contactPrivacy']) throw new RuntimeException('İletişim formu için aydınlatma metni gerekli.',422);
             foreach (preg_split('/\R/',WebBuilder::text($post['redirects']??'',5000),-1,PREG_SPLIT_NO_EMPTY) as $line) {
                 if (!preg_match('~\A([a-z0-9-]{1,63})\s+([a-z0-9-]{1,63})\z~D',trim($line),$m) ||
@@ -492,7 +493,8 @@ final class WebBuilderAdmin
         return $this->form($tab,$site,self::check('index','Yayınlanan site arama motorlarına açık',$d['settings']['index']??true).
             self::check('contact','İletişim formunu aç',$d['settings']['contact']??false).
             self::check('contactMail','Yeni iletişim mesajı için bayi yöneticisine e-posta gönder',$d['settings']['contactMail']??false).
-            self::fields(['privacy'=>'İletişim formu aydınlatma metni','redirects'=>'Yönlendirmeler (eski-ad yeni-ad)'],['privacy'=>$d['settings']['contactPrivacy']??'','redirects'=>implode("\n",$redirects)]));
+            self::check('assistant','Sitede ziyaretçi asistanını göster (saatler, adres, hizmetler, randevu ve acil durum yönlendirmesi)',$d['settings']['assistant']??true).
+            self::fields(['privacy'=>'İletişim formu aydınlatma metni','redirects'=>'Yönlendirmeler (eski-ad yeni-ad)','assistantNote'=>'Asistanın paylaşabileceği ek bilgiler (ör. muayene ücreti, kampanyalar, otopark)'],['privacy'=>$d['settings']['contactPrivacy']??'','redirects'=>implode("\n",$redirects),'assistantNote'=>$d['settings']['assistantNote']??'']));
     }
     public static function pageNumber(mixed $value): int
     {

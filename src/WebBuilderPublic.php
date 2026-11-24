@@ -362,6 +362,41 @@ final class WebBuilderPublic
         }
         return [[], $html,null];
     }
+    /** Web sitesi asistanı için yalnızca sitede zaten yayımlanan bilgiler (iç kayıt içermez). */
+    private function assistant(array $site,array $d,string $base,bool $preview,bool $homeVisits): string
+    {
+        if (!($d['settings']['assistant']??true)) return '';
+        $c=$d['contact']??[];
+        $text=static fn(mixed $value,int $limit=300): string=>is_string($value)?mb_substr(trim($value),0,$limit):'';
+        $branches=[];
+        foreach ($this->web->branches($site['partner_id']) as $branch) {
+            $hours=$d['booking']['hours'][$branch->id]??[];
+            $details=$c['branches'][$branch->id]??[];
+            if (!array_filter($hours) && !array_filter($details)) continue;
+            $branches[]=['name'=>(string)$branch->name,'address'=>$text($details['address']??''),'phone'=>$text($details['phone']??'',40),
+                'directions'=>$text($details['directions']??'',600),'hours'=>(object)array_filter($hours)];
+        }
+        $services=preg_split('/\R/',$text($d['content']['hakkimizda']['services']??'',6000),-1,PREG_SPLIT_NO_EMPTY);
+        $data=[
+            'clinic'=>$text($d['identity']['name']??''),
+            'phone'=>$text($c['phone']??'',40),'whatsapp'=>$text($c['whatsapp']??'',40),'email'=>$text($c['email']??'',254),
+            'address'=>$text($c['address']??''),'directions'=>empty($c['directions'])?'':($preview?$text($c['directions'],600):self::href($base,'t/yol-tarifi')),
+            'branches'=>$branches,'holidays'=>array_values(array_filter($d['booking']['holidays']??[],'is_string')),
+            'services'=>array_values(array_filter(array_slice(array_map(static fn($line)=>trim(ltrim(trim($line),'-•*')),$services),0,60))),
+            'note'=>$text($d['settings']['assistantNote']??'',3000),
+            'links'=>[
+                'booking'=>!empty($d['booking']['enabled'])?self::href($base,'randevu'):'',
+                'contact'=>self::href($base,'iletisim'),'contactForm'=>!empty($d['settings']['contact']),
+                'homeVisit'=>$homeVisits?self::href($base,'evde-hizmet').'#yeni':'',
+                'homeCare'=>$preview?'':self::href($base,'evden-takip'),
+                'about'=>self::href($base,'hakkimizda'),
+            ],
+        ];
+        return '<script type="application/json" id="site-assistant-data">'.
+            json_encode($data,JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT|JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE).'</script>'.
+            '<script type="module" src="/site-assistant.js?v=1"></script>';
+    }
+
     public function render(array $site,array $d,string $base,string $path,array $get,?array $customer=null,bool $preview=false,string $notice='',array $visitCatalog=[],string $visitForm=''): array
     {
         [$page,$post]=array_pad(explode('/',$path,2),2,'');
@@ -454,7 +489,7 @@ final class WebBuilderPublic
         }
         $homeCareLink=$preview?'':' <a href="'.self::href($base,'evden-takip').'">Evden Takip</a>';
         $html='<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'.
-            self::e($seoTitle).'</title>'.$head.'<link rel="stylesheet" href="/web-builder-site.css?v=52"><script src="/web-builder-site.js?v=38" defer></script>'.
+            self::e($seoTitle).'</title>'.$head.'<link rel="stylesheet" href="/web-builder-site.css?v=53"><script src="/web-builder-site.js?v=38" defer></script>'.
             ($visitPage?'<script src="/home-visits.js?v=44" defer></script>':'').'</head>'.
             '<body class="theme-'.self::e($d['theme']).' palette-'.self::e($d['palette']).'"><a class="skip" href="#icerik">İçeriğe geç</a><header class="site-header"><div class="header-inner">'.
             '<a class="site-brand" href="'.self::href($base).'">'.$logo.'<span>'.self::e($clinic).'</span></a>'.
@@ -462,7 +497,7 @@ final class WebBuilderPublic
             '<footer><div><strong>'.self::e($clinic).'</strong> '.$footerHours.$homeCareLink.' <a href="'.self::href($base,'iletisim').'">İletişim</a></div>'.
             '<div class="site-platform-credit"><span>Bu site <a href="https://www.vetzimo.com"><img src="/vetzimo-mark.png" width="18" height="18" alt="">VetZimo</a> tarafından sağlanmaktadır.</span></div></footer>'.
             '<dialog id="gallery-dialog" aria-label="Galeri fotoğrafı"><button type="button" aria-label="Önceki fotoğraf" data-previous>‹</button><img alt="">'.
-            '<button type="button" aria-label="Sonraki fotoğraf" data-next>›</button><button type="button" data-close>Kapat</button></dialog></body></html>';
+            '<button type="button" aria-label="Sonraki fotoğraf" data-next>›</button><button type="button" data-close>Kapat</button></dialog>'.($notFound?'':$this->assistant($site,$d,$base,$preview,(bool)$visitCatalog)).'</body></html>';
         return [$notFound?404:200,$html,$articleId];
     }
     public function sitemap(array $site,array $draft): string
