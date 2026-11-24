@@ -4,7 +4,7 @@
 // Yalnızca kullanıcının görmeye yetkili olduğu koleksiyonları okur (ctx.data izin süzgecinden geçer).
 // Metinler Türkçe kalıp anahtarlarıdır; ui-copy.js bunları seçili dile çevirir.
 
-import {interpretLabs} from "./lab-interpret.js?v=20261124-r1";
+import {interpretLabs} from "./lab-interpret.js?v=20261124-r2";
 
 const TZ = "Europe/Istanbul";
 const isoDay = new Intl.DateTimeFormat("en-CA", {timeZone:TZ, year:"numeric", month:"2-digit", day:"2-digit"});
@@ -325,11 +325,13 @@ export function createEngine(ctx) {
       return answer(fill("{0} · {1} ({2})", pet.name, near.length ? "Birleşik tetkik yorumu" : lab.title || lab.kind || "Tetkik", dateText(day(lab))), {
         urgent: res.critical.length > 0,
         stats:[["Okunan değer", count(res.rows.length)], ["Aralık dışı", count(res.abnormal.length)], ["Birlikte değerlendirilen panel", count(1 + near.length)]],
-        items:[...res.critical.map(text => ["⚠ " + text, ""]),
+        items:[...res.critical.map(text => [text, "Kritik değerler"]),
           ...res.abnormal.slice(0, brief ? 8 : 14).map(row => [`${row.name}: ${row.raw} ${row.unit}`.trim(), `${row.status === "high" ? "↑ Yüksek" : "↓ Düşük"} · ${row.degree}`]),
-          ...(brief ? res.findings.slice(0, 6).map(item => [item.title, ""]) : [])],
+          ...(brief ? [...res.findings.slice(0, 6).map(item => [item.title, "Değerlendirme"]),
+            ...res.differentials.slice(0, 6).map(item => [item, "Olası neden"]),
+            ...res.tests.slice(0, 5).map(item => [item, "Önerilen tetkik"])] : [])],
         note:brief
-          ? [res.differentials.length ? "Olası nedenler: " + res.differentials.slice(0, 6).join("; ") + "." : "", res.tests.length ? "Önerilen tetkikler: " + res.tests.slice(0, 5).join("; ") + "." : "", "Karar desteğidir; kesin tanı ve tedavi kararı hekime aittir."].filter(Boolean).join(" ")
+          ? "Karar desteğidir; kesin tanı ve tedavi kararı hekime aittir."
           : "Ayrıntılı yorum için “yorumla” yazın veya tetkik kaydını açın. Karar desteğidir; kesin tanı ve tedavi kararı hekime aittir.",
         links:[["Hasta dosyasını aç", link]],
       });

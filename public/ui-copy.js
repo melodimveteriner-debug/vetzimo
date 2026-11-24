@@ -13,7 +13,7 @@ if (languages.has(selected)) {
 }
 
 async function start(language) {
-  const response=await fetch("/ui-copy/"+language+".json?v=r76",{credentials:"same-origin"});
+  const response=await fetch("/ui-copy/"+language+".json?v=r79",{credentials:"same-origin"});
   if (!response.ok) return;
   const published=await response.json();
   const labels=new Map(Object.entries(published));
@@ -118,6 +118,8 @@ async function start(language) {
   document.title=local(document.title);
   walk(document.body);
   document.documentElement.dataset.vetzimoCopy=language;
+  // Kodla üretilen düz metinler (ör. metin kutusuna eklenen yorum) için.
+  globalThis.vetzimoTranslate=text=>typeof text==="string"&&text?local(text):text;
   new MutationObserver(mutations=>{
     const pending=new Set();
     for (const mutation of mutations) {

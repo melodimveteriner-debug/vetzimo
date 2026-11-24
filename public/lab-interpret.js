@@ -18,6 +18,7 @@ const ALIAS = {
   PH:"pH", PCO2:"pCO2", PO2:"pO2", HCO3:"HCO3", "HCO3-":"HCO3", "CHCO3":"HCO3", TCO2:"TCO2", BE:"BE", "BE(B)":"BE", "BE(ECF)":"BE", BEECF:"BE", BEB:"BE",
   LAC:"LAC", LACT:"LAC", LAKTAT:"LAC", LACTATE:"LAC", ICA:"iCa", "CA++":"iCa", "ICA++":"iCa", AG:"AG", "ANION GAP":"AG", SO2:"sO2", "SO2%":"sO2",
 };
+const fill = (template, ...values) => template.replace(/\{(\d)\}/g, (_, i) => String(values[i] ?? ""));
 const fold = text => String(text ?? "").toLocaleUpperCase("tr").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/İ/g, "I").replace(/\s+/g, " ").trim();
 export function codeFor(code, name) {
   for (const candidate of [code, name]) {
@@ -155,7 +156,8 @@ export function interpretLabs({panels = [], species = "", sex = "", ageMonths = 
   const rank = {critical:3, warn:2, info:1};
   const bump = (map, item, score) => map.set(item, Math.max(map.get(item) || 0, score));
   const add = (title, detail, {d = [], t = [], a = [], level = "warn", combined = false} = {}) => {
-    findings.push({title, detail, level, combined});
+    const parts = (Array.isArray(detail) ? detail : [detail]).filter(Boolean);
+    findings.push({title, detail:parts.join(" "), parts, level, combined});
     const score = (rank[level] || 1) + (combined ? 3 : 0);
     d.forEach(item => bump(dd, item, score)); t.forEach(item => bump(tests, item, score)); a.forEach(item => bump(approach, item, score));
   };
@@ -186,7 +188,7 @@ export function interpretLabs({panels = [], species = "", sex = "", ageMonths = 
     else if (hi("MCV")) { type = "Makrositer"; d = ["Rejeneratif anemi (retikülositoz)", key === "cat" ? "FeLV ilişkili diseritropoez" : "Irka bağlı makrositoz (Poodle)"]; }
     else d = ["Kronik hastalık / inflamasyon anemisi", "Kronik böbrek hastalığı", "Kemik iliği baskılanması", key === "cat" ? "FeLV / FIV" : "Ehrlichiosis"];
     if (hi("RDW")) notes.push("RDW yüksekliği eritrosit boyut çeşitliliğini gösterir; rejenerasyon lehine olabilir.");
-    add(`${type} anemi (${sev || "derece belirsiz"})`, `HCT ${f1(hct)} %. Anemi rejeneratif mi değil mi, retikülosit sayımıyla ayrılmalıdır.`, {d, t, a:["Hidrasyon durumunu değerlendirerek HCT ve total proteini birlikte yorumlayın", "Ağır ve semptomatik anemide kan grubu tayini / çapraz karşılaştırma ve transfüzyon planlayın"]});
+    add(fill("{0} anemi ({1})", type, sev || "derece belirsiz"), [fill("HCT {0} %.", f1(hct)), "Anemi rejeneratif mi değil mi, retikülosit sayımıyla ayrılmalıdır."], {d, t, a:["Hidrasyon durumunu değerlendirerek HCT ve total proteini birlikte yorumlayın", "Ağır ve semptomatik anemide kan grubu tayini / çapraz karşılaştırma ve transfüzyon planlayın"]});
     if (lo("TP") || lo("ALB")) add("Anemi + düşük protein", "Kan kaybı (dış kanama, GİS kanaması, ağır parazit) lehine.", {combined:true, d:["Kan kaybı"], t:["Dışkıda gizli kan", "Koagülasyon profili (PT/aPTT)"]});
     if (hi("TBIL")) add("Anemi + hiperbilirubinemi", "Hemoliz olasılığı yüksek.", {combined:true, d:["İmmün aracılı hemolitik anemi (IMHA)", key === "cat" ? "Mycoplasma haemofelis" : "Babesiosis", "Çinko / soğan-sarımsak toksisitesi"], t:["Salin aglütinasyon testi", "Coombs testi", "Kan paraziti PCR / yayma"], a:["IMHA düşünülüyorsa enfeksiyöz nedenler dışlandıktan sonra immünsüpresif tedavi ve tromboprofilaksi değerlendirilir"]});
     if (lo("PLT")) add("Anemi + trombositopeni", "İki seri birlikte etkilenmiş.", {combined:true, d:["Kene kaynaklı enfeksiyonlar (Ehrlichia, Anaplasma, Babesia)", "DIC", "Evans sendromu (IMHA + IMTP)", "Kemik iliği hastalığı"], t:["Hızlı kene paneli (4Dx) / PCR", "Koagülasyon profili, D-dimer"]});
@@ -199,9 +201,9 @@ export function interpretLabs({panels = [], species = "", sex = "", ageMonths = 
   }
   const stress = hi("NEU") && lo("LYM");
   if (stress) add("Stres lökogramı", "Nötrofili + lenfopeni (eozinopeni/monositoz eşlik edebilir): endojen veya ekzojen kortikosteroid etkisi.", {level:"info", d:["Akut stres / ağrı / sistemik hastalık", "Kortikosteroid kullanımı", "Hiperadrenokortisizm (klinik bulgu varsa)"]});
-  else if (hi("NEU")) add("Nötrofili", `Nötrofil ${f1(val("NEU"))} ×10³/µL: inflamasyon lehine${val("NEU") > 50 ? "; belirgin yükseklik (lökomoid reaksiyon) ciddi inflamatuvar odak veya lösemi açısından değerlendirilmelidir" : ""}.`,
+  else if (hi("NEU")) add("Nötrofili", [fill("Nötrofil {0} ×10³/µL: inflamasyon lehine.", f1(val("NEU"))), val("NEU") > 50 ? "Belirgin yükseklik (lökomoid reaksiyon) ciddi inflamatuvar odak veya lösemi açısından değerlendirilmelidir." : ""],
     {d:["Bakteriyel enfeksiyon / apse", key === "dog" && !male ? "Piyometra (kısırlaştırılmamış dişi)" : "Doku nekrozu", "İmmün aracılı hastalık", "Neoplazi"], t:["Yaymada sola kayma (çomak nötrofil) ve toksik değişiklik", "CRP / SAA", "Görüntüleme ile odak araştırması"]});
-  if (lo("NEU") || (lo("WBC") && !has("NEU"))) add("Nötropeni / lökopeni", "Akkiyon tüketimi veya kemik iliği yapımında azalma.", {level: val("NEU") < 1 ? "critical" : "warn",
+  if (lo("NEU") || (lo("WBC") && !has("NEU"))) add("Nötropeni / lökopeni", "Artmış tüketim veya kemik iliği yapımında azalma.", {level: val("NEU") < 1 ? "critical" : "warn",
     d:[young && key === "dog" ? "Parvovirus enteriti" : key === "cat" ? "Feline panlökopeni" : "Viral enfeksiyon", "Sepsis / endotoksemi", "Kemik iliği baskılanması (kemoterapi, ilaç)", "Ehrlichiosis", key === "cat" ? "FeLV / FIV" : "Ağır inflamasyon"],
     t:[key === "cat" ? "Panlökopeni antijen testi, FeLV/FIV testi" : "Parvovirus antijen testi", "Vücut ısısı takibi ve yayma"], a:["Ateş veya klinik bozulma varsa geniş spektrumlu antibiyotik ve destek tedavisi değerlendirilir", "İzolasyon ve bariyer hemşireliği uygulayın"]});
   if (hi("LYM")) add("Lenfositoz", key === "cat" ? "Kedilerde heyecan (adrenalin) yanıtı sık görülür; kalıcıysa ileri inceleme gerekir." : "Genç hayvanlarda fizyolojik olabilir; kalıcı ve belirginse ileri inceleme gerekir.",
@@ -210,7 +212,7 @@ export function interpretLabs({panels = [], species = "", sex = "", ageMonths = 
   if (hi("MON") && !stress) add("Monositoz", "Kronik inflamasyon, nekroz veya stres yanıtı.", {level:"info", d:["Kronik inflamasyon / granülomatöz hastalık", "Doku nekrozu", "İmmün aracılı hastalık"]});
   if (lo("PLT") && !(lo("HCT") || lo("HGB"))) {
     const v = val("PLT");
-    add("Trombositopeni", `PLT ${f1(v, 0)} ×10³/µL.${key === "cat" ? " Kedilerde trombosit kümeleşmesi yalancı düşüklüğün sık nedenidir." : ""}`, {
+    add("Trombositopeni", [fill("PLT {0} ×10³/µL.", f1(v, 0)), key === "cat" ? "Kedilerde trombosit kümeleşmesi yalancı düşüklüğün sık nedenidir." : ""], {
       d:[key === "cat" ? "Yalancı trombositopeni (kümeleşme)" : "Kene kaynaklı enfeksiyonlar (Ehrlichia, Anaplasma, Babesia)", "İmmün aracılı trombositopeni (IMTP)", "DIC / tüketim", "Kemik iliği hastalığı"],
       t:["Yaymada trombosit tahmini ve kümeleşme kontrolü", "Kene paneli (4Dx) / PCR", "Koagülasyon profili"], a:v < 50 ? ["Travmadan, kas içi enjeksiyondan ve trombosit fonksiyonunu bozan ilaçlardan (NSAİİ) kaçının"] : []});
   }
@@ -222,9 +224,9 @@ export function interpretLabs({panels = [], species = "", sex = "", ageMonths = 
     const ratio = Number.isFinite(bun) && Number.isFinite(cre) && cre > 0 ? bun / cre : NaN;
     if (hi("CRE") || hi("SDMA")) {
       const stage = Number.isFinite(cre) ? (key === "cat" ? (cre > 5 ? 4 : cre >= 2.9 ? 3 : cre >= 1.6 ? 2 : 1) : (cre > 5 ? 4 : cre >= 2.9 ? 3 : cre >= 1.4 ? 2 : 1)) : 0;
-      add("Azotemi", `Kreatinin ${f1(cre, 2)} mg/dL${Number.isFinite(ratio) ? `, BUN/Kreatinin oranı ${f1(ratio, 0)}` : ""}. Prerenal, renal ve postrenal nedenler idrar dansitesi ile ayrılmalıdır.${stage ? ` Hasta stabil ve hidrateyse kreatinin değeri IRIS evre ${stage} ile uyumludur (evreleme için tekrarlanan ölçüm gerekir).` : ""}`, {
+      add("Azotemi", [Number.isFinite(ratio) ? fill("Kreatinin {0} mg/dL, BUN/Kreatinin oranı {1}.", f1(cre, 2), f1(ratio, 0)) : fill("Kreatinin {0} mg/dL.", f1(cre, 2)), "Prerenal, renal ve postrenal nedenler idrar dansitesi ile ayrılmalıdır.", stage ? fill("Hasta stabil ve hidrateyse kreatinin değeri IRIS evre {0} ile uyumludur (evreleme için tekrarlanan ölçüm gerekir).", stage) : ""], {
         level: cre > 5 ? "critical" : "warn",
-        d:["Prerenal azotemi (dehidrasyon, hipovolemi)", "Kronik böbrek hastalığı", "Akut böbrek hasarı (toksin, leptospirosis, iskemi" + (key === "cat" ? ", zambak zehirlenmesi)" : ")"), male && key === "cat" ? "Üretral tıkanıklık (FLUTD, ürolit, tıkaç)" : "Postrenal tıkanıklık / üroabdomen"],
+        d:["Prerenal azotemi (dehidrasyon, hipovolemi)", "Kronik böbrek hastalığı", key === "cat" ? "Akut böbrek hasarı (toksin, leptospirosis, iskemi, zambak zehirlenmesi)" : "Akut böbrek hasarı (toksin, leptospirosis, iskemi)", male && key === "cat" ? "Üretral tıkanıklık (FLUTD, ürolit, tıkaç)" : "Postrenal tıkanıklık / üroabdomen"],
         t:["Tam idrar tahlili ve idrar dansitesi (sıvıdan önce)", "İdrar protein/kreatinin oranı (UPC)", "Kan basıncı ölçümü", "SDMA", "Abdominal ultrason (böbrek ve idrar yolları)"],
         a:["Dehidrasyonu sıvı tedavisiyle düzeltin, idrar çıkışını ve kiloyu izleyin; 24–72 saat sonra böbrek değerlerini tekrarlayın", "Nefrotoksik ilaçlardan (NSAİİ, aminoglikozid) kaçının", "Kronik böbrek hastalığında böbrek diyeti; fosfor yüksekse fosfor bağlayıcı değerlendirin"]});
       if (Number.isFinite(ratio) && ratio > 30 && !hi("P")) notes.push("BUN/Kreatinin oranının yüksek olması prerenal azotemi, GİS kanaması veya yüksek protein alımı lehine olabilir.");
@@ -232,12 +234,12 @@ export function interpretLabs({panels = [], species = "", sex = "", ageMonths = 
   }
   if (lo("BUN")) add("Düşük BUN", "", {level:"info", d:["Karaciğer yetmezliği / portosistemik şant", "Düşük proteinli beslenme", "Poliüri-polidipsi"], t:["Safra asitleri", "Amonyak"]});
   if (hi("P")) add("Hiperfosfatemi", young ? "Genç hayvanlarda büyümeye bağlı fizyolojik olabilir." : "Glomerüler filtrasyonda azalma ile en sık görülür.", {level: young ? "info" : "warn", d:young ? ["Büyüme (fizyolojik)"] : ["Böbrek fonksiyon kaybı", "Hemoliz artefaktı", "D vitamini toksisitesi", "Hipoparatiroidizm"]});
-  if (has("Ca") && has("P") && val("Ca") * val("P") > 70) notes.push(`Ca × P çarpımı ${f1(val("Ca") * val("P"), 0)}: 70’in üzerinde yumuşak doku mineralizasyonu riski artar.`);
+  if (has("Ca") && has("P") && val("Ca") * val("P") > 70) notes.push(fill("Ca × P çarpımı {0}: 70’in üzerinde yumuşak doku mineralizasyonu riski artar.", f1(val("Ca") * val("P"), 0)));
 
   // ---- Elektrolitler ----
   if (has("Na") && has("K") && val("K") > 0) {
     const ratio = val("Na") / val("K");
-    if (ratio < 27) add("Düşük Na:K oranı", `Na:K = ${f1(ratio, 1)}.`, {level: ratio < 23 ? "critical" : "warn",
+    if (ratio < 27) add("Düşük Na:K oranı", fill("Na:K = {0}.", f1(ratio, 1)), {level: ratio < 23 ? "critical" : "warn",
       d:[key === "dog" ? "Hipoadrenokortisizm (Addison)" : male ? "Üretral tıkanıklık (FLUTD, ürolit, tıkaç)" : "Üroabdomen", "Akut böbrek hasarı (oligüri)", "Ağır GİS hastalığı (kamçılı kurt, salmonella)", "Plevral/peritoneal efüzyon"],
       t:[key === "dog" ? "Bazal kortizol (≥ 2 µg/dL Addison’u büyük ölçüde dışlar) / ACTH stimülasyon testi" : "Mesane palpasyonu ve idrar çıkışı kontrolü", "EKG"],
       a:["Hipovolemi ve hiperkalemi varsa sıvı tedavisine başlayın ve EKG ile izleyin"]});
@@ -248,12 +250,12 @@ export function interpretLabs({panels = [], species = "", sex = "", ageMonths = 
   if (lo("Na")) add("Hiponatremi", "", {d:["GİS kayıpları", key === "dog" ? "Hipoadrenokortisizm (Addison)" : "Böbrek kayıpları", "Kalp yetmezliği / üçüncü boşluk", "Diüretik kullanımı"], a:["Sodyumu yavaş yükseltin; hızlı düzeltme nörolojik hasara (demiyelinizasyon) yol açabilir"]});
   if (has("Cl") && has("Na") && Number.isFinite(REF[key]?.Na?.[0])) {
     const mid = (REF[key].Na[0] + REF[key].Na[1]) / 2, corrected = val("Cl") * mid / val("Na");
-    if (corrected < REF[key].Cl[0]) add("Düzeltilmiş hipokloremi", `Düzeltilmiş Cl ${f1(corrected, 0)} mmol/L.`, {d:["Mide içeriği kusması (pilor tıkanıklığı, yabancı cisim)", "Diüretik kullanımı"], t:["Abdominal görüntüleme (yabancı cisim)"]});
-    else if (corrected > REF[key].Cl[1]) add("Düzeltilmiş hiperkloremi", `Düzeltilmiş Cl ${f1(corrected, 0)} mmol/L.`, {level:"info", d:["İnce bağırsak kaynaklı bikarbonat kaybı (ishal)", "Renal tübüler asidoz", "Yüksek klorlu sıvı tedavisi"]});
+    if (corrected < REF[key].Cl[0]) add("Düzeltilmiş hipokloremi", fill("Düzeltilmiş Cl {0} mmol/L.", f1(corrected, 0)), {d:["Mide içeriği kusması (pilor tıkanıklığı, yabancı cisim)", "Diüretik kullanımı"], t:["Abdominal görüntüleme (yabancı cisim)"]});
+    else if (corrected > REF[key].Cl[1]) add("Düzeltilmiş hiperkloremi", fill("Düzeltilmiş Cl {0} mmol/L.", f1(corrected, 0)), {level:"info", d:["İnce bağırsak kaynaklı bikarbonat kaybı (ishal)", "Renal tübüler asidoz", "Yüksek klorlu sıvı tedavisi"]});
   }
   if (hi("Ca")) {
     const corrected = key === "dog" && has("ALB") ? val("Ca") - val("ALB") + 3.5 : NaN;
-    add("Hiperkalsemi", Number.isFinite(corrected) ? `Albümine göre düzeltilmiş Ca ≈ ${f1(corrected)} mg/dL (yalnız tahmin; iyonize Ca daha güvenilirdir).` : "İyonize kalsiyumla doğrulayın.", {
+    add("Hiperkalsemi", Number.isFinite(corrected) ? fill("Albümine göre düzeltilmiş Ca ≈ {0} mg/dL (yalnız tahmin; iyonize Ca daha güvenilirdir).", f1(corrected)) : "İyonize kalsiyumla doğrulayın.", {
       d:["Malignite hiperkalsemisi (lenfoma, anal kese adenokarsinomu)", "Primer hiperparatiroidizm", key === "dog" ? "Hipoadrenokortisizm (Addison)" : "İdiyopatik hiperkalsemi", "D vitamini zehirlenmesi (kolekalsiferollü rodentisit)", "Kronik böbrek hastalığı"],
       t:["İyonize kalsiyum", "PTH ve PTHrP", "Lenf nodu palpasyonu ve rektal muayene", "Göğüs röntgeni ve abdominal ultrason"], a:["Belirgin hiperkalsemide sıvı tedavisi (serum fizyolojik) ve böbrek fonksiyon takibi"]});
   }
@@ -262,7 +264,7 @@ export function interpretLabs({panels = [], species = "", sex = "", ageMonths = 
 
   // ---- Karaciğer ----
   const altX = has("ALT") && get("ALT").max ? val("ALT") / get("ALT").max : NaN;
-  if (hi("ALT")) add("Hepatoselüler hasar (ALT yüksekliği)", Number.isFinite(altX) ? `ALT üst sınırın yaklaşık ${f1(altX)} katı${altX >= 5 ? "; belirgin hasar" : ""}.` : "", {
+  if (hi("ALT")) add("Hepatoselüler hasar (ALT yüksekliği)", Number.isFinite(altX) ? [fill("ALT üst sınırın yaklaşık {0} katı.", f1(altX)), altX >= 5 ? "Belirgin hepatoselüler hasar." : ""] : "", {
     d:["Akut / kronik hepatit (bakır birikimi dahil)", "Toksinler (ksilitol, NSAİİ, mantar, aflatoksin)", "Hipoksi / hipoperfüzyon", "Pankreatit veya endokrin hastalığa ikincil", key === "cat" ? "Hipertiroidizm" : "Leptospirosis"],
     t:["Safra asitleri (açlık/tokluk)", "Abdominal ultrason", "Koagülasyon profili", key === "cat" && old ? "Total T4" : "Leptospira testi"]});
   if (hi("ALP")) {
@@ -283,7 +285,7 @@ export function interpretLabs({panels = [], species = "", sex = "", ageMonths = 
   }
   if (hi("GLOB")) {
     const ag = has("ALB") ? val("ALB") / val("GLOB") : val("A/G");
-    add("Hiperglobulinemi", Number.isFinite(ag) ? `A/G oranı ${f1(ag, 2)}.${key === "cat" ? (ag < 0.4 ? " Kedide A/G < 0,4 klinik tablo uygunsa FIP lehine destekleyici bulgudur." : ag > 0.8 ? " A/G > 0,8 FIP olasılığını azaltır." : "") : ""}` : "", {
+    add("Hiperglobulinemi", Number.isFinite(ag) ? [fill("A/G oranı {0}.", f1(ag, 2)), key === "cat" ? (ag < 0.4 ? "Kedide A/G < 0,4 klinik tablo uygunsa FIP lehine destekleyici bulgudur." : ag > 0.8 ? "A/G > 0,8 FIP olasılığını azaltır." : "") : ""] : "", {
       d:["Kronik antijenik uyarı / enfeksiyon", key === "cat" ? "Feline enfeksiyöz peritonit (FIP)" : "Leishmaniasis / ehrlichiosis", "Diş ve diş eti hastalığı", "Multipl miyelom / lenfoma (monoklonal)"],
       t:["Serum protein elektroforezi", key === "cat" ? "Efüzyon varsa Rivalta testi ve sıvı analizi" : "Leishmania ve Ehrlichia serolojisi"]});
   }
@@ -315,10 +317,10 @@ export function interpretLabs({panels = [], species = "", sex = "", ageMonths = 
       if (measured < expected - 3) return below;
       return "Beklenen kompanzasyonla uyumlu.";
     };
-    if (acid && metAcid) { primary = "Metabolik asidoz"; const exp = rC - 0.7 * (rH - hco3); compensation = `Beklenen pCO2 ≈ ${f1(exp, 0)} mmHg.`; mixed = check(exp, pco2, "Eşlik eden solunumsal asidoz (yetersiz solunum kompanzasyonu).", "Eşlik eden solunumsal alkaloz."); }
-    else if (acid && respAcid) { primary = "Solunumsal asidoz"; const acute = rH + 0.15 * (pco2 - rC), chronic = rH + 0.35 * (pco2 - rC); compensation = `Beklenen HCO3: akut ≈ ${f1(acute, 0)}, kronik ≈ ${f1(chronic, 0)} mmol/L.`; mixed = Number.isFinite(hco3) && hco3 < acute - 2 ? "Eşlik eden metabolik asidoz." : Number.isFinite(hco3) && hco3 > chronic + 2 ? "Eşlik eden metabolik alkaloz." : ""; }
-    else if (base && metAlk) { primary = "Metabolik alkaloz"; const exp = rC + 0.7 * (hco3 - rH); compensation = `Beklenen pCO2 ≈ ${f1(exp, 0)} mmHg.`; mixed = check(exp, pco2, "Eşlik eden solunumsal asidoz.", "Eşlik eden solunumsal alkaloz."); }
-    else if (base && respAlk) { primary = "Solunumsal alkaloz"; const acute = rH - 0.25 * (rC - pco2), chronic = rH - 0.55 * (rC - pco2); compensation = `Beklenen HCO3: akut ≈ ${f1(acute, 0)}, kronik ≈ ${f1(chronic, 0)} mmol/L.`; mixed = Number.isFinite(hco3) && hco3 < chronic - 2 ? "Eşlik eden metabolik asidoz." : Number.isFinite(hco3) && hco3 > acute + 2 ? "Eşlik eden metabolik alkaloz." : ""; }
+    if (acid && metAcid) { primary = "Metabolik asidoz"; const exp = rC - 0.7 * (rH - hco3); compensation = fill("Beklenen pCO2 ≈ {0} mmHg.", f1(exp, 0)); mixed = check(exp, pco2, "Eşlik eden solunumsal asidoz (yetersiz solunum kompanzasyonu).", "Eşlik eden solunumsal alkaloz."); }
+    else if (acid && respAcid) { primary = "Solunumsal asidoz"; const acute = rH + 0.15 * (pco2 - rC), chronic = rH + 0.35 * (pco2 - rC); compensation = fill("Beklenen HCO3: akut ≈ {0}, kronik ≈ {1} mmol/L.", f1(acute, 0), f1(chronic, 0)); mixed = Number.isFinite(hco3) && hco3 < acute - 2 ? "Eşlik eden metabolik asidoz." : Number.isFinite(hco3) && hco3 > chronic + 2 ? "Eşlik eden metabolik alkaloz." : ""; }
+    else if (base && metAlk) { primary = "Metabolik alkaloz"; const exp = rC + 0.7 * (hco3 - rH); compensation = fill("Beklenen pCO2 ≈ {0} mmHg.", f1(exp, 0)); mixed = check(exp, pco2, "Eşlik eden solunumsal asidoz.", "Eşlik eden solunumsal alkaloz."); }
+    else if (base && respAlk) { primary = "Solunumsal alkaloz"; const acute = rH - 0.25 * (rC - pco2), chronic = rH - 0.55 * (rC - pco2); compensation = fill("Beklenen HCO3: akut ≈ {0}, kronik ≈ {1} mmol/L.", f1(acute, 0), f1(chronic, 0)); mixed = Number.isFinite(hco3) && hco3 < chronic - 2 ? "Eşlik eden metabolik asidoz." : Number.isFinite(hco3) && hco3 > acute + 2 ? "Eşlik eden metabolik alkaloz." : ""; }
     else if (!acid && !base && ((metAcid && respAlk) || (metAlk && respAcid))) { primary = "pH normal, karışık bozukluk olası"; mixed = metAcid ? "Metabolik asidoz + solunumsal alkaloz" : "Metabolik alkaloz + solunumsal asidoz"; }
     else if (!acid && !base && (metAcid || metAlk || respAcid || respAlk)) primary = "pH normal; kompanse veya karışık bozukluk";
     else if (acid || base) primary = acid ? "Asidemi (birincil neden belirsiz)" : "Alkalemi (birincil neden belirsiz)";
@@ -337,10 +339,10 @@ export function interpretLabs({panels = [], species = "", sex = "", ageMonths = 
     if (primary === "Metabolik alkaloz") { d.push("Mide içeriği kusması / pilor tıkanıklığı", "Diüretik kullanımı", "Hipokloremi, hipokalemi"); a.push("Klorlu sıvı (serum fizyolojik) ve potasyum desteği ile düzeltme"); }
     if (primary === "Solunumsal asidoz" || /solunumsal asidoz/i.test(mixed)) { d.push("Hipoventilasyon (anestezi, nöromüsküler hastalık, üst solunum yolu tıkanıklığı)", "Plevral boşluk hastalığı", "Ağır akciğer hastalığı"); a.push("Hava yolunu ve ventilasyonu değerlendirin; gerekirse oksijen ve ventilasyon desteği"); }
     if (primary === "Solunumsal alkaloz" || /solunumsal alkaloz/i.test(mixed)) { d.push("Hiperventilasyon (ağrı, stres, hipertermi)", "Hipoksemi", "Sepsis / SSS hastalığı"); }
-    add(`Asit-baz: ${primary}`, [compensation, mixed, Number.isFinite(ag) ? `Anyon açığı ${f1(ag, 0)} mmol/L${agHigh ? " (yüksek)" : ""}.` : ""].filter(Boolean).join(" "), {level: acid || base ? "warn" : "info", d, t, a});
+    add(fill("Asit-baz: {0}", primary), [compensation, mixed, Number.isFinite(ag) ? fill(agHigh ? "Anyon açığı {0} mmol/L (yüksek)." : "Anyon açığı {0} mmol/L.", f1(ag, 0)) : ""], {level: acid || base ? "warn" : "info", d, t, a});
     if (has("pO2") && val("pO2") < 80) notes.push("pO2 düşük: örnek arteriyel ise hipoksemi vardır; venöz örnekte pO2 oksijenlenmeyi yansıtmaz.");
   }
-  if (hi("LAC")) add("Hiperlaktatemi", `Laktat ${f1(val("LAC"))} mmol/L.`, {level: val("LAC") > 4 ? "critical" : "warn", d:["Hipoperfüzyon / şok", "Sepsis", "Mide dilatasyonu-volvulus (köpek)", "Nöbet / aşırı kas aktivitesi"], t:["Kan basıncı ve perfüzyon parametreleri", "Tedaviden sonra seri laktat ölçümü"], a:["Perfüzyonu düzeltin; laktatın 2–6 saat içinde düşmesi iyi yanıt göstergesidir"]});
+  if (hi("LAC")) add("Hiperlaktatemi", fill("Laktat {0} mmol/L.", f1(val("LAC"))), {level: val("LAC") > 4 ? "critical" : "warn", d:["Hipoperfüzyon / şok", "Sepsis", "Mide dilatasyonu-volvulus (köpek)", "Nöbet / aşırı kas aktivitesi"], t:["Kan basıncı ve perfüzyon parametreleri", "Tedaviden sonra seri laktat ölçümü"], a:["Perfüzyonu düzeltin; laktatın 2–6 saat içinde düşmesi iyi yanıt göstergesidir"]});
 
   // ---- Paneller arası birleşik değerlendirme ----
   if (male && key === "cat" && hi("K") && (hi("CRE") || hi("BUN"))) add("Olası üretral tıkanıklık", "Erkek kedide hiperkalemi + azotemi birlikteliği acil üretral tıkanıklık için tipiktir.", {combined:true, level:"critical", d:["Üretral tıkanıklık (FLUTD, ürolit, tıkaç)"], t:["Mesane palpasyonu, abdominal ultrason / röntgen"], a:["Acil sondalama, hiperkalemi yönetimi ve sıvı tedavisi"]});
@@ -365,7 +367,7 @@ export function interpretLabs({panels = [], species = "", sex = "", ageMonths = 
   }
   trends.sort((a, b) => Math.abs(b.change) - Math.abs(a.change));
   const creT = trends.find(item => item.code === "CRE");
-  if (creT && creT.now - creT.before >= 0.3) notes.push(`Kreatinin önceki ölçüme göre ${f1(creT.now - creT.before, 2)} mg/dL arttı; ≥ 0,3 mg/dL artış akut böbrek hasarı açısından anlamlıdır.`);
+  if (creT && creT.now - creT.before >= 0.3) notes.push(fill("Kreatinin önceki ölçüme göre {0} mg/dL arttı; ≥ 0,3 mg/dL artış akut böbrek hasarı açısından anlamlıdır.", f1(creT.now - creT.before, 2)));
 
   if (!key) notes.push("Bu tür için genel referans aralığı yok; yalnızca raporda yazan referanslar kullanıldı.");
   if ([...L.values()].some(row => row.source === "genel")) notes.push("Raporda referansı olmayan değerler için genel kedi/köpek referansları kullanıldı; cihazınızın referansları farklı olabilir.");
@@ -377,13 +379,13 @@ export function interpretLabs({panels = [], species = "", sex = "", ageMonths = 
 
 // Düz metin özeti ("Sonuç ve değerlendirme" alanına eklenir)
 export function summaryText(result) {
-  const lines = ["Klinik karar desteği (VetZimo) · kesin tanı ve tedavi kararı hekime aittir."];
-  if (result.critical.length) lines.push("", "KRİTİK:", ...result.critical.map(item => "• " + item));
-  if (result.abnormal.length) lines.push("", "Referans dışı değerler:", ...result.abnormal.map(row => `• ${row.name}: ${row.raw} ${row.unit} ${row.status === "high" ? "↑" : "↓"} (${row.degree.toLocaleLowerCase("tr")})`));
-  if (result.findings.length) lines.push("", "Değerlendirme:", ...result.findings.map(item => "• " + item.title + (item.detail ? ": " + item.detail : "")));
-  if (result.differentials.length) lines.push("", "Olası nedenler:", ...result.differentials.map(item => "• " + item));
-  if (result.tests.length) lines.push("", "Önerilen ek tetkikler:", ...result.tests.map(item => "• " + item));
-  if (result.approach.length) lines.push("", "Genel yaklaşım:", ...result.approach.map(item => "• " + item));
+  const tr = text => { try { return globalThis.vetzimoTranslate?.(text) ?? text; } catch { return text; } };
+  const list = (title, items) => items.length ? ["", tr(title), ...items.map(item => "• " + tr(item))] : [];
+  const lines = [tr("Karar desteği · kesin tanı ve tedavi kararı hekime aittir")];
+  lines.push(...list("Kritik değerler", result.critical));
+  if (result.abnormal.length) lines.push("", tr("Referans dışı değerler"), ...result.abnormal.map(row => `• ${row.name}: ${row.raw} ${row.unit} ${tr(row.status === "high" ? "↑ Yüksek" : "↓ Düşük")} (${tr(row.degree)})`.replace(/\s+/g, " ")));
+  if (result.findings.length) lines.push("", tr("Değerlendirme"), ...result.findings.map(item => "• " + tr(item.title) + (item.parts.length ? ": " + item.parts.map(tr).join(" ") : "")));
+  lines.push(...list("Olası nedenler (ayırıcı tanı)", result.differentials), ...list("Önerilen ek tetkikler", result.tests), ...list("Genel yaklaşım ve tedavi önerileri", result.approach));
   return lines.join("\n");
 }
 
@@ -401,21 +403,21 @@ export function renderLabInsight(container, {values = "", result = "", date = ""
   const list = (title, items, cls = "") => items.length ? el("section", {className:"lab-insight-block " + cls}, el("h4", {textContent:title}), el("ul", {}, ...items.map(item => el("li", {textContent:item})))) : null;
   const header = el("header", {className:"lab-insight-head"},
     el("div", {}, el("h3", {textContent:"Klinik yorum"}), el("small", {textContent:"Karar desteği · kesin tanı ve tedavi kararı hekime aittir"})),
-    el("span", {className:"lab-insight-chip", textContent:[patient?.species || "Tür seçilmedi", sameWindow.length ? `+${sameWindow.length} panel birlikte` : ""].filter(Boolean).join(" · ")}));
+    el("span", {className:"lab-insight-chip", textContent:[patient?.species || "Tür seçilmedi", sameWindow.length ? fill("+{0} panel birlikte", sameWindow.length) : ""].filter(Boolean).join(" · ")}));
   container.append(header);
   if (res.critical.length) container.append(el("section", {className:"lab-insight-critical", role:"alert"}, el("h4", {textContent:"Kritik değerler"}), el("ul", {}, ...res.critical.map(item => el("li", {textContent:item})))));
-  if (res.abnormal.length) container.append(el("section", {className:"lab-insight-block"}, el("h4", {textContent:`Referans dışı değerler · ${res.abnormal.length}`}),
+  if (res.abnormal.length) container.append(el("section", {className:"lab-insight-block"}, el("h4", {textContent:fill("Referans dışı değerler · {0}", res.abnormal.length)}),
     el("ul", {className:"lab-insight-abnormal"}, ...res.abnormal.map(row => el("li", {className:"is-" + row.status},
       el("strong", {textContent:row.name}), el("span", {textContent:`${row.raw} ${row.unit}`.trim()}),
-      el("em", {textContent:`${row.status === "high" ? "↑ Yüksek" : "↓ Düşük"} · ${row.degree}`}),
-      el("small", {textContent:Number.isFinite(row.min) ? `${row.source === "genel" ? "genel ref." : "ref."} ${fmt(row.min)}–${fmt(row.max)}` : ""}))))));
+      el("em", {}, el("span", {textContent:row.status === "high" ? "↑ Yüksek" : "↓ Düşük"}), " · ", el("span", {textContent:row.degree})),
+      el("small", {textContent:Number.isFinite(row.min) ? fill(row.source === "genel" ? "genel ref. {0}" : "ref. {0}", `${fmt(row.min)}–${fmt(row.max)}`) : ""}))))));
   else container.append(el("p", {className:"lab-insight-ok", textContent:"Okunan tüm değerler referans aralığında."}));
   if (res.findings.length) container.append(el("section", {className:"lab-insight-block"}, el("h4", {textContent:"Değerlendirme"}),
-    ...res.findings.map(item => el("article", {className:"lab-insight-finding is-" + item.level}, el("strong", {textContent:item.title}), item.detail ? el("p", {textContent:item.detail}) : null))));
+    ...res.findings.map(item => el("article", {className:"lab-insight-finding is-" + item.level}, el("strong", {textContent:item.title}), item.parts.length ? el("p", {}, ...item.parts.flatMap((part, i) => [i ? " " : null, el("span", {textContent:part})]).filter(Boolean)) : null))));
   const longList = (title, items, cls = "") => {
     if (!items.length) return null;
     const block = el("section", {className:"lab-insight-block " + cls}, el("h4", {textContent:title}), el("ul", {}, ...items.slice(0, 10).map(item => el("li", {textContent:item}))));
-    if (items.length > 10) block.append(el("details", {}, el("summary", {textContent:`Diğer olasılıklar · ${items.length - 10}`}), el("ul", {}, ...items.slice(10).map(item => el("li", {textContent:item})))));
+    if (items.length > 10) block.append(el("details", {}, el("summary", {textContent:fill("Diğer olasılıklar · {0}", items.length - 10)}), el("ul", {}, ...items.slice(10).map(item => el("li", {textContent:item})))));
     return block;
   };
   container.append(...[longList("Olası nedenler (ayırıcı tanı)", res.differentials), longList("Önerilen ek tetkikler", res.tests), list("Genel yaklaşım ve tedavi önerileri", res.approach, "is-approach")].filter(Boolean));
