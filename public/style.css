@@ -1025,3 +1025,20 @@ body[data-clinic-palette]:has(#main) .clinic-delete-dialog .button.clinic-delete
 .staff-head small{font-weight:400;opacity:.75;margin-top:2px}
 .schedule-grid td.staff-unassigned{background:repeating-linear-gradient(135deg,transparent 0 8px,color-mix(in srgb,currentColor 4%,transparent) 8px 16px)}
 @media (max-width:700px){.staff-grid{min-width:calc(48px + var(--staff-cols,3)*150px)}}
+/* DICOM görüntüleyici */
+.dicom-dialog{width:min(1100px,calc(100vw - 24px));max-height:calc(100dvh - 24px);padding:0;border:1px solid var(--line);border-radius:18px;background:var(--paper,#fff);color:var(--ink,#1c3028);box-shadow:0 30px 80px #0006;display:none}
+.dicom-dialog[open]{display:grid;grid-template-rows:auto minmax(0,1fr) auto auto auto}
+.dicom-dialog::backdrop{background:#0b0f1acc}
+.dicom-dialog header,.dicom-dialog footer{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;flex-wrap:wrap}
+.dicom-dialog header div{display:grid;gap:2px;min-width:0}
+.dicom-dialog header small{opacity:.75;overflow-wrap:anywhere}
+.dicom-dialog footer{justify-content:flex-end;border-top:1px solid var(--line)}
+.dicom-stage{position:relative;display:grid;place-items:center;min-height:300px;max-height:62dvh;overflow:auto;background:#000;touch-action:none}
+.dicom-stage canvas{max-width:100%;max-height:60dvh;object-fit:contain;cursor:crosshair;transform-origin:center;transition:transform .2s}
+.dicom-stage p{position:absolute;inset:auto 16px 16px;margin:0;padding:10px 12px;border-radius:10px;background:#000c;color:#fff;text-align:center}
+.dicom-stage p.dicom-error{inset:auto 16px 50%;transform:translateY(50%);background:#7f1d2dd9}
+.dicom-controls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) auto;gap:10px 16px;align-items:end;padding:12px 16px}
+.dicom-controls label{display:grid;gap:4px;font-size:.85rem;font-weight:700}
+.dicom-buttons{display:flex;gap:6px;flex-wrap:wrap}
+.dicom-hint{margin:0;padding:0 16px 10px;font-size:.8rem;opacity:.75}
+@media(max-width:760px){.dicom-controls{grid-template-columns:minmax(0,1fr)}}
