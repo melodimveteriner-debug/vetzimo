@@ -36,6 +36,7 @@ final class PartialSave
         'stockLots'=>['product'=>'products'],'stockMoves'=>['product'=>'products','lot'=>'stockLots'],
         'weights'=>['patient'=>'patients'], 'labs'=>['patient'=>'patients','exam'=>'exams'],
         'treatments'=>['patient'=>'patients'], 'prescriptions'=>['patient'=>'patients'], 'stays'=>['patient'=>'patients'], 'surgeries'=>['patient'=>'patients'],
+        'tasks'=>['patient'=>'patients','client'=>'clients'],
     ];
     /** Bir satır yüklenince ona bağlı satırlar da yüklenir (link_key sanal sütunu). */
     private const REVERSE = ['exams'=>'appointments', 'sales'=>'collections', 'purchases'=>'payments'];

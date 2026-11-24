@@ -79,6 +79,7 @@ final class ClinicAccess
         if ($actor['role']==='dealer' && (!isset($actor['packageModules']) || self::module($collection)===null)) return !in_array($collection,['users','dealers'],true);
         if (!in_array($actor['role'],['dealer','branch','staff'],true)) return false;
         if($collection==='clinicNotes') return !$write || $actor['role']==='branch';
+        if($collection==='tasks') return true; // İş takibi panosu: klinik ekibinin ortak listesi.
         $module=self::module($collection);
         $grant=self::modules($actor)->{$module ?? ''} ?? 'none';
         return $write ? $grant==='write' : in_array($grant,['read','write'],true);

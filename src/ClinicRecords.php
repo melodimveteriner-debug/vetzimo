@@ -11,7 +11,7 @@ final class ClinicRecords
         'clients','patients','appointments','exams','followups','weights','vaccineCatalog','labs',
         'treatments','prescriptions','stays','surgeries','clinicNotes','products','suppliers','sales','purchases',
         'collections','payments','expenses','stockLots','stockMoves','templates','messages','users',
-        'dealers','activity','visitors','documents','support','services',
+        'dealers','activity','visitors','documents','support','services','tasks',
     ];
 
     public function __construct(private readonly PDO $db) {}
