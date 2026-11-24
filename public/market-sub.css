@@ -1,0 +1,131 @@
+/* VetZimo satış sitesi alt sayfaları: açılış sayfasının görsel dilini (landing.css) tüm sayfalara taşır.
+   Mevcut öğeler korunur (merkez panelindeki metin düzenlemeleri bozulmaz); yalnız yerleşim, renk ve hareket değişir. */
+.lp-sub{padding-bottom:clamp(2.5rem,6vw,5rem);min-height:60vh}
+.lp-sub>*:not(.intro){width:min(1200px,calc(100% - 2.5rem));margin-inline:auto}
+.lp-sub h1,.lp-sub h2,.lp-sub h3{color:var(--lp-ink);letter-spacing:-.025em}
+
+/* Sayfa başlığı: hareketli ağ ve renk geçişli başlık */
+.lp-sub>.intro{position:relative;isolation:isolate;overflow:hidden;margin:0 0 clamp(1.8rem,4vw,3.2rem);padding:clamp(3.2rem,9vw,7rem) max(1.25rem,calc((100% - 1000px)/2)) clamp(2.6rem,6vw,4.6rem);text-align:center;display:grid;justify-items:center;gap:.9rem;border-bottom:1px solid var(--lp-line)}
+.lp-sub>.intro .lp-mesh{inset:-30% -10% -10%}
+.lp-sub .intro .eyebrow{padding:.42rem .9rem;border-radius:99px;border:1px solid var(--lp-line);background:color-mix(in srgb,var(--lp-card) 72%,transparent);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);letter-spacing:.14em}
+.lp-sub .intro .eyebrow::before{content:"";width:7px;height:7px;border-radius:50%;background:linear-gradient(135deg,var(--v),var(--t));box-shadow:0 0 0 4px color-mix(in srgb,var(--v) 18%,transparent)}
+.lp-sub .intro h1{margin:0;font-size:clamp(2.3rem,6.2vw,4.7rem);line-height:1.04;max-width:20ch;font-weight:850;background:linear-gradient(100deg,var(--lp-ink) 20%,var(--lp-a) 50%,var(--p) 75%,var(--o));background-size:220% auto;-webkit-background-clip:text;background-clip:text;color:transparent;animation:lp-shine 10s linear infinite}
+.lp-sub .intro p{margin:0;max-width:62ch;font-size:clamp(1.03rem,1.7vw,1.22rem);line-height:1.65}
+.lp-sub .intro p:empty{display:none}
+.lp-sub .intro>*:not(.lp-mesh){animation:sub-rise .9s cubic-bezier(.2,.8,.2,1) both}
+.lp-sub .intro>:nth-child(3){animation-delay:.1s}.lp-sub .intro>:nth-child(4){animation-delay:.2s}
+
+/* Kartlar: cam görünümlü, imleçle parlayan kenar */
+.lp-sub .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,290px),1fr));gap:clamp(.9rem,2vw,1.3rem);margin-block:0 clamp(1.5rem,4vw,3rem)}
+.lp-sub .card{position:relative;isolation:isolate;display:grid;align-content:start;gap:.55rem;padding:clamp(1.2rem,2.4vw,1.7rem);border-radius:var(--r);border:1px solid var(--lp-line);background:color-mix(in srgb,var(--lp-card) 90%,transparent);box-shadow:var(--lp-shadow);color:var(--lp-ink);text-decoration:none;overflow:hidden;transition:transform .35s cubic-bezier(.2,.8,.2,1),box-shadow .35s,border-color .3s}
+.lp-sub .card::before{content:"";position:absolute;inset:0;z-index:-1;background:radial-gradient(420px circle at var(--mx,50%) var(--my,0%),color-mix(in srgb,var(--v) 16%,transparent),transparent 60%);opacity:0;transition:opacity .35s}
+.lp-sub .card:hover{transform:translateY(-6px);border-color:color-mix(in srgb,var(--v) 45%,var(--lp-line));box-shadow:0 30px 70px -30px color-mix(in srgb,var(--v) 45%,transparent)}
+.lp-sub .card:hover::before{opacity:1}
+.lp-sub .card h2,.lp-sub .card h3{margin:0;font-size:1.22rem}
+.lp-sub .card p{margin:0;line-height:1.6}
+.lp-sub .card .eyebrow{font-size:.68rem}
+.lp-sub .card .arrow{position:absolute;top:1.1rem;right:1.1rem;width:34px;height:34px;display:grid;place-items:center;border-radius:50%;background:var(--lp-tint);color:var(--lp-a);font-weight:800;transition:transform .35s,background .3s,color .3s}
+.lp-sub .card:hover .arrow{transform:rotate(45deg) scale(1.08);background:linear-gradient(135deg,var(--lp-a2),var(--v));color:#fff}
+.lp-sub a.card:focus-visible{outline:3px solid var(--lp-a);outline-offset:3px}
+
+/* Paketler */
+.lp-sub .toggle{display:flex;width:max-content;margin:0 auto 1.6rem;padding:5px;border-radius:99px;border:1px solid var(--lp-line);background:var(--lp-card);box-shadow:var(--lp-shadow)}
+.lp-sub .toggle button{min-height:42px;padding:.5rem 1.3rem;border:0;border-radius:99px;background:none;color:var(--lp-muted);font:inherit;font-weight:750;cursor:pointer;transition:background .3s,color .3s}
+.lp-sub .toggle button[aria-pressed=true]{background:linear-gradient(120deg,var(--lp-a2),var(--v));color:#fff}
+.lp-sub .plans .card{padding-top:1.8rem}
+.lp-sub .plans .card:nth-child(2){border:2px solid transparent;background:linear-gradient(var(--lp-card),var(--lp-card)) padding-box,linear-gradient(135deg,var(--v),var(--t),var(--p)) border-box;transform:translateY(-8px)}
+.lp-sub .plans .card:nth-child(2):hover{transform:translateY(-14px)}
+.lp-sub .plans [data-price] strong{display:block;font-size:clamp(1.5rem,3vw,2.1rem);color:var(--lp-ink)}
+.lp-sub .plans .button{margin-top:.6rem}
+
+/* Özellik örneği: canlı uygulama maketi */
+.lp-sub .feature-detail{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:clamp(1.4rem,4vw,3.5rem);align-items:center;margin-block:0 clamp(1.8rem,4vw,3.4rem);padding:clamp(1.4rem,3.5vw,2.8rem);border-radius:32px;border:1px solid var(--lp-line);background:linear-gradient(140deg,var(--lp-card),var(--lp-tint));box-shadow:var(--lp-shadow)}
+.lp-sub .feature-detail h2{font-size:clamp(1.6rem,3.4vw,2.4rem);margin:.4rem 0 .6rem}
+.lp-sub .feature-illustration{margin:0;display:grid;gap:.6rem;animation:sub-float 7s ease-in-out infinite}
+.lp-sub .feature-illustration figcaption{font-size:.76rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--lp-a)}
+.lp-sub .feature-screen{position:relative;display:grid;gap:.8rem;padding:1.3rem;border-radius:20px;background:var(--lp-card);border:1px solid var(--lp-line);box-shadow:0 30px 70px -32px color-mix(in srgb,var(--v) 55%,transparent);color:var(--lp-ink);overflow:hidden}
+.lp-sub .feature-screen::after{content:"";position:absolute;inset:0;background:linear-gradient(110deg,transparent 35%,color-mix(in srgb,var(--v) 10%,transparent) 50%,transparent 65%);translate:-100% 0;animation:sub-sheen 5s ease-in-out infinite}
+.lp-sub .feature-screen>span:first-child{letter-spacing:.3em;color:color-mix(in srgb,var(--lp-muted) 60%,transparent);font-size:.7rem}
+.lp-sub .feature-screen strong{font-size:1.15rem}
+.lp-sub .feature-screen>div{display:flex;flex-wrap:wrap;gap:.45rem}
+.lp-sub .feature-screen>div span{padding:.35rem .8rem;border-radius:99px;background:var(--lp-tint);color:var(--lp-muted);font-size:.82rem;font-weight:700;animation:sub-tab 6s infinite}
+.lp-sub .feature-screen>div span:nth-child(2){animation-delay:2s}.lp-sub .feature-screen>div span:nth-child(3){animation-delay:4s}
+.lp-sub .feature-screen svg{width:100%;height:auto;color:color-mix(in srgb,var(--v) 30%,var(--lp-line))}
+.lp-sub .feature-screen svg path{stroke-dasharray:240;stroke-dashoffset:240;animation:sub-draw 3.2s cubic-bezier(.2,.8,.2,1) infinite alternate}
+
+/* Neden VetZimo şeridi */
+.lp-sub .lp-why{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:1rem;margin-block:0 clamp(1.8rem,4vw,3.2rem)}
+.lp-sub .lp-why>article{position:relative;padding:1.4rem 1.3rem 1.3rem;border-radius:var(--r);border:1px solid var(--lp-line);background:var(--lp-card);box-shadow:var(--lp-shadow);overflow:hidden}
+.lp-sub .lp-why>article::after{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:linear-gradient(90deg,var(--v),var(--t),var(--p));scale:0 1;transform-origin:left;transition:scale .6s cubic-bezier(.2,.8,.2,1)}
+.lp-sub .lp-why>article.seen::after,.lp-no-js .lp-why>article::after{scale:1 1}
+.lp-sub .lp-why .ic{display:grid;place-items:center;width:46px;height:46px;border-radius:14px;margin-bottom:.8rem;color:#fff;background:linear-gradient(135deg,var(--lp-a2),var(--v))}
+.lp-sub .lp-why article:nth-child(2) .ic{background:linear-gradient(135deg,#0d9488,var(--t))}
+.lp-sub .lp-why article:nth-child(3) .ic{background:linear-gradient(135deg,#db2777,var(--p))}
+.lp-sub .lp-why article:nth-child(4) .ic{background:linear-gradient(135deg,#ea580c,var(--o))}
+.lp-sub .lp-why .ic svg{width:22px;height:22px}
+.lp-sub .lp-why h3{margin:0 0 .35rem;font-size:1.06rem}
+.lp-sub .lp-why p{margin:0;font-size:.93rem;line-height:1.55}
+
+/* Sık sorulanlar ve metin sayfaları */
+.lp-sub .faq{display:grid;gap:.8rem;max-width:900px;margin-block:0 clamp(1.8rem,4vw,3rem)}
+.lp-sub .faq details{border:1px solid var(--lp-line);border-radius:18px;background:var(--lp-card);box-shadow:var(--lp-shadow);overflow:hidden;transition:border-color .3s}
+.lp-sub .faq details[open]{border-color:color-mix(in srgb,var(--v) 45%,var(--lp-line))}
+.lp-sub .faq summary{position:relative;list-style:none;cursor:pointer;padding:1.1rem 3.4rem 1.1rem 1.3rem;font-weight:800;color:var(--lp-ink)}
+.lp-sub .faq summary::-webkit-details-marker{display:none}
+.lp-sub .faq summary::after{content:"+";position:absolute;right:1.1rem;top:50%;width:30px;height:30px;margin-top:-15px;display:grid;place-items:center;border-radius:50%;background:var(--lp-tint);color:var(--lp-a);font-size:1.2rem;transition:rotate .35s,background .3s,color .3s}
+.lp-sub .faq details[open] summary::after{rotate:45deg;background:linear-gradient(135deg,var(--lp-a2),var(--v));color:#fff}
+.lp-sub .faq details>p{margin:0;padding:0 1.3rem 1.2rem;line-height:1.65;animation:sub-rise .45s ease both}
+.lp-sub .faq>p,.lp-sub .faq>h3{max-width:72ch}
+.lp-sub .faq:not(:has(details)){padding:clamp(1.3rem,3vw,2.2rem);border:1px solid var(--lp-line);border-radius:24px;background:var(--lp-card);box-shadow:var(--lp-shadow)}
+
+/* Başvuru ve iletişim formları */
+.lp-sub .form-layout{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:clamp(1.4rem,4vw,3.4rem);align-items:start;padding-top:clamp(2.4rem,6vw,4.5rem);position:relative;isolation:isolate}
+.lp-sub .form-layout::before{content:"";position:absolute;inset:-4rem -30vw auto;height:420px;z-index:-1;background:radial-gradient(ellipse at 20% 30%,color-mix(in srgb,var(--v) 22%,transparent),transparent 60%),radial-gradient(ellipse at 80% 10%,color-mix(in srgb,var(--t) 20%,transparent),transparent 55%);filter:blur(10px)}
+.lp-sub .form-layout .intro{position:sticky;top:6rem;text-align:start;display:grid;gap:.9rem;padding:0;border:0;margin:0}
+.lp-sub .form-layout .intro h1{font-size:clamp(2.1rem,4.6vw,3.6rem);margin:0;max-width:none;background:linear-gradient(100deg,var(--lp-ink) 20%,var(--lp-a) 60%,var(--p));-webkit-background-clip:text;background-clip:text;color:transparent}
+.lp-sub .form-layout .intro p{margin:0}
+.lp-sub .application{padding:clamp(1.3rem,3vw,2.2rem);border-radius:26px;border:1px solid var(--lp-line);background:color-mix(in srgb,var(--lp-card) 92%,transparent);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);box-shadow:var(--lp-shadow);display:grid;gap:1rem}
+.lp-sub .application :is(input:not([type=checkbox]),select,textarea){width:100%;min-height:48px;padding:.7rem .9rem;border-radius:12px;border:1px solid var(--lp-line);background:var(--lp-bg);color:var(--lp-ink);font:inherit;transition:border-color .25s,box-shadow .25s}
+.lp-sub .application :is(input,select,textarea):focus{outline:none;border-color:var(--lp-a);box-shadow:0 0 0 4px color-mix(in srgb,var(--lp-a) 18%,transparent)}
+.lp-sub .application label{display:grid;gap:.35rem;font-weight:700;color:var(--lp-ink)}
+.lp-sub .application .button.primary,.lp-sub .application button[type=submit]{min-height:52px;border:0;border-radius:14px;color:#fff;font-weight:800;background:linear-gradient(120deg,var(--lp-a2),var(--v));box-shadow:0 14px 34px color-mix(in srgb,var(--v) 35%,transparent);cursor:pointer}
+
+/* Çağrı kutusu */
+.lp-sub .callout{position:relative;isolation:isolate;overflow:hidden;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:1.2rem 2rem;padding:clamp(1.8rem,4.5vw,3.2rem);border-radius:32px;color:#fff;border:0;background:linear-gradient(120deg,var(--lp-deep),color-mix(in srgb,var(--v) 75%,var(--lp-deep)),color-mix(in srgb,var(--t) 60%,var(--lp-deep)));background-size:220% 220%;animation:lp-pan 14s ease-in-out infinite;box-shadow:0 30px 80px -40px color-mix(in srgb,var(--v) 70%,transparent)}
+.lp-sub .callout::before{content:"";position:absolute;width:340px;height:340px;right:-90px;top:-150px;border-radius:50%;background:radial-gradient(circle,#ffffff2e,transparent 65%);z-index:-1;animation:lp-float 16s ease-in-out infinite}
+.lp-sub .callout h2{color:#fff;margin:.3rem 0 0;font-size:clamp(1.5rem,3.4vw,2.3rem)}
+.lp-sub .callout .eyebrow{color:#fde68a}
+.lp-sub .callout .button{min-height:52px;padding:.8rem 1.6rem;border-radius:14px;background:#fff;color:var(--lp-deep);font-weight:800;border:0;box-shadow:0 14px 30px #0003;transition:transform .2s}
+.lp-sub .callout .button:hover{transform:translateY(-2px)}
+
+/* Görünürken belirme gecikmesi */
+.lp-sub [data-reveal]{transition-delay:var(--d,0s)}
+@keyframes sub-rise{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+@keyframes sub-float{0%,100%{translate:0 0}50%{translate:0 -10px}}
+@keyframes sub-sheen{0%,40%{translate:-100% 0}80%,100%{translate:100% 0}}
+@keyframes sub-tab{0%,28%{background:linear-gradient(120deg,var(--lp-a2),var(--v));color:#fff}34%,100%{background:var(--lp-tint);color:var(--lp-muted)}}
+@keyframes sub-draw{to{stroke-dashoffset:0}}
+
+@media(max-width:820px){
+  .lp-sub .feature-detail,.lp-sub .form-layout{grid-template-columns:minmax(0,1fr)}
+  .lp-sub .form-layout .intro{position:static;text-align:center;justify-items:center}
+  .lp-sub .plans .card:nth-child(2){transform:none}
+  .lp-sub .callout{justify-content:center;text-align:center}
+}
+@media(prefers-reduced-motion:reduce){
+  .lp-sub *,.lp-sub *::before,.lp-sub *::after{animation:none!important;transition:none!important}
+  .lp-sub .feature-screen svg path{stroke-dashoffset:0}
+}
+[dir=rtl] .lp-sub .card .arrow{right:auto;left:1.1rem}
+[dir=rtl] .lp-sub .faq summary{padding:1.1rem 1.3rem 1.1rem 3.4rem}
+[dir=rtl] .lp-sub .faq summary::after{right:auto;left:1.1rem}
+.lp-sub .sub-title{text-align:center;font-size:clamp(1.6rem,3.6vw,2.5rem);margin:clamp(1rem,3vw,2rem) auto 1.2rem}
+.lp-sub .sub-title::before{content:"";display:block;width:54px;height:4px;margin:0 auto .9rem;border-radius:4px;background:linear-gradient(90deg,var(--v),var(--t),var(--p))}
+.lp-sub .form-layout .intro .eyebrow{justify-self:start}
+@media(max-width:820px){.lp-sub .form-layout .intro .eyebrow{justify-self:center}}
+.lp-sub table{width:100%;border-collapse:separate;border-spacing:0;border:1px solid var(--lp-line);border-radius:20px;overflow:hidden;background:var(--lp-card);box-shadow:var(--lp-shadow)}
+.lp-sub :is(th,td){padding:.8rem 1rem;border-bottom:1px solid var(--lp-line);color:var(--lp-ink)}
+.lp-sub thead th{background:var(--lp-tint);font-weight:800;text-align:start}
+.lp-sub tbody tr:last-child>*{border-bottom:0}
+.lp-sub tbody tr{transition:background .25s}
+.lp-sub tbody tr:hover{background:color-mix(in srgb,var(--v) 6%,transparent)}
