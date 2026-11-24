@@ -8,7 +8,8 @@ const LONG_VR = new Set(["OB", "OD", "OF", "OL", "OV", "OW", "SQ", "SV", "UC", "
 const TEXT_TAGS = {
   "00020010": "transfer", "00080060": "modality", "00080020": "studyDate", "00081030": "study", "0008103E": "series",
   "00180015": "bodyPart", "00280004": "photometric", "00281050": "windowCenter", "00281051": "windowWidth",
-  "00281052": "intercept", "00281053": "slope", "00280008": "frames", "00080070": "manufacturer"
+  "00281052": "intercept", "00281053": "slope", "00280008": "frames", "00080070": "manufacturer",
+  "00280030": "pixelSpacing", "00181164": "imagerPixelSpacing"
 };
 const NUMBER_TAGS = { "00280002": "samples", "00280010": "rows", "00280011": "columns", "00280100": "bitsAllocated", "00280101": "bitsStored", "00280103": "signed", "00280006": "planar" };
 
@@ -213,6 +214,7 @@ export function summary(info) {
     info.study && "Çalışma " + info.study,
     info.series && "Seri " + info.series,
     info.rows && info.columns && info.columns + " × " + info.rows + " piksel",
+    (info.pixelSpacing || info.imagerPixelSpacing) && "Piksel aralığı " + String(info.pixelSpacing || info.imagerPixelSpacing).replace("\\", " × ") + " mm",
   ].filter(Boolean).join(" · ");
 }
 export const modalityKind = info => MODALITY[info.modality] || "";
