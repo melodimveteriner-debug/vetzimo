@@ -9,6 +9,7 @@ use PDOException;
 require_once __DIR__ . '/ClinicDirectory.php';
 require_once __DIR__ . '/ClinicRecords.php';
 require_once __DIR__ . '/ClinicProtocol.php';
+require_once __DIR__ . '/PartialSave.php';
 
 final class WorkspaceRepository
 {
@@ -84,7 +85,7 @@ final class WorkspaceRepository
      * Persist an already validated workspace for the authenticated actor.
      * Returns null when a newer revision exists.
      */
-    public function save(string $workspaceId, int $revision, object $state, ?object $original=null): ?int
+    public function save(string $workspaceId, int $revision, object $state, ?object $original=null, ?array $partial=null): ?int
     {
         if ($revision < 0 || $revision >= PHP_INT_MAX) {
             throw new \InvalidArgumentException('Çalışma alanı sürümü geçersiz.');
@@ -110,7 +111,13 @@ final class WorkspaceRepository
                 $update->execute([$metadata, $workspaceId, $revision]);
                 $updated = $update->rowCount() === 1;
             }
-            if ($updated) {
+            if ($updated && $partial !== null) {
+                // Seçici kayıt: eski müşteri dizini kullanan alanlar seçici yola hiç alınmaz.
+                $directory = $this->database->prepare('SELECT COUNT(*) FROM clinic_directory WHERE workspace_id=?');
+                $directory->execute([$workspaceId]);
+                if ($original === null || (int)$directory->fetchColumn() > 0) throw new \RuntimeException('Kayıt alanı güncellendi.', 409);
+                (new PartialSave($this->database))->store($workspaceId, $partial, $original, $state);
+            } elseif ($updated) {
                 $this->records->store($workspaceId, $state, $original);
                 if ($revision && str_starts_with($workspaceId, 'partner:')) {
                     (new ClinicDirectory($this->database))->sync($workspaceId, $revision, $state);

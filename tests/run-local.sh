@@ -18,6 +18,7 @@ echo "Sözdizimi denetimi tamam"
 fresh test_core;      run core.php    env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_core' php tests/core.php
 fresh test_installer empty; run install.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_installer' php tests/install.php
 fresh test_roles empty;     run roles.php   env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_roles' php tests/roles.php
+fresh test_partial empty;  run partial-save.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_partial' php tests/partial-save.php
 fresh test_center empty;   run center.php  env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_center' php tests/center.php
 if command -v node >/dev/null; then
   fx=$(mktemp); node tests/finance-fixtures.mjs "$fx" >/dev/null 2>&1 && run finance.php php tests/finance.php "$fx"; rm -f "$fx"

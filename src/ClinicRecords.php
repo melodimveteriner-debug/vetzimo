@@ -7,7 +7,7 @@ use PDO;
 
 final class ClinicRecords
 {
-    private const COLLECTIONS = [
+    public const COLLECTIONS = [
         'clients','patients','appointments','exams','followups','weights','vaccineCatalog','labs',
         'treatments','prescriptions','stays','clinicNotes','products','suppliers','sales','purchases',
         'collections','payments','expenses','stockLots','stockMoves','templates','messages','users',
@@ -128,7 +128,7 @@ final class ClinicRecords
         }
     }
 
-    private static function recordKeys(array $rows): array
+    public static function recordKeys(array $rows): array
     {
         $keys = $seen = [];
         foreach ($rows as $index => $row) {
@@ -139,7 +139,7 @@ final class ClinicRecords
         return $keys;
     }
 
-    private static function firstOrdinal(array $keys, array $previous): int
+    public static function firstOrdinal(array $keys, array $previous): int
     {
         if (!$previous) return 0;
         $first = array_key_first($previous);

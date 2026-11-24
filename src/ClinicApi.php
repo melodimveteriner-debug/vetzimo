@@ -7,6 +7,7 @@ require_once __DIR__ . '/ClinicProtocol.php';
 require_once __DIR__ . '/VaccineInventory.php';
 require_once __DIR__ . '/StayCarePlan.php';
 require_once __DIR__ . '/VisitorConversion.php';
+require_once __DIR__ . '/PartialSave.php';
 
 use RuntimeException;
 use stdClass;
@@ -25,6 +26,8 @@ final class ClinicApi
         'treatments'=>['patient'=>'patients'], 'prescriptions'=>['patient'=>'patients'], 'stays'=>['patient'=>'patients'],
     ];
     private const ID = '/\A[A-Za-z0-9_-]{1,80}\z/';
+    /** Yalnız testler için: yazmadan hemen önce doğrulanmış sonucu görür (null: kapalı). */
+    public static ?\Closure $beforeWrite = null;
 
     public function __construct(private readonly DealerWorkspace $workspaces)
     {
@@ -37,7 +40,8 @@ final class ClinicApi
             throw new RuntimeException('Kayıt biçimi geçersiz.', 422);
         }
         $actor = $this->workspaces->actor($cookies,$now);
-        $current = $this->workspaces->readForUpdateRequest($actor,$scope,$request->revision);
+        $current = $this->workspaces->readForUpdateRequest($actor,$scope,$request->revision,
+            property_exists($request,'patch') ? $request->patch : null);
         if ($request->revision !== $current['revision']) {
             throw new RuntimeException('Kayıt alanı güncellendi.', 409);
         }
@@ -226,6 +230,12 @@ final class ClinicApi
         Finance::validate($original,$next,ClinicAccess::allowed($actor,'expenses',true) && ClinicAccess::action($actor,'cashCorrect',true));
         // Yüklenen durum doğrulama sırasında hiç değişmediyse yeniden yüklemeden yaz; aksi halde güvenli yol.
         $preloaded = self::fingerprint($original) === $fingerprint ? $current : null;
+        if (isset($current['partial']) && $preloaded === null) {
+            // Seçici yüklemede yeniden okuma da seçici olmalı; okunamazsa istemci yeniden dener.
+            $preloaded = $this->workspaces->readForUpdateRequest($actor,$scope,$request->revision,$request->patch);
+            if (!isset($preloaded['partial'])) throw new RuntimeException('Kayıt alanı güncellendi.', 409);
+        }
+        if (self::$beforeWrite) (self::$beforeWrite)($next, $clinicUpdates, isset($current['partial']));
         $saved = $this->workspaces->writeValidated($cookies, $scope, $now, $current['revision'], $next, $preloaded);
         if ($saved === null) throw new RuntimeException('Kayıt alanı güncellendi.', 409);
         return $saved;

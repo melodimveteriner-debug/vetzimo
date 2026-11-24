@@ -26,13 +26,18 @@ final class DealerWorkspace
         return $this->workspaces->load('partner:' . $actor['partner_id']);
     }
 
-    public function readForUpdateRequest(array $actor, string $scope, int $revision): array
+    public function readForUpdateRequest(array $actor, string $scope, int $revision, mixed $patch = null): array
     {
         if (!hash_equals($actor['membership_id'], $scope)) throw new RuntimeException('Çalışma alanı oturumu değişti.',409);
         $workspace = 'partner:'.$actor['partner_id'];
         $query = $this->database->prepare('SELECT revision FROM clinic_workspace WHERE user_id=?');
         $query->execute([$workspace]);
         if ((int)$query->fetchColumn() !== $revision) throw new RuntimeException('Kayıt alanı güncellendi.',409);
+        // Büyük kliniklerde yalnız değişikliğin ilgilendirdiği satırlar okunur; uygun değilse tam yükleme.
+        if ($patch !== null && PartialSave::$enabled) {
+            $partial = (new PartialSave($this->database))->load($workspace, $revision, $patch);
+            if ($partial !== null) return $partial;
+        }
         return $this->workspaces->load($workspace);
     }
 
@@ -53,12 +58,14 @@ final class DealerWorkspace
                 throw new RuntimeException('Çalışma alanı oturumu değişti.', 409);
             }
 
-            $original = $preloaded !== null && $preloaded['revision'] === $revision
-                && $this->workspaces->revision('partner:'.$actor['partner_id']) === $revision
+            $partial = $preloaded['partial'] ?? null;
+            $current = $this->workspaces->revision('partner:'.$actor['partner_id']);
+            if ($partial !== null && $current !== $revision) { $this->database->rollBack(); return null; }
+            $original = $preloaded !== null && $preloaded['revision'] === $revision && $current === $revision
                 ? $preloaded : $this->workspaces->load('partner:'.$actor['partner_id']);
             if ($original['revision'] !== $revision) { $this->database->rollBack(); return null; }
             if ($actor['role'] !== 'dealer' || isset($actor['packageModules'])) $this->checkChanges($original['state'],$state,$actor);
-            $result = $this->workspaces->save('partner:' . $actor['partner_id'], $revision, $state, $original['state']);
+            $result = $this->workspaces->save('partner:' . $actor['partner_id'], $revision, $state, $original['state'], $partial);
             if ($result !== null) {
                 if (class_exists(DeliveryNotice::class)) (new DeliveryNotice($this->database))->appointments($actor['partner_id'],$original['state'] ?? (object)[],$state,$result);
                 $hasWebAppointments = array_filter($original['state']->appointments ?? [],

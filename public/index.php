@@ -12,7 +12,7 @@ use VetNet\Cpanel\SessionRepository;
 
 require_once dirname(__DIR__).'/src/StaffPlan.php';
 
-foreach (['NativeApp','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','CreditShop','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','Finance','ClinicApi','IdentityApi','PrintTemplates','Support','Commerce','Appearance'] as $class) {
+foreach (['NativeApp','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','CreditShop','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','PrintTemplates','Support','Commerce','Appearance'] as $class) {
     require dirname(__DIR__) . '/src/' . $class . '.php';
 }
 
@@ -867,14 +867,19 @@ try {
     }
     if ($path === '/api/workspace' && $method === 'GET') {
         $actor=$workspaces->actor($_COOKIE,$now);
-        $data=$workspaces->visibleFor($actor);
-        $branches=$actor['role']==='dealer' ? ($data['state']->branches??[]) :
-            (new VetNet\Cpanel\WorkspaceRepository($db))->branches('partner:'.$actor['partner_id']);
-        $multipleBranches=count(array_filter($branches,static fn($row)=>($row->status??'')!=='Pasif'))>1;
-        reply($data + ['session'=>[
+        $session=static function(?object $visible) use($actor,$db,$appearance): array {
+            $branches=$actor['role']==='dealer' ? ($visible->branches??[]) :
+                (new VetNet\Cpanel\WorkspaceRepository($db))->branches('partner:'.$actor['partner_id']);
+            $multipleBranches=count(array_filter($branches,static fn($row)=>($row->status??'')!=='Pasif'))>1;
+            return [
             'php'=>true,'workspacePatch'=>true,'recordDeletion'=>$actor['role']==='dealer','packageRestricted'=>isset($actor['packageModules']),'personalPalette'=>$appearance->read('account:'.$actor['account_id'])['palette'],'role'=>$actor['role']==='dealer'?'dealer':'staff','central'=>true,'memberRole'=>$actor['role'],'member'=>['role'=>$actor['role']],'modules'=>ClinicAccess::modules($actor),'branches'=>[$actor['branch_id']],'scopeId'=>$actor['membership_id'],
             'partnerId'=>$actor['partner_id'],'partnerName'=>$actor['partner_name'],'multipleBranches'=>$multipleBranches,'name'=>$actor['name'],'author'=>$actor['name'],
-        ]]);
+        ];
+        };
+        // Büyük kliniklerde kayıtlar veritabanından doğrudan akıtılır (bellek kullanımı sabit).
+        if ((new VetNet\Cpanel\WorkspaceStream($db))->send($actor,$session)) exit;
+        $data=$workspaces->visibleFor($actor);
+        reply($data + ['session'=>$session($data['state'])]);
     }
     if ($path === '/api/workspace/delete-record' && $method === 'POST') {
         $body = input(4096);
