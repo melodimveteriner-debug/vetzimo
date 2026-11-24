@@ -311,7 +311,7 @@ final class MinistryBridge
     {
         $this->db->beginTransaction();
         try {
-            $q = $this->db->prepare("SELECT * FROM clinic_bridge_job WHERE partner_id=? AND status='queued' ORDER BY created_at LIMIT 1 FOR UPDATE");
+            $q = $this->db->prepare("SELECT * FROM clinic_bridge_job WHERE partner_id=? AND status='queued' ORDER BY seq LIMIT 1 FOR UPDATE");
             $q->execute([$agent['partner_id']]);
             $job = $q->fetch(PDO::FETCH_ASSOC);
             if (!$job) { $this->db->commit(); return ['job' => null]; }
