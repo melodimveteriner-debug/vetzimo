@@ -365,6 +365,8 @@ final class WebBuilderRoutes
                     $web->query('INSERT INTO clinic_web_inbox(partner_id,message,notify_at) VALUES (?,?,?)',
                         [$row['partner_id'],WebBuilder::json($message),!empty($draft['settings']['contactMail'])?$now:null]);
                     $web->stat($row['partner_id'],'contact');
+                    try { (new OmniInbox($db,(string)($config['encryptionKey'] ?? '')))->ingestWeb((string)$row['partner_id'],$message['name'],$message['email'],$phone,$message['body'],$now); }
+                    catch (\Throwable) { /* Gelen kutusu tabloları yoksa web mesajı yine eski listede kalır. */ }
                     $notice='Mesajınız kliniğe ulaştı.';
                 }
             } catch (RuntimeException $error) {

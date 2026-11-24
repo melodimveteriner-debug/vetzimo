@@ -12,7 +12,7 @@ use VetNet\Cpanel\SessionRepository;
 
 require_once dirname(__DIR__).'/src/StaffPlan.php';
 
-foreach (['NativeApp','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','CreditShop','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','TeamTotp','WebInbox','MinistryBridge','SiteLegal','PrintTemplates','Support','Commerce','Appearance'] as $class) {
+foreach (['NativeApp','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','CreditShop','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','TeamTotp','WebInbox','MinistryBridge','SiteLegal','OmniInbox','PrintTemplates','Support','Commerce','Appearance'] as $class) {
     require dirname(__DIR__) . '/src/' . $class . '.php';
 }
 
@@ -110,6 +110,21 @@ try {
         header("Content-Security-Policy: default-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'");
         header('Content-Type: text/html; charset=utf-8');
         if ($method==='GET') readfile(__DIR__.'/vetzimo-kurulum.html');
+        exit;
+    }
+    // Gelen kutusu webhook'ları (Meta, Telegram, SMS ve e-posta sağlayıcıları): imza veya gizli anahtarla doğrulanır, çerez kullanmaz.
+    if (!$externalWeb && preg_match('~\A/api/inbox/hook/([a-f0-9]{40})\z~',$path,$hookMatch) && in_array($method,['GET','POST'],true)) {
+        $raw=(string)file_get_contents('php://input',false,null,0,524289);
+        if (strlen($raw)>524288) { http_response_code(413); exit; }
+        $headers=[];
+        foreach ($_SERVER as $name=>$value) if (str_starts_with($name,'HTTP_') && is_string($value)) $headers[strtolower(str_replace('_','-',substr($name,5)))]=$value;
+        $hookDb=Database::connect($config['dsn'],$config['username'],$config['password']);
+        [$hookCode,$hookType,$hookBody]=(new VetNet\Cpanel\OmniInbox($hookDb,(string)($config['encryptionKey'] ?? ''),$origin,$config['inboxEndpoints'] ?? []))
+            ->hook($hookMatch[1],$method,$_GET,$headers,$raw,time());
+        http_response_code($hookCode);
+        header('Content-Type: '.$hookType.'; charset=utf-8');
+        header('Cache-Control: no-store');
+        echo $hookBody;
         exit;
     }
     // Bakanlık köprüsü ajanı tarayıcı değildir (Origin göndermez) ve çerezle değil kendi anahtarıyla doğrulanır.
@@ -824,6 +839,37 @@ try {
             });
         } catch (PDOException $error) {
             if ($error->getCode()==='42S02') throw new RuntimeException('Köprü tabloları henüz kurulmadı; güncellemeyi tamamlayın.',503);
+            throw $error;
+        }
+    }
+    if ($path==='/api/inbox' && in_array($method,['GET','POST'],true)) {
+        // Klinik: çok kanallı gelen kutusu (WhatsApp, Facebook, Instagram, Telegram, SMS, e-posta, web formu).
+        $actor=(new VetNet\Cpanel\Commerce($db))->packageActor($identity->actor($_COOKIE,$now));
+        $inbox=new VetNet\Cpanel\OmniInbox($db,(string)($config['encryptionKey'] ?? ''),$origin,$config['inboxEndpoints'] ?? []);
+        try {
+            if ($method==='GET') {
+                $op=$_GET['op'] ?? 'list';
+                $str=static fn(string $k)=>is_string($_GET[$k] ?? null) ? $_GET[$k] : '';
+                reply(match($op){
+                    'list'=>$inbox->list($actor,['box'=>$str('box'),'channel'=>$str('channel'),'q'=>$str('q'),'before'=>(int)$str('before')],$now),
+                    'thread'=>$inbox->thread($actor,(int)$str('id'),$now),
+                    'cursor'=>['cursor'=>$inbox->cursor($actor)],
+                    'channels'=>$inbox->channels($actor),
+                    'team'=>$inbox->team($actor)+['me'=>(string)($actor['membership_id'] ?? ''),'settings'=>$inbox->settings($actor['partner_id'])]+$inbox->quick($actor),
+                    default=>throw new RuntimeException('İşlem geçersiz.',422),
+                });
+            }
+            if (!hash_equals($actor['membership_id'] ?? '',$_SERVER['HTTP_X_VETNET_SCOPE'] ?? '')) throw new RuntimeException('Çalışma alanı oturumu değişti.',409);
+            $body=input(40000);
+            $op=$body->action ?? '';
+            reply(match($op){
+                'channel-save'=>$inbox->saveChannel($actor,$body,$now),
+                'channel-delete'=>$inbox->deleteChannel($actor,$body),
+                'channel-test'=>$inbox->testChannel($actor,$body),
+                default=>$inbox->act($actor,$body,$now),
+            });
+        } catch (PDOException $error) {
+            if ($error->getCode()==='42S02') throw new RuntimeException('Gelen kutusu tabloları henüz kurulmadı; güncellemeyi tamamlayın.',503);
             throw $error;
         }
     }
