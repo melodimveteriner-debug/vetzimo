@@ -23,11 +23,11 @@
 .vebot-stats dt{color:var(--muted,#666);font-size:.74rem;line-height:1.25}
 .vebot-stats dd{margin:2px 0 0;font-weight:700;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
 .vebot-items{list-style:none;margin:0;padding:0;display:grid;gap:4px}
-.vebot-items li{display:flex;justify-content:space-between;gap:10px;align-items:baseline;padding:6px 0;border-top:1px dashed var(--line,#e4e1ee)}
+.vebot-items li{display:flex;flex-wrap:wrap;justify-content:space-between;gap:2px 10px;align-items:baseline;min-width:0;padding:6px 0;border-top:1px dashed var(--line,#e4e1ee)}
 .vebot-items li:first-child{border-top:0}
-.vebot-items a{color:var(--brand-link,#6338a0);font-weight:600;text-decoration:none}
+.vebot-items a{min-width:0;overflow-wrap:anywhere;color:var(--brand-link,#6338a0);font-weight:600;text-decoration:none}
 .vebot-items a:hover{text-decoration:underline}
-.vebot-items small{flex:none;color:var(--muted,#666);font-size:.76rem;white-space:nowrap}
+.vebot-items small{flex:0 1 auto;min-width:0;color:var(--muted,#666);font-size:.76rem;overflow-wrap:anywhere}
 .vebot-note,.vebot-empty{margin:0;color:var(--muted,#666);font-size:.8rem}
 .vebot-links{display:flex;flex-wrap:wrap;gap:6px}
 .vebot-urgent{border-color:#d4475a;background:color-mix(in srgb,#d4475a 10%,var(--paper,#fff))}
