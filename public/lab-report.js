@@ -5,10 +5,14 @@ const aliases={
   GLU:"GLU",ALB:"ALB",TP:"TP",GLOB:"GLOB",ALP:"ALP",ALT:"ALT",GPT:"ALT",AST:"AST",GOT:"AST",
   GGT:"GGT",BUN:"BUN",CRE:"CRE",CREA:"CRE",TBIL:"TBIL",IBIL:"TBIL",CA:"Ca",IP:"P",P:"P",
   NA:"Na",K:"K",CL:"Cl","ALB/GLOB":"A/G","BUN/CRE":"BUN/CRE",
+  GLUCOSE:"GLU",UREA:"UREA",SDMA:"SDMA",DBIL:"DBIL",CHOL:"CHOL",TG:"TG",TRIG:"TG",AMY:"AMY",AMYL:"AMY",LIP:"LIP",LIPA:"LIP",CK:"CK",CPK:"CK",LDH:"LDH",MG:"Mg",
+  FRU:"FRU",NH3:"NH3",CRP:"CRP",T4:"T4",TT4:"T4",RETIC:"RETIC",GRAN:"NEU",LYMPH:"LYM",MONO:"MON",
+  PH:"pH",PCO2:"pCO2",PO2:"pO2",HCO3:"HCO3","HCO3-":"HCO3",CHCO3:"HCO3",TCO2:"TCO2",BE:"BE","BE(B)":"BE","BE(ECF)":"BE",BEECF:"BE",BEB:"BE",
+  LAC:"LAC",LACT:"LAC",ICA:"iCa","CA++":"iCa",AG:"AG",SO2:"sO2",
 };
 const differential=new Set(["NEU","LYM","MON","EOS","BAS"]);
 const markers=/^(?:HIGH|LOW|YÜKSEK|DÜŞÜK|[HLYD#*↑↓])(?=\s|[<=>]|$)/iu;
-const codes=Object.keys(aliases).sort((a,b)=>b.length-a.length).join("|");
+const codes=Object.keys(aliases).sort((a,b)=>b.length-a.length).map(code=>code.replace(/[.*+?^${}()|[\]\\/]/g,"\\$&")).join("|");
 const analyte=new RegExp(`(?<![\\p{L}\\d/])(${codes})(?:\\s*([#%]))?(?:\\s*[-=]\\s*PS)?(?![\\p{L}\\d/])`,"giu");
 const resultNumber="[+-]?\\d+(?:[.,]\\s*\\d+)?";
 const resultPattern=new RegExp(`^([<=>≤≥])?\\s*(${resultNumber})(?![\\d.,])`);
@@ -38,7 +42,7 @@ function readFragment(fragment) {
   const range=tail.match(rangePattern);
   const [min,max]=range ? [tidy(range[1]),tidy(range[2])] : ["",""];
   const unit=(tail.match(unitPattern)?.[0]||"").replace(/\s/g,"").replace(/\|/g,"l");
-  if(!unit && !range && !mark && !operator && !["A/G","BUN/CRE","GLOB"].includes(fragment.code)) return null;
+  if(!unit && !range && !mark && !operator && !["A/G","BUN/CRE","GLOB","pH","BE","AG"].includes(fragment.code)) return null;
   const validRange=min!=="" && n(min)<=n(max);
   return {...fragment,value,operator,unit,min:validRange?min:"",max:validRange?max:"",mark:flags[mark?.toUpperCase()]||""};
 }

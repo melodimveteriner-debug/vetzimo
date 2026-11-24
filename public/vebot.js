@@ -4,6 +4,8 @@
 // Yalnızca kullanıcının görmeye yetkili olduğu koleksiyonları okur (ctx.data izin süzgecinden geçer).
 // Metinler Türkçe kalıp anahtarlarıdır; ui-copy.js bunları seçili dile çevirir.
 
+import {interpretLabs} from "./lab-interpret.js?v=20261124-r1";
+
 const TZ = "Europe/Istanbul";
 const isoDay = new Intl.DateTimeFormat("en-CA", {timeZone:TZ, year:"numeric", month:"2-digit", day:"2-digit"});
 const todayISO = () => isoDay.format(new Date());
@@ -301,17 +303,34 @@ export function createEngine(ctx) {
     }
     const pet = list[0], link = "#patient/" + encodeURIComponent(pet.id);
     const mine = name => can(name) ? rows(name).filter(row => row.patient === pet.id).sort((a, b) => day(b).localeCompare(day(a))) : [];
-    if (/\b(hemogram|biyokimya|kan|lab|tahlil|tetkik|sonuc|test)/.test(t)) {
+    if (/\b(hemogram|biyokimya|kan|lab|tahlil|tetkik|sonuc|test|yorum|degerlendir|gaz)/.test(t)) {
       const labs = mine("labs").filter(row => row.status !== "İptal");
       const wanted = /hemogram/.test(t) ? labs.filter(row => /hemogram/i.test(row.kind + " " + row.title)) : /biyokimya/.test(t) ? labs.filter(row => /biyokimya/i.test(row.kind + " " + row.title)) : labs;
       const lab = wanted[0];
       if (!lab) return answer(fill("{0} için uygun tetkik kaydı bulunamadı.", pet.name), {links:[["Hasta dosyasını aç", link]]});
-      const flags = labFlags(lab.result);
-      const off = flags.filter(flag => flag.status !== "normal");
-      return answer(fill("{0} · {1} ({2})", pet.name, lab.title || lab.kind || "Tetkik", dateText(day(lab))), {
-        stats:flags.length ? [["Okunan değer", count(flags.length)], ["Aralık dışı", count(off.length)]] : [],
-        items:(off.length ? off : flags).slice(0, 14).map(flag => [fill("{0}: {1} {2} (referans {3}–{4})", flag.name, flag.value, flag.unit, flag.low, flag.high).replace("  ", " "), flag.status === "high" ? "Yüksek" : flag.status === "low" ? "Düşük" : "Aralıkta"]),
-        note:flags.length ? "Değerler kaydedilen rapordan okunmuştur. Klinik yorum ve tanı hekime aittir." : String(lab.result || "Sonuç girilmemiş.").slice(0, 600),
+      // Aynı günlerde girilen hemogram, biyokimya ve kan gazı birlikte yorumlanır.
+      const near = labs.filter(row => row.id !== lab.id && Math.abs(new Date(day(row)) - new Date(day(lab))) <= 3 * 864e5);
+      const older = labs.filter(row => row.id !== lab.id && !near.includes(row));
+      const age = pet.birth ? Math.floor((Date.now() - new Date(pet.birth + "T12:00:00Z")) / (30.44 * 864e5)) : NaN;
+      const panel = row => ({date:day(row), values:row.values || "", result:row.values ? "" : row.result || ""});
+      const res = interpretLabs({panels:[panel(lab), ...near.map(panel)], species:pet.species, sex:pet.sex, ageMonths:age, history:older.map(panel)});
+      if (!res.rows.length) {
+        const flags = labFlags(lab.result);
+        return answer(fill("{0} · {1} ({2})", pet.name, lab.title || lab.kind || "Tetkik", dateText(day(lab))), {
+          items:flags.filter(flag => flag.status !== "normal").slice(0, 14).map(flag => [fill("{0}: {1} {2} (referans {3}–{4})", flag.name, flag.value, flag.unit, flag.low, flag.high).replace("  ", " "), flag.status === "high" ? "Yüksek" : "Düşük"]),
+          note:String(lab.result || "Sonuç girilmemiş.").slice(0, 600), links:[["Hasta dosyasını aç", link]],
+        });
+      }
+      const brief = /yorum|degerlendir|ne dusun|teshis|tani|tedavi|interpret/.test(t);
+      return answer(fill("{0} · {1} ({2})", pet.name, near.length ? "Birleşik tetkik yorumu" : lab.title || lab.kind || "Tetkik", dateText(day(lab))), {
+        urgent: res.critical.length > 0,
+        stats:[["Okunan değer", count(res.rows.length)], ["Aralık dışı", count(res.abnormal.length)], ["Birlikte değerlendirilen panel", count(1 + near.length)]],
+        items:[...res.critical.map(text => ["⚠ " + text, ""]),
+          ...res.abnormal.slice(0, brief ? 8 : 14).map(row => [`${row.name}: ${row.raw} ${row.unit}`.trim(), `${row.status === "high" ? "↑ Yüksek" : "↓ Düşük"} · ${row.degree}`]),
+          ...(brief ? res.findings.slice(0, 6).map(item => [item.title, ""]) : [])],
+        note:brief
+          ? [res.differentials.length ? "Olası nedenler: " + res.differentials.slice(0, 6).join("; ") + "." : "", res.tests.length ? "Önerilen tetkikler: " + res.tests.slice(0, 5).join("; ") + "." : "", "Karar desteğidir; kesin tanı ve tedavi kararı hekime aittir."].filter(Boolean).join(" ")
+          : "Ayrıntılı yorum için “yorumla” yazın veya tetkik kaydını açın. Karar desteğidir; kesin tanı ve tedavi kararı hekime aittir.",
         links:[["Hasta dosyasını aç", link]],
       });
     }

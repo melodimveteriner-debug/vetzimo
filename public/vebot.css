@@ -81,5 +81,45 @@
   .vebot-doc-actions{width:100%}
   .vebot-doc-actions .button{flex:1}
 }
+/* Tetkik formu: tablo dar ekranda kendi alanında kaydırılır */
+.lab-editor>*{min-width:0;max-width:100%}
+.lab-editor .table-wrap{max-width:100%;overflow-x:auto}
+/* Tetkik klinik yorum paneli */
+.lab-insight{display:grid;gap:12px;margin-top:14px;padding:14px;border:1px solid var(--line,#ddd);border-radius:14px;background:var(--paper,#fff);color:var(--ink,#1d1b26)}
+.lab-insight[hidden]{display:none}
+.lab-insight-head{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:8px}
+.lab-insight-head h3{margin:0;font-size:1.05rem}
+.lab-insight-head small{display:block;color:var(--muted,#666);font-size:.78rem}
+.lab-insight-chip{padding:3px 10px;border-radius:999px;background:var(--brand-tint,var(--bg,#f4f2fa));color:var(--ink,#1d1b26);font-size:.78rem;font-weight:600}
+.lab-insight h4{margin:0 0 6px;font-size:.9rem}
+.lab-insight ul{margin:0;padding-inline-start:18px;display:grid;gap:3px;font-size:.88rem;line-height:1.4}
+.lab-insight-critical{padding:10px 12px;border:1px solid #d4475a;border-radius:12px;background:color-mix(in srgb,#d4475a 10%,var(--paper,#fff))}
+.lab-insight-critical h4{color:#c03147}
+.lab-insight-abnormal{list-style:none;padding:0!important;gap:4px!important}
+.lab-insight-abnormal li{display:grid;grid-template-columns:minmax(110px,1.2fr) minmax(80px,1fr) minmax(110px,1fr) minmax(90px,1fr);gap:6px;align-items:baseline;padding:6px 8px;border-radius:8px;background:var(--bg,#f7f6fb)}
+.lab-insight-abnormal li.is-high em{color:#c03147}
+.lab-insight-abnormal li.is-low em{color:#1f6fb2}
+.lab-insight-abnormal em{font-style:normal;font-weight:700}
+.lab-insight-abnormal small,.lab-insight-trends small{color:var(--muted,#666)}
+.lab-insight-ok{margin:0;color:var(--muted,#666)}
+.lab-insight-finding{padding:8px 10px;border-inline-start:4px solid var(--line,#ccc);border-radius:6px;background:var(--bg,#f7f6fb);margin-bottom:6px}
+.lab-insight-finding.is-critical{border-color:#c03147}
+.lab-insight-finding.is-warn{border-color:#d39b22}
+.lab-insight-finding.is-info{border-color:var(--theme-primary,#6338a0)}
+.lab-insight-finding p{margin:3px 0 0;font-size:.86rem;line-height:1.4}
+.lab-insight details summary{cursor:pointer;color:var(--muted,#666);font-size:.84rem;margin:4px 0}
+.lab-insight-trends{list-style:none;padding:0!important}
+.lab-insight-trends li{display:grid;grid-template-columns:minmax(110px,1.2fr) 1fr 80px 1fr;gap:6px;align-items:baseline}
+.lab-insight-trends em{font-style:normal;font-weight:700}
+.lab-insight-trends em.up{color:#c03147}
+.lab-insight-trends em.down{color:#1f6fb2}
+.is-notes ul{color:var(--muted,#666)}
+.lab-insight-actions{display:flex;justify-content:flex-end}
+:is([data-clinic-palette=dark],[data-clinic-palette=midnight]) .lab-insight-abnormal li.is-low em,:is([data-clinic-palette=dark],[data-clinic-palette=midnight]) .lab-insight-trends em.down{color:#7cb8f0}
+:is([data-clinic-palette=dark],[data-clinic-palette=midnight]) .lab-insight-abnormal li.is-high em,:is([data-clinic-palette=dark],[data-clinic-palette=midnight]) .lab-insight-trends em.up,:is([data-clinic-palette=dark],[data-clinic-palette=midnight]) .lab-insight-critical h4{color:#ff8a9a}
+@media (max-width:620px){
+  .lab-insight-abnormal li{grid-template-columns:1fr 1fr}
+  .lab-insight-trends li{grid-template-columns:1fr 1fr}
+}
 @media print{.vebot-doc{display:none!important}}
 @media print{.vebot-launcher,.vebot-panel{display:none!important}}
