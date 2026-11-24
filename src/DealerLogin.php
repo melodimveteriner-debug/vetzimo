@@ -20,7 +20,7 @@ final class DealerLogin
     }
 
     /** @return array{token: string, device: string, age: int}|null */
-    public function signIn(string $phone, string $password, string $address, int $now, ?string $bookingPartner=null): ?array
+    public function signIn(string $phone, string $password, string $address, int $now, ?string $bookingPartner=null, ?TeamTotp $totp=null, string $otp=''): ?array
     {
         $this->reserveAttempt($address, $now);
         $identifier = self::normalizePhone($phone);
@@ -58,6 +58,8 @@ final class DealerLogin
             if (ClinicAccess::valid($candidate,$state)) { $account=$candidate; break; }
         }
         if (!$account) return null;
+        // Ekip hesabında iki adımlı doğrulama açıksa ikinci adım olmadan oturum açılmaz.
+        if ($totp && !$totp->pass($account['id'], $otp, $now)) return ['otpRequired' => true, 'otpInvalid' => trim($otp) !== ''];
 
         $token = bin2hex(random_bytes(32));
         $device = bin2hex(random_bytes(32));

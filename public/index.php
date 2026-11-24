@@ -12,7 +12,7 @@ use VetNet\Cpanel\SessionRepository;
 
 require_once dirname(__DIR__).'/src/StaffPlan.php';
 
-foreach (['NativeApp','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','CreditShop','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','PrintTemplates','Support','Commerce','Appearance'] as $class) {
+foreach (['NativeApp','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','CreditShop','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','TeamTotp','PrintTemplates','Support','Commerce','Appearance'] as $class) {
     require dirname(__DIR__) . '/src/' . $class . '.php';
 }
 
@@ -609,8 +609,11 @@ try {
                 if ($error->getCode()!=='42S02') throw $error;
             }
         }
-        $result = $login->signIn($phone, $password, $_SERVER['REMOTE_ADDR'] ?? '', $now,$bookingSite['partner_id']??null);
+        $otp = is_string($body->otp ?? null) ? substr($body->otp,0,20) : '';
+        $result = $login->signIn($phone, $password, $_SERVER['REMOTE_ADDR'] ?? '', $now,$bookingSite['partner_id']??null,
+            new VetNet\Cpanel\TeamTotp($db,(string)($config['encryptionKey'] ?? '')),$otp);
         if ($result === null) throw new RuntimeException('Giriş bilgileri doğrulanamadı.', 401);
+        if (!empty($result['otpRequired'])) reply(['error'=>$result['otpInvalid']?'Doğrulama kodu geçersiz veya süresi doldu.':'Doğrulama uygulamanızdaki 6 haneli kodu girin.','otpRequired'=>true],401);
         $oldToken = $_COOKIE[SessionRepository::SESSION_COOKIE] ?? '';
         $oldDevice = $_COOKIE[SessionRepository::DEVICE_COOKIE] ?? '';
         if (is_string($oldToken) && is_string($oldDevice) && $oldToken !== '' && $oldDevice !== '') {
@@ -719,6 +722,26 @@ try {
         }
         $actor=(new VetNet\Cpanel\Commerce($db))->packageActor($actor);
         reply($identity->examPhotos($actor,$examRoute[1],$method==='POST'?input(2800000):null));
+    }
+    if ($path==='/api/team-2fa' && in_array($method,['GET','POST'],true)) {
+        // Ekip hesabı iki adımlı doğrulama: durum, kurulum başlat, kodla onayla, kapat.
+        $actor=$identity->actor($_COOKIE,$now);
+        $totp=new VetNet\Cpanel\TeamTotp($db,(string)($config['encryptionKey'] ?? ''));
+        try {
+            if ($method==='GET') reply($totp->status($actor));
+            if (!hash_equals($actor['membership_id'] ?? '',$_SERVER['HTTP_X_VETNET_SCOPE'] ?? '')) throw new RuntimeException('Çalışma alanı oturumu değişti.',409);
+            (new DealerLogin($db,$config['rateSecret']))->throttle('team2fa:'.$actor['account_id'],$now);
+            $body=input(4096);
+            $op=$body->action ?? '';
+            $code=is_string($body->code ?? null)?$body->code:'';
+            if ($op==='start') reply($totp->start($actor,'VetZimo'));
+            if ($op==='confirm') reply($totp->confirm($actor,$code,$now));
+            if ($op==='disable') reply($totp->disable($actor,is_string($body->password ?? null)?$body->password:'',$code,$now));
+            throw new RuntimeException('İşlem geçersiz.',422);
+        } catch (PDOException $error) {
+            if ($error->getCode()==='42S02') throw new RuntimeException('İki adımlı doğrulama tablosu henüz kurulmadı; güncellemeyi tamamlayın.',503);
+            throw $error;
+        }
     }
     if ($path==='/api/consents' && in_array($method,['GET','POST'],true)) {
         // Dijital onam: klinik hazırlar/iptal eder/klinikte imzalatır; hasta sahibi kendi formunu imzalar veya reddeder.

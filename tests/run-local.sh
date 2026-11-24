@@ -26,6 +26,7 @@ fresh test_staff empty;    run staff-booking.php env VETNET_TEST_DSN='mysql:host
 fresh test_surgery empty;  run surgery.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_surgery' php tests/surgery.php
 fresh test_icu empty;      run icu.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_icu' php tests/icu.php
 fresh test_consent empty;  run consent.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_consent' php tests/consent.php
+fresh test_tfa empty;      run team-2fa.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_tfa' php tests/team-2fa.php
 fresh test_center empty;   run center.php  env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_center' php tests/center.php
 if command -v node >/dev/null; then
   fx=$(mktemp); node tests/finance-fixtures.mjs "$fx" >/dev/null 2>&1 && run finance.php php tests/finance.php "$fx"; rm -f "$fx"

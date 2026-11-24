@@ -105,7 +105,7 @@ async function api(path,body,scope="") {
   const result=await response.json();
   if (body && challenge) {challenge="";window.turnstile?.reset();}
   if (response.status===428) showCaptcha();
-  if (!response.ok) throw Object.assign(Error(result.error||"İşlem tamamlanamadı."),{status:response.status});
+  if (!response.ok) throw Object.assign(Error(result.error||"İşlem tamamlanamadı."),{status:response.status,otpRequired:result.otpRequired===true});
   if (path==="session") previewReauth=result.previewReauth===true;
   return result;
 }
@@ -209,6 +209,16 @@ function login(mode="login") {
         form.elements.otp.focus();
         if (error.status===422) throw error;
         throw Error("Giriş doğrulanamadı. E-posta ve şifreyi kontrol edin, ardından uygulamadaki yeni kodu girin.");
+      }
+      if (!center && mode==="login" && error.otpRequired) {
+        // Ekip hesabında iki adımlı doğrulama açık: kod alanı gösterilir, aynı formla tekrar gönderilir.
+        if (!form.elements.otp) {
+          const code=field("otp",uiLabel("Doğrulama kodu"),{inputMode:"numeric",autocomplete:"one-time-code",maxLength:9,required:true});
+          code.append(el("small",uiLabel("Doğrulama uygulamasındaki 6 haneli kodu ya da bir kurtarma kodunu girin."),{className:"access-phone-hint"}));
+          form.elements.password.closest("label").after(code);
+        } else form.elements.otp.value="";
+        form.elements.otp.focus();
+        throw Error(uiLabel(error.message));
       }
       throw error;
     }
