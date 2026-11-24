@@ -23,6 +23,7 @@ export const sitePalettes=[
   ["olive","Fesleğen · Kehribar","#446624"],
   ["coral","Mercan · Mandalina","#a43654"],
   ["orchid","Orkide · Safir","#713fa9"],
+  ["aurora","Aurora · Mor-Turkuaz","#5b3fd6"],
   ["dark","Gece · Kuzey Işığı","#115067"],
   ["midnight","Mürdüm Gece · Gül","#513161"],
 ];

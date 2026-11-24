@@ -13,7 +13,7 @@ if (languages.has(selected)) {
 }
 
 async function start(language) {
-  const response=await fetch("/ui-copy/"+language+".json?v=r79",{credentials:"same-origin"});
+  const response=await fetch("/ui-copy/"+language+".json?v=r80",{credentials:"same-origin"});
   if (!response.ok) return;
   const published=await response.json();
   const labels=new Map(Object.entries(published));

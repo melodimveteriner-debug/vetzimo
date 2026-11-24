@@ -10,6 +10,8 @@
 :is([data-theme=coral],[data-clinic-palette=coral],[data-center-palette=coral],[data-access-theme=coral],[data-identity-palette=coral]){
  --theme-primary:#a43654;--theme-secondary:#a34917;--theme-tint:#ffe9e7;--theme-work:#fff5f0;--theme-paper:#fff;--theme-ink:#452635;--theme-muted:#694e58;--theme-line:#f2d5d7;--theme-plot:#fff7f5;--theme-chart-a:#a43654;--theme-chart-b:#a9551b
 }
+:is([data-theme=aurora],[data-clinic-palette=aurora],[data-center-palette=aurora],[data-access-theme=aurora],[data-identity-palette=aurora]){
+ --theme-primary:#5b3fd6;--theme-secondary:#0e8f8a;--theme-tint:#efeaff;--theme-work:#f7f5ff;--theme-paper:#fff;--theme-ink:#1d1838;--theme-muted:#514a6e;--theme-line:#e2dcf7;--theme-plot:#faf8ff;--theme-chart-a:#6d4ce0;--theme-chart-b:#0e8f8a}
 :is([data-theme=orchid],[data-clinic-palette=orchid],[data-center-palette=orchid],[data-access-theme=orchid],[data-identity-palette=orchid]){
  --theme-primary:#713fa9;--theme-secondary:#2756ae;--theme-tint:#f1e7ff;--theme-work:#f8f4ff;--theme-paper:#fff;--theme-ink:#312344;--theme-muted:#5c4b70;--theme-line:#e6d7f6;--theme-plot:#faf6ff;--theme-chart-a:#7837b1;--theme-chart-b:#275bb5
 }
