@@ -12,7 +12,7 @@ use VetNet\Cpanel\SessionRepository;
 
 require_once dirname(__DIR__).'/src/StaffPlan.php';
 
-foreach (['NativeApp','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','CreditShop','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','TeamTotp','WebInbox','MinistryBridge','SiteLegal','OmniInbox','PhoneGateway','PrintTemplates','Support','Commerce','Appearance'] as $class) {
+foreach (['NativeApp','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','CreditShop','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','TeamTotp','WebInbox','MinistryBridge','SiteLegal','OmniInbox','PhoneGateway','ClientPermit','PrintTemplates','Support','Commerce','Appearance'] as $class) {
     require dirname(__DIR__) . '/src/' . $class . '.php';
 }
 
@@ -820,6 +820,53 @@ try {
             throw new RuntimeException('İşlem bulunamadı.',404);
         } catch (PDOException $error) {
             if ($error->getCode()==='42S02') throw new RuntimeException('Telefon bağlantısı tabloları henüz kurulmadı; güncellemeyi tamamlayın.',503);
+            throw $error;
+        }
+    }
+    if (preg_match('~\A/onay/([A-Za-z0-9_-]{32})\z~',$path,$permitMatch) && in_array($method,['GET','POST'],true)) {
+        // Hayvan sahibinin tek kullanımlık onay bağlantısı (giriş gerekmez; bağlantı imzadan sonra geçersizleşir).
+        $permits=new VetNet\Cpanel\ClientPermit($db,$origin);
+        header('Cache-Control: no-store');
+        header('Referrer-Policy: no-referrer');
+        if ($method==='POST') {
+            (new DealerLogin($db,$config['rateSecret']))->throttle('permit:'.($_SERVER['REMOTE_ADDR']??''),$now);
+            reply($permits->decide($permitMatch[1],input(500000),$now,$_SERVER));
+        }
+        header("Content-Security-Policy: default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
+        header('Content-Type: text/html; charset=utf-8');
+        try {
+            $open=$permits->open($permitMatch[1],$now);
+            echo VetNet\Cpanel\UiLocale::page(VetNet\Cpanel\ClientPermit::html($open['doc'],$open['hash'],'sign'),$config);
+        } catch (RuntimeException $error) {
+            http_response_code($error->getCode()===410?410:404);
+            echo '<!doctype html><html lang="tr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Onay formu</title><link rel="stylesheet" href="/permit-sign.css?v=2"><main class="pm"><section class="pm-card"><h1>Bağlantı geçersiz</h1><p>'.htmlspecialchars($error->getMessage(),ENT_QUOTES,'UTF-8').'</p></section></main></html>';
+        }
+        exit;
+    }
+    if (preg_match('~\A/api/permit/belge/([a-f0-9]{32})\z~',$path,$docMatch) && $method==='GET') {
+        // Klinik: imzalı onay formunun kayıt görünümü (yazdırılabilir delil).
+        $actor=(new VetNet\Cpanel\Commerce($db))->packageActor($identity->actor($_COOKIE,$now));
+        $record=(new VetNet\Cpanel\ClientPermit($db,$origin))->signedDocument($actor,$docMatch[1]);
+        header("Content-Security-Policy: default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'");
+        header('Content-Type: text/html; charset=utf-8');
+        header('Cache-Control: no-store');
+        echo VetNet\Cpanel\ClientPermit::html($record['doc'],$record['hash'],'record',$record);
+        exit;
+    }
+    if ($path==='/api/permit' && in_array($method,['GET','POST'],true)) {
+        // Klinik: müşteri KVKK ve iletişim izni onay formları.
+        $actor=(new VetNet\Cpanel\Commerce($db))->packageActor($identity->actor($_COOKIE,$now));
+        $permits=new VetNet\Cpanel\ClientPermit($db,$origin);
+        try {
+            if ($method==='GET') {
+                if (is_string($_GET['client']??null)) reply($permits->forClient($actor,$_GET['client'],$now));
+                if (isset($_GET['notice'])) reply($permits->notice($actor['partner_id']));
+                reply($permits->list($actor,is_string($_GET['status']??null)?$_GET['status']:'',$now));
+            }
+            if (!hash_equals($actor['membership_id'] ?? '',$_SERVER['HTTP_X_VETNET_SCOPE'] ?? '')) throw new RuntimeException('Çalışma alanı oturumu değişti.',409);
+            reply($permits->act($actor,input(80000),$now));
+        } catch (PDOException $error) {
+            if ($error->getCode()==='42S02') throw new RuntimeException('Onay formu tabloları henüz kurulmadı; güncellemeyi tamamlayın.',503);
             throw $error;
         }
     }

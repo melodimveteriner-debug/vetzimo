@@ -95,6 +95,18 @@ final class AppointmentReminders
                 if (!$row) continue;
                 $state = $workspaces->load('partner:'.$partner)['state'];
                 if (!$state) continue;
+                // İmzalı müşteri onay formu varsa SMS/WhatsApp/e-posta izni olarak o esas alınır.
+                if (class_exists(ClientPermit::class)) (new ClientPermit($this->db))->overlay($partner, $state->clients ?? []);
+                // Telefon Bağlantısı'nda "SMS ve WhatsApp birlikte" açıksa otomatik hatırlatmalar iki kanaldan da gider.
+                if (!empty($routes[$partner]['both']) && isset($state->preferences)) {
+                    foreach (['appointments','followups','patientBirthday','customerBirthday'] as $kind) {
+                        if (($state->preferences->{'customerReminder_'.$kind.'_mode'} ?? '')==='auto' &&
+                            (($state->preferences->{'customerReminder_'.$kind.'_sms'} ?? '')==='Evet' || ($state->preferences->{'customerReminder_'.$kind.'_whatsapp'} ?? '')==='Evet')) {
+                            $state->preferences->{'customerReminder_'.$kind.'_sms'}='Evet';
+                            $state->preferences->{'customerReminder_'.$kind.'_whatsapp'}='Evet';
+                        }
+                    }
+                }
                 foreach (self::jobs($state, $row['name'], $now) as $job) {
                     if (microtime(true) > $deadline) return $stats;
                     $provider = $settings[$job['channel']] ?? null;

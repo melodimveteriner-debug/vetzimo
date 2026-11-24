@@ -165,7 +165,7 @@ export function createWhatsApp({launchPersistent, home, api, log}) {
           log("WhatsApp gönderilemedi: " + e.message);
         }
         keep();
-        const delay = Number(process.env.VZ_WA_DELAY_MS || 0) || rand(20000, 45000);
+        const delay = Number(process.env.VZ_WA_DELAY_MS || 0) || rand(1500, 4000); // asıl aralığı sunucu belirler (Telefon Bağlantısı ayarı)
         await sleep(delay);
       }
       wa.error = "";

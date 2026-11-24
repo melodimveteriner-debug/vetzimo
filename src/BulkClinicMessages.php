@@ -55,6 +55,7 @@ final class BulkClinicMessages
                 $lock->execute([$partner]); $lock->fetchColumn();
             }
             $state=(new WorkspaceRepository($this->db))->load('partner:'.$partner)['state'];
+            (new ClientPermit($this->db))->overlay($partner,$state->clients??[]);
             $visible=ClinicAccess::visible($state,$actor);
             $clinic=ClinicAccess::branch($visible,$branch);
             if (!$clinic) throw new RuntimeException('Seçilen şubeye erişiminiz yok.',403);
@@ -93,7 +94,7 @@ final class BulkClinicMessages
                 $vaccine=$vaccines[$target->vaccine??'']??null;
                 $phone=DealerLogin::normalizePhone($client->phone??'');
                 $result=['client'=>$client->id??'','patient'=>$patient->id??'','vaccine'=>$vaccine->id??'','name'=>$client->name??'','status'=>'skipped'];
-                if (!$client || $phone==='' || ($client->$channel??'')!=='Var' ||
+                if (!$client || $phone==='' || ($client->$channel??'')!=='Var' || ($viaPhone && $iys!=='0' && ($client->marketingConsent??'')!=='Var') ||
                     (!empty($target->patient) && (!$patient || $patient->owner!==$client->id)) ||
                     (!empty($target->vaccine) && (!$vaccine || $vaccine->patient!==($patient->id??'') || ($vaccine->kind??'')!=='Aşı' ||
                     ($vaccine->status??'')==='İptal')) || isset($phones[$phone])) {
@@ -256,6 +257,7 @@ final class BulkClinicMessages
                 if ($member && $request && self::channelGrant($member,$row['channel'],true) && ClinicAccess::allowed($member,'clients') &&
                     ClinicAccess::allowed($member,'patients') && ($member['role']==='dealer' || $member['branch_id']===$row['branch_id'])) {
                     $state=(new WorkspaceRepository($this->db))->load('partner:'.$row['partner_id'])['state'];
+                    (new ClientPermit($this->db))->overlay($row['partner_id'],$state->clients??[]);
                     $branch=ClinicAccess::branch($state,$row['branch_id']);
                     $client=array_column($state->clients??[],null,'id')[$row['client_id']]??null;
                     $channel=$row['channel'];

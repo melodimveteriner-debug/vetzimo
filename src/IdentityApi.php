@@ -298,10 +298,14 @@ final class IdentityApi
                 $message=strtr($template,['{musteri}'=>$client->name,'{klinik}'=>$clinic]);
                 $message.="\nVetZimo giriş numaranız: ".$phone."\nİlk şifreniz: ".$password.
                     "\n".rtrim($config['origin'],'/')."/app";
-                $request=AppointmentReminders::request($provider,[
-                    'channel'=>'sms','phone'=>$phone,'parameters'=>[$client->name,'',$clinic],'message'=>$message,
-                ],bin2hex(random_bytes(16)));
-                if ($request===null) throw new RuntimeException('Bayi Netgsm bağlantı ayarlarını kontrol edin.',422);
+                // Telefon Bağlantısı açıksa ilk giriş SMS'i kliniğin kendi hattından gider; Netgsm gerekmez.
+                $viaPhone=class_exists(PhoneGateway::class) && (new PhoneGateway($this->db))->route($actor['partner_id'],'sms');
+                if (!$viaPhone) {
+                    $request=AppointmentReminders::request($provider,[
+                        'channel'=>'sms','phone'=>$phone,'parameters'=>[$client->name,'',$clinic],'message'=>$message,
+                    ],bin2hex(random_bytes(16)));
+                    if ($request===null) throw new RuntimeException('SMS gönderimi için Telefon Bağlantısı sayfasından kliniğin telefonunu bağlayın veya Netgsm ayarlarını kontrol edin.',422);
+                }
             }
             foreach ($state->clients as $other) if ($other->id!==$id && DealerLogin::normalizePhone($other->phone ?? '')===$phone) {
                 throw new RuntimeException('Bu telefon birden fazla müşteri kaydında kullanılıyor.',409);
@@ -335,6 +339,12 @@ final class IdentityApi
             $this->audit($actor,'customer.password_set');
             $this->db->commit();
             if (!$sms) return ['configured'=>true];
+            if (!empty($viaPhone)) {
+                try {
+                    (new PhoneGateway($this->db))->enqueue($actor['partner_id'],'sms',$phone,$message,'manual','welcome:'.$id.':'.$now,0,$now,$now+86400,(string)($actor['name'] ?? ''));
+                    return ['configured'=>true,'sms'=>'accepted'];
+                } catch (\Throwable) { return ['configured'=>true,'sms'=>'unknown']; }
+            }
             try {
                 [$status]=AppointmentReminders::send($request,'sms');
             } catch (\Throwable) {

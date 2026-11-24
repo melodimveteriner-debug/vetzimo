@@ -13,8 +13,10 @@ use RuntimeException;
  */
 final class PhoneGateway
 {
-    public const DEFAULTS = ['sms' => false, 'simSlot' => '', 'smsPerMinute' => 4, 'smsPerDay' => 200,
-        'whatsapp' => 'off', 'waRiskAccepted' => false, 'waPerHour' => 30, 'waPerDay' => 150, 'quietStart' => '21:30', 'quietEnd' => '08:30'];
+    // Varsayılanlar araştırmaya dayanır: Android 30 dakikada 30'dan fazla SMS'te kullanıcı onayı ister (SMS arası ≥ 60 sn);
+    // WhatsApp için resmi sınır yoktur, sabit değil rastgele aralık ve saatte 30'un altı önerilir (120 sn ±%20 ≈ saatte 30).
+    public const DEFAULTS = ['sms' => false, 'simSlot' => '', 'smsInterval' => 75, 'smsPerDay' => 150,
+        'whatsapp' => 'off', 'waRiskAccepted' => false, 'waInterval' => 120, 'waPerDay' => 100, 'sendStart' => '10:00', 'sendHours' => 9, 'both' => false];
     private const STALE = 900; // sonuç bildirilmeyen işler 15 dakika sonra "belirsiz" olur, tekrar gönderilmez
     private const PAIR_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
@@ -63,6 +65,7 @@ final class PhoneGateway
         $out = [];
         foreach ($rows as $partner) {
             $r = ['sms' => $this->route($partner, 'sms'), 'whatsapp' => $this->route($partner, 'whatsapp')];
+            $r['both'] = $r['sms'] && $r['whatsapp'] && $this->settings($partner)['both'];
             if ($r['sms'] || $r['whatsapp']) $out[$partner] = $r;
         }
         return $out;
@@ -74,21 +77,21 @@ final class PhoneGateway
         $s = $this->settings($actor['partner_id']);
         $int = static function ($v, int $min, int $max, string $label) { if (!is_int($v) || $v < $min || $v > $max) throw new RuntimeException($label.' '.$min.'-'.$max.' arasında olmalı.', 422); return $v; };
         $s['sms'] = !empty($input->sms);
-        $s['simSlot'] = in_array($input->simSlot ?? '', ['', '0', '1'], true) ? $input->simSlot : '';
-        $s['smsPerMinute'] = $int($input->smsPerMinute ?? $s['smsPerMinute'], 1, 20, 'Dakikalık SMS sınırı');
-        $s['smsPerDay'] = $int($input->smsPerDay ?? $s['smsPerDay'], 1, 2000, 'Günlük SMS sınırı');
+        $s['simSlot'] = in_array($input->simSlot ?? '', ['', '0', '1'], true) ? ($input->simSlot ?? '') : '';
+        $s['smsInterval'] = $int($input->smsInterval ?? $s['smsInterval'], 60, 3600, 'SMS arası bekleme (saniye)');
+        $s['smsPerDay'] = $int($input->smsPerDay ?? $s['smsPerDay'], 1, 1000, 'Günlük SMS sınırı');
         $mode = $input->whatsapp ?? 'off';
         if (!in_array($mode, ['off', 'assist', 'auto'], true)) throw new RuntimeException('WhatsApp modu geçersiz.', 422);
         $s['waRiskAccepted'] = !empty($input->waRiskAccepted);
         if ($mode === 'auto' && !$s['waRiskAccepted']) throw new RuntimeException('Otomatik WhatsApp için risk bilgilendirmesini onaylayın.', 422);
         $s['whatsapp'] = $mode;
-        $s['waPerHour'] = $int($input->waPerHour ?? $s['waPerHour'], 1, 60, 'Saatlik WhatsApp sınırı');
+        $s['waInterval'] = $int($input->waInterval ?? $s['waInterval'], 30, 3600, 'WhatsApp arası bekleme (saniye)');
         $s['waPerDay'] = $int($input->waPerDay ?? $s['waPerDay'], 1, 400, 'Günlük WhatsApp sınırı');
-        foreach (['quietStart', 'quietEnd'] as $k) {
-            $v = $input->$k ?? $s[$k];
-            if (!is_string($v) || !preg_match('/\A([01][0-9]|2[0-3]):[0-5][0-9]\z/', $v)) throw new RuntimeException('Sessiz saatler SS:DD biçiminde olmalı.', 422);
-            $s[$k] = $v;
-        }
+        $start = $input->sendStart ?? $s['sendStart'];
+        if (!is_string($start) || !preg_match('/\A([01][0-9]|2[0-3]):[0-5][0-9]\z/', $start)) throw new RuntimeException('Başlangıç saati SS:DD biçiminde olmalı.', 422);
+        $s['sendStart'] = $start;
+        $s['sendHours'] = $int($input->sendHours ?? $s['sendHours'], 1, 16, 'Gönderim süresi (saat)');
+        $s['both'] = !empty($input->both);
         $this->db->prepare('INSERT INTO phone_gateway (partner_id,settings,updated_at) VALUES (?,?,?) ON DUPLICATE KEY UPDATE settings=VALUES(settings),updated_at=VALUES(updated_at)')
             ->execute([$actor['partner_id'], json_encode($s, JSON_UNESCAPED_UNICODE), $now]);
         if ($s['sms']) $this->channel($actor['partner_id'], 'sms', $now);
@@ -131,12 +134,34 @@ final class PhoneGateway
         return (int)$q->fetchColumn();
     }
 
+    /** Günlük gönderim penceresi dışında mı? (Türkiye saati; başlangıç + süre, gece yarısını aşabilir.) */
     public static function quiet(array $s, int $now): bool
     {
-        $local = (new \DateTimeImmutable('@'.$now))->setTimezone(new \DateTimeZone('Europe/Istanbul'))->format('H:i');
-        [$a, $b] = [$s['quietStart'], $s['quietEnd']];
-        if ($a === $b) return false;
-        return $a < $b ? ($local >= $a && $local < $b) : ($local >= $a || $local < $b);
+        return self::untilWindow($s, $now) > 0;
+    }
+
+    /** Pencere açıksa 0, değilse açılmasına kalan saniye. */
+    public static function untilWindow(array $s, int $now): int
+    {
+        $local = (new \DateTimeImmutable('@'.$now))->setTimezone(new \DateTimeZone('Europe/Istanbul'));
+        $t = (int)$local->format('G') * 60 + (int)$local->format('i');
+        [$h, $m] = array_map('intval', explode(':', $s['sendStart']));
+        $start = $h * 60 + $m;
+        $end = $start + (int)$s['sendHours'] * 60;
+        $inside = $end <= 1440 ? ($t >= $start && $t < $end) : ($t >= $start || $t < $end - 1440);
+        if ($inside) return 0;
+        $wait = ($start - $t + 1440) % 1440;
+        return max(60, $wait * 60 - (int)$local->format('s'));
+    }
+
+    /** Ayarlarla bir günde gönderilebilecek yaklaşık en çok mesaj. */
+    public static function capacity(array $s, string $channel): int
+    {
+        $interval = $channel === 'sms' ? $s['smsInterval'] : $s['waInterval'];
+        $perDay = $channel === 'sms' ? $s['smsPerDay'] : $s['waPerDay'];
+        $byWindow = intdiv((int)$s['sendHours'] * 3600, (int)$interval);
+        if ($channel === 'sms') $byWindow = min($byWindow, (int)$s['sendHours'] * 58); // Android: 30 dakikada en çok 29
+        return min($perDay, $byWindow);
     }
 
     private function sweep(string $partner, int $now): void
@@ -161,11 +186,36 @@ final class PhoneGateway
         return (new \DateTimeImmutable('@'.$now))->setTimezone(new \DateTimeZone('Europe/Istanbul'))->setTime(0, 0)->getTimestamp();
     }
 
-    /** Sınırlara ve sessiz saatlere uyan işleri bu cihaza ayırır. */
-    private function claim(string $partner, string $channel, string $device, int $limit, bool $quiet, int $now): array
+    /**
+     * Zamanlama: öncelikli işler (gelen kutusu yanıtı, deneme, onay bağlantısı) beklemeden en az 8 sn arayla gider;
+     * hatırlatma ve toplu mesajlar yalnız günlük pencerede, ayarlanan saniye aralığıyla (±%20 rastgele) tek tek verilir.
+     * @return array{0:list<array>,1:int} işler ve bir sonraki denemeye kadar önerilen bekleme (sn)
+     */
+    private function schedule(string $partner, string $channel, string $device, array $s, int $now): array
+    {
+        $perDay = $channel === 'sms' ? $s['smsPerDay'] : $s['waPerDay'];
+        if ($this->sentSince($partner, $channel, self::dayStart($now)) >= $perDay) return [[], 900];
+        if ($channel === 'sms' && $this->sentSince($partner, 'sms', $now - 1800) >= 29) return [[], 60];
+        $q = $this->db->prepare("SELECT COALESCE(MAX(claimed_at),0) FROM phone_outbox WHERE partner_id=? AND channel=? AND claimed_at IS NOT NULL");
+        $q->execute([$partner, $channel]);
+        $last = (int)$q->fetchColumn();
+        $gap = $now - $last;
+        if ($gap >= 8) {
+            $jobs = $this->claim($partner, $channel, $device, 1, true, $now);
+            if ($jobs) return [$jobs, 8];
+        }
+        $until = self::untilWindow($s, $now);
+        if ($until > 0) return [[], min(900, $until)];
+        $interval = $channel === 'sms' ? $s['smsInterval'] : $s['waInterval'];
+        $need = (int)round($interval * (0.8 + (crc32($partner.':'.$last) % 41) / 100));
+        if ($gap < $need) return [[], max(3, $need - $gap)];
+        return [$this->claim($partner, $channel, $device, 1, false, $now), $need];
+    }
+
+    private function claim(string $partner, string $channel, string $device, int $limit, bool $priorityOnly, int $now): array
     {
         if ($limit <= 0) return [];
-        $q = $this->db->prepare("SELECT * FROM phone_outbox WHERE partner_id=? AND channel=? AND status='queued' AND not_before<=?".($quiet ? ' AND priority=0' : '').' ORDER BY priority,id LIMIT '.(int)$limit);
+        $q = $this->db->prepare("SELECT * FROM phone_outbox WHERE partner_id=? AND channel=? AND status='queued' AND not_before<=?".($priorityOnly ? ' AND priority=0' : '').' ORDER BY priority,id LIMIT '.(int)$limit);
         $q->execute([$partner, $channel, $now]);
         $jobs = [];
         foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $row) {
@@ -284,9 +334,9 @@ final class PhoneGateway
         $this->sweep($partner, $now);
         $s = $this->settings($partner);
         $jobs = [];
+        $wait = 15;
         if ($s['sms']) {
-            $limit = min(5, $s['smsPerMinute'] - $this->sentSince($partner, 'sms', $now - 60), $s['smsPerDay'] - $this->sentSince($partner, 'sms', self::dayStart($now)));
-            $jobs = $this->claim($partner, 'sms', $device['id'], $limit, self::quiet($s, $now), $now);
+            [$jobs, $wait] = $this->schedule($partner, 'sms', $device['id'], $s, $now);
         }
         $assist = [];
         if ($s['whatsapp'] === 'assist') {
@@ -294,7 +344,7 @@ final class PhoneGateway
             $q->execute([$partner]);
             foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $r) $assist[] = ['id' => (int)$r['id'], 'phone' => $r['phone'], 'link' => self::waLink($r['phone'], $r['body']), 'preview' => mb_substr($r['body'], 0, 80, 'UTF-8')];
         }
-        return ['jobs' => $jobs, 'assist' => $assist, 'simSlot' => $s['simSlot'], 'interval' => $jobs ? 5 : 15, 'received' => $inbound, 'mark' => (int)$this->db->query('SELECT inbound_mark FROM phone_device WHERE id='.$this->db->quote($device['id']))->fetchColumn()];
+        return ['jobs' => $jobs, 'assist' => $assist, 'simSlot' => $s['simSlot'], 'interval' => max(3, min(30, $wait)), 'received' => $inbound, 'mark' => (int)$this->db->query('SELECT inbound_mark FROM phone_device WHERE id='.$this->db->quote($device['id']))->fetchColumn()];
     }
 
     public static function waLink(string $phone, string $body): string
@@ -327,11 +377,11 @@ final class PhoneGateway
         $this->sweep($partner, $now);
         $s = $this->settings($partner);
         $jobs = [];
+        $wait = 20;
         if ($s['whatsapp'] === 'auto' && $state === 'ready') {
-            $limit = min(3, $s['waPerHour'] - $this->sentSince($partner, 'whatsapp', $now - 3600), $s['waPerDay'] - $this->sentSince($partner, 'whatsapp', self::dayStart($now)));
-            $jobs = $this->claim($partner, 'whatsapp', $device, $limit, self::quiet($s, $now), $now);
+            [$jobs, $wait] = $this->schedule($partner, 'whatsapp', $device, $s, $now);
         }
-        return ['mode' => $s['whatsapp'], 'jobs' => $jobs, 'readInbound' => $s['whatsapp'] === 'auto', 'received' => $received];
+        return ['mode' => $s['whatsapp'], 'jobs' => $jobs, 'wait' => $wait, 'readInbound' => $s['whatsapp'] === 'auto', 'received' => $received];
     }
 
     // ───────────────────────────── klinik ekranı ─────────────────────────────
@@ -360,6 +410,7 @@ final class PhoneGateway
         foreach ($c->fetchAll(PDO::FETCH_ASSOC) as $r) $counts[$r['channel']] = ['queued' => (int)$r['q'], 'sentToday' => (int)$r['s'], 'failedToday' => (int)$r['f']];
         $s = $this->settings($partner);
         return ['settings' => $s, 'devices' => $devices, 'canManage' => ($actor['role'] ?? '') === 'dealer', 'quietNow' => self::quiet($s, $now),
+            'capacity' => ['sms' => self::capacity($s, 'sms'), 'whatsapp' => self::capacity($s, 'whatsapp')],
             'whatsappAgent' => ['state' => $waOnline ? $wa['wa_state'] : ($wa['wa_seen'] ? 'offline' : ''), 'lastSeen' => $wa['wa_seen'] === null ? null : (int)$wa['wa_seen'], 'error' => $wa['wa_error']],
             'counts' => $counts, 'outbox' => $outbox];
     }

@@ -7,7 +7,7 @@ const when=ts=>new Date(ts*1000).toLocaleString("tr-TR",{day:"numeric",month:"sh
 
 export function mountPhoneGateway(root,api){
  const tr=api.tr||(s=>s),toast=api.toast||(()=>{});
- const css="/phone-gateway.css?v=2";if(!document.querySelector(`link[href="${css}"]`))document.head.append(h("link",{rel:"stylesheet",href:css}));
+ const css="/phone-gateway.css?v=3";if(!document.querySelector(`link[href="${css}"]`))document.head.append(h("link",{rel:"stylesheet",href:css}));
  const get=async()=>{const r=await api.fetch("/api/phone");const d=await r.json();if(!r.ok)throw Error(d.error||tr("İşlem tamamlanamadı."));return d};
  const post=async body=>{const r=await api.fetch("/api/phone",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});const d=await r.json();if(!r.ok)throw Error(d.error||tr("İşlem tamamlanamadı."));return d};
  let data=null,tab="kurulum",code=null,filter="all",timer=0;
@@ -23,7 +23,7 @@ export function mountPhoneGateway(root,api){
    s.sms?pill(online?"ok":data.devices.length?"warn":"bad",online?tr("SMS: telefon bağlı")+" ("+online+")":data.devices.length?tr("SMS: telefon çevrimdışı"):tr("SMS: telefon bağlanmadı")):pill("",tr("SMS: kapalı")),
    s.whatsapp==="off"?pill("",tr("WhatsApp: kapalı")):s.whatsapp==="assist"?pill("ok",tr("WhatsApp: yarı otomatik")):
     pill(wa.state==="ready"?"ok":"warn",tr("WhatsApp: otomatik")+" · "+tr({ready:"bilgisayar bağlı",qr:"QR bekleniyor",closed:"pencere kapalı",offline:"bilgisayar çevrimdışı",error:"hata","":"ajan bağlanmadı",off:"WhatsApp bağlanmadı"}[wa.state]??wa.state)),
-   data.quietNow?pill("warn",tr("Sessiz saat: hatırlatmalar bekletiliyor")):null,
+   data.quietNow?pill("warn",tr("Gönderim saati dışında: hatırlatmalar sırada bekliyor")):null,
    ...["sms","whatsapp"].map(c=>{const k=data.counts[c];return k?pill("",(c==="sms"?"SMS":"WhatsApp")+" · "+tr("bugün")+" "+k.sentToday+" · "+tr("bekleyen")+" "+k.queued+(k.failedToday?" · "+tr("hatalı")+" "+k.failedToday:"")):null}));
  }
  function drawTabs(){
@@ -59,25 +59,45 @@ export function mountPhoneGateway(root,api){
 
  function settings(){
   const s=data.settings,dis=!data.canManage;
+  const num=(v,min,max)=>h("input",{type:"number",min:String(min),max:String(max),value:String(v),disabled:dis});
   const f={sms:h("input",{type:"checkbox",checked:s.sms,disabled:dis}),simSlot:h("select",{disabled:dis},...[["","Varsayılan SIM"],["0","SIM 1"],["1","SIM 2"]].map(([v,l])=>h("option",{value:v,selected:s.simSlot===v,text:tr(l)}))),
-   smsPerMinute:h("input",{type:"number",min:"1",max:"20",value:String(s.smsPerMinute),disabled:dis}),smsPerDay:h("input",{type:"number",min:"1",max:"2000",value:String(s.smsPerDay),disabled:dis}),
-   waPerHour:h("input",{type:"number",min:"1",max:"60",value:String(s.waPerHour),disabled:dis}),waPerDay:h("input",{type:"number",min:"1",max:"400",value:String(s.waPerDay),disabled:dis}),
-   quietStart:h("input",{type:"time",value:s.quietStart,disabled:dis}),quietEnd:h("input",{type:"time",value:s.quietEnd,disabled:dis}),risk:h("input",{type:"checkbox",checked:s.waRiskAccepted,disabled:dis})};
+   smsInterval:num(s.smsInterval,60,3600),smsPerDay:num(s.smsPerDay,1,1000),waInterval:num(s.waInterval,30,3600),waPerDay:num(s.waPerDay,1,400),
+   sendStart:h("input",{type:"time",value:s.sendStart,disabled:dis}),sendHours:num(s.sendHours,1,16),both:h("input",{type:"checkbox",checked:s.both,disabled:dis}),risk:h("input",{type:"checkbox",checked:s.waRiskAccepted,disabled:dis})};
   let mode=s.whatsapp;
+  const plan=h("div",{class:"pg-plan"});
+  const calc=()=>{
+   const hours=Math.max(1,+f.sendHours.value||1),start=f.sendStart.value||"10:00",[hh,mm]=start.split(":").map(Number),endMin=(hh*60+mm+hours*60)%1440;
+   const end=String(Math.floor(endMin/60)).padStart(2,"0")+":"+String(endMin%60).padStart(2,"0");
+   const cap=(iv,day,sms)=>Math.min(day,Math.floor(hours*3600/Math.max(1,iv)),sms?hours*58:Infinity);
+   const smsCap=cap(+f.smsInterval.value,+f.smsPerDay.value,!0),waCap=cap(+f.waInterval.value,+f.waPerDay.value,!1);
+   const warn=[];
+   if(+f.smsInterval.value<60)warn.push(tr("SMS arası 60 saniyeden kısa olamaz: Android 30 dakikada 30'dan fazla SMS'te gönderimi durdurup onay ister."));
+   if(hh<8||hh*60+mm+hours*60>21*60)warn.push(tr("Önerilen gönderim aralığı 08:00–21:00'dır; gece mesajları şikâyet ve engellenme riskini artırır."));
+   if(mode==="auto"&&+f.waInterval.value<90)warn.push(tr("WhatsApp için 90 saniyenin altı önerilmez; yeni numaralarda ilk hafta günde 20-50 mesajla başlayın."));
+   fill(plan,h("b",{text:tr("Her gün")+" "+start+"–"+end+" "+tr("arası gönderilir.")}),
+    h("span",{text:"SMS: "+tr("ortalama")+" "+f.smsInterval.value+" "+tr("sn arayla (±%20 rastgele), günde en çok")+" "+smsCap}),
+    mode!=="off"?h("span",{text:"WhatsApp: "+(mode==="auto"?tr("ortalama")+" "+f.waInterval.value+" "+tr("sn arayla (±%20 rastgele), günde en çok")+" "+waCap:tr("yarı otomatik, personel gönderir"))}):null,
+    ...warn.map(w=>h("span",{class:"pg-warnline",text:"⚠ "+w})));
+  };
+  Object.values(f).forEach(i=>i.addEventListener("input",calc));
   const riskBox=h("div",{class:"pg-risk",hidden:mode!=="auto"},h("p",{},h("b",{text:"⚠ "+tr("Otomatik WhatsApp hakkında")}),h("br"),
-    tr("WhatsApp, resmi olmayan otomatik gönderimi kullanım koşullarında yasaklar ve çok mesaj gönderen numaraları geçici ya da kalıcı olarak kısıtlayabilir. Riski azaltmak için mesajlar yalnızca izni olan müşterilere, saatlik ve günlük sınırlarla, aralarında 20-45 saniye beklenerek gönderilir. Kampanya ve toplu tanıtım için kullanmayın.")),
+    tr("WhatsApp, resmi olmayan otomatik gönderimi kullanım koşullarında yasaklar ve çok mesaj gönderen numaraları geçici ya da kalıcı olarak kısıtlayabilir. Riski azaltmak için mesajlar yalnızca izni olan müşterilere, günlük sınırla ve ayarladığınız aralıkla rastgele beklemelerle gönderilir. Kampanya ve toplu tanıtım için kullanmayın.")),
    h("label",{class:"pg-check"},f.risk,h("span",{text:tr("Okudum; numaramın kısıtlanma riskini kabul ediyorum.")})));
   const modes=h("div",{class:"pg-modes"},...[["off","Kapalı","Hatırlatmalar WhatsApp'tan gönderilmez."],["assist","Yarı otomatik","Personel tek dokunuşla gönderir. Önerilen."],["auto","Otomatik","Bilgisayardaki ajan gönderir. Risk onayı gerekir."]]
-   .map(([v,l,d])=>h("label",{class:"pg-mode"},h("input",{type:"radio",name:"pgwa",value:v,checked:mode===v,disabled:dis,onchange:()=>{mode=v;riskBox.hidden=v!=="auto"}}),h("span",{},h("b",{text:tr(l)}),h("small",{text:tr(d)})))));
+   .map(([v,l,d])=>h("label",{class:"pg-mode"},h("input",{type:"radio",name:"pgwa",value:v,checked:mode===v,disabled:dis,onchange:()=>{mode=v;riskBox.hidden=v!=="auto";calc()}}),h("span",{},h("b",{text:tr(l)}),h("small",{text:tr(d)})))));
   const field=(label,input,hint)=>h("label",{class:"pg-field"},h("span",{text:tr(label)}),input,hint?h("small",{class:"pg-muted",text:tr(hint)}):null);
-  return [h("form",{class:"pg-card pg-settings",onsubmit:e=>{e.preventDefault();act({action:"settings",sms:f.sms.checked,simSlot:f.simSlot.value,smsPerMinute:+f.smsPerMinute.value,smsPerDay:+f.smsPerDay.value,
-    whatsapp:mode,waRiskAccepted:f.risk.checked,waPerHour:+f.waPerHour.value,waPerDay:+f.waPerDay.value,quietStart:f.quietStart.value,quietEnd:f.quietEnd.value},tr("Ayarlar kaydedildi."))}},
+  calc();
+  return [h("form",{class:"pg-card pg-settings",onsubmit:e=>{e.preventDefault();act({action:"settings",sms:f.sms.checked,simSlot:f.simSlot.value,smsInterval:+f.smsInterval.value,smsPerDay:+f.smsPerDay.value,
+    whatsapp:mode,waRiskAccepted:f.risk.checked,waInterval:+f.waInterval.value,waPerDay:+f.waPerDay.value,sendStart:f.sendStart.value,sendHours:+f.sendHours.value,both:f.both.checked},tr("Ayarlar kaydedildi."))}},
+   h("h3",{text:tr("Gönderim zamanı")}),
+   h("div",{class:"pg-grid"},field("Her gün başlangıç saati",f.sendStart),field("Kaç saat boyunca gönderilsin",f.sendHours,"Bitmeyen mesajlar ertesi gün aynı saatte devam eder.")),
+   h("p",{class:"pg-muted",text:tr("Hatırlatma ve toplu mesajlar sıraya alınır ve bu pencerede tek tek, aralıklı gönderilir. Gelen kutusundan yazılan yanıtlar ve onay formu bağlantıları beklemeden gider. Randevu saati geçen hatırlatma gönderilmez.")}),
    h("h3",{text:"SMS"}),h("label",{class:"pg-check"},f.sms,h("span",{text:tr("SMS'leri kliniğin telefonundan gönder (Netgsm gerekmez)")})),
-   h("div",{class:"pg-grid"},field("SIM kartı",f.simSlot),field("Dakikada en fazla",f.smsPerMinute,"Operatör engelini önlemek için düşük tutun."),field("Günde en fazla",f.smsPerDay)),
+   h("div",{class:"pg-grid"},field("SIM kartı",f.simSlot),field("Kaç saniyede bir (en az 60)",f.smsInterval,"Önerilen 75 sn: Android'in 30 dakikada 30 SMS sınırının altında kalır."),field("Günde en fazla",f.smsPerDay)),
    h("h3",{text:"WhatsApp"}),modes,riskBox,
-   h("div",{class:"pg-grid"},field("Saatte en fazla (otomatik)",f.waPerHour),field("Günde en fazla (otomatik)",f.waPerDay)),
-   h("h3",{text:tr("Sessiz saatler")}),h("p",{class:"pg-muted",text:tr("Bu saatler arasında hatırlatma ve toplu mesajlar bekletilir; gelen kutusundan yazılan yanıtlar ve deneme mesajları yine gider.")}),
-   h("div",{class:"pg-grid"},field("Başlangıç",f.quietStart),field("Bitiş",f.quietEnd)),
+   h("div",{class:"pg-grid"},field("Kaç saniyede bir (otomatik, en az 30)",f.waInterval,"Önerilen 120 sn (saatte yaklaşık 30 mesaj)."),field("Günde en fazla (otomatik)",f.waPerDay,"Yeni numarada ilk hafta 20-50 ile başlayın.")),
+   h("label",{class:"pg-check"},f.both,h("span",{text:tr("Hatırlatmaları SMS ve WhatsApp'tan aynı anda gönder (müşterinin iki kanalda da izni varsa)")})),
+   plan,
    h("p",{class:"pg-muted",text:tr("Not: Bilgilendirme amaçlı hatırlatmalar için izin gerekmez; kampanya ve tanıtım iletileri için müşterinin onayı (İYS) gerekir. Sistem yalnızca SMS/WhatsApp izni \"Var\" olan müşterilere gönderir.")}),
    data.canManage?h("div",{class:"pg-actions"},h("button",{class:"pg-btn dark",text:tr("Kaydet")})):h("p",{class:"pg-muted",text:tr("Ayarları yalnızca klinik yöneticisi değiştirebilir.")})),
    testForm()];

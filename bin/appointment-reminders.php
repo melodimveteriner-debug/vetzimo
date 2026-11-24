@@ -9,7 +9,7 @@ if (PHP_SAPI !== 'cli') {
     exit(1);
 }
 $root = dirname(__DIR__);
-foreach (['Database', 'WorkspaceRepository', 'DealerLogin', 'Totp', 'Notifications', 'AppointmentReminders', 'BulkClinicMessages', 'ClinicAccess', 'Commerce', 'ClinicRecords', 'OmniInbox', 'PhoneGateway'] as $class) {
+foreach (['Database', 'WorkspaceRepository', 'DealerLogin', 'Totp', 'Notifications', 'AppointmentReminders', 'BulkClinicMessages', 'ClinicAccess', 'Commerce', 'ClinicRecords', 'OmniInbox', 'PhoneGateway', 'ClientPermit', 'SiteLegal'] as $class) {
     require_once $root . '/src/' . $class . '.php';
 }
 try {

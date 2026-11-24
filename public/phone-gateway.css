@@ -53,3 +53,5 @@
 .pg-row-actions{white-space:nowrap}
 .pg-empty{padding:20px;text-align:center}
 @media (max-width:640px){.pg-cmd{flex-direction:column;align-items:stretch}.pg-assist .pg-row{flex-direction:column;align-items:stretch}.pg-card{padding:14px}}
+.pg-plan{display:grid;gap:4px;padding:12px 14px;border-radius:12px;background:color-mix(in srgb,var(--pg-accent) 9%,var(--pg-paper));font-size:.9rem}
+.pg-warnline{color:color-mix(in srgb,#dc2626 70%,var(--pg-ink))}

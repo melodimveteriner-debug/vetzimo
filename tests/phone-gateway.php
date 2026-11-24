@@ -24,8 +24,10 @@ $state->patients=[(object)['id'=>'p1','branch'=>'merkez','name'=>'Pamuk','owner'
 $state->appointments=[(object)['id'=>'a1','branch'=>'merkez','patient'=>'p1','client'=>'c1','date'=>$appt->format('Y-m-d'),'time'=>$appt->format('H:i'),'status'=>'Planlandı','service'=>'Aşı']];
 $api->save($cookies,$actor['membership_id'],$now,(object)['revision'=>$data['revision'],'state'=>$state]);
 $gw=new PhoneGateway($db); $inbox=new OmniInbox($db,base64_encode(str_repeat('k',32)),'https://klinik.example');
-$noQuiet=['quietStart'=>'00:00','quietEnd'=>'00:00'];
-$settings=static fn(array $x)=>(object)array_merge(['sms'=>true,'simSlot'=>'','smsPerMinute'=>4,'smsPerDay'=>200,'whatsapp'=>'assist','waRiskAccepted'=>false,'waPerHour'=>30,'waPerDay'=>150],$noQuiet,$x);
+$hourNow=(int)(new DateTimeImmutable('@'.$now))->setTimezone($zone)->format('G');
+$open=['sendStart'=>sprintf('%02d:00',($hourNow+23)%24),'sendHours'=>3];
+$closed=['sendStart'=>sprintf('%02d:00',($hourNow+3)%24),'sendHours'=>1];
+$settings=static fn(array $x)=>(object)array_merge(['sms'=>true,'simSlot'=>'','smsInterval'=>75,'smsPerDay'=>200,'whatsapp'=>'assist','waRiskAccepted'=>false,'waInterval'=>120,'waPerDay'=>150],$open,$x);
 
 // ── eşleştirme ve yönlendirme
 ok($gw->route($partner,'sms')===false,'Ayar yokken SMS telefona yönlendi');
@@ -52,18 +54,20 @@ ok((int)$db->query("SELECT COUNT(*) FROM phone_outbox WHERE source='reminder'")-
 $rem=$db->query("SELECT * FROM phone_outbox WHERE source='reminder' AND channel='sms'")->fetch(PDO::FETCH_ASSOC);
 ok($rem['phone']==='+905321112233' && str_contains($rem['body'],'Pamuk') && (int)$rem['expires_at']>$now,'Hatırlatma içeriği yanlış');
 
-// ── sessiz saat: yalnız öncelikli (test/gelen kutusu) işler gider
-$gw->saveSettings($actor,$settings(['quietStart'=>'00:00','quietEnd'=>'23:59']),$now);
+// ── gönderim penceresi dışında yalnız öncelikli (test/gelen kutusu) işler gider
+$gw->saveSettings($actor,$settings($closed),$now);
 $gw->act($actor,(object)['action'=>'test','channel'=>'sms','phone'=>'05551000137','text'=>'Deneme'],$now);
 $r=$gw->sync($device,(object)['version'=>'1.0.0','battery'=>80],$now,$inbox);
 ok(count($r['jobs'])===1 && $r['jobs'][0]['body']==='Deneme','Sessiz saatte yalnız deneme mesajı verilmeliydi');
 $test=$r['jobs'][0]['id'];
-$gw->saveSettings($actor,$settings(['smsPerMinute'=>2]),$now);
-$r=$gw->sync($device,(object)['results'=>[(object)['id'=>$test,'status'=>'sent']]],$now,$inbox);
-ok(count($r['jobs'])===1 && $r['jobs'][0]['id']===(int)$rem['id'],'Dakikalık sınır uygulanmadı veya hatırlatma verilmedi');
-$r2=$gw->sync($device,(object)[],$now+1,$inbox);
-ok(count($r2['jobs'])===0,'Aynı iş iki kez verildi');
-$gw->sync($device,(object)['results'=>[(object)['id'=>(int)$rem['id'],'status'=>'sent']]],$now+2,$inbox);
+$gw->saveSettings($actor,$settings([]),$now);
+$r=$gw->sync($device,(object)['results'=>[(object)['id'=>$test,'status'=>'sent']]],$now+30,$inbox);
+ok(count($r['jobs'])===0 && $r['interval']>=3,'Mesaj arası bekleme uygulanmadı');
+$r=$gw->sync($device,(object)[],$now+100,$inbox);
+ok(count($r['jobs'])===1 && $r['jobs'][0]['id']===(int)$rem['id'],'Bekleme sonrası hatırlatma verilmedi');
+$r2=$gw->sync($device,(object)[],$now+101,$inbox);
+ok(count($r2['jobs'])===0,'Aynı iş iki kez verildi veya aralık aşıldı');
+$gw->sync($device,(object)['results'=>[(object)['id'=>(int)$rem['id'],'status'=>'sent']]],$now+102,$inbox);
 ok($db->query("SELECT status FROM phone_outbox WHERE id=".$rem['id'])->fetchColumn()==='sent','Gönderim sonucu işlenmedi');
 
 // ── gelen SMS gelen kutusuna, müşteriyle eşleşir; kısa numaralar atlanır
@@ -75,16 +79,16 @@ ok($r['received']===1 && count($conv)===1 && $conv[0]['client']==='c1' && $conv[
 $t=$inbox->act($actor,(object)['action'=>'reply','id'=>$conv[0]['id'],'text'=>'Elbette, 10:00 uygun.'],$now+5);
 $out=array_values(array_filter($t['messages'],static fn($m)=>$m['direction']==='out'));
 ok(count($out)===1 && $out[0]['status']==='queued' && !isset($t['warning']),'Gelen kutusu yanıtı telefona kuyruklanmadı');
-$r=$gw->sync($device,(object)[],$now+70,$inbox);
+$r=$gw->sync($device,(object)[],$now+200,$inbox);
 ok(count($r['jobs'])>=1 && $r['jobs'][0]['body']==='Elbette, 10:00 uygun.','Gelen kutusu yanıtı öncelikli verilmedi');
-$gw->sync($device,(object)['results'=>[(object)['id'=>$r['jobs'][0]['id'],'status'=>'sent']]],$now+71,$inbox);
+$gw->sync($device,(object)['results'=>[(object)['id'=>$r['jobs'][0]['id'],'status'=>'sent']]],$now+201,$inbox);
 $t=$inbox->thread($actor,$conv[0]['id'],$now);
 ok(array_values(array_filter($t['messages'],static fn($m)=>$m['direction']==='out'))[0]['status']==='sent','Gelen kutusundaki mesaj durumu güncellenmedi');
 
 // ── yarı otomatik WhatsApp: bildirim → açıldı
-$r=$gw->sync($device,(object)[],$now+72,$inbox);
+$r=$gw->sync($device,(object)[],$now+202,$inbox);
 ok(count($r['assist'])===1 && str_starts_with($r['assist'][0]['link'],'https://wa.me/905321112233?text='),'WhatsApp bildirimi hazırlanmadı');
-$gw->sync($device,(object)['opened'=>[$r['assist'][0]['id']]],$now+73,$inbox);
+$gw->sync($device,(object)['opened'=>[$r['assist'][0]['id']]],$now+203,$inbox);
 ok($db->query("SELECT status FROM phone_outbox WHERE channel='whatsapp' AND source='reminder'")->fetchColumn()==='sent','Açılan WhatsApp mesajı gönderildi sayılmadı');
 
 // ── otomatik WhatsApp (bilgisayardaki WhatsApp Web)
@@ -116,9 +120,9 @@ ok((int)$db->query("SELECT COUNT(*) FROM phone_outbox WHERE source='bulk'")->fet
 
 // ── sonuç bildirmeyen iş tekrar gönderilmez; süresi geçen hatırlatma düşer
 $gw->act($actor,(object)['action'=>'test','channel'=>'sms','phone'=>'05551000138','text'=>'Kayıp sonuç'],$now);
-$r=$gw->sync($device,(object)[],$now+200,$inbox);
+$r=$gw->sync($device,(object)[],$now+300,$inbox);
 $lost=array_values(array_filter($r['jobs'],static fn($j)=>$j['body']==='Kayıp sonuç'))[0]['id'];
-$gw->sync($device,(object)[],$now+200+1000,$inbox);
+$gw->sync($device,(object)[],$now+300+1000,$inbox);
 ok($db->query("SELECT status FROM phone_outbox WHERE id=$lost")->fetchColumn()==='unknown','Sonuçsuz iş belirsiz işaretlenmedi');
 try { $gw->act($actor,(object)['action'=>'retry','id'=>$lost],$now); $accepted=true; } catch (RuntimeException) { $accepted=false; }
 ok(!$accepted,'Belirsiz iş onaysız yeniden gönderildi');
