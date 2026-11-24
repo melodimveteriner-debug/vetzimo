@@ -15,7 +15,7 @@ export async function mountCenterSuite(ui,session){
   ['basvurular','Demo İstek-Değerlendirme',crm],['paketler','Yazılım Paketleri',plans],
   ['abonelikler','Bayi Abonelikleri',subscriptions],['destek','Destek Talepleri',support],
   ['uygulamalar','Uygulama Yönetimi',nativeApps],['tema','Ayarlar ve Tema',theme],['bildirimler','Bildirim Merkezi',notifications],['guvenlik','Güvenlik',security],['kayitlar','İşlem Günlüğü',audit],
-  ['odemeler','Ödeme Onayları',()=>manage('payments')],['odeme-kanallari','Ödeme Kanalları',paymentChannels],['krediler','Kredi Siparişleri',creditOrders],['kredi-paketleri','Kredi Paketleri',()=>manage('credit_package')],['magaza-banka','Mağaza Havale Ayarları',()=>manage('shop_bank')],['site','Satış Sitesi Yönetimi',marketEditor],
+  ['odemeler','Ödeme Onayları',()=>manage('payments')],['odeme-kanallari','Ödeme Kanalları',paymentChannels],['krediler','Kredi Siparişleri',creditOrders],['kredi-paketleri','Kredi Paketleri',()=>manage('credit_package')],['magaza-banka','Mağaza Havale Ayarları',()=>manage('shop_bank')],['site','Satış Sitesi Yönetimi',marketEditor],['yasal','Yasal Metinler',legalDocs],
   ['duyurular','Duyurular',()=>manage('announcements')],['reklam','Reklam Yönetimi',()=>manage('ads')],
   ['degisiklikler','Son Değişiklikler',()=>manage('releases')],
   ['yedekleme','Yedekleme',()=>backup(false)],['aktarim','Klinik Verisi İçe Aktar',()=>backup(true)],
@@ -52,7 +52,7 @@ export async function mountCenterSuite(ui,session){
  const groups=[
   ['Çalışma alanı',['genel','bayiler','paketler','abonelikler','basvurular']],
   ['Finans',['muhasebe','satislar','tahsilatlar','raporlar','odemeler','odeme-kanallari','krediler','kredi-paketleri','magaza-banka']],
-  ['Satış sitesi ve yayınlar',['site','duyurular','reklam','degisiklikler','evde-hizmet']],
+  ['Satış sitesi ve yayınlar',['site','yasal','duyurular','reklam','degisiklikler','evde-hizmet']],
   ['Ayarlar ve destek',[]]
  ];
  const assigned=groups.flatMap(([,keys])=>keys);
@@ -654,6 +654,10 @@ export async function mountCenterSuite(ui,session){
   const wrapper=el('label',label);
   wrapper.append(select);
   return wrapper;
+ }
+ async function legalDocs(){
+  const module=await import('./legal-admin.js?v=1');
+  await module.mountLegalAdmin(content,{call,reauthUrl:url('guvenlik',{returnTab:'yasal'})});
  }
  async function marketEditor(){
   const response=await fetch('/cpanel-market-pages.json');

@@ -1,0 +1,47 @@
+/* Yasal metin sayfaları: okunabilir uzun metin, yapışkan içindekiler, en üstte düzenlenme tarihi */
+.lg-page .lg-intro{gap:.75rem}
+.lg-page .intro h1{max-width:24ch;font-size:clamp(2rem,5vw,3.6rem)}
+.lg-stamp{display:inline-flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:.5rem;margin:0 0 .2rem!important;font-size:.95rem!important}
+.lg-stamp time,.lg-stamp span{padding:.42rem .85rem;border-radius:99px;border:1px solid var(--lp-line);background:color-mix(in srgb,var(--lp-card) 80%,transparent);color:var(--lp-ink)}
+.lg-stamp time b{font-weight:750}
+.lg-stamp span{color:var(--lp-muted)}
+.lg-layout{display:grid;grid-template-columns:minmax(0,260px) minmax(0,1fr);gap:clamp(1.2rem,3vw,2.6rem);align-items:start}
+.lg-side{position:sticky;top:5.5rem;display:grid;gap:1rem;max-height:calc(100vh - 7rem);overflow:auto}
+.lg-docs{display:grid;gap:.25rem;padding:.6rem;border:1px solid var(--lp-line);border-radius:16px;background:var(--lp-card)}
+.lg-docs a{padding:.6rem .8rem;border-radius:11px;color:var(--lp-ink);text-decoration:none;font-weight:600;font-size:.95rem}
+.lg-docs a:hover{background:var(--lp-tint)}
+.lg-docs a[aria-current=page]{background:linear-gradient(135deg,var(--lp-a),var(--lp-a2));color:#fff}
+.lg-toc{padding:.8rem 1rem;border:1px solid var(--lp-line);border-radius:16px;background:var(--lp-card)}
+.lg-toc summary{cursor:pointer;font-weight:700;color:var(--lp-ink)}
+.lg-toc ol{list-style:none;margin:.6rem 0 0;padding:0;display:grid;gap:.15rem}
+.lg-toc a{display:block;padding:.3rem .2rem;color:var(--lp-muted);text-decoration:none;font-size:.88rem;line-height:1.35}
+.lg-toc a:hover{color:var(--lp-a)}
+.lg-article{min-width:0;padding:clamp(1.2rem,3.5vw,2.6rem);border:1px solid var(--lp-line);border-radius:22px;background:var(--lp-card);box-shadow:var(--lp-shadow);font-size:1.02rem;line-height:1.75;color:var(--lp-ink)}
+.lg-article>*{max-width:72ch}
+.lg-article h2{margin:2.2rem 0 .7rem;padding-top:1.4rem;border-top:1px solid var(--lp-line);font-size:clamp(1.25rem,2.4vw,1.55rem);scroll-margin-top:6rem}
+.lg-article h2:first-child{margin-top:0;padding-top:0;border-top:0}
+.lg-article h3{margin:1.5rem 0 .4rem;font-size:1.08rem;scroll-margin-top:6rem}
+.lg-article p{margin:.55rem 0;color:var(--lp-ink)}
+.lg-article ul{margin:.5rem 0 1rem;padding-left:1.25rem;display:grid;gap:.35rem}
+.lg-article li::marker{color:var(--lp-a)}
+.lg-article a{color:var(--lp-a);overflow-wrap:anywhere}
+.lg-note{padding:1rem 1.2rem;border-left:4px solid var(--lp-a);border-radius:12px;background:var(--lp-tint)}
+.lg-history{margin-top:2.4rem;padding-top:1.4rem;border-top:1px solid var(--lp-line)}
+.lg-history h2{margin:0 0 .6rem;padding:0;border:0;font-size:1.1rem}
+.lg-history ul{list-style:none;padding:0}
+.lg-history li{display:flex;flex-wrap:wrap;gap:.3rem .9rem;padding:.45rem 0;border-bottom:1px dashed var(--lp-line);font-size:.93rem}
+.lg-history li span{font-weight:700}
+.lg-history li em{color:var(--lp-muted);font-style:normal}
+.lg-company{display:flex;flex-wrap:wrap;gap:.35rem 1.1rem;margin-top:1.6rem;padding:1rem 1.2rem;border-radius:14px;border:1px solid var(--lp-line);background:var(--lp-tint);font-size:.92rem;color:var(--lp-ink)}
+.lg-company strong{flex-basis:100%}
+.lg-page>.lg-company{width:min(1200px,calc(100% - 2.5rem))}
+.lg-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr));gap:1rem}
+.lg-card{display:grid;gap:.5rem;align-content:start;padding:1.4rem;border-radius:20px;border:1px solid var(--lp-line);background:var(--lp-card);color:var(--lp-ink);text-decoration:none;box-shadow:var(--lp-shadow);transition:transform .2s,border-color .2s}
+.lg-card:hover{transform:translateY(-3px);border-color:var(--lp-a)}
+.lg-card h2{margin:0;font-size:1.25rem}
+.lg-card p{margin:0;color:var(--lp-muted);line-height:1.55}
+.lg-date{font-size:.82rem;font-weight:700;color:var(--lp-a)}
+.lg-more{font-weight:700;color:var(--lp-a)}
+@media (max-width:860px){.lg-layout{grid-template-columns:minmax(0,1fr)}.lg-side{position:static;max-height:none}.lg-docs{grid-template-columns:repeat(2,minmax(0,1fr))}.lg-toc:not([data-user]){}}
+@media print{.site-header,footer,.lg-side{display:none}.lg-article{border:0;box-shadow:none}}
+@media (prefers-reduced-motion:reduce){.lg-card{transition:none}}

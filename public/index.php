@@ -12,7 +12,7 @@ use VetNet\Cpanel\SessionRepository;
 
 require_once dirname(__DIR__).'/src/StaffPlan.php';
 
-foreach (['NativeApp','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','CreditShop','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','TeamTotp','WebInbox','MinistryBridge','PrintTemplates','Support','Commerce','Appearance'] as $class) {
+foreach (['NativeApp','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','CreditShop','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','TeamTotp','WebInbox','MinistryBridge','SiteLegal','PrintTemplates','Support','Commerce','Appearance'] as $class) {
     require dirname(__DIR__) . '/src/' . $class . '.php';
 }
 
@@ -125,6 +125,22 @@ try {
     }
     if (!$externalWeb && $method === 'GET' && ($path === '/' || $path === '/platform' || str_starts_with($path,'/platform/'))) {
         $marketPath=$path==='/' ? '/platform' : rtrim($path,'/');
+        if (preg_match('~\A/platform/yasal(?:/([a-z-]+))?\z~',$marketPath,$legalMatch)) {
+            $legalSlug=$legalMatch[1] ?? null;
+            if ($legalSlug!==null && !VetNet\Cpanel\SiteLegal::validSlug($legalSlug)) throw new RuntimeException('Sayfa bulunamadı.',404);
+            $shellFile=rtrim($config['assets'],'/').'/market-pages/'.hash('sha256','/platform/hakkimizda').'.html';
+            if (!is_file($shellFile)) throw new RuntimeException('Sayfa bulunamadı.',404);
+            header("Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'self'; form-action 'self'");
+            header('Content-Type: text/html; charset=utf-8');
+            header('Cache-Control: no-cache');
+            $marketDb = Database::connect($config['dsn'],$config['username'],$config['password']);
+            $theme = (new VetNet\Cpanel\Appearance($marketDb))->read();
+            $html=(new VetNet\Cpanel\SiteLegal($marketDb))->page($legalSlug,marketAndPanelFavicon(file_get_contents($shellFile),$config['assets']));
+            $palette = htmlspecialchars($theme['palette'],ENT_QUOTES,'UTF-8');
+            $html = preg_replace('~<html lang="tr"[^>]*>~', '<html lang="tr" data-site-palette="'.$palette.'" data-theme-lock="'.($theme['locked']?'true':'false').'" data-theme="'.($palette ?: 'classic').'">', $html, 1);
+            echo VetNet\Cpanel\UiLocale::page($html,$config);
+            exit;
+        }
         $key = hash('sha256',$marketPath);
         $file = rtrim($config['assets'],'/').'/market-pages/'.$key.'.html';
         if (!is_file($file)) throw new RuntimeException('Sayfa bulunamadı.',404);
@@ -156,6 +172,7 @@ try {
             $html=preg_replace_callback('~<!-- vetnet-package-catalog -->.*?<!-- /vetnet-package-catalog -->~s',static fn()=>$cards,$html,1);
         }
         $html=str_replace(['VeTNeT','VETNET'],['VetZimo','VETZIMO'],$html);
+        $html=(new VetNet\Cpanel\SiteLegal($marketDb))->applyFooter($html,time());
         $palette = htmlspecialchars($theme['palette'],ENT_QUOTES,'UTF-8');
         $html = preg_replace('~<html lang="tr"[^>]*>~', '<html lang="tr" data-site-palette="'.$palette.'" data-theme-lock="'.($theme['locked']?'true':'false').'" data-theme="'.($palette ?: 'classic').'">', $html, 1);
         echo VetNet\Cpanel\UiLocale::page($html,$config);
@@ -396,6 +413,22 @@ try {
         $center=new Center($db,$config);$actor=$center->requireOwner($_COOKIE,$now,$method==='POST' && $action!=='reauth');
         $commerce = new VetNet\Cpanel\Commerce($db);
         $management=new VetNet\Cpanel\CenterManagement($db,$center);
+        if ($action==='legal' || $action==='legal-save' || $action==='legal-company' || $action==='legal-revision') {
+            $legal=new VetNet\Cpanel\SiteLegal($db);
+            if ($method==='GET' && $action==='legal') reply($legal->admin());
+            if ($method==='GET' && $action==='legal-revision') {
+                $slug=$_GET['slug'] ?? '';
+                if (!VetNet\Cpanel\SiteLegal::validSlug($slug)) throw new RuntimeException('Yasal metin seçin.',422);
+                reply(['revisions'=>$legal->revisions($slug,true)]);
+            }
+            if ($method==='POST') {
+                if (!hash_equals($actor['account_id'],$_SERVER['HTTP_X_VETNET_SCOPE'] ?? '')) throw new RuntimeException('Yönetici oturumu değişti.',409);
+                $body=input(300000);
+                if ($action==='legal-save') reply(['doc'=>$legal->save($body,(string)($actor['identifier'] ?? $actor['name'] ?? 'Merkez yöneticisi'),$now)]);
+                if ($action==='legal-company') reply(['company'=>$legal->saveCompany($body->company ?? null,$now)]);
+            }
+            throw new RuntimeException('İşlem yöntemi desteklenmiyor.',405);
+        }
         if ($method==='GET' && $action==='market-text') {
             $page=$_GET['page'] ?? '';
             if (!is_string($page) || !preg_match('~^/platform(?:/[a-z0-9-]+)*$~D',$page)) throw new RuntimeException('Sayfa geçersiz.',422);

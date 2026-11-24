@@ -90,3 +90,9 @@ footer{border-top:1px solid var(--line);margin-top:3rem;background:var(--card)}.
 }
 
 .brand .vetzimo-wordmark,.header-inner .brand .vetzimo-wordmark{width:clamp(96px,13vw,156px);height:auto;display:block;background:#fbfcf8;padding:4px 7px;border-radius:7px;object-fit:contain}
+/* Alt alan: yasal bağlantılar ve şirket bilgisi */
+.footer-legal{width:100%;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.6rem 1.4rem;margin-top:1.2rem;padding-top:1rem;border-top:1px solid color-mix(in srgb,currentColor 16%,transparent);font-size:.86rem}
+.footer-legal nav{display:flex;flex-wrap:wrap;gap:.3rem 1.1rem}
+.footer-legal a{opacity:.85}
+.footer-legal a:hover{opacity:1}
+.footer-legal p{margin:0;opacity:.78}

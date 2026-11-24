@@ -189,7 +189,7 @@ function marketHeader() {
 }
 function marketFooter() {
   return `<footer><div class="wrap footer-inner"><div><a class="brand" href="${base}"><img class="vetzimo-wordmark" src="/vetzimo-logo.webp" alt="VetZimo" width="156" height="44"></a><p>Veteriner klinik yönetim platformu</p></div>
-  <nav aria-label="Alt menü">${link("/hakkimizda","Hakkımızda")}${link("/blog","Blog")}${link("/sss","Sık sorulanlar")}${link("/iletisim","İletişim")}${link("/demo","Demo talebi")}<a href="/platform/gizlilik" data-notice-open>Başvuru bilgilendirmesi</a></nav></div></footer>`;
+  <nav aria-label="Alt menü">${link("/hakkimizda","Hakkımızda")}${link("/blog","Blog")}${link("/sss","Sık sorulanlar")}${link("/iletisim","İletişim")}${link("/demo","Demo talebi")}<a href="/platform/gizlilik" data-notice-open>Başvuru bilgilendirmesi</a></nav></div><div class="wrap footer-legal"><nav aria-label="Yasal"><a href="/platform/yasal/kvkk-aydinlatma">KVKK Aydınlatma</a><a href="/platform/yasal/gizlilik-politikasi">Gizlilik Politikası</a><a href="/platform/yasal/kullanim-sartlari">Kullanım Şartları</a><a href="/platform/yasal/cerez-politikasi">Çerez Politikası</a></nav><p><!-- vz-legal-foot -->© 2026 Vetzimo.com · Zimo Soft Yazılım Tasarım İthalat İhracat A.Ş. · Odunpazarı / Eskişehir<!-- /vz-legal-foot --></p></div></footer>`;
 }
 function layout({title,body,preview,site,collect}) {
   const shared=site.shared||{}, page=site.page||{}, local=page.seo||{}, global=shared.seo||{};

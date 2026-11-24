@@ -1,0 +1,38 @@
+.lga-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px}
+.lga-head h3{margin:0 0 4px}
+.lga-muted{color:var(--admin-muted,#667085);font-size:.88rem;margin:0}
+.lga-tabs{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:12px}
+.lga-tab{display:grid;gap:2px;text-align:left;padding:10px 12px;border:1px solid var(--admin-line,#e4e7ec);border-radius:10px;background:var(--admin-card,#fff);color:var(--admin-ink,#101828);cursor:pointer;font:inherit}
+.lga-tab small{color:var(--admin-muted,#667085);font-size:.78rem}
+.lga-tab[aria-selected=true]{border-color:var(--admin-brand,#6d28d9);box-shadow:inset 0 0 0 1px var(--admin-brand,#6d28d9)}
+.lga-msg{min-height:1.2em;margin:0 0 10px;font-size:.92rem}
+.lga-msg[data-tone=error]{color:#b42318}.lga-msg[data-tone=ok]{color:#027a48}
+.lga-info{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;padding:10px 12px;margin-bottom:12px;border-radius:10px;background:color-mix(in srgb,var(--admin-brand,#6d28d9) 8%,transparent);font-size:.9rem}
+.lga-grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:16px;align-items:start}
+.lga-editor,.lga-company{display:grid;gap:10px;min-width:0}
+.lga-company{grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+.lga-wide{grid-column:1/-1}
+.lga-editor label,.lga-company label{display:grid;gap:4px;font-size:.86rem;font-weight:600;min-width:0}
+.lga-editor input,.lga-editor textarea,.lga-company input,.lga-tools select{width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--admin-line,#d0d5dd);border-radius:8px;background:var(--admin-card,#fff);color:var(--admin-ink,#101828);font:inherit;font-weight:400}
+.lga-body{font:13px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace!important;min-height:420px;resize:vertical}
+.lga-row{display:grid;grid-template-columns:180px minmax(0,1fr);gap:10px}
+.lga-bodyhead{display:flex;justify-content:space-between;align-items:baseline;font-size:.86rem;font-weight:600}
+.lga-tools{display:flex;flex-wrap:wrap;gap:6px}
+.lga-tools button{padding:6px 10px;border:1px solid var(--admin-line,#d0d5dd);border-radius:7px;background:var(--admin-card,#fff);color:var(--admin-ink,#101828);cursor:pointer;font:inherit;font-size:.84rem}
+.lga-tools select{width:auto;padding:6px 8px;font-size:.84rem}
+.lga-actions{display:flex;flex-wrap:wrap;gap:8px}
+.lga-btn{display:inline-flex;align-items:center;padding:9px 16px;border-radius:9px;border:1px solid var(--admin-brand,#6d28d9);background:var(--admin-brand,#6d28d9);color:#fff;font:inherit;font-weight:650;cursor:pointer;text-decoration:none}
+.lga-btn.ghost{background:transparent;color:var(--admin-brand,#6d28d9)}
+.lga-btn:disabled{opacity:.6;cursor:wait}
+.lga-side{position:sticky;top:12px;display:grid;gap:8px;min-width:0}
+.lga-side h4{margin:4px 0 0}
+.lga-preview{max-height:62vh;overflow:auto;padding:16px 18px;border:1px solid var(--admin-line,#e4e7ec);border-radius:10px;background:var(--admin-card,#fff);color:var(--admin-ink,#101828);font-size:.92rem;line-height:1.65}
+.lga-preview h1{font-size:1.35rem;margin:.2rem 0 .6rem}.lga-preview h2{font-size:1.08rem;margin:1.2rem 0 .3rem}.lga-preview h3{font-size:.98rem;margin:.9rem 0 .2rem}
+.lga-preview ul{padding-left:1.2rem}
+.lga-stamp{font-size:.82rem;color:var(--admin-muted,#667085);margin:0}
+.lga-note{padding:8px 12px;border-left:3px solid var(--admin-brand,#6d28d9);background:color-mix(in srgb,var(--admin-brand,#6d28d9) 7%,transparent);border-radius:6px}
+.lga-history{list-style:none;margin:0;padding:0;display:grid;gap:6px;max-height:260px;overflow:auto}
+.lga-history li{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline;padding:7px 10px;border:1px solid var(--admin-line,#e4e7ec);border-radius:8px;font-size:.85rem}
+.lga-history em{color:var(--admin-muted,#667085);font-style:normal;flex:1 1 140px}
+.lga-link{border:0;background:none;color:var(--admin-brand,#6d28d9);cursor:pointer;font:inherit;padding:0;text-decoration:underline}
+@media (max-width:980px){.lga-grid{grid-template-columns:minmax(0,1fr)}.lga-side{position:static}.lga-row{grid-template-columns:minmax(0,1fr)}}
