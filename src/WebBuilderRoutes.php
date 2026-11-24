@@ -24,7 +24,7 @@ final class WebBuilderRoutes
     {
         if (self::editorRequest()) \reply(['error'=>$message],$status);
         self::body(WebBuilderAdmin::page('Web Sitem','<main class="center-view"><h1>Web Sitem</h1><p class="builder-error" role="alert">'.
-            WebBuilderAdmin::e($message).'</p><a class="button" href="/giris">Giriş ekranı</a></main>'),$status);
+            WebBuilderAdmin::e($message).'</p><a class="button" href="/app">Giriş ekranı</a></main>'),$status);
     }
     private static function image(WebBuilder $web,array $row,string $id,bool $published=false): never
     {
@@ -267,7 +267,7 @@ final class WebBuilderRoutes
             $origin=rtrim($config['origin'],'/');
             $destination=(($actor['role']??'')==='customer' && $actor['partner_id']===$row['partner_id'])
                 ? '/hasta-sahibi?bildirim=homecare'
-                : '/giris?'.http_build_query(['donus'=>'/web/'.$row['slug'].'/evden-takip']);
+                : '/app?'.http_build_query(['donus'=>'/web/'.$row['slug'].'/evden-takip']);
             header('Location: '.$origin.$destination,true,303);
             exit;
         }
@@ -297,7 +297,7 @@ final class WebBuilderRoutes
                 }
             }
             $success=$method==='GET'&&($_GET['alindi']??'')==='1';
-            $login=$config['origin'].'/giris?'.http_build_query(['donus'=>'/web/'.$row['slug'].'/evde-hizmet']);
+            $login=$config['origin'].'/app?'.http_build_query(['donus'=>'/web/'.$row['slug'].'/evde-hizmet']);
             $visitForm=$success?
                 '<section id="basvuru" class="visit-application"><div class="notice" role="status"><h2>Talebiniz alındı.</h2><p>'.
                 ($actor?'Klinik yanıtını hasta sahibi panelinizden takip edebilirsiniz.</p><a class="button" href="/hasta-sahibi?bildirim=visit">Taleplerimi göster</a>':

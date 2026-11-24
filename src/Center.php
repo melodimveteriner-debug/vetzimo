@@ -255,7 +255,7 @@ final class Center
             $this->db->prepare('INSERT INTO identity_activation(token_hash,membership_id,expires) VALUES (?,?,?)')->execute([hash('sha256',$token),$member,$now+900]);
             $this->audit($actor['account_id'],'partner.created',$partner);
             if ($ownsTransaction) $this->db->commit();
-            return ['id'=>$partner,'link'=>'/giris#aktivasyon/'.$token];
+            return ['id'=>$partner,'link'=>'/app#aktivasyon/'.$token];
         } catch(\Throwable $e){if ($ownsTransaction) $this->db->rollBack();throw $e;}
     }
     public function toggle(array $actor,object $input,int $now): void

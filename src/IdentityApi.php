@@ -176,7 +176,7 @@ final class IdentityApi
             $this->db->commit();
         } catch(\Throwable $e) { $this->db->rollBack(); throw $e; }
         if ($direct) return ['status'=>'active'];
-        $link='/giris#aktivasyon/'.$token;
+        $link='/app#aktivasyon/'.$token;
         if (!$staffSetup) return ['status'=>'pending','link'=>$link];
         try {
             (new Notifications($this->db,$config['encryptionKey']??''))->send('smtp',$email,'VetZimo · Personel hesabınızı açın',
@@ -286,7 +286,7 @@ final class IdentityApi
                 $template=$state->preferences->customerReminder_welcome_text ?? 'Sayın {musteri}, {klinik} ailesine hoş geldiniz.';
                 $message=strtr($template,['{musteri}'=>$client->name,'{klinik}'=>$clinic]);
                 $message.="\nVetZimo giriş numaranız: ".$phone."\nİlk şifreniz: ".$password.
-                    "\n".rtrim($config['origin'],'/')."/giris";
+                    "\n".rtrim($config['origin'],'/')."/app";
                 $request=AppointmentReminders::request($provider,[
                     'channel'=>'sms','phone'=>$phone,'parameters'=>[$client->name,'',$clinic],'message'=>$message,
                 ],bin2hex(random_bytes(16)));

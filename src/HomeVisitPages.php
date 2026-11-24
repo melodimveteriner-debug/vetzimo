@@ -410,7 +410,7 @@ final class HomeVisitPages
         $settings=[];
         $partner='';
         if ($staff||$owner) {
-            if (!$actor) self::redirect('/giris');
+            if (!$actor) self::redirect('/app');
             if ($settingsPage && $actor['role']!=='dealer') self::settingsError('Evde Hizmet ayarlarını değiştirmek için bayi yöneticisi hesabıyla giriş yapın.',403);
             if ($owner!==($actor['role']==='customer')) throw new RuntimeException('Hesap yetkiniz yeterli değil.',403);
             $state=$this->visits->workspace($actor['partner_id'])['state'];
@@ -503,7 +503,7 @@ final class HomeVisitPages
             $draft=WebBuilder::decode($site['snapshot']);
             $info=($_GET['alindi']??'')==='1'?'<p role="status">Talebiniz alındı. Tek kullanımlık takip bağlantısı e-posta adresinize gönderilmek üzere sıraya alındı.</p>':'';
             self::page($draft['identity']['name'].' · Evde Hizmet',$this->visits->web->standardUrl($site),$error.$info.
-                (!$actor?'<p><a href="/giris?donus='.self::e(rawurlencode('/web/'.$site['slug'].'/evde-hizmet')).'">VetZimo hesabınız var mı? Giriş yapın</a> veya ziyaretçi olarak devam edin.</p>':'').
+                (!$actor?'<p><a href="/app?donus='.self::e(rawurlencode('/web/'.$site['slug'].'/evde-hizmet')).'">VetZimo hesabınız var mı? Giriş yapın</a> veya ziyaretçi olarak devam edin.</p>':'').
                 $this->requestForm($partner,$settings,$actor,$post?$_POST:[]),$status);
         }
         $show=$_GET['gorunum']??'';

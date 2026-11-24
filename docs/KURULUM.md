@@ -20,7 +20,7 @@ Bu paket tam ticari VeTNeT sürümü değildir. PHP/MySQL'e aktarılmış, kapsa
 6. Parola yöneticinizle birbirinden farklı iki rastgele anahtar üretin (en az 32 karakter). Birini `rateSecret`, diğerini `installationToken` alanına yazın. Anahtarları ve DB parolasını sohbetle paylaşmayın. `assets` satırını değiştirmeyin. config.php dosyasını PHP kullanıcısının okuyabileceği en dar izinle saklayın (uygunsa 0600).
 7. `https://test.alanadiniz.com/install.php` adresini açın. Kurulum anahtarını ve ilk klinik/bayi hesabının telefonunu, e-postasını, klinik adını ve en az 12 karakterli şifresini girin. SQL dosyalarını önceden içe aktarmayın; kurucu kendisi uygular.
 8. Başarılı kurulumdan sonra `config.php` içindeki `installationToken` değerini boşaltın. `public/install.php` dosyasını kaldırın. Kurucu boş olmayan veritabanında zaten yeniden çalışmaz.
-9. `/giris` adresinden oluşturduğunuz telefon ve şifreyle giriş yapın.
+9. `/app` adresinden oluşturduğunuz telefon ve şifreyle giriş yapın.
 10. Deneme müşteri, hasta, randevu, muayene ve aşı kaydı oluşturun. Sayfayı yenileyip kayıtların kaldığını kontrol edin. Şifre değiştirme sonrası tekrar giriş yapın.
 
 ## Kurulum hataları

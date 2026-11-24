@@ -68,12 +68,18 @@ try {
     // REQUEST_URI is a request target. Leading // is part of its path.
     [$rawPath,$queryString] = array_pad(explode('?',$_SERVER['REQUEST_URI'],2),2,'');
     $path = '/'.ltrim($rawPath,'/');
-    if ($method==='GET' && $rawPath!==$path && in_array(rtrim($path,'/'),['/klinik','/yonetim','/giris','/hasta-sahibi'],true)) {
+    if ($method==='GET' && $rawPath!==$path && in_array(rtrim($path,'/'),['/klinik','/yonetim','/app','/giris','/hasta-sahibi'],true)) {
         header('Location: '.rtrim($path,'/').($queryString!=='' ? '?'.$queryString : ''),true,308);
         exit;
     }
-    if (in_array($path, ['/giris/','/hasta-sahibi/','/yonetim/','/klinik/'], true)) {
+    if (in_array($path, ['/app/','/giris/','/hasta-sahibi/','/yonetim/','/klinik/'], true)) {
         header('Location: '.rtrim($path,'/'),true,308);
+        exit;
+    }
+    // Giriş adresi /app oldu. Eski /giris bağlantıları (e-postalardaki etkinleştirme bağlantıları dahil)
+    // kalıcı olarak yönlenir; tarayıcı # sonrasını korur.
+    if ($path === '/giris') {
+        header('Location: /app'.($queryString!=='' ? '?'.$queryString : ''),true,$method==='GET'||$method==='HEAD'?301:308);
         exit;
     }
     if (preg_match('~\A(?:/api/(?:vebot(?:/|$)|ops/tools/?$)|/platform/ozellikler/vebot/?$)~i',$path)) {
@@ -148,12 +154,12 @@ try {
         echo VetNet\Cpanel\UiLocale::page($html,$config);
         exit;
     }
-    if (!$externalWeb && $method === 'GET' && in_array($path, ['/klinik', '/giris','/hasta-sahibi','/yonetim'], true)) {
+    if (!$externalWeb && $method === 'GET' && in_array($path, ['/klinik', '/app','/hasta-sahibi','/yonetim'], true)) {
         if ($path === '/klinik') {
             $db = Database::connect($config['dsn'], $config['username'], $config['password']);
             $actor = (new SessionRepository($db))->resolve($_COOKIE, time());
             if (!in_array($actor['role'] ?? '',['dealer','branch','staff'],true)) {
-                header('Location: /giris', true, 303);
+                header('Location: /app', true, 303);
                 exit;
             }
         }
@@ -166,7 +172,7 @@ try {
         header("Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; frame-src 'self'; connect-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
         header('Content-Type: text/html; charset=utf-8');
         $html = marketAndPanelFavicon(file_get_contents($file),$config['assets']);
-        $pwa = '<link rel="manifest" href="/vetzimo.webmanifest"><link rel="apple-touch-icon" href="/vetzimo-pwa-192.png"><script defer src="/pwa-install.js?v=67"></script>';
+        $pwa = '<link rel="manifest" href="/vetzimo.webmanifest"><link rel="apple-touch-icon" href="/vetzimo-pwa-192.png"><script defer src="/pwa-install.js?v=68"></script>';
         echo VetNet\Cpanel\UiLocale::page(str_ireplace('</head>',$pwa.'</head>',$html),$config);
         exit;
     }
@@ -248,7 +254,7 @@ try {
                 ? '<p>Hesap silme talebiniz alındı.</p>'
                 : '<form method="post"><label>Şifreniz <input name="password" type="password" autocomplete="current-password" required></label><p><label><input type="checkbox" name="confirm" value="yes" required> Hesabımın silinmesini talep ediyorum.</label></p><button type="submit">Talebi gönder</button></form>';
         } elseif ($method==='POST') throw new RuntimeException('Oturum doğrulanamadı.',401);
-        else $form='<p>Talep oluşturmak için <a href="/giris">VetZimo hesabınızla giriş yapın</a> ve bu sayfaya dönün.</p>';
+        else $form='<p>Talep oluşturmak için <a href="/app">VetZimo hesabınızla giriş yapın</a> ve bu sayfaya dönün.</p>';
         header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'");
         header('Content-Type: text/html; charset=utf-8');
         echo '<!doctype html><html lang="tr"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>VetZimo · Hesap silme</title><style>body{font:1rem/1.6 system-ui;margin:3rem auto;padding:0 1.2rem;max-width:38rem}input,button{font:inherit}</style><main><h1>Hesap silme talebi</h1><p>Talep mevcut VetZimo hesabınız için kaydedilir ve yönetim tarafından incelenir. Talep kaydı, silmenin tamamlandığı anlamına gelmez.</p>'.$form.'<p><a href="/platform/gizlilik">Gizlilik bilgilendirmesi</a></p></main></html>';

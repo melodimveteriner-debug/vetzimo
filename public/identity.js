@@ -241,10 +241,10 @@ function login(mode="login") {
       field.focus();
     });
     links.append(reset);
-    if (center) links.append(link(uiLabel("Telefonla giriş"),"/giris"));
+    if (center) links.append(link(uiLabel("Telefonla giriş"),"/app"));
     else {
       const scope=new URLSearchParams([...params].filter(([key])=>["clinic","branch"].includes(key)));
-      const target=entryKind==="owner"?"/giris":"/hasta-sahibi";
+      const target=entryKind==="owner"?"/app":"/hasta-sahibi";
       links.append(link(uiText(entryKind==="owner"?"clinic":"ownerSignIn"),target+(scope.size?"?"+scope:"")));
     }
   } else links.append(link(uiLabel("Girişe dön"),route+location.search));
@@ -259,7 +259,7 @@ function login(mode="login") {
 
 async function logout() {
   await api("logout",{});
-  location.assign(center?"/yonetim":"/giris");
+  location.assign(center?"/yonetim":"/app");
 }
 
 function logoutButton() {
@@ -657,13 +657,13 @@ async function portal() {
   nextPassword.querySelector("input").minLength=12;
   change.append(makeForm([password("currentPassword","Mevcut şifre"),nextPassword],"Şifreyi değiştir",async data=>{
     await api("password/change",data);
-    location.assign("/giris");
+    location.assign("/app");
   }));
   const account=panel("account","Hesabım");
   account.append(change);
   account.append(contact({name:data.clinic.branch||data.clinic.partner,phone:data.clinic.phone}));
   const links=el("div","",{className:"links"});
-  if (session.members.length>1) links.append(link("Kurum değiştir","/giris?kurum=1"));
+  if (session.members.length>1) links.append(link("Kurum değiştir","/app?kurum=1"));
   links.append(logoutButton());
   account.append(links);
   view.append(status);
@@ -823,7 +823,7 @@ if (route==="/iletisim") {
     logo.src=config.clinic.logo;
     logo.alt=config.clinic.name;
   }
-  if (route==="/giris" && fragment[0]==="bildirim-epostasi" && /^[a-f0-9]{64}$/.test(fragment[1]||"")) {
+  if (route==="/app" && fragment[0]==="bildirim-epostasi" && /^[a-f0-9]{64}$/.test(fragment[1]||"")) {
     try {
       sessionStorage.setItem("vetnet-support-email-token",fragment[1]);
       const session=await api("session");
@@ -842,8 +842,8 @@ if (route==="/iletisim") {
     try { await workspaceChoice(); } catch { login(); }
   } else login();
 } catch(error) {
-  if (["/giris","/yonetim","/hasta-sahibi","/merkez-giris"].includes(route) && !document.body.classList.contains("center-suite")) {
+  if (["/app","/yonetim","/hasta-sahibi","/merkez-giris"].includes(route) && !document.body.classList.contains("center-suite")) {
     accessHeading("VetZimo erişimi",error.message,"Hesap erişimi");
   } else heading("VetZimo erişimi",error.message);
-  view.append(link("Giriş ekranı","/giris"));
+  view.append(link("Giriş ekranı","/app"));
 }

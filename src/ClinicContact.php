@@ -33,7 +33,7 @@ final class ClinicContact
         $query->execute([$membership,$email,$hash,$now+1800]);
         try {
             $this->notifications->send('smtp',$email,'VetZimo bildirim adresinizi doğrulayın',
-                "Bu bağlantıyı aynı VetZimo çalışma alanında oturum açarak 30 dakika içinde kullanın.\n".$this->origin.'/giris#bildirim-epostasi/'.$token);
+                "Bu bağlantıyı aynı VetZimo çalışma alanında oturum açarak 30 dakika içinde kullanın.\n".$this->origin.'/app#bildirim-epostasi/'.$token);
         } catch (\Throwable $error) {
             $this->db->prepare("UPDATE clinic_contact SET pending_email='',token_hash=NULL,expires=0 WHERE membership_id=? AND token_hash=?")
                 ->execute([$membership,$hash]);

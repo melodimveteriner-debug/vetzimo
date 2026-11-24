@@ -23,7 +23,7 @@ assert request('POST','/install.php',{**form,'token':'wrong'},form=True)[0]==403
 assert request('POST','/install.php',form,form=True)[0]==200
 assert request('POST','/install.php',form,form=True)[0]==409
 assert request('GET','/')[0]==303
-assert b'identity.js' in request('GET','/giris')[1]
+assert b'identity.js' in request('GET','/app')[1]
 status,body,headers=request('POST','/api/identity/phone/login',dict(phone=form['phone'],password=form['password']))
 assert status==200,(status,body)
 cookies=[v for k,v in headers if k.lower()=='set-cookie']
@@ -86,7 +86,7 @@ assert request('POST',esmm,dict(branch='merkez',provider='gib'),cookie,scope=sco
 assert json.loads(request('GET',esmm+'?branch=merkez',cookie=cookie)[1])['url']=='https://earsivportal.efatura.gov.tr/'
 print('PASS branch-scoped e-SMM portal configuration')
 support='/api/support'
-assert request('GET','/giris/')[0]==308
+assert request('GET','/app/')[0]==308
 ticket=dict(branch='merkez',subject='Kurulum sorusu',department='Destek / Yazılım',urgency='Orta',body='Örnek talep')
 status,body,_=request('POST',support,ticket,cookie,scope=scope)
 assert status==200,(status,body)

@@ -52,5 +52,5 @@ if (standalone && typeof navigator.setAppBadge === 'function' && typeof navigato
     operation.catch(() => {});
   };
   if (bell) new MutationObserver(syncBadge).observe(bell,{childList:true,subtree:true,characterData:true});
-  if (bell || location.pathname === '/giris') syncBadge();
+  if (bell || location.pathname === '/app') syncBadge();
 }

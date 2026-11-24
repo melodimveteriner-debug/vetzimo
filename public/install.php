@@ -63,7 +63,7 @@ try {
 <style>body{margin:0;background:#eef3f8;color:#172b40;font:16px system-ui,sans-serif}main{max-width:620px;margin:4vh auto;padding:28px;background:white;border-radius:20px;box-shadow:0 10px 40px #16324f12}h1{font-size:26px}p{line-height:1.6}label{display:block;margin-top:14px;font-weight:600}input{box-sizing:border-box;width:100%;padding:12px;border:1px solid #bac9d8;border-radius:8px;margin-top:6px;font:inherit}button,a{display:inline-block;margin-top:20px;background:#1965c2;color:white;padding:12px 24px;border:0;border-radius:8px;font:inherit;text-decoration:none}.notice{background:#eef4ff;padding:16px;border-left:4px solid #1965c2}.status{padding:16px;background:#fff5d9;overflow-wrap:anywhere}@media(max-width:680px){main{margin:12px;padding:20px}}</style>
 <main><h1>VetZimo <small>PHP / MySQL kurulumu</small></h1><p class="notice">Bu PHP aktarımı merkez ve klinik hesaplarını, temel hasta kayıtlarını ve satış–stok–tahsilat akışını içerir. Tüm platformun dönüşümü tamamlanmamıştır. Yalnızca yeni ve boş bir test veritabanına kurunuz.</p>
 <?php if ($message !== ''): ?><p class="status" role="alert"><?=htmlspecialchars($message,ENT_QUOTES,'UTF-8')?></p><?php endif; ?>
-<?php if ($done): ?><a href="/giris">Klinik girişine geç</a><?php endif; ?>
+<?php if ($done): ?><a href="/app">Klinik girişine geç</a><?php endif; ?>
 <?php if ($ready): ?><form method="post" action="/install.php">
 <label>Kurulum anahtarı<input name="token" type="password" required autocomplete="off" maxlength="256"></label>
 <label>Klinik adı<input name="name" required maxlength="160" autocomplete="organization"></label>
