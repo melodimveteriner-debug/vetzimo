@@ -17,7 +17,7 @@ final class Weather
         if ($apiKey==='') return self::met($position,$city,$origin);
         if (!function_exists('curl_init')) return ['reason'=>'unavailable','city'=>$city];
         $parameters=['latitude'=>round((float)$position[0],1),'longitude'=>round((float)$position[1],1),
-            'current'=>'temperature_2m,weather_code,is_day','daily'=>'temperature_2m_max,temperature_2m_min',
+            'current'=>'temperature_2m,weather_code,is_day,wind_speed_10m','daily'=>'temperature_2m_max,temperature_2m_min',
             'timezone'=>'auto','forecast_days'=>1,'apikey'=>$apiKey];
         $key='vetnet-weather:'.hash('sha256',json_encode($parameters));
         if (function_exists('apcu_fetch') && ($cached=apcu_fetch($key))!==false) return $cached+['city'=>$city];
@@ -30,6 +30,8 @@ final class Weather
             'day'=>$data['current']['is_day'] ?? null,'high'=>$data['daily']['temperature_2m_max'][0] ?? null,
             'low'=>$data['daily']['temperature_2m_min'][0] ?? null];
         foreach ($result as $value) if (!is_int($value) && !is_float($value)) return self::met($position,$city,$origin);
+        $wind=$data['current']['wind_speed_10m'] ?? null;
+        if (is_int($wind) || is_float($wind)) $result['wind']=round((float)$wind,1);
         if (function_exists('apcu_store')) apcu_store($key,$result,900);
         return $result+['city'=>$city];
     }
@@ -59,7 +61,8 @@ final class Weather
         if (!is_numeric($temperature) || $symbol==='') return $failure;
         $code=match(true) {
             str_contains($symbol,'snow'),str_contains($symbol,'sleet')=>71,
-            str_contains($symbol,'rain'),str_contains($symbol,'thunder')=>61,
+            str_contains($symbol,'thunder')=>95,
+            str_contains($symbol,'rain')=>61,
             str_contains($symbol,'fog')=>45,
             str_contains($symbol,'cloud')=>3,
             str_contains($symbol,'fair')=>1,
@@ -73,7 +76,9 @@ final class Weather
             $value=$entry['data']['instant']['details']['air_temperature'] ?? null;
             if (is_numeric($value)) $temperatures[]=(float)$value;
         }
+        $wind=$first['instant']['details']['wind_speed'] ?? null;
         $result=['temperature'=>(float)$temperature,'code'=>$code,'day'=>!str_contains($symbol,'night'),
+            'wind'=>is_numeric($wind)?round((float)$wind*3.6,1):null,
             'high'=>$temperatures?max($temperatures):null,'low'=>$temperatures?min($temperatures):null,'provider'=>'MET Norway'];
         $temporary=tempnam(sys_get_temp_dir(),'vet-weather-');
         if ($temporary!==false) {

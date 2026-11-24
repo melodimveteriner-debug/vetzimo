@@ -492,53 +492,153 @@ th[aria-sort] .column-sort span{color:var(--brand)}
 /* The forecast and its animation share one themed card. */
 .kv-welcome{display:grid;grid-template-columns:minmax(0,1fr) auto}
 .clinic-weather{justify-self:end}
-.weather-scene{position:relative;isolation:isolate;width:clamp(90px,14vw,156px);aspect-ratio:2/1;flex:none;color:var(--brand-link)}
-.weather-effects{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}
-.weather-sun,.weather-moon,.weather-cloud,.weather-umbrella,.weather-blanket,.weather-rain,.weather-snow,.weather-sleep{display:none}
-.weather-scene[data-scene=sun] .weather-sun,
-.weather-scene[data-scene=cloud] .weather-cloud,
-.weather-scene[data-scene=night] :is(.weather-moon,.weather-sleep),
-.weather-scene[data-scene=rain] :is(.weather-umbrella,.weather-rain),
-.weather-scene[data-scene=snow] :is(.weather-blanket,.weather-snow){display:inline}
-.weather-sun{fill:#ffc459;stroke:#b57222;stroke-width:1.5;transform-origin:128px 17px;animation:forecast-spin 16s linear infinite}
-.weather-moon{fill:#f6cc79}
-.weather-cloud{fill:var(--paper);stroke:currentColor;opacity:.8;animation:forecast-drift 5s ease-in-out infinite alternate}
-.weather-umbrella{fill:var(--brand-tint);stroke:currentColor;stroke-width:2.2;stroke-linejoin:round}
-.weather-blanket{fill:var(--brand-link);stroke:var(--paper);stroke-width:1.5}
-.weather-rain{stroke:currentColor;stroke-linecap:round;stroke-width:1.5;animation:forecast-fall 1s linear infinite}
-.weather-snow{fill:var(--paper);stroke:currentColor;stroke-width:.55;animation:forecast-fall 2.8s ease-in infinite}
-.weather-sleep{stroke:currentColor;stroke-width:1.4;fill:none;animation:forecast-drift 2.4s ease-in-out infinite alternate}
-.weather-pet{--animal-row:0%;--pose:0%;--walking:0;--heading:1;position:absolute;bottom:9%;width:37%;aspect-ratio:112/78;transform-origin:50% 95%}
-.weather-pet::before,.weather-pet::after{content:"";position:absolute;inset:0;background-repeat:no-repeat}
-.weather-pet::before{background-image:url("/weather-pets.webp");background-position:var(--pose) var(--animal-row);background-size:400% 200%;opacity:calc(1 - var(--walking))}
-.weather-pet::after{background-image:url("/weather-walk.webp");background-position:0% var(--animal-row);background-size:600% 200%;opacity:var(--walking);transform:scaleX(var(--heading))}
-.weather-cat{left:4%;--travel:48%;--pace:.82s}
-.weather-dog{left:43%;--animal-row:100%;--travel:47%;--pace:.88s}
-.weather-scene:has(.weather-pet)::before{content:"";position:absolute;inset-inline:4%;bottom:9%;height:8%;border-radius:50%;background:currentColor;opacity:.09}
-.weather-scene:is([data-scene=sun],[data-scene=neutral]) .weather-pet{animation:forecast-track 7s linear infinite}
-.weather-scene:is([data-scene=sun],[data-scene=neutral]) .weather-pet::after{animation:forecast-stride var(--pace) linear infinite}
-.weather-scene[data-scene=neutral] .weather-dog{animation-delay:-.10s}
-.weather-scene[data-scene=sun] .weather-pet{animation-duration:5.7s}
-.weather-scene:is([data-scene=rain],[data-scene=snow],[data-scene=cloud]) .weather-pet{--pose:66.667%}
-.weather-scene[data-scene=rain] .weather-pet{animation:forecast-breathe 2.7s ease-in-out infinite alternate}
-.weather-scene[data-scene=snow] .weather-pet{animation:forecast-shiver .37s ease-in-out infinite alternate}
-.weather-scene[data-scene=night] .weather-pet{--pose:100%;animation:forecast-breathe 3.4s ease-in-out infinite alternate}
-@keyframes forecast-track{
- 0%,16%,78%,100%{transform:translateX(0);--walking:0;--heading:1}
- 16.01%{transform:translateX(0);--walking:1;--heading:1}
- 38%,38.01%{transform:translateX(var(--travel));--walking:1;--heading:1}
- 38.02%,53%{transform:translateX(var(--travel));--walking:0;--heading:1}
- 53.01%,77.99%{--walking:1;--heading:-1}
- 53.01%{transform:translateX(var(--travel))}
- 77.99%{transform:translateX(0)}
-}
-@keyframes forecast-stride{0%{background-position-x:0%;animation-timing-function:steps(1,end)}16.667%{background-position-x:20%;animation-timing-function:steps(1,end)}33.333%{background-position-x:40%;animation-timing-function:steps(1,end)}50%{background-position-x:60%;animation-timing-function:steps(1,end)}66.667%{background-position-x:80%;animation-timing-function:steps(1,end)}83.333%,100%{background-position-x:100%}}
-@keyframes forecast-fall{from{transform:translateY(-9px);opacity:.15}55%{opacity:.85}to{transform:translateY(9px);opacity:.15}}
-@keyframes forecast-drift{to{transform:translate(3px,-3px)}}
-@keyframes forecast-spin{to{transform:rotate(360deg)}}
-@keyframes forecast-shiver{from{transform:translateX(-1px)}to{transform:translateX(1px)}}
-@keyframes forecast-breathe{to{transform:scaleY(.94)}}
-@media(prefers-reduced-motion:reduce){.weather-scene *,.weather-pet::after{animation:none!important}}
+/* Hava durumu sahnesi: vektör kedi ve köpek, hava durumuna göre farklı davranış */
+.weather-scene{position:relative;isolation:isolate;width:clamp(96px,14vw,164px);aspect-ratio:2/1;flex:none;color:var(--brand-link)}
+.weather-art{position:absolute;inset:0;width:100%;height:100%;overflow:hidden;pointer-events:none;border-radius:10px}
+.weather-art *{transform-box:fill-box}
+.ws-dim,.ws-sun,.ws-moon,.ws-stars,.ws-clouds,.ws-storm,.ws-fog,.ws-wind,.ws-leaves,.ws-snowbank,.ws-puddles,.ws-umbrella,.ws-rain,.ws-snow,.ws-butterfly,.ws-flash,
+.ws-scarf,.ws-breath,.ws-zzz,.ws-sit,.ws-sleep,.ws-eye-shut,.ws-tongue,.ws-drop-top{display:none}
+.weather-scene:is([data-scene=sun],[data-scene=neutral],[data-scene=cloud]) .ws-walk,
+.weather-scene:is([data-scene=fog],[data-scene=wind],[data-scene=rain],[data-scene=storm],[data-scene=snow]) .ws-sit,
+.weather-scene[data-scene=night] .ws-sleep{display:inline}
+.weather-scene:is([data-scene=fog],[data-scene=wind],[data-scene=rain],[data-scene=storm],[data-scene=snow],[data-scene=night]) .ws-walk{display:none}
+.weather-scene[data-scene=sun] :is(.ws-sun,.ws-butterfly,.ws-dog .ws-tongue),
+.weather-scene[data-temp=hot] .ws-dog .ws-tongue,
+.weather-scene[data-scene=cloud] .ws-clouds,
+.weather-scene[data-scene=fog] .ws-fog,
+.weather-scene[data-scene=wind] :is(.ws-wind,.ws-leaves),
+.weather-scene:is([data-scene=rain],[data-scene=storm]) :is(.ws-umbrella,.ws-rain,.ws-puddles,.ws-drop-top),
+.weather-scene[data-scene=storm] :is(.ws-storm,.ws-flash,.ws-dim),
+.weather-scene[data-scene=snow] :is(.ws-snow,.ws-snowbank,.ws-scarf,.ws-breath),
+.weather-scene[data-temp=cold] :is(.ws-scarf,.ws-breath),
+.weather-scene[data-scene=night] :is(.ws-moon,.ws-stars,.ws-zzz),
+.ws-sleepy .ws-eye-shut{display:inline}
+.ws-sleepy .ws-eye-open{display:none}
+.weather-scene[data-scene=snow] .ws-ground{display:none}
+
+/* Yerleşim: yürürken açık alanda, yağışta şemsiye altında, gece yan yana uyur */
+.ws-pet,.ws-track,.ws-turn{transform-box:view-box!important;transform-origin:0 0}
+.ws-pet{--x:16px;transform:translate(var(--x),72px) scale(.92)}
+.ws-dog{--x:116px;transform:translate(var(--x),72px) scale(.96)}
+.weather-scene:is([data-scene=fog],[data-scene=wind],[data-scene=rain],[data-scene=storm],[data-scene=snow]) .ws-cat{--x:57px}
+.weather-scene:is([data-scene=fog],[data-scene=wind],[data-scene=rain],[data-scene=storm],[data-scene=snow]) .ws-dog{--x:99px}
+.weather-scene[data-scene=night] .ws-cat{--x:50px}
+.weather-scene[data-scene=night] .ws-dog{--x:100px}
+.ws-ground{fill:currentColor;opacity:.08}
+.ws-dim{fill:#2c3352;opacity:.13}
+
+/* Gökyüzü */
+.ws-rays{transform-origin:50% 50%;animation:ws-spin 18s linear infinite}
+.ws-sun-glow{transform-origin:50% 50%;animation:ws-glow 3.2s ease-in-out infinite alternate}
+.ws-moon>circle:first-child{transform-origin:50% 50%;animation:ws-glow 4s ease-in-out infinite alternate}
+.ws-stars use{transform-origin:50% 50%;animation:ws-twinkle 2.6s ease-in-out infinite}
+.ws-stars>g:nth-child(2) use{animation-delay:-.7s}.ws-stars>g:nth-child(3) use{animation-delay:-1.4s}.ws-stars>g:nth-child(4) use{animation-delay:-2s}.ws-stars>g:nth-child(5) use{animation-delay:-1.1s}.ws-stars>g:nth-child(6) use{animation-delay:-.3s}
+.ws-cloud{fill:#f6f7fc;stroke:#b6bfd6;stroke-width:.8;animation:ws-drift 7s ease-in-out infinite alternate}
+.ws-cloud-b{animation-duration:9s;animation-delay:-3s}
+.ws-storm-cloud{animation:ws-drift 5s ease-in-out infinite alternate}
+.ws-bolt{opacity:0;animation:ws-bolt 4.6s linear infinite}
+.ws-flash{fill:#fff;opacity:0;animation:ws-flash 4.6s linear infinite;pointer-events:none}
+
+/* Sis, rüzgâr, yağış, kar */
+.ws-fog{filter:blur(.7px)}
+.ws-fog rect{fill:url(#ws-fog-fade);opacity:.75;animation:ws-fog 8s ease-in-out infinite alternate}
+.ws-fog-b{animation-duration:10s!important;animation-direction:alternate-reverse!important}
+.ws-fog-c{animation-duration:6.5s!important;opacity:.55!important}.ws-fog-d{animation-duration:12s!important;opacity:.5!important}
+.ws-gust{stroke:#8fa8c8;stroke-width:1.1;stroke-dasharray:42 110;opacity:.85;animation:ws-gust 1.9s linear infinite}
+.ws-gust:nth-child(2){animation-delay:-.5s;animation-duration:1.6s}.ws-gust:nth-child(3){animation-delay:-1.1s}.ws-gust:nth-child(4){animation-delay:-1.4s;animation-duration:2.2s}.ws-gust:nth-child(5){animation-delay:-.8s;animation-duration:1.7s}
+.ws-leaf{transform-origin:50% 50%;animation:ws-leaf 3.6s linear infinite}
+.ws-leaf-b{animation-duration:4.4s;animation-delay:-1.5s}.ws-leaf-c{animation-duration:5.2s;animation-delay:-3s}.ws-leaf-d{animation-duration:3.1s;animation-delay:-2.2s}
+.ws-rain path{stroke:#5b9fe3;stroke-width:1.2;animation:ws-drop .85s linear infinite}
+.ws-rain path:nth-child(2n){animation-delay:-.3s}.ws-rain path:nth-child(3n){animation-delay:-.55s}.ws-rain path:nth-child(5n){animation-delay:-.7s}
+.ws-rain .ws-drop-top{animation-name:ws-drop-top;animation-duration:.6s}
+.weather-scene[data-scene=storm] .ws-rain path{animation-duration:.55s;stroke-width:1.35}
+.ws-ripple{fill:none;stroke:#5b9fe3;stroke-width:.7;transform-origin:50% 50%;animation:ws-ripple 1.5s ease-out infinite}
+.ws-ripple-b{animation-delay:-.8s}
+.ws-snow use{transform-origin:50% 50%;stroke:#9cc0ea;stroke-width:1.1;animation:ws-flake 5.5s linear infinite}
+.ws-snow>g:nth-child(2n) use{animation-duration:7s;animation-delay:-2.2s}.ws-snow>g:nth-child(3n) use{animation-duration:6.2s;animation-delay:-4s}.ws-snow>g:nth-child(5n) use{animation-delay:-1.2s}.ws-snow>g:nth-child(4n) use{animation-duration:4.8s;animation-delay:-3.1s}.ws-snow>g:nth-child(7n) use{animation-delay:-5s}
+.ws-snowbank{fill:#f3f7ff;stroke:#c6d6ec;stroke-width:.6}
+.ws-canopy{transform-origin:50% 100%;animation:ws-canopy 3s ease-in-out infinite alternate}
+.weather-scene[data-scene=storm] .ws-umbrella{transform-origin:50% 100%;animation:ws-sway 1.1s ease-in-out infinite alternate}
+.ws-butterfly{animation:ws-fly 11s ease-in-out infinite}
+.ws-flutter{transform-origin:50% 50%;animation:ws-flutter .18s ease-in-out infinite alternate}
+
+/* Kedi ve köpek */
+.ws-walk .ws-leg{transform-origin:50% 0;animation:ws-step .66s ease-in-out infinite alternate}
+.ws-walk .ws-leg-b{animation-delay:-.66s}
+.ws-dog .ws-walk .ws-leg{animation-duration:.58s}.ws-dog .ws-walk .ws-leg-b{animation-delay:-.58s}
+.ws-walk .ws-head{transform-origin:30% 90%;animation:ws-nod .66s ease-in-out infinite alternate}
+.ws-cat .ws-tail{transform-origin:100% 100%;animation:ws-swish 2.2s ease-in-out infinite alternate}
+.ws-dog .ws-walk .ws-tail{transform-origin:100% 100%;animation:ws-wag .32s ease-in-out infinite alternate}
+.ws-dog .ws-sit .ws-tail{transform-origin:100% 50%;animation:ws-thump .9s ease-in-out infinite alternate}
+.ws-eye-open{transform-origin:50% 50%;animation:ws-blink 4.4s infinite}
+.ws-dog .ws-eye-open{animation-delay:-1.9s}
+.ws-ear{transform-origin:70% 6%;animation:ws-ear 1.32s ease-in-out infinite alternate}
+.ws-sit .ws-head{transform-origin:40% 95%;animation:ws-look 6s ease-in-out infinite}
+.ws-dog .ws-sit .ws-head{animation-delay:-2.5s}
+.ws-tongue{transform-origin:50% 0;animation:ws-pant .34s ease-in-out infinite alternate}
+.ws-breath{fill:#fff;stroke:#c6d6ec;stroke-width:.4;transform-origin:0 100%;animation:ws-breath 2.6s ease-out infinite}
+.ws-dog .ws-breath{animation-delay:-1.2s}
+.ws-breathe{transform-origin:50% 100%;animation:ws-breathe 3.4s ease-in-out infinite alternate}
+.ws-dog .ws-breathe{animation-duration:3.9s}
+.ws-zzz{fill:none;stroke:currentColor;stroke-width:.9;stroke-linecap:round;stroke-linejoin:round;animation:ws-zzz 3.4s ease-in-out infinite}
+.ws-dog .ws-zzz{animation-delay:-1.7s}
+
+/* Hava durumuna göre davranış */
+.weather-scene[data-scene=sun] .ws-track{animation:ws-track 9s linear infinite}
+.weather-scene[data-scene=sun] .ws-turn{animation:ws-turn 9s linear infinite}
+.weather-scene:is([data-scene=neutral],[data-scene=cloud]) .ws-track{animation:ws-track 12s linear infinite}
+.weather-scene:is([data-scene=neutral],[data-scene=cloud]) .ws-turn{animation:ws-turn 12s linear infinite}
+.ws-cat .ws-track{--d:30px}.ws-dog .ws-track{--d:-34px}
+.ws-dog .ws-turn{scale:-1 1}
+.weather-scene .ws-dog .ws-turn{animation-name:ws-turn-l}
+.weather-scene .ws-dog :is(.ws-track,.ws-turn){animation-delay:-4.5s}
+.weather-scene[data-scene=cloud] .ws-cat .ws-sit .ws-head,.weather-scene[data-scene=cloud] .ws-walk .ws-head{animation-duration:.9s}
+.weather-scene[data-scene=wind] .ws-ear{animation:ws-ear-wind .22s ease-in-out infinite alternate}
+.weather-scene[data-scene=wind] .ws-cat .ws-tail{animation:ws-wind-tail .5s ease-in-out infinite alternate}
+.weather-scene[data-scene=wind] .ws-eye-open{scale:1 .55;animation:none}
+.weather-scene:is([data-scene=storm],[data-scene=snow]) .ws-track{animation:ws-shiver 2.8s linear infinite}
+.weather-scene[data-scene=storm] .ws-track{animation-duration:1.4s}
+.weather-scene[data-scene=storm] .ws-sit .ws-head{animation:ws-cower 4.6s ease-in-out infinite}
+.weather-scene[data-scene=fog] .ws-dog .ws-sit .ws-head{animation:ws-sniff 1.8s ease-in-out infinite}
+
+@keyframes ws-spin{to{rotate:360deg}}
+@keyframes ws-glow{from{scale:.92;opacity:.75}to{scale:1.12;opacity:1}}
+@keyframes ws-twinkle{0%,100%{opacity:.25;scale:.6}50%{opacity:1;scale:1.15}}
+@keyframes ws-drift{from{translate:-4px 0}to{translate:5px -1px}}
+@keyframes ws-bolt{0%,68%,71%,74%,100%{opacity:0}69%,72.5%{opacity:1}}
+@keyframes ws-flash{0%,68%,71%,74%,100%{opacity:0}69%{opacity:.38}72.5%{opacity:.22}}
+@keyframes ws-fog{from{translate:-10px 0}to{translate:12px 0}}
+@keyframes ws-gust{from{stroke-dashoffset:44}to{stroke-dashoffset:-120}}
+@keyframes ws-leaf{0%{translate:-12px 0;rotate:0deg;opacity:0}8%{opacity:1}35%{translate:50px -8px}65%{translate:110px 6px}92%{opacity:1}100%{translate:172px -4px;rotate:720deg;opacity:0}}
+@keyframes ws-drop{from{translate:0 -6px;opacity:0}15%{opacity:.9}to{translate:-7px 46px;opacity:.15}}
+@keyframes ws-drop-top{from{translate:0 0;opacity:0}20%{opacity:.9}to{translate:-3px 12px;opacity:0}}
+@keyframes ws-ripple{from{scale:.25;opacity:1}to{scale:1.25;opacity:0}}
+@keyframes ws-flake{0%{translate:0 -8px;rotate:0deg;opacity:0}10%{opacity:1}50%{translate:4px 30px}90%{opacity:.9}100%{translate:-3px 68px;rotate:200deg;opacity:0}}
+@keyframes ws-canopy{to{rotate:-2deg}}
+@keyframes ws-sway{from{rotate:-5deg}to{rotate:5deg}}
+@keyframes ws-fly{0%{translate:60px 44px}20%{translate:84px 30px}40%{translate:112px 40px}55%{translate:100px 22px}75%{translate:52px 30px}90%{translate:40px 46px}100%{translate:60px 44px}}
+@keyframes ws-flutter{to{scale:.25 1}}
+@keyframes ws-step{from{rotate:24deg}to{rotate:-24deg}}
+@keyframes ws-nod{from{rotate:-3deg;translate:0 -.3px}to{rotate:3deg;translate:0 .4px}}
+@keyframes ws-swish{from{rotate:-12deg}to{rotate:14deg}}
+@keyframes ws-wag{from{rotate:-20deg}to{rotate:18deg}}
+@keyframes ws-thump{from{rotate:-8deg}to{rotate:10deg}}
+@keyframes ws-blink{0%,93%,100%{scale:1 1}96%{scale:1 .08}}
+@keyframes ws-ear{from{rotate:-4deg}to{rotate:7deg}}
+@keyframes ws-ear-wind{from{rotate:-6deg}to{rotate:-26deg}}
+@keyframes ws-wind-tail{from{rotate:6deg}to{rotate:-22deg}}
+@keyframes ws-look{0%,30%,100%{rotate:0deg}38%,55%{rotate:-9deg}62%,85%{rotate:5deg}}
+@keyframes ws-cower{0%,64%,100%{rotate:0deg;translate:0 0}70%,80%{rotate:12deg;translate:-1px 1.2px}}
+@keyframes ws-sniff{0%,60%,100%{rotate:0deg}70%,90%{rotate:14deg}80%{rotate:10deg}}
+@keyframes ws-pant{from{scale:1 .8}to{scale:1 1.15}}
+@keyframes ws-breath{0%,40%{scale:.2;opacity:0;translate:0 0}55%{opacity:.95}100%{scale:1.5;opacity:0;translate:5px -4px}}
+@keyframes ws-breathe{from{scale:1 1}to{scale:1.02 .94}}
+@keyframes ws-zzz{0%{opacity:0;translate:0 2px;scale:.6}25%{opacity:1}100%{opacity:0;translate:4px -10px;scale:1.1}}
+@keyframes ws-track{0%,4%{translate:0 0}46%,54%{translate:var(--d) 0}96%,100%{translate:0 0}}
+@keyframes ws-turn{0%,46%{scale:1 1}50%,96%{scale:-1 1}100%{scale:1 1}}
+@keyframes ws-turn-l{0%,46%{scale:-1 1}50%,96%{scale:1 1}100%{scale:-1 1}}
+@keyframes ws-shiver{0%,60%,100%{translate:0 0}62%,66%,70%{translate:-.5px 0}64%,68%,72%{translate:.5px 0}}
+@media (prefers-reduced-motion:reduce){.weather-scene *{animation:none!important}}
 .settings-layout{grid-template-columns:minmax(174px,230px) minmax(0,1fr);align-items:start;gap:14px}
 .settings-content{min-width:0;display:grid;gap:12px}
 .settings-content>.panel,.settings-layout>.settings-side{min-width:0;margin:0}
