@@ -93,6 +93,10 @@ final class OmniInbox
         $visible = [];
         foreach ($config as $field => $value) $visible[$field] = in_array($field, self::SECRET_FIELDS, true) ? ($value !== '' ? 'saved' : '') : $value;
         $hook = $this->origin.'/api/inbox/hook/'.$row['hook_key'];
+        if (in_array($config['provider'] ?? '', ['phone', 'device'], true)) {
+            return ['id' => $row['id'], 'kind' => $row['kind'], 'kindLabel' => self::KINDS[$row['kind']] ?? $row['kind'], 'label' => $row['label'], 'status' => $row['status'],
+                'externalId' => '', 'lastError' => $row['last_error'], 'lastEventAt' => $row['last_event_at'] === null ? null : (int)$row['last_event_at'], 'config' => [], 'managed' => 'phone'];
+        }
         $out = ['id' => $row['id'], 'kind' => $row['kind'], 'kindLabel' => self::KINDS[$row['kind']] ?? $row['kind'], 'label' => $row['label'], 'status' => $row['status'],
             'externalId' => $row['external_id'], 'lastError' => $row['last_error'], 'lastEventAt' => $row['last_event_at'] === null ? null : (int)$row['last_event_at'], 'config' => $visible];
         if (in_array($row['kind'], ['whatsapp', 'messenger', 'instagram'], true)) { $out['webhookUrl'] = $hook; $out['verifyToken'] = $this->verifyToken($row['hook_key']); }
@@ -122,6 +126,7 @@ final class OmniInbox
             if (!is_string($id) || !preg_match('/\A[a-f0-9]{32}\z/', $id)) throw new RuntimeException('Kanal bulunamadı.', 404);
             $existing = $this->channelRow($actor['partner_id'], $id);
             if ($existing['kind'] !== $kind) throw new RuntimeException('Kanal türü değiştirilemez.', 422);
+            if (isset((json_decode((string)$existing['config'], true) ?: [])['provider'])) throw new RuntimeException('Bu kanal Telefon Bağlantısı sayfasından yönetilir.', 422);
         }
         $old = $existing ? (json_decode((string)$existing['config'], true) ?: []) : [];
         $raw = is_object($input->config ?? null) ? (array)$input->config : [];
@@ -200,6 +205,7 @@ final class OmniInbox
         self::guard($actor, true); self::owner($actor);
         $row = $this->channelRow($actor['partner_id'], (string)($input->id ?? ''));
         $c = $this->config($row);
+        if (isset($c['provider'])) return ['ok' => true, 'message' => 'Bu kanal Telefon Bağlantısı üzerinden çalışır; durumunu o sayfadan izleyin.'];
         try {
             $result = match ($row['kind']) {
                 'whatsapp' => $this->http('GET', $this->endpoint('graph').'/'.$c['apiVersion'].'/'.$c['phoneNumberId'].'?fields=display_phone_number,verified_name', null, $c['accessToken']),
@@ -602,7 +608,7 @@ final class OmniInbox
         }
         $before = (int)($filter['before'] ?? 0);
         if ($before > 0) { $where[] = 'c.last_message_at<?'; $params[] = $before; }
-        $sql = 'SELECT c.*,ch.kind,ch.label AS channel_label FROM inbox_conversation c JOIN inbox_channel ch ON ch.id=c.channel_id WHERE '.implode(' AND ', $where).' ORDER BY c.last_message_at DESC,c.id DESC LIMIT 60';
+        $sql = 'SELECT c.*,ch.kind,ch.label AS channel_label,ch.external_id AS channel_external FROM inbox_conversation c JOIN inbox_channel ch ON ch.id=c.channel_id WHERE '.implode(' AND ', $where).' ORDER BY c.last_message_at DESC,c.id DESC LIMIT 60';
         $q = $this->db->prepare($sql);
         $q->execute($params);
         $items = array_map(fn($r) => $this->conversationOut($r, $now), $q->fetchAll(PDO::FETCH_ASSOC));
@@ -620,7 +626,7 @@ final class OmniInbox
     private function conversationOut(array $r, int $now): array
     {
         $window = null;
-        if (in_array($r['kind'], ['whatsapp', 'messenger', 'instagram'], true)) $window = $r['last_inbound_at'] === null ? 0 : max(0, (int)$r['last_inbound_at'] + 86400 - $now);
+        if (in_array($r['kind'], ['whatsapp', 'messenger', 'instagram'], true) && !in_array($r['channel_external'] ?? '', ['phone', 'device'], true)) $window = $r['last_inbound_at'] === null ? 0 : max(0, (int)$r['last_inbound_at'] + 86400 - $now);
         return ['id' => (int)$r['id'], 'kind' => $r['kind'], 'channel' => $r['channel_label'], 'name' => $r['contact_name'], 'handle' => $r['contact_handle'] ?: $r['contact_key'],
             'client' => $r['client_id'], 'status' => $r['status'], 'snoozeUntil' => $r['snooze_until'] === null ? null : (int)$r['snooze_until'],
             'assignee' => $r['assignee_id'], 'assigneeName' => $r['assignee_name'], 'lastAt' => (int)$r['last_message_at'], 'preview' => $r['last_preview'],
@@ -630,7 +636,7 @@ final class OmniInbox
 
     private function conversation(string $partner, int $id, bool $lock = false): array
     {
-        $q = $this->db->prepare('SELECT c.*,ch.kind,ch.label AS channel_label FROM inbox_conversation c JOIN inbox_channel ch ON ch.id=c.channel_id WHERE c.partner_id=? AND c.id=?'.($lock ? ' FOR UPDATE' : ''));
+        $q = $this->db->prepare('SELECT c.*,ch.kind,ch.label AS channel_label,ch.external_id AS channel_external FROM inbox_conversation c JOIN inbox_channel ch ON ch.id=c.channel_id WHERE c.partner_id=? AND c.id=?'.($lock ? ' FOR UPDATE' : ''));
         $q->execute([$partner, $id]);
         $row = $q->fetch(PDO::FETCH_ASSOC);
         if (!$row) throw new RuntimeException('Konuşma bulunamadı.', 404);
@@ -828,11 +834,12 @@ final class OmniInbox
         $messageId = (int)$this->db->lastInsertId();
         $status = 'sent'; $error = ''; $external = null;
         try {
-            $external = $this->deliver($channelRow, $config, $row, $outgoing, $template, $now);
+            $external = $this->deliver($channelRow, $config, $row, $outgoing, $template, $now, $messageId, $name);
         } catch (RuntimeException $failure) {
             $status = 'failed';
             $error = mb_substr($failure->getMessage(), 0, 300, 'UTF-8');
         }
+        if ($status === 'sent' && is_string($external) && str_starts_with($external, 'gw:')) $status = 'queued';
         $this->db->prepare('UPDATE inbox_message SET status=?,error=?,external_id=? WHERE id=?')->execute([$status, $error, $external, $messageId]);
         $this->db->prepare("UPDATE inbox_conversation SET last_message_at=?,last_preview=?,last_direction='out',unread=0,status=IF(status='closed','open',status) WHERE id=?")
             ->execute([$now, mb_substr(preg_replace('/\s+/u', ' ', $text) ?? $text, 0, 200, 'UTF-8'), $id]);
@@ -842,10 +849,17 @@ final class OmniInbox
     }
 
     /** Kanala göre gönderir; sağlayıcının mesaj kimliğini döndürür. */
-    private function deliver(array $channel, array $c, array $conv, string $text, ?object $template, int $now): ?string
+    private function deliver(array $channel, array $c, array $conv, string $text, ?object $template, int $now, int $messageId = 0, string $by = ''): ?string
     {
         $kind = $channel['kind'];
         $to = (string)$conv['contact_key'];
+        if (in_array($c['provider'] ?? '', ['phone', 'device'], true)) {
+            // Telefon Bağlantısı: mesaj kliniğin kendi hattından (SMS) veya WhatsApp numarasından gider; 24 saat kuralı yoktur.
+            $gateway = new PhoneGateway($this->db);
+            if (!$gateway->route($conv['partner_id'], $kind)) throw new RuntimeException($kind === 'sms' ? 'Telefon Bağlantısı sayfasında SMS gönderimi kapalı veya bağlı telefon yok.' : 'Telefon Bağlantısı sayfasında WhatsApp modu kapalı.', 422);
+            if ($template) throw new RuntimeException('Bu kanalda şablon gerekmez; mesajı doğrudan yazın.', 422);
+            return 'gw:'.$gateway->enqueue($conv['partner_id'], $kind, $to, $text, 'inbox', 'm'.$messageId, 0, $now, null, $by);
+        }
         if (in_array($kind, ['whatsapp', 'messenger', 'instagram'], true) && !$template) {
             $last = (int)($conv['last_inbound_at'] ?? 0);
             if ($last === 0 || $now - $last > 86400) {

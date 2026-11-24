@@ -29,6 +29,12 @@ Klinikler; WhatsApp Business, Facebook, Instagram, Telegram, SMS sağlayıcısı
 - Bağlantı kaldırıldığında yeni mesaj alınmaz; geçmiş yazışmaların saklanması veya silinmesi kliniğin kararına bağlıdır.
 Bu kanalların sağlayıcıları (ör. Meta, Telegram, SMS operatörleri) kendi gizlilik koşullarına tabidir.
 
+### 4.1 Telefon Bağlantısı (kliniğin kendi hattı)
+Klinik, SMS ve WhatsApp mesajlarını ücretli bir sağlayıcı yerine kendi telefon numarasından göndermeyi seçebilir. Bu durumda:
+- Kliniğin Android telefonundaki VetZimo ajanı, kuyruktaki SMS'leri telefonun SIM kartından gönderir ve telefona gelen SMS'leri kliniğin gelen kutusuna aktarır. Ajan ilk kurulumdan önce telefonda bulunan eski SMS'leri aktarmaz; operatör ve kampanya gibi kısa numaralı mesajları almaz.
+- WhatsApp mesajları, klinik tercih ederse personelin tek dokunuşla göndermesi için hazırlanır ya da kliniğin bilgisayarındaki ajanda kliniğin kendi WhatsApp oturumu üzerinden gönderilir. WhatsApp oturumu yalnızca kliniğin bilgisayarında saklanır, Şirket'e iletilmez.
+- Mesaj içerikleri ve alıcı numaraları yalnızca gönderim süresince ve kliniğin gönderim geçmişi için o kliniğin hesabında tutulur.
+
 ## 5. Bakanlık Köprüsü ajanı
 Bakanlık Köprüsü, kliniğin kendi bilgisayarında çalışan bir yardımcı programdır. e-Devlet giriş bilgileri **Şirkete iletilmez ve saklanmaz**; giriş, hekim tarafından kendi bilgisayarında yapılır. Ajan yalnızca kliniğin gönderilmesini onayladığı reçete ve aşı kayıtlarını, kamu sistemine kliniğin oturumu üzerinden iletir ve sonuç belge numarasını kliniğin kaydına yazar.
 

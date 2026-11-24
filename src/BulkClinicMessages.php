@@ -46,6 +46,8 @@ final class BulkClinicMessages
         }
         $partner=$actor['partner_id'];
         $provider=$this->config['appointmentReminderConnections'][$partner][$channel]??[];
+        // Telefon Bağlantısı açıksa mesaj kliniğin kendi hattından gider: kredi düşmez, WhatsApp'ta onaylı şablon gerekmez.
+        $viaPhone=(bool)(new PhoneGateway($this->db))->route($partner,$channel);
         if (!$preview) $this->db->beginTransaction();
         try {
             if (!$preview) {
@@ -61,11 +63,11 @@ final class BulkClinicMessages
                 static fn($row)=>$row->branch===$dataBranch)),null,'id');
             $templateId=$input->templateId??'';
             $template=is_string($templateId)?($records('templates')[$templateId]??null):null;
-            $body=$template?($template->message??''):($channel==='sms' && is_string($input->message??null)?trim($input->message):'');
+            $body=$template?($template->message??''):(($channel==='sms' || $viaPhone) && is_string($input->message??null)?trim($input->message):'');
             if (!preg_match('/\A.{1,912}\z/usD',$body) || ($template && $template->channel!==($channel==='sms'?'SMS':'WhatsApp'))) {
                 throw new RuntimeException('Bu kanala ait geçerli bir mesaj metni veya şablon seçin.',422);
             }
-            if ($channel==='whatsapp' && ($body!==($provider['bulkBody']??null) || empty($provider['bulkTemplate']))) {
+            if (!$viaPhone && $channel==='whatsapp' && ($body!==($provider['bulkBody']??null) || empty($provider['bulkTemplate']))) {
                 throw new RuntimeException('Yönetimde tanımlanan onaylı WhatsApp toplu şablonunu seçin.',422);
             }
             $clients=$records('clients'); $patients=$records('patients');
@@ -114,7 +116,7 @@ final class BulkClinicMessages
                 }
                 $phones[$phone]=true;
                 $characters=preg_match_all('/./us',$filled)+preg_match_all('/[\x{10000}-\x{10FFFF}]/u',$filled);
-                $units=$channel==='whatsapp'?1:($characters<=70?1:(int)ceil($characters/67));
+                $units=$viaPhone?0:($channel==='whatsapp'?1:($characters<=70?1:(int)ceil($characters/67)));
                 $proof=hash_hmac('sha256',json_encode([$actor['membership_id'],$partner,$branch,$channel,$iys,$client->id,$phone,$filled,$variables],
                     JSON_THROW_ON_ERROR),$this->config['rateSecret']);
                 $result['body']=$filled;$result['units']=$units;
@@ -132,8 +134,8 @@ final class BulkClinicMessages
                         $result['reason']='Yeterli gönderim kredisi yok.';
                     } else {
                         $job=['channel'=>$channel,'phone'=>$phone,'message'=>$filled,'parameters'=>$variables,
-                            'iys'=>$iys,'waTemplate'=>$provider['bulkTemplate']??'', 'approvedBodyHash'=>hash('sha256',$body)];
-                        if (!$this->providerRequest($provider,$job,$id)) throw new RuntimeException('Kanal sağlayıcısı bu bayi için hazır değil.',422);
+                            'iys'=>$iys,'waTemplate'=>$provider['bulkTemplate']??'', 'approvedBodyHash'=>hash('sha256',$body),'via'=>$viaPhone?'phone':'provider'];
+                        if (!$viaPhone && !$this->providerRequest($provider,$job,$id)) throw new RuntimeException('Kanal sağlayıcısı bu bayi için hazır değil.',422);
                         $this->db->prepare('INSERT INTO clinic_bulk_message(id,partner_id,branch_id,data_branch,membership_id,channel,client_id,masked_phone,payload,units)
                             VALUES (?,?,?,?,?,?,?,?,?,?)')->execute([$id,$partner,$branch,$dataBranch,$actor['membership_id'],$channel,$client->id,
                                 '+90 ••• ••• •• '.substr($phone,-2),json_encode($job,JSON_THROW_ON_ERROR),$units]);
@@ -155,10 +157,11 @@ final class BulkClinicMessages
     public function session(array $actor): array
     {
         $connections=$this->config['appointmentReminderConnections'][$actor['partner_id']]??[];
+        $gateway=new PhoneGateway($this->db);
         return ['role'=>$actor['role'],'provider'=>[
-            'sms'=>!empty($connections['sms']),
-            'whatsapp'=>!empty($connections['whatsapp']),
-        ]];
+            'sms'=>!empty($connections['sms']) || (bool)$gateway->route($actor['partner_id'],'sms'),
+            'whatsapp'=>!empty($connections['whatsapp']) || (bool)$gateway->route($actor['partner_id'],'whatsapp'),
+        ],'phone'=>['sms'=>(bool)$gateway->route($actor['partner_id'],'sms'),'whatsapp'=>$gateway->route($actor['partner_id'],'whatsapp')]];
     }
 
     /** Bayi hesabı: profil, kanal bakiyeleri, kullanım, kredi hareketleri ve gönderim özeti. */
@@ -247,7 +250,8 @@ final class BulkClinicMessages
                 if ($member) $member=(new Commerce($this->db))->packageActor($member);
                 $job=json_decode($row['payload'],true,16,JSON_THROW_ON_ERROR);
                 $provider=$this->config['appointmentReminderConnections'][$row['partner_id']][$row['channel']]??[];
-                $request=$this->providerRequest($provider,$job,$row['id']);
+                $viaPhone=($job['via']??'')==='phone';
+                $request=$viaPhone?['phone']:$this->providerRequest($provider,$job,$row['id']);
                 $status='rejected';$reference='';
                 if ($member && $request && self::channelGrant($member,$row['channel'],true) && ClinicAccess::allowed($member,'clients') &&
                     ClinicAccess::allowed($member,'patients') && ($member['role']==='dealer' || $member['branch_id']===$row['branch_id'])) {
@@ -259,8 +263,13 @@ final class BulkClinicMessages
                         $client->branch===$row['data_branch'] && ($client->$channel??'')==='Var' &&
                         DealerLogin::normalizePhone($client->phone??'')===$job['phone']) {
                         $this->db->prepare("UPDATE clinic_bulk_message SET status='sending' WHERE id=?")->execute([$row['id']]);
-                        try {[$status,$reference]=AppointmentReminders::send($request,$channel);}
-                        catch (\Throwable) {$status='unknown';}
+                        if ($viaPhone) {
+                            try {$reference='phone:'.(new PhoneGateway($this->db))->enqueue($row['partner_id'],$channel,$job['phone'],$job['message'],'bulk',$row['id'],2,time(),time()+3*86400);$status='accepted';}
+                            catch (\Throwable) {$status='rejected';}
+                        } else {
+                            try {[$status,$reference]=AppointmentReminders::send($request,$channel);}
+                            catch (\Throwable) {$status='unknown';}
+                        }
                     }
                 }
                 $this->db->prepare("UPDATE clinic_bulk_message SET status=?,provider_ref=?,payload='{}' WHERE id=?")

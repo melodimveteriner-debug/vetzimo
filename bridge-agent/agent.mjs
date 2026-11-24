@@ -10,8 +10,9 @@ import path from "node:path";
 import crypto from "node:crypto";
 import {fileURLToPath} from "node:url";
 import {chromium} from "playwright-core";
+import {createWhatsApp} from "./whatsapp.mjs";
 
-const VERSION = "1.0.0";
+const VERSION = "1.1.0";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const HOME = process.env.VZ_BRIDGE_HOME || path.join(process.env.APPDATA || path.join(os.homedir(), ".config"), "VetZimoKopru");
 const PORT = Number(process.env.VZ_BRIDGE_PORT || 5199);
@@ -53,6 +54,15 @@ async function launch(headless) {
   if (process.env.VZ_BROWSER) return chromium.launch({...options, executablePath: process.env.VZ_BROWSER});
   for (const channel of ["msedge", "chrome"]) {
     try { return await chromium.launch({...options, channel}); } catch {}
+  }
+  throw new Error("Microsoft Edge ya da Google Chrome bulunamadı.");
+}
+// WhatsApp Web için kalıcı profil (bağlı cihaz oturumu bu bilgisayarda kalır). Otomatik çalışmada pencere simge durumunda açılır.
+async function launchPersistent(dir, visible) {
+  const options = {headless: process.env.VZ_HEADLESS === "1", viewport: null, args: ["--disable-blink-features=AutomationControlled", ...(visible ? [] : ["--start-minimized"])]};
+  if (process.env.VZ_BROWSER) return chromium.launchPersistentContext(dir, {...options, executablePath: process.env.VZ_BROWSER});
+  for (const channel of ["msedge", "chrome"]) {
+    try { return await chromium.launchPersistentContext(dir, {...options, channel}); } catch {}
   }
   throw new Error("Microsoft Edge ya da Google Chrome bulunamadı.");
 }
@@ -256,6 +266,15 @@ async function tick() {
 }
 setInterval(tick, 15000);
 setTimeout(tick, 1500);
+// WhatsApp (kliniğin kendi numarası): klinik panelinde "Otomatik WhatsApp" seçiliyse çalışır.
+const whatsapp = createWhatsApp({launchPersistent, home: HOME, api, log});
+async function waTick() {
+  if (!config.token) return;
+  try { await whatsapp.tick(); }
+  catch (e) { if (e.status === 401) { log("Ajan erişimi kaldırılmış; yeniden eşleştirin."); config.token = ""; saveConfig(); } }
+}
+setInterval(waTick, Number(process.env.VZ_WA_TICK_MS || 20000));
+setTimeout(waTick, 4000);
 // Oturum yaklaşık saatte bir sessizce denetlenir (Bakanlık oturumu zamanla düşer).
 setInterval(() => { if (config.token && !state.busy && !state.teach && !loginRunning) checkSession(); }, 60 * 60 * 1000);
 
@@ -320,7 +339,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "GET" && url.pathname === "/durum") {
       return send(res, 200, {version: VERSION, paired: !!config.token, server: config.server, name: config.name, ministryUrl: config.ministryUrl,
         online: state.online, ministry: state.ministry, queued: state.queued, current: state.current, lastError: state.lastError, login: loginRunning,
-        recipes: Object.keys(recipes), teach: state.teach ? {kind: state.teach.kind, steps: state.teach.steps, closed: !!state.teach.closed} : null, logs: logs.slice(-60)});
+        recipes: Object.keys(recipes), whatsapp: whatsapp.state(), teach: state.teach ? {kind: state.teach.kind, steps: state.teach.steps, closed: !!state.teach.closed} : null, logs: logs.slice(-60)});
     }
     if (req.method === "GET" && url.pathname === "/gunluk") return send(res, 200, logs.join("\n"), "text/plain");
     if (req.method !== "POST") return send(res, 404, {error: "Bulunamadı"});
@@ -339,6 +358,8 @@ const server = http.createServer(async (req, res) => {
         return send(res, 200, {ok: true}); }
       case "/ayar": if (body.ministryUrl && allowedHost(body.ministryUrl)) { config.ministryUrl = body.ministryUrl; saveConfig(); } return send(res, 200, {ok: true});
       case "/giris": login(); return send(res, 200, {ok: true});
+      case "/whatsapp/bagla": whatsapp.link().catch(e => log("WhatsApp bağlanamadı: " + e.message)); return send(res, 200, {ok: true});
+      case "/whatsapp/kaldir": await whatsapp.logout(); return send(res, 200, {ok: true});
       case "/kontrol": await checkSession(); return send(res, 200, {ok: true, ministry: state.ministry});
       case "/ogret/baslat": await teachStart(body.kind, body.url); return send(res, 200, {ok: true});
       case "/ogret/isaretle": await teachMark(body.mode); return send(res, 200, {ok: true});

@@ -73,6 +73,12 @@ ol{margin:0;padding-left:20px}
     </div>
   </section>
 
+  <section class="card" id="waCard" hidden>
+    <h2>WhatsApp (kliniğin kendi numarası)</h2>
+    <p class="muted">Klinik panelinde <b>Telefon Bağlantısı › WhatsApp: Otomatik</b> seçildiğinde hatırlatma, toplu mesaj ve gelen kutusu yanıtları bu bilgisayardaki WhatsApp Web üzerinden kliniğin numarasıyla gider; gelen mesajlar VetZimo gelen kutusuna düşer. Bilgisayar ve tarayıcı açık kalmalıdır.</p>
+    <div class="row" id="waPills"></div>
+    <div class="row"><button class="primary" id="waLink">WhatsApp'ı bağla (QR kodu)</button><button id="waLogout">Bu bilgisayardan WhatsApp oturumunu kaldır</button></div>
+  </section>
   <section class="card"><h2>Günlük</h2><pre id="log"></pre><a href="/gunluk" download="vetzimo-kopru-gunluk.txt">Günlüğü indir</a></section>
 </main>
 <script>
@@ -148,6 +154,12 @@ async function refresh() {
     if (s.teach.closed) $("teachMsg").textContent = "Pencere kapandı. Tarifi kaydedebilir ya da vazgeçebilirsiniz.";
   } else { meta = new Map(); lastTeach = ""; }
   $("log").textContent = s.logs.join("\n");
+  $("waCard").hidden = !s.paired;
+  const w = s.whatsapp || {};
+  const ws = {ready: ["ok", "WhatsApp bağlı"], qr: ["warn", "QR kodu okutulmayı bekliyor"], closed: ["warn", "WhatsApp penceresi kapalı"], error: ["bad", "WhatsApp açılamadı"], off: ["", "WhatsApp bağlı değil"]}[w.state] || ["", w.state || "-"];
+  const wm = {auto: ["ok", "Klinik ayarı: Otomatik"], assist: ["", "Klinik ayarı: Yarı otomatik (bu bilgisayar kullanılmaz)"], off: ["", "Klinik ayarı: Kapalı"]}[w.mode] || ["", "Klinik ayarı bekleniyor"];
+  $("waPills").innerHTML = "";
+  for (const [cls, text] of [ws, wm, ...(w.error ? [["bad", w.error]] : [])]) { const p = document.createElement("span"); p.className = "pill " + cls; p.textContent = text; $("waPills").append(p); }
 }
 $("pair").onclick = () => post("/eslestir", {server: $("server").value, code: $("code").value}).then(refresh, e => { $("pairMsg").textContent = e.message; });
 $("login").onclick = () => post("/giris").then(refresh);
@@ -158,6 +170,8 @@ $("markSubmit").onclick = () => post("/ogret/isaretle", {mode: "submit"});
 $("markRead").onclick = () => post("/ogret/isaretle", {mode: "read"});
 $("markLogged").onclick = () => post("/ogret/isaretle", {mode: "loggedIn"});
 $("saveRecipe").onclick = () => post("/ogret/kaydet", {steps: build()}).then(() => { $("teachMsg").textContent = ""; refresh(); }, e => { $("teachMsg").textContent = e.message; });
+$("waLink").onclick = () => post("/whatsapp/bagla").then(refresh);
+$("waLogout").onclick = () => { if (confirm("WhatsApp oturumu bu bilgisayardan kaldırılsın mı?")) post("/whatsapp/kaldir").then(refresh); };
 $("cancelTeach").onclick = () => post("/ogret/vazgec").then(refresh);
 refresh(); setInterval(refresh, 2000);
 </script>

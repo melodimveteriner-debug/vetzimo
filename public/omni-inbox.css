@@ -118,7 +118,7 @@
 .ox-chan header{display:flex;gap:10px;align-items:center}
 .ox-chan header div{display:grid;min-width:0;flex:1}
 .ox-chan header span{font-size:.78rem;color:var(--ox-muted);overflow:hidden;text-overflow:ellipsis}
-.ox-state{padding:2px 9px;border-radius:99px;font-size:.72rem!important;font-weight:700;background:color-mix(in srgb,#16a34a 14%,var(--ox-paper));color:#15803d!important}
+.ox-state{padding:2px 9px;border-radius:99px;font-size:.72rem!important;font-weight:700;background:color-mix(in srgb,#16a34a 14%,var(--ox-paper));color:color-mix(in srgb,#16a34a 55%,var(--ox-ink))!important}
 .ox-state.error{background:color-mix(in srgb,#dc2626 14%,var(--ox-paper));color:#b91c1c!important}
 .ox-state.removed{background:var(--ox-soft);color:var(--ox-muted)!important}
 .ox-copy{display:grid;grid-template-columns:1fr auto;gap:4px 8px;align-items:center;font-size:.78rem}

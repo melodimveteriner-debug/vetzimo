@@ -37,7 +37,7 @@ export function mountOmniInbox(root,api){
  const post=async body=>{const r=await api.fetch("/api/inbox",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});const d=await r.json();if(!r.ok)throw Error(d.error||tr("İşlem tamamlanamadı."));return d};
  const st={box:"open",channel:"",q:"",items:[],boxes:{},chan:{},cursor:0,sel:null,thread:null,team:[],me:"",quick:[],settings:{},mode:"reply",view:"inbox",channels:null,canManage:!1,pane:"list",draft:new Map};
  root.classList.add("ox-root");
- const css="/omni-inbox.css?v=2";if(!document.querySelector(`link[href="${css}"]`))document.head.append(h("link",{rel:"stylesheet",href:css}));
+ const css="/omni-inbox.css?v=3";if(!document.querySelector(`link[href="${css}"]`))document.head.append(h("link",{rel:"stylesheet",href:css}));
  const side=h("aside",{class:"ox-side","aria-label":tr("Kutular ve kanallar")}),list=h("section",{class:"ox-list","aria-label":tr("Konuşmalar")}),chat=h("section",{class:"ox-chat","aria-label":tr("Konuşma")}),card=h("aside",{class:"ox-card","aria-label":tr("Müşteri kartı")});
  const shell=h("div",{class:"ox-shell"},side,list,chat,card);
  root.replaceChildren(shell);
@@ -200,7 +200,7 @@ export function mountOmniInbox(root,api){
     c.lastError?h("p",{class:"ox-err",text:c.lastError}):null,
     h("p",{class:"ox-muted",text:c.lastEventAt?tr("Son mesaj")+": "+when(c.lastEventAt,!0):tr("Henüz mesaj alınmadı.")}),
     ...info,
-    d.canManage&&c.status!=="removed"?h("div",{class:"ox-actions"},
+    c.managed?h("div",{class:"ox-actions"},h("a",{class:"ox-btn",href:"#telefon-baglantisi",text:tr("Telefon Bağlantısı ayarları")})):d.canManage&&c.status!=="removed"?h("div",{class:"ox-actions"},
      h("button",{type:"button",class:"ox-btn",text:tr("Bağlantıyı dene"),onclick:async e=>{e.target.disabled=!0;try{toast((await post({action:"channel-test",id:c.id})).message)}catch(x){toast(x.message)}finally{e.target.disabled=!1;drawChannels()}}}),
      h("button",{type:"button",class:"ox-btn",text:tr("Düzenle"),onclick:()=>channelForm(c.kind,c)}),
      h("button",{type:"button",class:"ox-btn danger",text:tr("Kaldır"),onclick:async()=>{if(!confirm(tr("Kanal kaldırılsın mı? Geçmiş yazışmalar saklanır, yeni mesaj alınmaz.")))return;try{await post({action:"channel-delete",id:c.id});drawChannels()}catch(x){toast(x.message)}}})):null)});

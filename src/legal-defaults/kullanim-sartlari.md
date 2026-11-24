@@ -43,6 +43,9 @@ Kullanıcı, verilerini uygulama içindeki araçlarla her zaman dışa aktarabil
 ## 6. İletişim kanalları ve ticari iletiler
 Kullanıcı, Hizmet üzerinden SMS, e-posta, WhatsApp veya diğer kanallarla gönderdiği iletilerin içeriğinden; 6563 sayılı Kanun, Ticari İletişim ve Ticari Elektronik İletiler Hakkında Yönetmelik ve İleti Yönetim Sistemi (İYS) kurallarına uygunluğundan münhasıran sorumludur. Bağlanan üçüncü taraf kanalların (Meta, Telegram, SMS operatörleri vb.) kullanım koşullarına uyulması Kullanıcı'nın sorumluluğundadır; bu sağlayıcıların politika değişiklikleri veya kesintileri nedeniyle oluşan aksaklıklardan Şirket sorumlu tutulamaz.
 
+### 6.1 Kendi hattından gönderim
+Kullanıcı, Telefon Bağlantısı ile mesajları kendi telefon hattından veya kendi WhatsApp numarasından gönderdiğinde; hattın ve numaranın kullanımından, mobil operatörün ve WhatsApp'ın kullanım koşullarına uyulmasından ve bu nedenle doğabilecek hat veya hesap kısıtlamalarından sorumludur. WhatsApp'ın otomatik gönderim seçeneği, Kullanıcı'nın riski açıkça kabul etmesiyle etkinleşir; Şirket, WhatsApp veya operatör tarafından uygulanan kısıtlamalardan sorumlu tutulamaz. Kampanya ve tanıtım amaçlı iletiler yalnızca alıcının onayı ve İYS kaydı bulunduğunda gönderilmelidir.
+
 ## 7. Kamu sistemleriyle bağlantılar
 Bakanlık Köprüsü gibi kamu sistemlerine kayıt ileten araçlar, Kullanıcı'nın kendi yetkili oturumu ve onayı ile çalışır. Kamu sistemine iletilen bilgilerin doğruluğu ve gönderim kararı Kullanıcı'ya aittir. Kamu sistemlerinin ekran, kural veya erişim değişiklikleri nedeniyle aktarımın gecikmesi ya da yapılamaması hâlinde Kullanıcı'nın ilgili kaydı kamu sistemine doğrudan girme yükümlülüğü devam eder.
 

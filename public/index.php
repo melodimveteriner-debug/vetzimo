@@ -12,7 +12,7 @@ use VetNet\Cpanel\SessionRepository;
 
 require_once dirname(__DIR__).'/src/StaffPlan.php';
 
-foreach (['NativeApp','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','CreditShop','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','TeamTotp','WebInbox','MinistryBridge','SiteLegal','OmniInbox','PrintTemplates','Support','Commerce','Appearance'] as $class) {
+foreach (['NativeApp','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','CreditShop','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','TeamTotp','WebInbox','MinistryBridge','SiteLegal','OmniInbox','PhoneGateway','PrintTemplates','Support','Commerce','Appearance'] as $class) {
     require dirname(__DIR__) . '/src/' . $class . '.php';
 }
 
@@ -128,7 +128,7 @@ try {
         exit;
     }
     // Bakanlık köprüsü ajanı tarayıcı değildir (Origin göndermez) ve çerezle değil kendi anahtarıyla doğrulanır.
-    $bridgeAgent=!$externalWeb && str_starts_with($path,'/api/bridge/agent/') && !isset($_SERVER['HTTP_ORIGIN']);
+    $bridgeAgent=!$externalWeb && (str_starts_with($path,'/api/bridge/agent/') || str_starts_with($path,'/api/phone/agent/')) && !isset($_SERVER['HTTP_ORIGIN']);
     if ($method !== 'GET' && !$bridgeAgent && !hash_equals($externalWeb ? 'https://'.$host : $origin, $_SERVER['HTTP_ORIGIN'] ?? '')) {
         if (!$externalWeb && $path==='/clinic/evde-hizmet' && ($_GET['gorunum']??'')==='ayarlar') {
             VetNet\Cpanel\HomeVisitPages::settingsError('İstek kaynağı doğrulanamadı. Ayarları VetZimo üzerinden yeniden açıp kaydetmeyi deneyin.',403);
@@ -794,12 +794,57 @@ try {
                 'result'=>$bridge->result($agent,$body,$now),
                 'recipe'=>$bridge->saveRecipe($agent,$body,$now),
                 'recipes'=>$bridge->recipes($agent),
+                // Aynı ajan, klinik izin verdiyse WhatsApp Web üzerinden kliniğin kendi numarasıyla mesaj gönderir.
+                'wa-sync'=>(new VetNet\Cpanel\PhoneGateway($db))->waSync($agent,$body,$now,new VetNet\Cpanel\OmniInbox($db,(string)($config['encryptionKey'] ?? ''),$origin)),
                 default=>throw new RuntimeException('İşlem bulunamadı.',404),
             });
         } catch (PDOException $error) {
             if ($error->getCode()==='42S02') throw new RuntimeException('Köprü tabloları henüz kurulmadı; güncellemeyi tamamlayın.',503);
             throw $error;
         }
+    }
+    if (str_starts_with($path,'/api/phone/agent/') && $method==='POST') {
+        // Android telefon ajanı (Termux): kliniğin kendi SIM kartından SMS gönderir, gelen SMS'leri iletir.
+        $gateway=new VetNet\Cpanel\PhoneGateway($db);
+        $op=substr($path,strlen('/api/phone/agent/'));
+        $body=input(400000);
+        try {
+            if ($op==='pair') {
+                (new DealerLogin($db,$config['rateSecret']))->throttle('phone-pair:'.($_SERVER['REMOTE_ADDR']??''),$now);
+                reply($gateway->agentPair($body->code??null,$body->name??null,$body->version??null,$body->info??null,$now));
+            }
+            $auth=(string)($_SERVER['HTTP_AUTHORIZATION']??$_SERVER['REDIRECT_HTTP_AUTHORIZATION']??'');
+            if ($auth==='' && is_string($_SERVER['HTTP_X_PHONE_TOKEN']??null)) $auth='Bearer '.$_SERVER['HTTP_X_PHONE_TOKEN'];
+            $device=$gateway->agentAuth($auth);
+            if ($op==='sync') reply($gateway->sync($device,$body,$now,new VetNet\Cpanel\OmniInbox($db,(string)($config['encryptionKey'] ?? ''),$origin)));
+            throw new RuntimeException('İşlem bulunamadı.',404);
+        } catch (PDOException $error) {
+            if ($error->getCode()==='42S02') throw new RuntimeException('Telefon bağlantısı tabloları henüz kurulmadı; güncellemeyi tamamlayın.',503);
+            throw $error;
+        }
+    }
+    if ($path==='/api/phone' && in_array($method,['GET','POST'],true)) {
+        // Klinik: Telefon Bağlantısı durumu, ayarlar, cihaz eşleştirme, gönderim kuyruğu.
+        $actor=(new VetNet\Cpanel\Commerce($db))->packageActor($identity->actor($_COOKIE,$now));
+        $gateway=new VetNet\Cpanel\PhoneGateway($db);
+        try {
+            if ($method==='GET') reply($gateway->status($actor,$now)+['server'=>$origin]);
+            if (!hash_equals($actor['membership_id'] ?? '',$_SERVER['HTTP_X_VETNET_SCOPE'] ?? '')) throw new RuntimeException('Çalışma alanı oturumu değişti.',409);
+            reply($gateway->act($actor,input(20000),$now)+['server'=>$origin]);
+        } catch (PDOException $error) {
+            if ($error->getCode()==='42S02') throw new RuntimeException('Telefon bağlantısı tabloları henüz kurulmadı; güncellemeyi tamamlayın.',503);
+            throw $error;
+        }
+    }
+    if (in_array($path,['/telefon-ajani.sh','/telefon-ajani.py'],true) && $method==='GET') {
+        // Android (Termux) telefon ajanı: herkese açık, anahtar içermez; eşleştirme klinik panelindeki kodla yapılır.
+        $file=dirname(__DIR__).'/phone-agent/'.($path==='/telefon-ajani.sh'?'kur.sh':'vetzimo-telefon.py');
+        if (!is_file($file)) throw new RuntimeException('Dosya bulunamadı.',404);
+        header('Content-Type: text/plain; charset=utf-8');
+        header('Cache-Control: no-cache');
+        header('X-Content-Type-Options: nosniff');
+        echo str_replace('__VETZIMO_SERVER__',$origin,(string)file_get_contents($file));
+        exit;
     }
     if ($path==='/bakanlik-koprusu-ajani.zip' && $method==='GET') {
         // Ajan paketi: yalnız giriş yapmış klinik ekibi indirir. Paket anahtar içermez; eşleştirme kodla yapılır.
@@ -809,7 +854,7 @@ try {
         $tmp=tempnam(sys_get_temp_dir(),'vzbridge');
         $zip=new ZipArchive();
         $zip->open($tmp,ZipArchive::OVERWRITE);
-        foreach (['agent.mjs','recorder.js','panel.html','package.json','kur.cmd','kur.ps1','baslat.vbs','baslat.sh','OKU-BENI.txt'] as $file) $zip->addFile($dir.'/'.$file,'VetZimoKopru/'.$file);
+        foreach (['agent.mjs','whatsapp.mjs','recorder.js','panel.html','package.json','kur.cmd','kur.ps1','baslat.vbs','baslat.sh','OKU-BENI.txt'] as $file) $zip->addFile($dir.'/'.$file,'VetZimoKopru/'.$file);
         $zip->addFromString('VetZimoKopru/config.json',json_encode(['server'=>rtrim((string)$config['origin'],'/'),'token'=>'','ministryUrl'=>'https://vetbis.tarimorman.gov.tr'],JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES));
         $zip->close();
         header('Content-Type: application/zip');

@@ -85,6 +85,10 @@ final class AppointmentReminders
             $claim = $this->db->prepare("INSERT INTO clinic_appointment_reminder (dispatch_key,status) VALUES (?,'sending')");
             $finish = $this->db->prepare('UPDATE clinic_appointment_reminder SET status=?,provider_reference=? WHERE dispatch_key=?');
             $deadline = microtime(true) + 240;
+            // Telefon Bağlantısı açık klinikler: SMS kliniğin kendi hattından, WhatsApp kendi numarasından gider (sağlayıcı gerekmez).
+            $gateway = class_exists(PhoneGateway::class) ? new PhoneGateway($this->db) : null;
+            $routes = $gateway ? $gateway->routesAll() : [];
+            foreach ($routes as $partner => $route) $connections[$partner] ??= [];
             foreach ($connections as $partner => $settings) {
                 $read->execute([$partner]);
                 $row = $read->fetch();
@@ -95,11 +99,22 @@ final class AppointmentReminders
                     if (microtime(true) > $deadline) return $stats;
                     $provider = $settings[$job['channel']] ?? null;
                     $email = $job['channel']==='email';
-                    if ($email ? (!$notifications || !$notifications->settings()['smtpEnabled']) : !is_array($provider)) continue;
+                    $viaPhone = !$email && $gateway && !empty($routes[$partner][$job['channel']]);
+                    if (!$viaPhone && ($email ? (!$notifications || !$notifications->settings()['smtpEnabled']) : !is_array($provider))) continue;
                     if (!$job['birthday'] && (strtotime($job['due'].' +03:00') ?: 0) <= time()) continue;
                     $key = hash('sha256', json_encode([$partner,$job['branch'],$job['appointment'],($job['birthday'] ? substr($job['due'],0,10) : $job['due']),$job['channel'],...($job['kind']==='appointments'?[]:[$job['kind']])], JSON_THROW_ON_ERROR));
                     $exists->execute([$key]);
                     if ($exists->fetchColumn()) continue;
+                    if ($viaPhone) {
+                        $claim->execute([$key]);
+                        try {
+                            $expires = $job['birthday'] ? (strtotime(substr($job['due'],0,10).' 21:00 +03:00') ?: null) : (strtotime($job['due'].' +03:00') ?: null);
+                            $id = $gateway->enqueue($partner, $job['channel'], $job['phone'], $job['message'], 'reminder', $key, 1, $now, $expires);
+                            $finish->execute(['accepted', 'phone:'.$id, $key]);
+                            $stats['accepted']++;
+                        } catch (\Throwable) { $finish->execute(['rejected', '', $key]); $stats['rejected']++; }
+                        continue;
+                    }
                     $request = $email ? null : self::request($provider, $job, $key);
                     if (!$email && $request === null) {
                         $stats['rejected']++;

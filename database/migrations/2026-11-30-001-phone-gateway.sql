@@ -1,0 +1,51 @@
+CREATE TABLE IF NOT EXISTS phone_gateway (
+  partner_id varchar(80) NOT NULL PRIMARY KEY,
+  settings text NOT NULL,
+  wa_state varchar(12) NOT NULL DEFAULT '',
+  wa_seen bigint DEFAULT NULL,
+  wa_agent varchar(64) NOT NULL DEFAULT '',
+  wa_error varchar(300) NOT NULL DEFAULT '',
+  updated_at bigint NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS phone_device (
+  id char(32) NOT NULL PRIMARY KEY,
+  partner_id varchar(80) NOT NULL,
+  name varchar(80) NOT NULL DEFAULT '',
+  token_hash char(64) DEFAULT NULL,
+  pair_hash char(64) DEFAULT NULL,
+  pair_expires bigint DEFAULT NULL,
+  version varchar(20) NOT NULL DEFAULT '',
+  battery tinyint DEFAULT NULL,
+  info varchar(300) NOT NULL DEFAULT '',
+  last_error varchar(300) NOT NULL DEFAULT '',
+  inbound_mark bigint NOT NULL DEFAULT 0,
+  created_at bigint NOT NULL,
+  last_seen bigint DEFAULT NULL,
+  revoked_at bigint DEFAULT NULL,
+  UNIQUE KEY token_hash (token_hash),
+  KEY pair_hash (pair_hash),
+  KEY partner (partner_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS phone_outbox (
+  id bigint unsigned NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  partner_id varchar(80) NOT NULL,
+  channel varchar(10) NOT NULL,
+  phone varchar(20) NOT NULL,
+  body text NOT NULL,
+  source varchar(12) NOT NULL,
+  source_ref varchar(190) NOT NULL,
+  priority tinyint unsigned NOT NULL DEFAULT 1,
+  status varchar(10) NOT NULL DEFAULT 'queued',
+  device_id varchar(64) NOT NULL DEFAULT '',
+  error varchar(300) NOT NULL DEFAULT '',
+  not_before bigint NOT NULL DEFAULT 0,
+  expires_at bigint DEFAULT NULL,
+  created_by varchar(120) NOT NULL DEFAULT '',
+  created_at bigint NOT NULL,
+  claimed_at bigint DEFAULT NULL,
+  done_at bigint DEFAULT NULL,
+  UNIQUE KEY source_ref (source,source_ref),
+  KEY pick (partner_id,channel,status,priority,id),
+  KEY claimed (status,claimed_at),
+  KEY partner_time (partner_id,id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci

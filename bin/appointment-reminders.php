@@ -9,14 +9,14 @@ if (PHP_SAPI !== 'cli') {
     exit(1);
 }
 $root = dirname(__DIR__);
-foreach (['Database', 'WorkspaceRepository', 'DealerLogin', 'Totp', 'Notifications', 'AppointmentReminders', 'BulkClinicMessages', 'ClinicAccess', 'Commerce'] as $class) {
+foreach (['Database', 'WorkspaceRepository', 'DealerLogin', 'Totp', 'Notifications', 'AppointmentReminders', 'BulkClinicMessages', 'ClinicAccess', 'Commerce', 'ClinicRecords', 'OmniInbox', 'PhoneGateway'] as $class) {
     require $root . '/src/' . $class . '.php';
 }
 try {
     $config = require $root . '/config.php';
     $connections = $config['appointmentReminderConnections'] ?? [];
-    if ($connections === []) exit(0);
     $db = Database::connect($config['dsn'], $config['username'], $config['password']);
+    if ($connections === [] && (new VetNet\Cpanel\PhoneGateway($db))->routesAll() === []) exit(0);
     $stats = (new AppointmentReminders($db))->run($connections, time(), new VetNet\Cpanel\Notifications($db,$config['encryptionKey'] ?? ''));
     (new VetNet\Cpanel\BulkClinicMessages($db,$config))->deliver();
     if ($stats['accepted'] || $stats['rejected'] || $stats['unknown']) {
