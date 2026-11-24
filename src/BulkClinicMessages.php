@@ -71,6 +71,17 @@ final class BulkClinicMessages
             $clients=$records('clients'); $patients=$records('patients');
             $vaccines=ClinicAccess::allowed($actor,'followups')?$records('followups'):[];
             $balance=$preview?0:$this->balance($partner,$channel);
+            // {bakiye}: müşterinin açık borcu (satış - peşin tahsilat - sonraki tahsilatlar). Borcu olmayan alıcı atlanır.
+            $debts=[];
+            if (str_contains($body,'{bakiye}')) {
+                if (!ClinicAccess::allowed($actor,'sales')) throw new RuntimeException('Bakiye alanı için satış görüntüleme izni gerekir.',403);
+                $collected=[];
+                foreach ($records('collections') as $row) $collected[$row->sale??'']=($collected[$row->sale??'']??0)+Finance::money($row->amount??'0');
+                foreach ($records('sales') as $sale) {
+                    if (($sale->client??'')==='') continue;
+                    $debts[$sale->client]=($debts[$sale->client]??0)+Finance::money($sale->amount??'0')-Finance::money($sale->paid??'0')-($collected[$sale->id]??0);
+                }
+            }
             $results=[]; $phones=[];
             foreach ($targets as $target) {
                 if (!$target instanceof \stdClass || !is_string($target->client??null) ||
@@ -89,7 +100,8 @@ final class BulkClinicMessages
                 $date=($vaccine->done??'')?:($vaccine->date??'');
                 $values=['sahip'=>$client->name,'hasta'=>$patient->name??'','asi'=>$vaccine->title??'',
                     'asi_tarihi'=>preg_match('/\A\d{4}-\d{2}-\d{2}\z/D',$date)?implode('.',array_reverse(explode('-',$date))):'',
-                    'klinik'=>$clinic->name,'klinik_telefon'=>($clinic->phone??'')?:($state->preferences->phone??'')];
+                    'klinik'=>$clinic->name,'klinik_telefon'=>($clinic->phone??'')?:($state->preferences->phone??''),
+                    'bakiye'=>($debts[$client->id]??0)>0?number_format(($debts[$client->id])/100,2,',','.'):''];
                 $variables=[];$missing=false;
                 $filled=preg_replace_callback('/\{([a-z_]+)\}/',static function($m) use ($values,&$variables,&$missing) {
                     $value=trim($values[$m[1]]??'');
