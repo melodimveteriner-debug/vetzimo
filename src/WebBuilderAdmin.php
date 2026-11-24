@@ -360,7 +360,7 @@ final class WebBuilderAdmin
     private function panel(array $actor,?array $site,array $d,string $tab,array $get,string $actions,array $submitted): string
     {
         if ($tab==='genel') {
-            if (!$site) return '<section class="welcome"><h2>Kliniğinizin web sitesini oluşturun</h2><p>Temanızı seçin, klinik bilgilerinizi ekleyin ve randevu taleplerini VetZimo’te alın.</p><a class="button" href="?tab=kurulum">Ücretsiz Web Siteni Oluştur</a></section>';
+            if (!$site) return '<section class="welcome"><h2>Kliniğinizin web sitesini oluşturun</h2><p>Temanızı seçin, klinik bilgilerinizi ekleyin ve randevu taleplerini VetZimo’da alın.</p><a class="button" href="?tab=kurulum">Ücretsiz Web Siteni Oluştur</a></section>';
             return '<section class="welcome"><h2>'.self::e($d['identity']['name']).'</h2><p>'.self::e($this->web->base($site)).'</p><p>'.
                 ($site['published']?'Yayında':'Taslak').' · '.self::e(WebBuilder::THEMES[$d['theme']][0]).' · '.self::e($site['updated_at']).
                 '</p><div class="controls"><a class="button" href="?tab=duzen">Siteyi düzenle</a><a class="button secondary" href="?tab=yayin">Önizle / Yayınla</a></div></section>'.$this->statistics($site);

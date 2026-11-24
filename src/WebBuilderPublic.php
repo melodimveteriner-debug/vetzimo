@@ -242,7 +242,7 @@ final class WebBuilderPublic
         if (!$preview && !$owner) {
             $link=$local?'/giris?'.http_build_query(['donus'=>$return]):$this->config['origin'].$return;
             $html='<p class="booking-notice"><a class="button outline" href="'.self::e($link).'">'.
-                ($local?'VetZimo hesabıyla giriş yap':'Randevuyu VetZimo’te aç').'</a>'.
+                ($local?'VetZimo hesabıyla giriş yap':'Randevuyu VetZimo’da aç').'</a>'.
                 ($edit===''?' Ziyaretçi olarak da randevu alabilirsiniz.':'').'</p>';
             if ($edit!=='' && !$customer) return $html;
         }

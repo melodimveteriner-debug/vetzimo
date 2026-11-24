@@ -221,7 +221,7 @@ export const config = {
   branches:{label:"Şubeler",singular:"Şube",action:"Yeni şube",description:"Kayıtları şubeye göre ayırın ve şubeler arasında geçiş yapın.",columns:["name","city","dealer","status"],fields:[
     field("name","Şube adı","text",required),field("city","İl","text",required),field("phone","Klinik iletişim telefonu","tel"),field("dealer","Bağlı bayi","ref",{ref:"dealers"}),field("status","Durum","select",{values:["Aktif","Pasif"]}),
   ]},
-  users:{label:"Ekip Planı",singular:"Ekip kaydı",action:"Yeni ekip kaydı",description:"Şube ekibini ve planlanan görevleri listeleyin. Erişim ChatGPT hesabıyla sağlanır.",columns:["name","email","role"],fields:[
+  users:{label:"Ekip Planı",singular:"Ekip kaydı",action:"Yeni ekip kaydı",description:"Şube ekibini ve planlanan görevleri listeleyin. Erişim VetZimo hesabıyla sağlanır.",columns:["name","email","role"],fields:[
     field("name","Ad soyad","text",required),field("email","E-posta","email",required),field("role","Görev","select",{values:["Yönetici","Veteriner Hekim","Resepsiyon","Stok ve Kasa"]}),
   ]},
 };

@@ -1,5 +1,5 @@
 try {
-  await import("./app.js?v=20261123-r69");
+  await import("./app.js?v=20261124-r70");
 } catch (error) {
   console.error("Klinik paneli başlatılamadı.",error);
   const main=document.getElementById("main");

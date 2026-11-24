@@ -8,7 +8,7 @@ const categories={
   appointments:{label:"Randevu",title:"service"},
   weights:{label:"Kilo kaydı"},
 };
-const dateForm=new Intl.DateTimeFormat("tr-TR",{dateStyle:"medium",timeZone:"UTC"});
+const dateForm=new Intl.DateTimeFormat((document.documentElement.lang||"tr"),{dateStyle:"medium",timeZone:"UTC"});
 const decimal=new Intl.NumberFormat("tr-TR",{maximumFractionDigits:3});
 const text=value=>typeof value==="string"?value:"";
 

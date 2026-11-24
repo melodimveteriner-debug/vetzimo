@@ -1,7 +1,7 @@
 import {uiLabel,uiLanguage} from "./ui-locale.js?v=20261123-r64";
 const observations={routine:"Rutin gözlem",change:"Bir değişiklik fark ettim",contact:"Kliniğin beni aramasını istiyorum"};
 const decisions={reviewed:"İncelendi",contact:"Klinik iletişim isteği",called:"Arandı"};
-const dateFormat=new Intl.DateTimeFormat("tr-TR",{dateStyle:"short",timeStyle:"short",timeZone:"Europe/Istanbul"});
+const dateFormat=new Intl.DateTimeFormat((document.documentElement.lang||"tr"),{dateStyle:"short",timeStyle:"short",timeZone:"Europe/Istanbul"});
 export const homeCareTime=value=>{
   const date=new Date(String(value).replace(" ","T")+"Z");
   return Number.isNaN(date.getTime())?"":dateFormat.format(date);

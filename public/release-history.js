@@ -1,7 +1,7 @@
 import {pageControls} from "./paged.js";
 
 const labels={feature:"Yeni özellik",fix:"Hata giderme",update:"Düzenleme"};
-const date=new Intl.DateTimeFormat("tr-TR",{dateStyle:"long",timeStyle:"short",timeZone:"Europe/Istanbul"});
+const date=new Intl.DateTimeFormat((document.documentElement.lang||"tr"),{dateStyle:"long",timeStyle:"short",timeZone:"Europe/Istanbul"});
 const make=(tag,text,props={})=>Object.assign(document.createElement(tag),{textContent:text,...props});
 
 export async function mountReleaseHistory(root) {

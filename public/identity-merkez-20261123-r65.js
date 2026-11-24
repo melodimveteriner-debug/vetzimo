@@ -1,5 +1,5 @@
 import {uiText,uiLanguage,uiLabel,mountLanguageSelect} from "./ui-locale.js?v=20261123-r64";
-import {mountHomeCare} from "./homecare.js?v=20261123-r64";
+import {mountHomeCare} from "./homecare.js?v=20261124-r70";
 import {healthEvents,mountHealthTimeline} from "./health-timeline.js";
 import {petPortrait} from "./pet-portrait.js";
 import {loadAppearance} from "./theme.js";
@@ -304,7 +304,7 @@ function group(title,rows) {
 function dateText(value) {
   if (!value) return "—";
   const date=new Date(value+"T12:00:00Z");
-  return Number.isNaN(date.valueOf())?"—":new Intl.DateTimeFormat("tr-TR",{dateStyle:"medium",timeZone:"Europe/Istanbul"}).format(date);
+  return Number.isNaN(date.valueOf())?"—":new Intl.DateTimeFormat((document.documentElement.lang||"tr"),{dateStyle:"medium",timeZone:"Europe/Istanbul"}).format(date);
 }
 
 function vaccinePortal(rows,names) {
@@ -408,7 +408,7 @@ function mountOwnerNotifications(toolbar,scope) {
       const target=link(row.title,row.url);
       target.dataset.noticeId=row.id;
       const time=new Date(row.time.replace(" ","T")+"Z");
-      if (Number.isFinite(time.getTime())) item.append(target,el("small",new Intl.DateTimeFormat("tr-TR",{dateStyle:"medium",timeStyle:"short"}).format(time)));
+      if (Number.isFinite(time.getTime())) item.append(target,el("small",new Intl.DateTimeFormat((document.documentElement.lang||"tr"),{dateStyle:"medium",timeStyle:"short"}).format(time)));
       else item.append(target);
       target.addEventListener("click",async event=>{
         if (event.metaKey||event.ctrlKey||event.shiftKey||event.altKey) return;

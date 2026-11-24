@@ -87,7 +87,7 @@ final class WorkspaceRepository
     public function save(string $workspaceId, int $revision, object $state, ?object $original=null): ?int
     {
         if ($revision < 0 || $revision >= PHP_INT_MAX) {
-            throw new \InvalidArgumentException('Invalid workspace revision.');
+            throw new \InvalidArgumentException('Çalışma alanı sürümü geçersiz.');
         }
         $metadata = ClinicRecords::encode(ClinicRecords::metadata($state));
         $ownTransaction = !$this->database->inTransaction();

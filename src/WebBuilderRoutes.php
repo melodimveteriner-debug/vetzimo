@@ -174,7 +174,7 @@ final class WebBuilderRoutes
                 }
             } catch (RuntimeException $error) {
                 if ($path==='/web-sitem' && in_array($error->getCode(),[401,403],true)) {
-                    self::editorError('Web Sitem bölümünü açmak için VetZimo’e bayi yöneticisi hesabıyla giriş yapın.',403);
+                    self::editorError('Web Sitem bölümünü açmak için VetZimo’ya bayi yöneticisi hesabıyla giriş yapın.',403);
                 }
                 throw $error;
             }

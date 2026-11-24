@@ -68,7 +68,7 @@ const cards=(items,prefix)=>`<div class="cards">${items.map(([id,name,...rest])=
 const featureExamples={
   "hasta-yonetimi":["Hasta dosyası", "Pamuk · Kedi", "Aşılar · Kilo · Muayeneler", "Bir hasta seçerek kimlik bilgileri, aşı geçmişi ve klinik kayıtları aynı dosyada inceleyin."],
   "hasta-sahibi-yonetimi":["Müşteri kartı", "Örnek hasta sahibi", "Bağlı hastalar · İletişim · Tahsilatlar", "İletişim bilgileri ve bağlı hayvanları müşteri kartından bulun. Yetkili kullanıcılar bakiye ve tahsilat geçmişini inceleyebilir."],
-  "randevu":["Web sitesinden klinik takvimine", "10.30 · Kontrol muayenesi", "Uygun saat seçimi · Randevu talebi · Klinik takvimi", "Ziyaretçi veya kayıtlı hasta sahibi web sitenizden şube ve uygun saat seçer. Talep VetZimo’e düşer. Kayıtlı hasta sahipleri, yaklaşan web randevularını kendi panellerinden değiştirebilir veya iptal edebilir."],
+  "randevu":["Web sitesinden klinik takvimine", "10.30 · Kontrol muayenesi", "Uygun saat seçimi · Randevu talebi · Klinik takvimi", "Ziyaretçi veya kayıtlı hasta sahibi web sitenizden şube ve uygun saat seçer. Talep VetZimo’ya düşer. Kayıtlı hasta sahipleri, yaklaşan web randevularını kendi panellerinden değiştirebilir veya iptal edebilir."],
   "web-site-tasarlayici":["Klinik web sitenizi yayınlayın", "Klinik adı · Tema seçimi", "Ana sayfa · Blog · İletişim", "Logo ve ana sayfa fotoğrafını ekleyin, çalışma saatlerini ve haritanızı gösterin. Dilerseniz DNS ve HTTPS kurulumu sonrası kendi alan adınızı bağlayın. Web Site Tasarlayıcı, özelliğin açık olduğu paketlerde kullanılır."],
   "evden-takip":["Muayene sonrasında takip", "Örnek hasta · Ev gözlemi", "Beslenme · İlaç · Aranma isteği", "Hasta sahibi portaldan günlük gözlemini kaydeder veya aranma isteği bırakır. Klinik ekibi gelen kayıtları şubesinde görür, ilgili hasta üzerinden inceler."],
   "asi":["Aşı sihirbazı", "Mia · Kuduz", "Planlanan tarih · Uygulama tarihi · Yenileme", "Hasta ve aşıyı seçin. Uygulama tarihini kaydedin ve bir sonraki takibi planlayın."],
@@ -104,7 +104,7 @@ function featureDetail(id) {
 }
 
 function saasShowcase() {
-  const today=new Intl.DateTimeFormat("tr-TR",{timeZone:"Europe/Istanbul",day:"2-digit",month:"short",year:"numeric"}).format(new Date());
+  const today=new Intl.DateTimeFormat((document.documentElement.lang||"tr"),{timeZone:"Europe/Istanbul",day:"2-digit",month:"short",year:"numeric"}).format(new Date());
   const chart=waveChart([["Pzt",11,8],["Sal",19,13],["Çar",16,14],["Per",26,19],["Cum",34,24],["Cmt",31,28]],
     [["Randevu","blue"],["Aşı","teal"]],value=>String(value),escape,{compact:true,label:"Örnek haftalık randevu ve aşı grafiği"});
   return `<div class="showcase" data-edit-area="Örnek çalışma alanı">
@@ -145,7 +145,7 @@ function packages(plans) {
 }
 function application(kind,url,preview) {
   const [title,copy]={
-    demo:["VetZimo’i birlikte inceleyelim","Kliniğinizin günlük akışını paylaşın. Görüşmede ihtiyaçlarınıza göre uygun modülleri ele alalım."],
+    demo:["VetZimo’yu birlikte inceleyelim","Kliniğinizin günlük akışını paylaşın. Görüşmede ihtiyaçlarınıza göre uygun modülleri ele alalım."],
     trial:["Ücretsiz Demo","İşletmenizi ve beklentinizi yazın. Başvurunuz yönetim ekibinin inceleme kuyruğuna alınır."],
     contact:["VetZimo ile iletişim","Paket, veri geçişi veya entegrasyon konusunda ekibimize ulaşın."],
   }[kind];

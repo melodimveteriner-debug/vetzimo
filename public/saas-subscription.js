@@ -2,7 +2,7 @@ import {clinicFetch} from "./access.js";
 
 export const termStatus={active:"Etkin",scheduled:"Başlangıç bekliyor",expired:"Süresi doldu",unmanaged:"Dönem tanımlanmamış"};
 export const termKind={trial:"Deneme",paid:"Ücretli abonelik",assigned:"Yönetici paket ataması"};
-export const termDate=value=>new Intl.DateTimeFormat("tr-TR",{dateStyle:"medium",timeZone:"Europe/Istanbul"}).format(new Date(value+"T12:00:00Z"));
+export const termDate=value=>new Intl.DateTimeFormat((document.documentElement.lang||"tr"),{dateStyle:"medium",timeZone:"Europe/Istanbul"}).format(new Date(value+"T12:00:00Z"));
 
 export async function mountMySubscription(root,{esc}) {
   try {
