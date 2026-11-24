@@ -612,8 +612,6 @@ async function portal() {
     for(const exam of data.exams){
       const item=el("details");
       item.append(el("summary",[names.get(exam.patient),exam.title,exam.date].filter(Boolean).join(" · ")));
-      if(exam.assessment)item.append(el("p",exam.assessment));
-      if(exam.plan)item.append(el("p",exam.plan));
       for(const attachment of exam.attachments??[]){
         if(Array.isArray(attachment.rows)&&attachment.rows.length){
           // Yalnızca değer tablosu; klinik yorum hasta sahibine gösterilmez.

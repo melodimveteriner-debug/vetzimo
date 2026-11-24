@@ -545,7 +545,7 @@ final class IdentityApi
         if ($sections['exam']) {
             foreach ($state->exams ?? [] as $exam) {
                 if ($exam->branch!==$dataBranch || !in_array($exam->patient,$ids,true)) continue;
-                $exams[$exam->id]=array_intersect_key((array)$exam,array_flip(['id','title','patient','date','assessment','plan']));
+                $exams[$exam->id]=array_intersect_key((array)$exam,array_flip(['id','title','patient','date']));
                 $exams[$exam->id]['attachments']=[];
             }
             $q=$this->db->prepare('SELECT lab_id FROM clinic_lab_attachment WHERE partner_id=?');
