@@ -62,6 +62,6 @@ final class UiLocale
         return str_replace('</head>',
             '<meta name="vetzimo-language" content="'.$locale.'" data-mode="'.$mode.'"><link rel="stylesheet" href="/ui-locale.css?v=r64">'.
             '<script type="module" src="/ui-locale.js?v=20261123-r64"></script>'.
-            ($locale!=='tr'?'<link rel="preload" as="fetch" href="/ui-copy/'.$locale.'.json?v=r81" crossorigin><script type="module" src="/ui-copy.js?v=r81"></script>':'').'</head>',$html);
+            ($locale!=='tr'?'<link rel="preload" as="fetch" href="/ui-copy/'.$locale.'.json?v=r82" crossorigin><script type="module" src="/ui-copy.js?v=r82"></script>':'').'</head>',$html);
     }
 }

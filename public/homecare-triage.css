@@ -1,0 +1,41 @@
+/* Evden takip ön değerlendirme uyarıları: acil (kırmızı), öncelikli (turuncu), rutin. Açık ve koyu temalar. */
+.homecare{--hc-urgent:#b42318;--hc-urgent-line:#e5484d;--hc-soon:#9a4a07;--hc-soon-line:#f59e0b;--hc-paper:var(--paper,var(--theme-paper,#fff));--hc-ink:var(--ink,var(--theme-ink,#1d2a33))}
+:is([data-clinic-palette=dark],[data-clinic-palette=midnight],[data-clinic-palette=nebula],[data-identity-palette=dark],[data-identity-palette=midnight],[data-identity-palette=nebula]) .homecare{--hc-urgent:#fca5a5;--hc-urgent-line:#f87171;--hc-soon:#fcd34d;--hc-soon-line:#fbbf24}
+.homecare-alert{display:grid;gap:8px;margin:10px 0;padding:14px 16px;border-radius:14px;border:1px solid var(--theme-line,var(--line,#d5dde3));border-left-width:5px;background:var(--hc-paper);color:var(--hc-ink)}
+.homecare-alert p{margin:0;line-height:1.5}
+.homecare-alert small{color:var(--muted,var(--theme-muted,#5b6b75))}
+.homecare-alert-title{font-size:1.05rem}
+.homecare-alert.is-urgent{border-color:var(--hc-urgent-line);background:color-mix(in srgb,var(--hc-urgent-line) 11%,var(--hc-paper))}
+.homecare-alert.is-urgent .homecare-alert-title{color:var(--hc-urgent)}
+.homecare-alert.is-soon{border-color:var(--hc-soon-line);background:color-mix(in srgb,var(--hc-soon-line) 12%,var(--hc-paper))}
+.homecare-alert.is-soon .homecare-alert-title{color:var(--hc-soon)}
+.homecare-alert.is-routine{border-left-color:var(--theme-primary,var(--brand-link,#1b6045))}
+.homecare-alert-note{font-weight:600}
+.homecare-reasons{display:flex;flex-wrap:wrap;gap:6px;margin:0;padding:0;list-style:none}
+.homecare-reasons li{padding:3px 10px;border-radius:999px;font-size:.82rem;font-weight:650;background:color-mix(in srgb,var(--hc-ink) 7%,transparent)}
+.homecare-phone{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}
+.homecare-phone strong{font-size:1.25rem;letter-spacing:.02em;user-select:all;-webkit-user-select:all;font-variant-numeric:tabular-nums}
+.homecare-phone span::after{content:":"}
+body .homecare a.homecare-call.homecare-call{background:var(--theme-primary,var(--brand-link,#1b6045));border-color:transparent;color:#fff;text-decoration:none}
+body .homecare .homecare-alert.is-urgent a.homecare-call.homecare-call{background:#c81e1e;color:#fff}
+.homecare-hint{display:grid;gap:4px;margin-bottom:6px}
+.homecare-hint .homecare-phone strong{font-size:1rem}
+.homecare-live:empty{display:none}
+.homecare-level.is-urgent{border-color:var(--hc-urgent-line);color:var(--hc-urgent);font-weight:800}
+.homecare-level.is-soon{border-color:var(--hc-soon-line);color:var(--hc-soon);font-weight:800}
+.homecare-entry.is-urgent{box-shadow:inset 4px 0 0 var(--hc-urgent-line)}
+.homecare-entry.is-soon{box-shadow:inset 4px 0 0 var(--hc-soon-line)}
+.homecare-queue-row:is(.is-urgent,.is-soon){padding-inline-start:14px;border-radius:10px}
+.homecare-queue-row.is-urgent{box-shadow:inset 4px 0 0 var(--hc-urgent-line,#e5484d)}
+.homecare-queue-row.is-soon{box-shadow:inset 4px 0 0 var(--hc-soon-line,#f59e0b)}
+.homecare-queue-row .homecare-level{margin-inline-start:6px;font-size:.72rem;padding:1px 7px}
+.homecare-queue-stat.is-urgent dd{color:var(--hc-urgent,#b42318)}
+.homecare-queue-stat.is-soon dd{color:var(--hc-soon,#9a4a07)}
+/* Kuyruk genel bakıştadır (.homecare dışında): renkler aynı değişkenlerle */
+.homecare-queue-summary,.homecare-queue{--hc-urgent:#b42318;--hc-urgent-line:#e5484d;--hc-soon:#9a4a07;--hc-soon-line:#f59e0b}
+:is([data-clinic-palette=dark],[data-clinic-palette=midnight],[data-clinic-palette=nebula]) :is(.homecare-queue-summary,.homecare-queue){--hc-urgent:#fca5a5;--hc-urgent-line:#f87171;--hc-soon:#fcd34d;--hc-soon-line:#fbbf24}
+@media (prefers-reduced-motion:no-preference){
+  .homecare-alert.is-urgent{animation:hc-attention 1.2s ease-out 2}
+}
+@keyframes hc-attention{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--hc-urgent-line) 45%,transparent)}100%{box-shadow:0 0 0 14px transparent}}
+@media print{.homecare-alert{animation:none;background:#fff}}

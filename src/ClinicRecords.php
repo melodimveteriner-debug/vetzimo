@@ -52,6 +52,66 @@ final class ClinicRecords
         return ['revision'=>(int)$first['revision'], 'state'=>$state];
     }
 
+    /**
+     * Üst veri (şubeler, ayarlar) ve yalnız istenen kimliklerdeki satırlar. Tüm kliniği yüklemeden
+     * hasta sahibi ve evden takip gibi tek kayda bakan işlemler için. Eski biçimdeki alanda null döner.
+     * @param array<string,list<string>> $wanted koleksiyon => kimlikler
+     */
+    public function slice(string $workspace, array $wanted): ?object
+    {
+        $head = $this->db->prepare('SELECT w.payload, s.id FROM clinic_workspace w JOIN clinic_record_set s ON s.workspace_id=w.user_id WHERE w.user_id=?');
+        $head->execute([$workspace]);
+        $row = $head->fetch(PDO::FETCH_NUM);
+        if (!$row) return null;
+        $state = json_decode($row[0], false, 512, JSON_THROW_ON_ERROR);
+        if (!$state instanceof \stdClass) return null;
+        foreach (self::COLLECTIONS as $collection) $state->$collection = [];
+        foreach ($wanted as $collection => $ids) {
+            if (!in_array($collection, self::COLLECTIONS, true)) continue;
+            $keys = array_values(array_unique(array_map(static fn($id) => '@'.$id, array_filter($ids, static fn($id) => self::key($id) !== null))));
+            foreach (array_chunk($keys, 500) as $chunk) {
+                $query = $this->db->prepare('SELECT record_data FROM clinic_record WHERE set_id=? AND collection=? AND row_key IN ('.implode(',', array_fill(0, count($chunk), '?')).') ORDER BY ordinal');
+                $query->execute([$row[1], $collection, ...$chunk]);
+                while (($json = $query->fetchColumn()) !== false) $state->$collection[] = json_decode($json, false, 512, JSON_THROW_ON_ERROR);
+            }
+        }
+        return $state;
+    }
+
+    /**
+     * Hasta sahibi portalı için: üst veri, sahibin kendi müşteri kaydı, hayvanları ve hayvanlarına/kendisine
+     * bağlı aşı, randevu, muayene, tetkik, satış ve tahsilat satırları. Süzgeçleri çağıran kod aynen uygular;
+     * bu yöntem yalnız tüm kliniği belleğe almadan gereken üst kümeyi okur. Eski biçimde null döner.
+     */
+    public function ownerSlice(string $workspace, string $customer): ?object
+    {
+        if (self::key($customer) === null) return null;
+        $state = $this->slice($workspace, ['clients' => [$customer]]);
+        if ($state === null) return null;
+        $set = $this->db->prepare('SELECT id FROM clinic_record_set WHERE workspace_id=?');
+        $set->execute([$workspace]);
+        $set = (int)$set->fetchColumn();
+        $branches = array_values(array_filter(array_map(static fn($row) => is_object($row) ? self::key($row->id ?? null) : null, $state->branches ?? [])));
+        $read = function (string $collection, string $column, array $values) use ($set, $state): void {
+            $values = array_values(array_unique(array_filter($values, static fn($value) => is_string($value) && $value !== '')));
+            foreach (array_chunk($values, 500) as $chunk) {
+                $query = $this->db->prepare("SELECT record_data FROM clinic_record WHERE set_id=? AND collection=? AND $column IN (".implode(',', array_fill(0, count($chunk), '?')).') ORDER BY ordinal');
+                $query->execute([$set, $collection, ...$chunk]);
+                while (($json = $query->fetchColumn()) !== false) $state->$collection[] = json_decode($json, false, 512, JSON_THROW_ON_ERROR);
+            }
+        };
+        if ($branches) {
+            $query = $this->db->prepare('SELECT record_data FROM clinic_record WHERE set_id=? AND collection=\'patients\' AND branch_id IN ('.implode(',', array_fill(0, count($branches), '?')).') AND owner_id=? ORDER BY ordinal');
+            $query->execute([$set, ...$branches, $customer]);
+            while (($json = $query->fetchColumn()) !== false) $state->patients[] = json_decode($json, false, 512, JSON_THROW_ON_ERROR);
+        }
+        $pets = array_column($state->patients, 'id');
+        foreach (['followups', 'appointments', 'exams', 'labs'] as $collection) $read($collection, 'patient_key', $pets);
+        $read('sales', 'client_key', [$customer]);
+        $read('collections', 'link_key', array_column($state->sales, 'id'));
+        return $state;
+    }
+
     public static function metadata(object $state): object
     {
         $metadata = clone $state;

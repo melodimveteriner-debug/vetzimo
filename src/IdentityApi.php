@@ -10,8 +10,19 @@ final class IdentityApi
     public function actor(array $cookies,int $now): array
     {
         $actor=(new SessionRepository($this->db))->resolve($cookies,$now);
-        if (!$actor || !ClinicAccess::valid($actor,$this->state($actor))) throw new RuntimeException('Oturum doğrulanamadı.',401);
+        if (!$actor || !ClinicAccess::valid($actor,$this->validationState($actor))) throw new RuntimeException('Oturum doğrulanamadı.',401);
         return $actor;
+    }
+    /**
+     * Yetki denetimi yalnız şubelere ve (hasta sahibinde) kendi müşteri kaydına bakar; büyük klinikte
+     * tüm alanı yüklemez. Kayıt bulunamazsa (eski biçimli alan) güvenli tam yüklemeye geçer.
+     */
+    private function validationState(array $actor): ?object
+    {
+        $customer=($actor['role'] ?? '')==='customer'?(string)($actor['customer_id'] ?? ''):'';
+        $state=(new ClinicRecords($this->db))->slice('partner:'.$actor['partner_id'],['clients'=>$customer===''?[]:[$customer]]);
+        if ($state && ($customer==='' || $state->clients)) return $state;
+        return $this->state($actor);
     }
     private function state(array $actor): ?object
     {
@@ -23,7 +34,7 @@ final class IdentityApi
         $q->execute([$actor['account_id']]);
         $result=[];
         foreach ($q->fetchAll() as $row) {
-            $state=$this->state($row);
+            $state=$this->validationState($row);
             if (!ClinicAccess::valid($row,$state)) continue;
             $branch=$state?ClinicAccess::branch($state,$row['branch_id']):null;
             $result[]=['id'=>$row['id'],'partner'=>$row['partner_name'],'branch'=>$branch->name ?? '',
@@ -497,7 +508,8 @@ final class IdentityApi
     public function portal(array $actor): array
     {
         if($actor['role']!=='customer') throw new RuntimeException('Hasta sahibi hesabı gerekli.',403);
-        $state=$this->state($actor);
+        // Yalnız bu hasta sahibine ait kayıtlar okunur; aşağıdaki süzgeçler aynen uygulanır.
+        $state=(new ClinicRecords($this->db))->ownerSlice('partner:'.$actor['partner_id'],(string)$actor['customer_id']) ?? $this->state($actor);
         if(!ClinicAccess::valid($actor,$state)) throw new RuntimeException('Hasta sahibi ilişkisi doğrulanamadı.',403);
         $branch=ClinicAccess::branch($state,$actor['branch_id']);
         $dataBranch=($branch->sharedWith ?? '') ?: $branch->id;

@@ -50,7 +50,10 @@ final class DealerLogin
                 break;
             }
             $workspace='partner:'.$candidate['partner_id'];
-            $state=$candidate['role']==='customer' ? $workspaces->load($workspace)['state'] :
+            // Hasta sahibinde yalnız kendi müşteri kaydı okunur (büyük klinikte tüm alan yüklenmez).
+            $state=$candidate['role']==='customer' ?
+                ((($slice=(new ClinicRecords($this->database))->slice($workspace,['clients'=>[(string)$candidate['customer_id']]])) && $slice->clients)
+                    ? $slice : $workspaces->load($workspace)['state']) :
                 (object)['branches'=>$workspaces->branches($workspace)];
             if (ClinicAccess::valid($candidate,$state)) { $account=$candidate; break; }
         }
