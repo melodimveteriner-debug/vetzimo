@@ -1,0 +1,20 @@
+VETZIMO BAKANLIK KOPRUSU
+========================
+
+Bu program klinik bilgisayarinda arka planda calisir. VetZimoda "Bakanliga gonder" dediginiz
+recete ve asi kayitlarini, SIZIN e-Devlet oturumunuzda Bakanlik ekranlarina girer.
+e-Devlet sifreniz gorulmez ve saklanmaz; giris penceresine sifreyi her zaman siz yazarsiniz.
+
+KURULUM (Windows 10/11)
+1. Bu klasoru kalici bir yere cikarin (or. C:\VetZimoKopru). Zip icinden calistirmayin.
+2. kur.cmd dosyasina cift tiklayin. Node.js yoksa otomatik kurulur (bir kez yonetici izni).
+3. Tarayicida http://127.0.0.1:5199 paneli acilir. VetZimo > Bakanlik Koprusu sayfasindaki
+   "Ajani bagla" kodunu panele yazin.
+4. Panelde "e-Devlet ile Bakanlik girisi" deyin, acilan pencerede girisi siz yapin.
+5. "Oturumu ogret", "Receteyi ogret" ve "Asiyi ogret" adimlarini birer kez yapin.
+
+Bilgisayar acikken calisir; kapaliyken isler kuyrukta bekler.
+Bir kayit Bakanlikta olusmus olabilir ama dogrulanamadiysa ajan ASLA tekrar denemez;
+VetZimoda "kontrol edin" karti cikar.
+
+macOS/Linux: baslat.sh

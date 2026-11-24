@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>VetZimo Bakanlık Köprüsü</title>
+<style>
+:root{--bg:#f5f4fa;--card:#fff;--ink:#1d1b2a;--muted:#646078;--line:#e2dfef;--accent:#5b3fc4;--ok:#16794a;--warn:#a85c00;--bad:#c02626;color-scheme:light}
+@media (prefers-color-scheme:dark){:root{--bg:#14121c;--card:#1d1a28;--ink:#eceaf4;--muted:#a6a2bb;--line:#2e2a3e;--accent:#a68fff;--ok:#5fd39a;--warn:#f2b45c;--bad:#ff7a7a;color-scheme:dark}}
+[hidden]{display:none!important}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:920px;margin:0 auto;padding:24px 16px 60px;display:grid;gap:16px}
+h1{margin:0;font-size:1.6rem}h2{margin:0 0 8px;font-size:1.1rem}p{margin:.2rem 0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;display:grid;gap:10px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+label{display:grid;gap:4px;font-size:.9rem}input,select{font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);min-width:0}
+button{font:inherit;font-weight:600;padding:8px 14px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}button:disabled{opacity:.5;cursor:not-allowed}
+.pill{display:inline-flex;gap:6px;align-items:center;padding:4px 12px;border-radius:999px;font-weight:700;font-size:.85rem;background:color-mix(in srgb,var(--muted) 15%,transparent)}
+.pill.ok{color:var(--ok);background:color-mix(in srgb,var(--ok) 15%,transparent)}.pill.warn{color:var(--warn);background:color-mix(in srgb,var(--warn) 15%,transparent)}.pill.bad{color:var(--bad);background:color-mix(in srgb,var(--bad) 15%,transparent)}
+.muted{color:var(--muted);font-size:.88rem}.err{color:var(--bad);font-weight:600}
+table{width:100%;border-collapse:collapse;font-size:.86rem}td,th{border-bottom:1px solid var(--line);padding:6px;text-align:left;vertical-align:top}
+td code{font-size:.78rem;word-break:break-all;color:var(--muted)}
+pre{white-space:pre-wrap;font-size:.78rem;max-height:260px;overflow:auto;background:color-mix(in srgb,var(--ink) 5%,transparent);padding:10px;border-radius:9px;margin:0}
+ol{margin:0;padding-left:20px}
+</style>
+</head>
+<body>
+<main>
+  <header><h1>VetZimo Bakanlık Köprüsü</h1><p class="muted">Bu bilgisayarda çalışır. Reçete ve aşı belgelerini sizin e-Devlet oturumunuzda, sizin öğrettiğiniz adımlarla Bakanlık sistemine girer. Şifreniz görülmez ve saklanmaz.</p></header>
+
+  <section class="card" id="pairCard" hidden>
+    <h2>1. VetZimo'ya bağlayın</h2>
+    <p class="muted">VetZimo'da <b>Bakanlık Köprüsü</b> sayfasında "Ajanı bağla" deyin; çıkan kodu buraya yazın.</p>
+    <div class="row">
+      <label style="flex:2">VetZimo adresi<input id="server" placeholder="https://www.vetzimo.com"></label>
+      <label style="flex:1">Eşleştirme kodu<input id="code" placeholder="ABCDE-FGHJK" autocomplete="off"></label>
+    </div>
+    <div class="row"><button class="primary" id="pair">Bağla</button><span id="pairMsg" class="err"></span></div>
+  </section>
+
+  <section class="card" id="statusCard" hidden>
+    <h2>Durum</h2>
+    <div class="row" id="pills"></div>
+    <p id="current" class="muted"></p>
+    <div class="row">
+      <button id="login">e-Devlet ile Bakanlık girişi</button>
+      <button id="check">Oturumu kontrol et</button>
+    </div>
+    <label>Bakanlık sistemi adresi<input id="ministryUrl"></label>
+  </section>
+
+  <section class="card" id="teachCard" hidden>
+    <h2>Öğretme</h2>
+    <p class="muted">Bakanlık ekranları değişebildiği için ajan işlemi sizden <b>bir kez</b> öğrenir. Açılan pencerede işlemi her zamanki gibi yapın; <b>Kaydet düğmesine basmayın</b>, sadece "Kaydet düğmesini işaretle" deyip düğmeye tıklayın. Böylece öğretirken Bakanlıkta kayıt oluşmaz.</p>
+    <ol class="muted">
+      <li><b>Oturum</b>: Bakanlık ana sayfasında yalnız girişliyken görünen bir öğeyi (ör. adınız, Çıkış) işaretleyin.</li>
+      <li><b>Reçete</b>: e-Reçete ekranını açıp hayvanı ve sahibini bulun, bir ilaç ekleyin, Kaydet'i işaretleyin.</li>
+      <li><b>Aşı</b>: Aşı uygulama ekranında aynı şekilde aşı, parti ve dozu girin, Kaydet'i işaretleyin.</li>
+    </ol>
+    <div class="row" id="teachStart">
+      <button data-kind="session">Oturumu öğret</button><button data-kind="prescription" class="primary">Reçeteyi öğret</button><button data-kind="vaccine" class="primary">Aşıyı öğret</button>
+      <span id="known" class="muted"></span>
+    </div>
+    <div id="teachLive" hidden>
+      <div class="row">
+        <button id="markSubmit" class="primary">Kaydet düğmesini işaretle</button>
+        <button id="markRead">Belge numarası alanını işaretle (isteğe bağlı)</button>
+        <button id="markLogged">Girişli olduğunu gösteren öğeyi işaretle</button>
+      </div>
+      <p class="muted">Her alanın hangi bilgiyle doldurulacağını seçin. Her ilaç için tekrar eden adımları "İlaç satırı" olarak işaretleyin. Otomatik tamamlamalı kutular için "Listeden seç"i açın.</p>
+      <table><thead><tr><th>#</th><th>Adım</th><th>Ne yazılacak</th><th>İlaç satırı</th><th>Listeden seç</th><th></th></tr></thead><tbody id="steps"></tbody></table>
+      <div class="row"><button class="primary" id="saveRecipe">Tarifi kaydet</button><button id="cancelTeach">Vazgeç</button><span id="teachMsg" class="err"></span></div>
+    </div>
+  </section>
+
+  <section class="card"><h2>Günlük</h2><pre id="log"></pre><a href="/gunluk" download="vetzimo-kopru-gunluk.txt">Günlüğü indir</a></section>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const post = (url, body) => fetch(url, {method: "POST", headers: {"Content-Type": "application/json", "X-VZ-Local": "1"}, body: JSON.stringify(body || {})}).then(async r => { const d = await r.json(); if (!r.ok) throw new Error(d.error); return d; });
+const VARS = [
+  ["", "— Sabit (yazdığınız değer) —"], ["{patient.chip}", "Mikroçip no"], ["{patient.passport}", "Pasaport no"], ["{patient.name}", "Hayvanın adı"],
+  ["{patient.species}", "Tür"], ["{patient.breed}", "Irk"], ["{patient.sex}", "Cinsiyet"], ["{patient.birth}", "Doğum tarihi"], ["{patient.weight}", "Kilo"],
+  ["{owner.nationalId}", "Sahibin T.C. no"], ["{owner.name}", "Sahibin adı"], ["{owner.phone}", "Sahibin telefonu"],
+  ["{date}", "İşlem tarihi (gg.aa.yyyy)"], ["{diagnosis}", "Tanı"], ["{vet}", "Hekim"],
+  ["{item.ministryName}", "İlaç/aşı (Bakanlık adı)"], ["{item.ministryCode}", "İlaç/aşı (Bakanlık kodu)"], ["{item.quantity}", "Miktar / kutu"],
+  ["{item.dose}", "Doz"], ["{item.route}", "Uygulama yolu"], ["{item.frequency}", "Sıklık"], ["{item.duration}", "Süre"],
+  ["{item.lot}", "Aşı parti (lot) no"], ["{item.date}", "Aşı tarihi"], ["{item.nextDate}", "Sonraki aşı tarihi"],
+];
+const GUESS = [[/çip|chip|mikro/i, "{patient.chip}"], [/pasaport/i, "{patient.passport}"], [/t\.?\s?c|kimlik/i, "{owner.nationalId}"], [/parti|lot|seri/i, "{item.lot}"],
+  [/ilaç|ürün|aşı adı|müstahzar/i, "{item.ministryName}"], [/miktar|adet|kutu/i, "{item.quantity}"], [/doz/i, "{item.dose}"], [/tanı|teşhis/i, "{diagnosis}"], [/tarih/i, "{date}"]];
+let teachSteps = [], meta = new Map();
+function guess(step) { const text = (step.label || "") + " " + (step.selectors || []).join(" "); for (const [re, v] of GUESS) if (re.test(text)) return v; return ""; }
+function drawSteps(steps) {
+  const tbody = $("steps");
+  tbody.replaceChildren(...steps.map((s, i) => {
+    if (!meta.has(i)) meta.set(i, {var: ["fill", "select", "pick"].includes(s.action) ? guess(s) : "", item: false, pick: false, removed: false});
+    const m = meta.get(i), tr = document.createElement("tr");
+    const what = document.createElement("td");
+    what.innerHTML = "<b></b><br><code></code>";
+    what.querySelector("b").textContent = {goto: "Sayfa aç", fill: "Yaz", select: "Seç", click: "Tıkla", check: "İşaretle", submit: "KAYDET (işaretli)", read: "Belge no oku"}[s.action] + (s.label ? " · " + s.label : "") + (s.action === "goto" ? " · " + s.url : "");
+    what.querySelector("code").textContent = (s.selectors || []).slice(0, 2).join("  |  ") + (s.value ? "   ⟵ " + s.value : "");
+    const map = document.createElement("td");
+    if (["fill", "select", "check"].includes(s.action)) {
+      const sel = document.createElement("select");
+      for (const [v, l] of VARS) sel.append(new Option(l, v, false, m.var === v));
+      sel.onchange = () => { m.var = sel.value; };
+      map.append(sel);
+    }
+    const cell = key => { const td = document.createElement("td"); if (!["goto", "submit", "read"].includes(s.action)) { const c = document.createElement("input"); c.type = "checkbox"; c.checked = m[key]; c.onchange = () => { m[key] = c.checked; }; if (key === "pick" && s.action !== "fill") c.disabled = true; td.append(c); } return td; };
+    const rm = document.createElement("td"); const b = document.createElement("button"); b.textContent = m.removed ? "Geri al" : "Sil"; b.onclick = () => { m.removed = !m.removed; drawSteps(teachSteps); }; rm.append(b);
+    tr.style.opacity = m.removed ? .4 : 1;
+    const n = document.createElement("td"); n.textContent = i + 1;
+    tr.append(n, what, map, cell("item"), cell("pick"), rm);
+    return tr;
+  }));
+}
+function build() {
+  const out = []; let block = null;
+  teachSteps.forEach((s, i) => {
+    const m = meta.get(i) || {}; if (m.removed) return;
+    const step = {...s}; delete step.label;
+    if (["fill", "select", "check"].includes(s.action)) step.value = m.var || s.value;
+    if (s.action === "fill" && m.pick) { step.action = "pick"; step.match = step.value; }
+    if (m.item) { if (!block) { block = {action: "repeat", over: "items", steps: []}; out.push(block); } block.steps.push(step); }
+    else { block = null; out.push(step); }
+  });
+  return out;
+}
+let lastTeach = "";
+async function refresh() {
+  const s = await fetch("/durum").then(r => r.json());
+  $("pairCard").hidden = s.paired; $("statusCard").hidden = !s.paired; $("teachCard").hidden = !s.paired;
+  if (!$("server").value) $("server").value = s.server || "";
+  if (document.activeElement !== $("ministryUrl")) $("ministryUrl").value = s.ministryUrl || "";
+  const m = {open: ["ok", "Bakanlık oturumu açık"], closed: ["bad", "Bakanlık oturumu kapalı"], waiting: ["warn", "Bakanlık girişi bekleniyor"], unknown: ["warn", "Bakanlık oturumu bilinmiyor"]}[s.ministry];
+  $("pills").innerHTML = "";
+  for (const [cls, text] of [[s.online ? "ok" : "bad", s.online ? "VetZimo bağlantısı var" : "VetZimo'ya ulaşılamıyor"], m, ["", "Kuyrukta " + s.queued + " iş"], ["", "Sürüm " + s.version]]) {
+    const p = document.createElement("span"); p.className = "pill " + cls; p.textContent = text; $("pills").append(p);
+  }
+  $("current").textContent = s.current ? "Şu an: " + s.current.summary : (s.lastError ? "Son hata: " + s.lastError : "");
+  $("known").textContent = s.recipes.length ? "Öğretilmiş: " + s.recipes.map(k => ({session: "oturum", prescription: "reçete", vaccine: "aşı"}[k])).join(", ") : "Henüz öğretilmedi.";
+  $("teachStart").hidden = !!s.teach; $("teachLive").hidden = !s.teach;
+  if (s.teach) {
+    $("markLogged").hidden = s.teach.kind !== "session"; $("markSubmit").hidden = $("markRead").hidden = s.teach.kind === "session";
+    const sig = JSON.stringify(s.teach.steps);
+    if (sig !== lastTeach) { lastTeach = sig; teachSteps = s.teach.steps; drawSteps(teachSteps); }
+    if (s.teach.closed) $("teachMsg").textContent = "Pencere kapandı. Tarifi kaydedebilir ya da vazgeçebilirsiniz.";
+  } else { meta = new Map(); lastTeach = ""; }
+  $("log").textContent = s.logs.join("\n");
+}
+$("pair").onclick = () => post("/eslestir", {server: $("server").value, code: $("code").value}).then(refresh, e => { $("pairMsg").textContent = e.message; });
+$("login").onclick = () => post("/giris").then(refresh);
+$("check").onclick = () => post("/kontrol").then(refresh);
+$("ministryUrl").onchange = () => post("/ayar", {ministryUrl: $("ministryUrl").value});
+document.querySelectorAll("[data-kind]").forEach(b => b.onclick = () => post("/ogret/baslat", {kind: b.dataset.kind}).then(refresh, e => alert(e.message)));
+$("markSubmit").onclick = () => post("/ogret/isaretle", {mode: "submit"});
+$("markRead").onclick = () => post("/ogret/isaretle", {mode: "read"});
+$("markLogged").onclick = () => post("/ogret/isaretle", {mode: "loggedIn"});
+$("saveRecipe").onclick = () => post("/ogret/kaydet", {steps: build()}).then(() => { $("teachMsg").textContent = ""; refresh(); }, e => { $("teachMsg").textContent = e.message; });
+$("cancelTeach").onclick = () => post("/ogret/vazgec").then(refresh);
+refresh(); setInterval(refresh, 2000);
+</script>
+</main>
+</body>
+</html>

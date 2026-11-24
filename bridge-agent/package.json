@@ -1,0 +1,11 @@
+{
+  "name": "vetzimo-bakanlik-koprusu",
+  "version": "1.0.0",
+  "private": true,
+  "description": "VetZimo Bakanlık köprüsü ajanı: e-Reçete ve aşı belgesini veterinerin kendi e-Devlet oturumunda girer.",
+  "type": "module",
+  "main": "agent.mjs",
+  "scripts": { "start": "node agent.mjs" },
+  "engines": { "node": ">=18" },
+  "dependencies": { "playwright-core": "1.48.2" }
+}

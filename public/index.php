@@ -12,7 +12,7 @@ use VetNet\Cpanel\SessionRepository;
 
 require_once dirname(__DIR__).'/src/StaffPlan.php';
 
-foreach (['NativeApp','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','CreditShop','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','TeamTotp','WebInbox','PrintTemplates','Support','Commerce','Appearance'] as $class) {
+foreach (['NativeApp','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','CreditShop','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','TeamTotp','WebInbox','MinistryBridge','PrintTemplates','Support','Commerce','Appearance'] as $class) {
     require dirname(__DIR__) . '/src/' . $class . '.php';
 }
 
@@ -112,7 +112,9 @@ try {
         if ($method==='GET') readfile(__DIR__.'/vetzimo-kurulum.html');
         exit;
     }
-    if ($method !== 'GET' && !hash_equals($externalWeb ? 'https://'.$host : $origin, $_SERVER['HTTP_ORIGIN'] ?? '')) {
+    // Bakanlık köprüsü ajanı tarayıcı değildir (Origin göndermez) ve çerezle değil kendi anahtarıyla doğrulanır.
+    $bridgeAgent=!$externalWeb && str_starts_with($path,'/api/bridge/agent/') && !isset($_SERVER['HTTP_ORIGIN']);
+    if ($method !== 'GET' && !$bridgeAgent && !hash_equals($externalWeb ? 'https://'.$host : $origin, $_SERVER['HTTP_ORIGIN'] ?? '')) {
         if (!$externalWeb && $path==='/clinic/evde-hizmet' && ($_GET['gorunum']??'')==='ayarlar') {
             VetNet\Cpanel\HomeVisitPages::settingsError('İstek kaynağı doğrulanamadı. Ayarları VetZimo üzerinden yeniden açıp kaydetmeyi deneyin.',403);
         }
@@ -722,6 +724,75 @@ try {
         }
         $actor=(new VetNet\Cpanel\Commerce($db))->packageActor($actor);
         reply($identity->examPhotos($actor,$examRoute[1],$method==='POST'?input(2800000):null));
+    }
+    if (str_starts_with($path,'/api/bridge/agent/') && $method==='POST') {
+        // Bakanlık köprüsü ajanı: çerez değil, eşleştirmede verilen anahtarla (Bearer) konuşur.
+        $bridge=new VetNet\Cpanel\MinistryBridge($db);
+        $op=substr($path,strlen('/api/bridge/agent/'));
+        $body=input(420000);
+        try {
+            if ($op==='pair') {
+                (new DealerLogin($db,$config['rateSecret']))->throttle('bridge-pair:'.($_SERVER['REMOTE_ADDR']??''),$now);
+                reply($bridge->agentPair((string)($body->code??''),(string)($body->name??''),(string)($body->version??''),$now));
+            }
+            // Bazı paylaşımlı sunucular Authorization başlığını PHP'ye iletmez; ajan aynı anahtarı X-Bridge-Token ile de yollar.
+            $auth=(string)($_SERVER['HTTP_AUTHORIZATION']??$_SERVER['REDIRECT_HTTP_AUTHORIZATION']??'');
+            if ($auth==='' && is_string($_SERVER['HTTP_X_BRIDGE_TOKEN']??null)) $auth='Bearer '.$_SERVER['HTTP_X_BRIDGE_TOKEN'];
+            $agent=$bridge->agentAuth($auth);
+            reply(match($op){
+                'heartbeat'=>$bridge->heartbeat($agent,$body,$now),
+                'claim'=>$bridge->claim($agent,$now),
+                'progress'=>$bridge->progress($agent,$body,$now),
+                'result'=>$bridge->result($agent,$body,$now),
+                'recipe'=>$bridge->saveRecipe($agent,$body,$now),
+                'recipes'=>$bridge->recipes($agent),
+                default=>throw new RuntimeException('İşlem bulunamadı.',404),
+            });
+        } catch (PDOException $error) {
+            if ($error->getCode()==='42S02') throw new RuntimeException('Köprü tabloları henüz kurulmadı; güncellemeyi tamamlayın.',503);
+            throw $error;
+        }
+    }
+    if ($path==='/bakanlik-koprusu-ajani.zip' && $method==='GET') {
+        // Ajan paketi: yalnız giriş yapmış klinik ekibi indirir. Paket anahtar içermez; eşleştirme kodla yapılır.
+        $actor=$identity->actor($_COOKIE,$now);
+        if (!in_array($actor['role'],['dealer','branch','staff'],true)) throw new RuntimeException('Klinik ekibi girişi gerekli.',403);
+        $dir=dirname(__DIR__).'/bridge-agent';
+        $tmp=tempnam(sys_get_temp_dir(),'vzbridge');
+        $zip=new ZipArchive();
+        $zip->open($tmp,ZipArchive::OVERWRITE);
+        foreach (['agent.mjs','recorder.js','panel.html','package.json','kur.cmd','kur.ps1','baslat.vbs','baslat.sh','OKU-BENI.txt'] as $file) $zip->addFile($dir.'/'.$file,'VetZimoKopru/'.$file);
+        $zip->addFromString('VetZimoKopru/config.json',json_encode(['server'=>rtrim((string)$config['origin'],'/'),'token'=>'','ministryUrl'=>'https://vetbis.tarimorman.gov.tr'],JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES));
+        $zip->close();
+        header('Content-Type: application/zip');
+        header('Content-Disposition: attachment; filename="vetzimo-bakanlik-koprusu.zip"');
+        header('Content-Length: '.filesize($tmp));
+        header('Cache-Control: no-store');
+        readfile($tmp);
+        unlink($tmp);
+        exit;
+    }
+    if ($path==='/api/bridge' && in_array($method,['GET','POST'],true)) {
+        // Klinik: köprü durumu, ajan eşleştirme, Bakanlığa gönderim kuyruğu ve kararlar.
+        $actor=(new VetNet\Cpanel\Commerce($db))->packageActor($identity->actor($_COOKIE,$now));
+        $bridge=new VetNet\Cpanel\MinistryBridge($db);
+        try {
+            if ($method==='GET') reply($bridge->status($actor,$now));
+            if (!hash_equals($actor['membership_id'] ?? '',$_SERVER['HTTP_X_VETNET_SCOPE'] ?? '')) throw new RuntimeException('Çalışma alanı oturumu değişti.',409);
+            $body=input(20000);
+            $op=$body->action ?? '';
+            reply(match($op){
+                'pair'=>$bridge->pair($actor,$now),
+                'revoke'=>$bridge->revoke($actor,$now),
+                'check-session','login'=>$bridge->command($actor,$op),
+                'enqueue'=>$bridge->enqueue($actor,$body,$now),
+                'cancel','link','resend'=>$bridge->resolve($actor,$body,$now),
+                default=>throw new RuntimeException('İşlem geçersiz.',422),
+            });
+        } catch (PDOException $error) {
+            if ($error->getCode()==='42S02') throw new RuntimeException('Köprü tabloları henüz kurulmadı; güncellemeyi tamamlayın.',503);
+            throw $error;
+        }
     }
     if ($path==='/api/team-2fa' && in_array($method,['GET','POST'],true)) {
         // Ekip hesabı iki adımlı doğrulama: durum, kurulum başlat, kodla onayla, kapat.
