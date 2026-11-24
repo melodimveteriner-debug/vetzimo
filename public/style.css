@@ -1042,3 +1042,20 @@ body[data-clinic-palette]:has(#main) .clinic-delete-dialog .button.clinic-delete
 .dicom-buttons{display:flex;gap:6px;flex-wrap:wrap}
 .dicom-hint{margin:0;padding:0 16px 10px;font-size:.8rem;opacity:.75}
 @media(max-width:760px){.dicom-controls{grid-template-columns:minmax(0,1fr)}}
+/* Randevu durum renkleri ve sürükle-bırak */
+.calendar-event[data-status]{--st:#2563eb;border-inline-start:4px solid var(--st)!important;background:color-mix(in srgb,var(--st) 12%,var(--paper,#fff))!important}
+.calendar-event[data-status="Planlandı"]{--st:#2563eb}
+.calendar-event:is([data-status="Onay Bekliyor"],[data-status="Yeni Talep"],[data-status="Bekliyor"]){--st:#d97706}
+.calendar-event:is([data-status="Onaylandı"],[data-status="Görüşüldü"]){--st:#059669}
+.calendar-event[data-status="Muayenede"]{--st:#7c3aed}
+.calendar-event[data-status="Tamamlandı"]{--st:#64748b;opacity:.78}
+.calendar-event:is([data-status="Gelmedi"],[data-status="Reddedildi"]){--st:#dc2626}
+.calendar-event[draggable=true]{cursor:grab}
+.calendar-event.dragging{opacity:.4;cursor:grabbing}
+.schedule-grid td.drop-target{background:color-mix(in srgb,#2563eb 16%,transparent)!important;outline:2px dashed #2563eb;outline-offset:-3px}
+.calendar-legend{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;margin:4px 0 10px;font-size:.8rem}
+.calendar-legend span{display:inline-flex;align-items:center;gap:6px}
+.calendar-legend i{width:12px;height:12px;border-radius:4px;background:var(--lg,#2563eb)}
+.calendar-legend [data-legend=planned]{--lg:#2563eb}.calendar-legend [data-legend=waiting]{--lg:#d97706}.calendar-legend [data-legend=confirmed]{--lg:#059669}
+.calendar-legend [data-legend=inroom]{--lg:#7c3aed}.calendar-legend [data-legend=done]{--lg:#64748b}.calendar-legend [data-legend=noshow]{--lg:#dc2626}
+.calendar-legend small{opacity:.75;flex-basis:100%}
