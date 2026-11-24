@@ -10,7 +10,7 @@ if (PHP_SAPI !== 'cli') {
 }
 $root = dirname(__DIR__);
 foreach (['Database', 'WorkspaceRepository', 'DealerLogin', 'Totp', 'Notifications', 'AppointmentReminders', 'BulkClinicMessages', 'ClinicAccess', 'Commerce', 'ClinicRecords', 'OmniInbox', 'PhoneGateway'] as $class) {
-    require $root . '/src/' . $class . '.php';
+    require_once $root . '/src/' . $class . '.php';
 }
 try {
     $config = require $root . '/config.php';
