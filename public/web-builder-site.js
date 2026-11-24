@@ -70,3 +70,49 @@ if (schedules.length) {
     renderHours();
     setInterval(renderHours, 30_000);
 }
+
+// Tema hareketleri: kaydırınca beliren bölümler, sayaçlar ve küçülen üst menü. Hareket azaltma tercihinde kapalıdır.
+{
+  const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const onScroll = () => document.body.classList.toggle("is-scrolled", scrollY > 24);
+  addEventListener("scroll", onScroll, {passive:true});
+  onScroll();
+  if (!still && "IntersectionObserver" in window) {
+    const targets = document.querySelectorAll("main .block>h2, main .cards>article, main .services>li, .clinic-numbers dl>div, main>.prose, main .contact-panel>*, main>h1, main .public-form, main .section-about>*");
+    const groups = new Map();
+    for (const node of targets) {
+      const parent = node.parentElement;
+      const index = groups.get(parent) ?? 0;
+      groups.set(parent, index + 1);
+      node.style.setProperty("--reveal-delay", Math.min(index, 8) * 70 + "ms");
+      node.setAttribute("data-reveal", "");
+    }
+    const counters = [...document.querySelectorAll(".clinic-numbers dd")];
+    const count = node => {
+      const text = node.textContent.trim();
+      const match = text.match(/^(\d{1,3}(?:\.\d{3})*|\d+)(.*)$/);
+      if (!match) return;
+      const target = Number(match[1].replace(/\./g, ""));
+      if (!Number.isFinite(target) || target < 2) return;
+      const format = new Intl.NumberFormat("tr-TR");
+      const start = performance.now();
+      const step = now => {
+        const t = Math.min(1, (now - start) / 1400);
+        node.textContent = format.format(Math.round(target * (1 - Math.pow(1 - t, 3)))) + match[2];
+        if (t < 1) requestAnimationFrame(step); else node.textContent = text;
+      };
+      requestAnimationFrame(step);
+    };
+    const seen = new IntersectionObserver(entries => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        entry.target.classList.add("is-in");
+        seen.unobserve(entry.target);
+        if (counters.includes(entry.target)) count(entry.target);
+      }
+    }, {rootMargin: "0px 0px -8% 0px", threshold: 0.12});
+    document.documentElement.classList.add("motion");
+    for (const node of document.querySelectorAll("[data-reveal]")) seen.observe(node);
+    for (const node of counters) seen.observe(node);
+  }
+}

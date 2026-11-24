@@ -199,7 +199,10 @@ final class WebBuilderPublic
         $focus=in_array($focus,['left','right','top','bottom'],true)||(!empty($page['image'])&&$focus==='center')?' hero-focus-'.$focus:'';
         $picture=self::image($page,$media,'hero-image'.$focus,true,$d['theme']);
         $layout=match($d['theme']){'premium'=>'hero-cover','pati'=>'hero-story','medikal'=>'hero-index',default=>'hero-split'};
-        $html='<section class="site-hero '.$layout.'">'.$picture.$copy.'</section>';
+        // Süsleme katmanı: her tema kendi hareketli öğelerini gösterir (lekeler, pati izleri, EKG çizgisi, altın çizgi).
+        $decor='<div class="hero-decor" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i>'.
+            '<svg class="hero-ecg" viewBox="0 0 320 60" preserveAspectRatio="none" focusable="false"><path d="M0 34h96l8-14 10 30 12-44 10 40 8-12h176"/></svg></div>';
+        $html='<section class="site-hero '.$layout.'">'.$decor.'<div class="hero-media">'.$picture.'</div>'.$copy.'</section>';
         if (!empty($page['body'])) $html.='<div class="prose">'.self::rich($page['body']).'</div>';
         $services=preg_split('/\R/',$about['services']??'',-1,PREG_SPLIT_NO_EMPTY);
         foreach ($d['sections'] as $section) {
@@ -497,11 +500,13 @@ final class WebBuilderPublic
             $status=self::availability($d['booking']['hours'][$branch->id]??[],$d['booking']['holidays']??[]);
             if ($status) $footerHours.='<span class="footer-hours">'.self::e($branch->name).$status.'</span>';
         }
+        $phone=$d['contact']['phone']??'';
+        $strip=$phone!==''?'<div class="top-strip"><div><span>Acil durumda bizi arayın</span><a href="tel:'.self::e($phone).'" data-ui-preserve>'.self::e($phone).'</a></div></div>':'';
         $homeCareLink=$preview?'':' <a href="'.self::href($base,'evden-takip').'">Evden Takip</a>';
         $html='<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'.
-            self::e($seoTitle).'</title>'.$head.'<link rel="stylesheet" href="/web-builder-site.css?v=54"><script src="/web-builder-site.js?v=38" defer></script>'.
+            self::e($seoTitle).'</title>'.$head.'<link rel="stylesheet" href="/web-builder-site.css?v=55"><link rel="stylesheet" href="/web-builder-themes.css?v=1"><script src="/web-builder-site.js?v=39" defer></script>'.
             ($visitPage?'<script src="/home-visits.js?v=44" defer></script>':'').'</head>'.
-            '<body class="theme-'.self::e($d['theme']).' palette-'.self::e($d['palette']).'"><a class="skip" href="#icerik">İçeriğe geç</a><header class="site-header"><div class="header-inner">'.
+            '<body class="theme-'.self::e($d['theme']).' palette-'.self::e($d['palette']).'"><a class="skip" href="#icerik">İçeriğe geç</a><header class="site-header">'.$strip.'<div class="header-inner">'.
             '<a class="site-brand" href="'.self::href($base).'">'.$logo.'<span data-ui-preserve>'.self::e($clinic).'</span></a>'.
             '<nav class="primary-nav" aria-label="Ana menü">'.$nav.'</nav><div class="site-language" data-ui-language></div></div></header><main id="icerik">'.$body.'</main>'.
             '<footer><div><strong>'.self::e($clinic).'</strong> '.$footerHours.$homeCareLink.' <a href="'.self::href($base,'iletisim').'">İletişim</a></div>'.

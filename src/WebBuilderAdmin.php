@@ -398,7 +398,7 @@ final class WebBuilderAdmin
             $options='';
             foreach (WebBuilder::THEMES as $key=>[$title,$a,$b]) {
                 $options.='<label class="theme-card '.$key.'"><input type="radio" name="theme" value="'.$key.'"'.($d['theme']===$key?' checked':'').
-                    '><img class="theme-sample" data-theme-preview="'.$key.'" src="/web-themes/'.$key.($d['palette']==='b'?'-b':'').'-preview.webp?v=38" alt="" width="800" height="520" loading="lazy"><strong>'.self::e($title).'</strong><small>A · '.self::e($a).'<br>B · '.self::e($b).'</small></label>';
+                    '><img class="theme-sample" data-theme-preview="'.$key.'" src="/web-themes/'.$key.($d['palette']==='b'?'-b':'').'-preview.webp?v=39" alt="" width="800" height="520" loading="lazy"><strong>'.self::e($title).'</strong><small>A · '.self::e($a).'<br>B · '.self::e($b).'</small></label>';
             }
             return $this->form($tab,$site,'<fieldset class="wide themes"><legend>Tema</legend>'.$options.'</fieldset><fieldset class="wide controls"><legend>Renk kombinasyonu</legend>'.
                 '<label class="check"><input type="radio" name="palette" value="a"'.($d['palette']==='a'?' checked':'').'>A</label>'.
