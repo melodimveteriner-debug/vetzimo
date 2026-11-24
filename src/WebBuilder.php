@@ -14,7 +14,7 @@ final class WebBuilder
     public const THEMES = [
         'modern'=>['Modern Klinik','Fesleğen ve krem','Lacivert ve açık gri'],
         'premium'=>['Premium Veteriner','Koyu yeşil ve altın','Antrasit ve açık mavi'],
-        'pati'=>['Pati Dostu','Mercan ve krem','Turkuaz ve pastel sarı'],
+        'pati'=>['Canlı Klinik','Mor, mercan ve turkuaz','Elektrik mavisi, turkuaz ve amber'],
         'medikal'=>['Medikal Pro','Medikal mavi ve beyaz','Petrol yeşili ve açık gri'],
     ];
     public const PAGES = [
