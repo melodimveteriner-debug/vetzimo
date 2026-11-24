@@ -1,0 +1,79 @@
+/* VetZimo temaları: klinik dışındaki yüzeyler (hasta sahibi portalı, Evde Hizmet sayfaları, web sitesi oluşturucu,
+   merkez yönetim paneli). Renkler themes.css içindeki --theme-* değişkenlerinden gelir; her palet (açık ve koyu) için geçerlidir.
+   Prizma ve Nebula'da ek olarak hafif hareket katmanı vardır; hareket azaltma tercihine ve yazdırmaya uyar. */
+
+/* ——— Hasta sahibi portalı ——— */
+body:not(.center-suite):not(.login-surface)[data-identity-palette]{--owner-line:var(--theme-line);--owner-accent:var(--theme-on,var(--theme-primary))}
+body:not(.center-suite):not(.login-surface)[data-identity-palette] :is(button,.button):not(.secondary):not(.homecare-call){background:linear-gradient(115deg,var(--theme-primary),var(--theme-secondary));border-color:transparent;color:#fff}
+body:not(.center-suite):not(.login-surface)[data-identity-palette] :is(button.secondary,.button.secondary){background:var(--theme-paper);color:var(--theme-on,var(--theme-primary));border-color:var(--theme-line)}
+body:not(.center-suite):not(.login-surface)[data-identity-palette] .owner-nav{background:var(--theme-paper);border-color:var(--theme-line)}
+body:not(.center-suite):not(.login-surface)[data-identity-palette] .owner-nav button.secondary{background:transparent;border-color:transparent;color:var(--theme-on,var(--theme-primary))}
+body:not(.center-suite):not(.login-surface)[data-identity-palette] .owner-nav button[aria-current]{background:linear-gradient(115deg,var(--theme-primary),var(--theme-secondary));color:#fff}
+body:not(.center-suite):not(.login-surface)[data-identity-palette] .owner-balance{background:var(--theme-tint);color:var(--theme-ink);border-color:var(--theme-line)}
+body:not(.center-suite):not(.login-surface)[data-identity-palette] :is(.owner-panel article,.portal-pet,.owner-inbox){border-color:var(--theme-line)}
+body:not(.center-suite):not(.login-surface)[data-identity-palette] .owner-visit-frame{background:transparent;color-scheme:normal}
+body:not(.center-suite):not(.login-surface)[data-identity-palette] :is(.vaccine-dates,.identity-metric span,.preview-label){color:var(--theme-muted)}
+body:not(.center-suite):not(.login-surface)[data-identity-palette] .owner-status{background:var(--theme-tint);color:var(--theme-ink)}
+body:not(.center-suite):not(.login-surface)[data-identity-palette] .identity-metric{background:var(--theme-tint);border-color:var(--theme-line);color:var(--theme-ink)}
+body:not(.center-suite):not(.login-surface)[data-identity-palette] .identity-metric meter{accent-color:var(--theme-primary)}
+
+/* ——— Evde Hizmet sayfaları (hasta sahibi) ——— */
+html.visit-surface[data-theme]{--visit-ink:var(--theme-ink);--visit-accent:var(--theme-on,var(--theme-primary));--line:var(--theme-line);--accent:var(--theme-on,var(--theme-primary));--soft:var(--theme-tint);color:var(--theme-ink);background:var(--theme-work)}
+html.visit-surface[data-theme] body{color:var(--theme-ink)}
+html.visit-surface[data-theme] header{background:linear-gradient(110deg,var(--theme-primary),var(--theme-secondary))}
+html.visit-surface[data-theme] :is(section,article,details,fieldset){background:var(--theme-paper);color:var(--theme-ink);border-color:var(--theme-line)}
+html.visit-surface[data-theme] :is(input:not([type=checkbox]):not([type=radio]),select,textarea){background:var(--theme-paper);color:var(--theme-ink);border-color:var(--theme-line)}
+html.visit-surface[data-theme] :is(button,.visit-link){background:linear-gradient(115deg,var(--theme-primary),var(--theme-secondary));border-color:transparent;color:#fff}
+html.visit-surface[data-theme] body.visit-embedded{background:transparent}
+html.visit-surface[data-theme] .visit-embedded{--line:var(--theme-line);--soft:var(--theme-tint);--accent:var(--theme-on,var(--theme-primary))}
+html.visit-surface[data-theme]:has(body.visit-embedded){background:var(--theme-paper)}
+
+/* ——— Web sitesi oluşturucu (klinik ve merkez) ——— */
+html.builder-surface[data-theme]{--ink:var(--theme-ink);--accent:var(--theme-on,var(--theme-primary));--canvas:var(--theme-work);--paper:var(--theme-paper);--line:var(--theme-line);--muted:var(--theme-muted)}
+html.builder-surface[data-theme] body{background:var(--theme-work);color:var(--theme-ink)}
+html.builder-surface[data-theme] .builder-bar{background:linear-gradient(110deg,var(--theme-primary),var(--theme-secondary))}
+html.builder-surface[data-theme] :is(input:not([type=checkbox]):not([type=radio]),select,textarea){background:var(--theme-paper);color:var(--theme-ink);border-color:var(--theme-line)}
+html.builder-surface[data-theme] :is(button:not(.secondary):not(.danger),.button:not(.secondary):not(.danger)){background:linear-gradient(115deg,var(--theme-primary),var(--theme-secondary));border-color:transparent;color:#fff}
+html.builder-surface[data-theme] :is(button.secondary,.button.secondary){background:var(--theme-paper);color:var(--theme-on,var(--theme-primary));border-color:var(--theme-line)}
+html.builder-surface[data-theme] .welcome{background:linear-gradient(128deg,var(--theme-tint),var(--theme-paper) 72%)}
+html.builder-surface[data-theme] :is(.builder-layout>nav a[aria-current],.steps li[aria-current]){background:var(--theme-tint);color:var(--theme-ink)}
+html.builder-surface[data-theme] :is(.steps li,.theme-card,.danger){background:var(--theme-paper)}
+html.builder-surface[data-theme] .builder-pagination [aria-current]{background:var(--theme-primary);color:#fff}
+html.builder-surface:is([data-theme=dark],[data-theme=midnight],[data-theme=nebula]) .danger{color:#fca5a5;border-color:#f87171}
+
+/* ——— Prizma ve Nebula: hafif hareket katmanı ——— */
+:is(body.center-suite[data-center-palette=prizma],body.center-suite[data-center-palette=nebula],
+    body:not(.center-suite):not(.login-surface)[data-identity-palette=prizma],body:not(.center-suite):not(.login-surface)[data-identity-palette=nebula],
+    html.visit-surface:is([data-theme=prizma],[data-theme=nebula]) body:not(.visit-embedded),
+    html.builder-surface:is([data-theme=prizma],[data-theme=nebula]) body){position:relative;isolation:isolate}
+:is(body.center-suite[data-center-palette=prizma],body.center-suite[data-center-palette=nebula],
+    body:not(.center-suite):not(.login-surface)[data-identity-palette=prizma],body:not(.center-suite):not(.login-surface)[data-identity-palette=nebula],
+    html.visit-surface:is([data-theme=prizma],[data-theme=nebula]) body:not(.visit-embedded),
+    html.builder-surface:is([data-theme=prizma],[data-theme=nebula]) body)::before{
+  content:"";position:fixed;inset:-20vmax;z-index:-1;pointer-events:none;
+  background:
+    radial-gradient(36vmax 30vmax at 16% 20%,color-mix(in srgb,var(--theme-glow-a) 26%,transparent),transparent 70%),
+    radial-gradient(32vmax 28vmax at 84% 16%,color-mix(in srgb,var(--theme-glow-b) 20%,transparent),transparent 70%),
+    radial-gradient(38vmax 32vmax at 70% 88%,color-mix(in srgb,var(--theme-glow-c) 20%,transparent),transparent 70%);
+  animation:vz-surface-drift 34s ease-in-out infinite alternate;will-change:transform
+}
+@keyframes vz-surface-drift{0%{transform:translate3d(0,0,0) rotate(0deg)}50%{transform:translate3d(3vmax,-2vmax,0) rotate(7deg) scale(1.05)}100%{transform:translate3d(-3vmax,2vmax,0) rotate(-5deg)}}
+/* Kartlar ve düğmeler: renkli ince kenar, yumuşak gölge, ışıltılı düğme */
+:is(body:not(.center-suite):not(.login-surface):is([data-identity-palette=prizma],[data-identity-palette=nebula])) .identity-card,
+html.visit-surface:is([data-theme=prizma],[data-theme=nebula]) section,
+html.builder-surface:is([data-theme=prizma],[data-theme=nebula]) :is(.panel,section,.card){box-shadow:0 1px 2px rgb(20 12 60 / .05),0 14px 34px -20px color-mix(in srgb,var(--theme-primary) 60%,transparent)}
+:is(body:not(.center-suite):not(.login-surface):is([data-identity-palette=prizma],[data-identity-palette=nebula]),
+   html.visit-surface:is([data-theme=prizma],[data-theme=nebula]),
+   html.builder-surface:is([data-theme=prizma],[data-theme=nebula])) :is(button,.button,.visit-link){transition:transform .2s,box-shadow .25s}
+:is(body:not(.center-suite):not(.login-surface):is([data-identity-palette=prizma],[data-identity-palette=nebula]),
+   html.visit-surface:is([data-theme=prizma],[data-theme=nebula]),
+   html.builder-surface:is([data-theme=prizma],[data-theme=nebula])) :is(button,.button,.visit-link):not(.secondary):hover{transform:translateY(-1px);box-shadow:0 12px 24px -12px var(--theme-glow-a)}
+body.center-suite:is([data-center-palette=prizma],[data-center-palette=nebula]) .center-sidebar{background:linear-gradient(160deg,var(--theme-primary),var(--theme-secondary))}
+body.center-suite[data-center-palette=nebula] .center-nav-item:is([aria-current],.active){background:rgb(12 11 29 / .38)}
+body.center-suite:is([data-center-palette=prizma],[data-center-palette=nebula]) .center-main button[type=submit]{background:linear-gradient(115deg,var(--theme-primary),var(--theme-secondary));color:#fff;border-color:transparent}
+
+@media (prefers-reduced-motion:reduce){
+  :is(body,html) *{transition:none!important}
+  :is(body.center-suite,body[data-identity-palette],html.visit-surface body,html.builder-surface body)::before{animation:none!important}
+}
+@media print{:is(body.center-suite,body[data-identity-palette],html.visit-surface body,html.builder-surface body)::before{display:none!important}}

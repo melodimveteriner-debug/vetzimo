@@ -326,10 +326,15 @@ final class WebBuilderAdmin
         return '<div class="upload-field">'.$input.($current?'<div class="asset"><img alt="" src="'.self::e($this->editor).'/medya/'.self::e($current).'">'.
             self::check('remove_'.$key,'Görseli kalıcı olarak sil',false).'</div>':'').'</div>';
     }
+    /** Yönetim ekranlarının VetZimo teması (klinikte kişisel tema, merkezde genel tema). Boşsa varsayılan tasarım. */
+    public static string $palette='';
     public static function page(string $title,string $contents,string $class=''): string
     {
-        return '<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'.
-            '<meta name="robots" content="noindex,nofollow"><title>'.self::e($title).' · VetZimo</title><link rel="stylesheet" href="/web-builder-admin.css?v=38"><script src="/web-builder-admin.js?v=38" defer></script></head>'.
+        $palette=preg_match('/\A[a-z]{3,12}\z/',self::$palette)?self::$palette:'';
+        return '<!doctype html><html lang="tr"'.($palette!==''?' data-theme="'.$palette.'" class="builder-surface"':'').'><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'.
+            '<meta name="robots" content="noindex,nofollow"><title>'.self::e($title).' · VetZimo</title><link rel="stylesheet" href="/web-builder-admin.css?v=38">'.
+            ($palette!==''?'<link rel="stylesheet" href="/themes.css?v=20261126-r9"><link rel="stylesheet" href="/surface-themes.css?v=20261126-r5">':'').
+            '<script src="/web-builder-admin.js?v=38" defer></script></head>'.
             '<body class="'.self::e($class).'">'.$contents.'</body></html>';
     }
     public function render(array $actor,?array $site,string $tab,array $get,?string $error=null,array $submitted=[]): string

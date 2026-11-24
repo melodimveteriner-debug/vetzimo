@@ -10,6 +10,8 @@ final class HomeVisitPages
 {
     private static bool $clinicPanel=false;
     private static string $clinicPalette='classic';
+    /** Hasta sahibi Evde Hizmet sayfalarının teması (sitenin genel teması). */
+    private static string $surfacePalette='';
     private const COOKIE='__Host-vetnet-visit';
     private const SETTINGS='/clinic/evde-hizmet?gorunum=ayarlar';
     private const NOTIFICATIONS='/clinic/evde-hizmet?gorunum=bildirim-ayarlari';
@@ -64,6 +66,8 @@ final class HomeVisitPages
         $embedded=$embedded||self::$clinicPanel;
         $notificationSkin=$palette!=='';
         if (self::$clinicPanel) $palette=self::$clinicPalette;
+        elseif (!$notificationSkin && self::$surfacePalette!=='') $palette=self::$surfacePalette;
+        $surface=!self::$clinicPanel && !$notificationSkin && $palette!=='';
         header("Content-Security-Policy: default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors ".($embedded?"'self'":"'none'")."; form-action 'self'; connect-src 'self'; worker-src 'self'");
         // A native same-origin POST needs its Origin for the front controller check.
         header('Referrer-Policy: '.($sensitiveUrl?'strict-origin':'same-origin'));
@@ -71,10 +75,11 @@ final class HomeVisitPages
         header('X-Robots-Tag: noindex, nofollow');
         header('Content-Type: text/html; charset=utf-8');
         http_response_code($code);
-        $classes=trim(($notificationSkin?'notification-center ':'').(self::$clinicPanel?'clinic-visit-panel':''));
+        $classes=trim(($notificationSkin?'notification-center ':'').(self::$clinicPanel?'clinic-visit-panel':'').($surface?'visit-surface':''));
         echo '<!doctype html><html lang="tr"'.($palette!==''?' data-theme="'.self::e($palette).'" class="'.$classes.'"':'').'><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'.
             '<title>'.self::e($title).' · VetZimo</title><link rel="icon" href="/favicon.ico?v=51" type="image/x-icon"><link rel="stylesheet" href="/home-visits.css?v=61"><script src="/home-visits.js?v=53" defer></script>'.
-            ($palette!==''?'<link rel="stylesheet" href="/themes.css">':'').
+            ($palette!==''?'<link rel="stylesheet" href="/themes.css?v=20261126-r9">':'').
+            ($surface?'<link rel="stylesheet" href="/surface-themes.css?v=20261126-r5">':'').
             ($notificationSkin?'<link rel="stylesheet" href="/notification-center.css?v=53">':'').
             (self::$clinicPanel?'<link rel="stylesheet" href="/clinic-visit-panel.css?v=51">':'').'</head>'.
             ($embedded?'<body class="visit-embedded">':'<body><header><div><a href="'.self::e($return).'"><img class="visit-brand-logo" src="/vetzimo-logo.webp" alt="VetZimo" width="140" height="38"></a>'.
@@ -413,6 +418,7 @@ final class HomeVisitPages
             if (!$actor) self::redirect('/app');
             if ($settingsPage && $actor['role']!=='dealer') self::settingsError('Evde Hizmet ayarlarını değiştirmek için bayi yöneticisi hesabıyla giriş yapın.',403);
             if ($owner!==($actor['role']==='customer')) throw new RuntimeException('Hesap yetkiniz yeterli değil.',403);
+            if ($owner) self::$surfacePalette=(new Appearance($this->db))->read()['palette']?:'classic';
             $state=$this->visits->workspace($actor['partner_id'])['state'];
             if (!ClinicAccess::valid($actor,$state)) {
                 if ($settingsPage) self::settingsError('Çalışma alanı doğrulanamadı. Hesabınızla yeniden giriş yapın.',403);

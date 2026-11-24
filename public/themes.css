@@ -185,3 +185,6 @@ body[data-clinic-palette]:has(#main) :is(.schedule-grid td:hover,.is-today,.sett
 .login-surface[data-access-theme] .access-layout :is(#view,#portal-content) :is(input:not([type=checkbox]):not([type=radio]),select,textarea){background:var(--theme-paper);color:var(--theme-ink);border-color:var(--theme-line)}
 .login-surface[data-access-theme] :is(.access-feature,.access-mock,.access-mock-row,.access-float){background:var(--theme-paper);color:var(--theme-ink)}
 .login-surface:is([data-access-theme=dark],[data-access-theme=midnight],[data-access-theme=nebula]) .access-layout :is(#view,#portal-content) button[type=submit]{color:var(--theme-work)}
+/* Klinik: sabit renkli küçük öğeler seçili temayı izler (koyu temalarda okunur kalır). */
+[data-clinic-palette]:not([data-clinic-palette=""]) .metric-label{color:var(--muted)}
+[data-clinic-palette]:not([data-clinic-palette=""]) main button.secondary:not(.button){background:var(--paper);color:var(--brand-link);border:1px solid var(--line);border-radius:8px}
