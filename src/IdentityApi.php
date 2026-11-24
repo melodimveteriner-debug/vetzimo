@@ -474,6 +474,26 @@ final class IdentityApi
         return ['photos'=>json_decode($q->fetchColumn()?:'[]',true,16,JSON_THROW_ON_ERROR)];
     }
 
+    /** "Ad | Sonuç | Birim | Alt | Üst | İşaret" tablosundan yalnızca değer satırları (yorum içermez). */
+    private static function ownerLabRows(string $values): array
+    {
+        $clean=static fn(string $text,int $limit): string=>mb_substr(trim(preg_replace('/[\x00-\x1F\x7F]+/u',' ',$text) ?? ''),0,$limit);
+        $number=static fn(string $text): ?float=>preg_match('/[-+]?\d+(?:[.,]\d+)?/',$text,$m)?(float)str_replace(',','.',$m[0]):null;
+        $rows=[];
+        foreach (preg_split('/\R/',mb_substr($values,0,18000)) as $line) {
+            $cells=array_map('trim',explode('|',$line));
+            if (count($cells)<5 || count($cells)>8 || $cells[0]==='' || $cells[1]==='') continue;
+            [$name,$value,$unit,$min,$max]=array_slice($cells,0,5);
+            $mark=strtoupper($cells[5] ?? '');
+            $v=$number($value); $lo=$number($min); $hi=$number($max);
+            $flag=$v!==null&&$lo!==null&&$hi!==null&&$lo<=$hi?($v<$lo?'L':($v>$hi?'H':'')):(in_array($mark,['H','L'],true)?$mark:'');
+            $rows[]=['name'=>$clean($name,60),'value'=>$clean($value,24),'unit'=>$clean($unit,24),
+                'ref'=>$min!==''&&$max!==''?$clean($min,12).'–'.$clean($max,12):'','flag'=>$flag];
+            if (count($rows)>=80) break;
+        }
+        return $rows;
+    }
+
     public function portal(array $actor): array
     {
         if($actor['role']!=='customer') throw new RuntimeException('Hasta sahibi hesabı gerekli.',403);
@@ -534,9 +554,12 @@ final class IdentityApi
             foreach ($state->labs ?? [] as $lab) {
                 $exam=$lab->exam ?? '';
                 $category=($lab->kind ?? '')==='Röntgen'?'xray':'lab';
-                if ($sections[$category] && isset($photos[$lab->id],$exams[$exam]) && $lab->branch===$dataBranch
+                // Hasta sahibi yalnızca hekimin doğruladığı değer tablosunu ve görseli görür; yorum/sonuç metni gönderilmez.
+                $rows=($lab->verified ?? '')==='Evet'?self::ownerLabRows((string)($lab->values ?? '')):[];
+                if ($sections[$category] && (isset($photos[$lab->id]) || $rows) && isset($exams[$exam]) && $lab->branch===$dataBranch
                     && $lab->patient===$exams[$exam]['patient']) {
-                    $exams[$exam]['attachments'][]=['id'=>$lab->id,'title'=>$lab->title ?? 'Tetkik','category'=>$category];
+                    $exams[$exam]['attachments'][]=['id'=>$lab->id,'title'=>$lab->title ?? 'Tetkik','category'=>$category,
+                        'photo'=>isset($photos[$lab->id]),'rows'=>$rows];
                 }
             }
         }

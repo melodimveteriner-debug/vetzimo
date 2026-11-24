@@ -241,3 +241,11 @@ main:has(.owner-dashboard){max-width:1050px}
 .identity-brand:has(.vetzimo-wordmark) strong{font-size:.92rem}
 
 .center-visit-frame{display:block;width:100%;min-height:15rem;height:44rem;border:0}
+/* Hasta sahibi · tetkik değer tablosu */
+.owner-lab-table{margin:10px 0;max-width:100%;overflow-x:auto}
+.owner-lab-table h4{margin:0 0 6px}
+.owner-lab-table table{width:100%;border-collapse:collapse;font-size:.9rem}
+.owner-lab-table th,.owner-lab-table td{padding:6px 8px;border-bottom:1px solid var(--line,#e2dfeb);text-align:start;white-space:nowrap}
+.owner-lab-table td:first-child{white-space:normal}
+.owner-lab-table tr.is-high td:last-child{color:#c03147;font-weight:700}
+.owner-lab-table tr.is-low td:last-child{color:#1f6fb2;font-weight:700}

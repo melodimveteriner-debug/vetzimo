@@ -615,6 +615,26 @@ async function portal() {
       if(exam.assessment)item.append(el("p",exam.assessment));
       if(exam.plan)item.append(el("p",exam.plan));
       for(const attachment of exam.attachments??[]){
+        if(Array.isArray(attachment.rows)&&attachment.rows.length){
+          // Yalnızca değer tablosu; klinik yorum hasta sahibine gösterilmez.
+          const rows=attachment.rows.slice().sort((a,b)=>Number(Boolean(b.flag))-Number(Boolean(a.flag)));
+          const wrap=el("div","",{className:"owner-lab-table"});
+          wrap.append(el("h4",attachment.title));
+          const table=el("table");
+          const head=el("tr");
+          for(const label of ["Parametre","Sonuç","Birim","Referans","Durum"])head.append(el("th",label));
+          table.append(el("thead"),el("tbody"));
+          table.tHead.append(head);
+          for(const row of rows){
+            const tr=el("tr","",{className:row.flag==="H"?"is-high":row.flag==="L"?"is-low":""});
+            for(const value of [row.name,row.value,row.unit,row.ref])tr.append(el("td",value||""));
+            tr.append(el("td",row.flag==="H"?"↑ Yüksek":row.flag==="L"?"↓ Düşük":"Normal"));
+            table.tBodies[0].append(tr);
+          }
+          wrap.append(table);
+          item.append(wrap);
+        }
+        if(attachment.photo===false)continue;
         const control=el("button",attachment.title+" · Görseli aç",{type:"button",className:"secondary"});
         control.addEventListener("click",async()=>{
           control.disabled=true;
