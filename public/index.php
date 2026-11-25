@@ -12,7 +12,7 @@ use VetNet\Cpanel\SessionRepository;
 
 require_once dirname(__DIR__).'/src/StaffPlan.php';
 
-foreach (['AppHub','AppPush','DeviceHub','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','SaasPayment','DealerAgreement','CenterAnalytics','ClinicAlerts','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','TeamTotp','WebInbox','MinistryBridge','SiteLegal','OmniInbox','PhoneGateway','ClientPermit','PrintTemplates','Support','Commerce','Appearance'] as $class) {
+foreach (['AppHub','AppPush','DeviceHub','VisitTracker','ReviewLink','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','SaasPayment','DealerAgreement','CenterAnalytics','ClinicAlerts','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','TeamTotp','WebInbox','MinistryBridge','SiteLegal','OmniInbox','PhoneGateway','ClientPermit','PrintTemplates','Support','Commerce','Appearance'] as $class) {
     require_once dirname(__DIR__) . '/src/' . $class . '.php';
 }
 
@@ -329,6 +329,42 @@ try {
         header('Content-Type: text/html; charset=utf-8');
         echo '<!doctype html><html lang="tr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><title>VetZimo · Hesap silme</title><style>body{font:1rem/1.6 system-ui;margin:0;background:linear-gradient(160deg,#f3efff,#e9f7ff);color:#1d1638;min-height:100vh}main{max-width:38rem;margin:0 auto;padding:3rem 1.2rem}h1{font-size:1.6rem;margin:0 0 .6rem}.card{background:#fff;border-radius:18px;padding:1.4rem;box-shadow:0 18px 40px rgba(60,30,140,.12)}label{display:grid;gap:.3rem;margin:.8rem 0}label.c{display:flex;gap:.5rem;align-items:flex-start}input,button{font:inherit}input[type=password]{padding:.7rem;border:1px solid #cfc6ef;border-radius:10px}button{background:#6a3df0;color:#fff;border:0;border-radius:12px;padding:.75rem 1.2rem;font-weight:700;cursor:pointer}.ok{background:#e6f7ee;color:#11633a;padding:.8rem;border-radius:10px}a{color:#5b2fd6}@media (prefers-color-scheme:dark){body{background:#120d24;color:#ece8ff}.card{background:#1d1638}input[type=password]{background:#120d24;color:#fff;border-color:#4b3d86}a{color:#b8a4ff}}</style><main><h1>Hesap silme talebi</h1><div class="card"><p>Talep, VetZimo giriş hesabınız için kaydedilir. Tamamlandığında giriş bilgileriniz, cihaz kayıtlarınız ve bildirimleriniz silinir. Kliniğinizin tuttuğu tıbbi kayıtlar yasal saklama yükümlülüğü nedeniyle klinikte kalır; bunlar için kliniğinize başvurabilirsiniz.</p>'.$form.'</div><p><a href="/platform/gizlilik">Gizlilik bilgilendirmesi</a></p></main></html>';
         exit;
+    }
+    if (!$externalWeb && preg_match('~\A/(api/)?evde-hizmet/canli(?:/([a-f0-9]{32}))?\z~D',$path,$liveRoute)) {
+        // Evde hizmet canlı rota: personel konumu yalnız aktif ziyaret süresince; hasta sahibi kalan süreyi görür.
+        $tracker=new VetNet\Cpanel\VisitTracker($db,new VetNet\Cpanel\HomeVisit($db,$config),$origin);
+        $token=$liveRoute[2]??'';
+        if ($token!=='') {
+            $state=$tracker->publicState($token);
+            if ($liveRoute[1]==='api/') { if(!$state) throw new RuntimeException('Takip bağlantısı süresi doldu.',404); header('Cache-Control: no-store'); reply($state); }
+            header('Content-Type: text/html; charset=utf-8'); header('Cache-Control: no-store'); header('Referrer-Policy: no-referrer');
+            header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; script-src 'self'; connect-src 'self'; img-src 'self'; frame-ancestors 'none'");
+            http_response_code($state?200:404);
+            echo VetNet\Cpanel\VisitTracker::publicPage($state); exit;
+        }
+        if ($liveRoute[1]!=='api/') throw new RuntimeException('Sayfa bulunamadı.',404);
+        $actor=$sessions->resolve($_COOKIE,$now);
+        if (!$actor) throw new RuntimeException('Oturum doğrulanamadı.',401);
+        $actor=(new IdentityApi($db))->actor($_COOKIE,$now);
+        if ($actor['role']!=='customer') $actor=(new VetNet\Cpanel\Commerce($db))->packageActor($actor);
+        $visit=(string)($_GET['visit']??'');
+        if ($method==='GET') reply($actor['role']==='customer'?$tracker->ownerState($actor,$visit):$tracker->state($tracker->staffVisit($actor,$visit),true));
+        if ($method!=='POST' || $actor['role']==='customer') throw new RuntimeException('Yöntem desteklenmiyor.',405);
+        if (!hash_equals($actor['membership_id'],$_SERVER['HTTP_X_VETNET_SCOPE']??'')) throw new RuntimeException('Çalışma alanı oturumu değişti.',409);
+        requireFeature($actor,'homeVisit',true);
+        $body=input(4096); $visit=(string)($body->visit??'');
+        reply(match($body->action??''){
+            'start'=>$tracker->start($actor,$visit,$body,$now),'update'=>$tracker->update($actor,$visit,$body,$now),
+            'arrive'=>$tracker->arrive($actor,$visit,$now),'stop'=>$tracker->stop($actor,$visit,$now),'review'=>$tracker->askReview($actor,$visit,$now),
+            default=>throw new RuntimeException('İşlem geçersiz.',422)});
+    }
+    if (!$externalWeb && $path==='/api/clinic/review-link' && in_array($method,['GET','POST'],true)) {
+        $actor=(new VetNet\Cpanel\Commerce($db))->packageActor((new IdentityApi($db))->actor($_COOKIE,$now));
+        if (!in_array($actor['role'],['dealer','branch'],true)) throw new RuntimeException('Bu ayarı yalnız yöneticiler değiştirebilir.',403);
+        $links=new VetNet\Cpanel\ReviewLink($db);
+        if ($method==='GET') reply($links->get($actor['partner_id']));
+        if (!hash_equals($actor['membership_id'],$_SERVER['HTTP_X_VETNET_SCOPE']??'')) throw new RuntimeException('Çalışma alanı oturumu değişti.',409);
+        reply($links->save($actor['partner_id'],input(4096)));
     }
     if ($path==='/api/evde-hizmet/konum'||(!$externalWeb && in_array($path,['/clinic/evde-hizmet','/hasta-sahibi/evde-hizmet','/yonetim/evde-hizmet',
         '/evde-hizmet','/evde-hizmet/takip','/api/evde-hizmet/bildirim'],true))) {

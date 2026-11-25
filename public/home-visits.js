@@ -549,3 +549,74 @@ if (mailFeedback) {
     }
   });
 }
+
+// ── Canlı rota (personel): konum yalnız bu ziyaret süresince paylaşılır. Uygulamada yerel konum eklentisi kullanılır.
+(() => {
+  const box = document.querySelector("[data-live-staff]");
+  const reviewBox = document.querySelector("[data-live-review]");
+  const ownerBox = document.querySelector("[data-live-owner]");
+  const post = (scope, body) => fetch("/api/evde-hizmet/canli", {method: "POST", credentials: "same-origin", headers: {"Content-Type": "application/json", "X-VeTNet-Scope": scope}, body: JSON.stringify(body)})
+    .then(async r => { const d = await r.json().catch(() => ({})); if (!r.ok) throw Error(d.error || "İşlem tamamlanamadı."); return d; });
+  const mins = s => Math.max(1, Math.round(s / 60));
+  const km = m => (m / 1000).toFixed(1).replace(".", ",") + " km";
+  if (box) {
+    const visit = box.dataset.visit, scope = box.dataset.scope, out = box.querySelector("[data-live-out]");
+    const startBtn = box.querySelector("[data-live-start]"), arriveBtn = box.querySelector("[data-live-arrive]"), stopBtn = box.querySelector("[data-live-stop]");
+    const Geo = window.Capacitor?.isNativePlatform?.() ? window.Capacitor.Plugins?.Geolocation : null;
+    let watch = null, last = 0, lock = null, started = false, starting = false, poll = null;
+    const show = s => { out.textContent = s.eta != null ? `Tahmini varış ~${mins(s.eta)} dk · ${km(s.distance)}${s.approaching ? " · hasta sahibine yaklaştığınız bildirildi" : ""}` : "Konum paylaşılıyor. Adres haritada işaretli değilse süre hesaplanamaz."; };
+    let lastPos = null, sentPos = null;
+    // İzleyiciden gelen son konum saklanır; ilk konumda rota başlar, sonra zamanlayıcı 15 sn'de bir değişen konumu gönderir.
+    const send = async pos => {
+      lastPos = pos;
+      if (started || starting) return;
+      starting = true;
+      try { const s = await post(scope, {action: "start", ...payload(pos)}); started = true; sentPos = pos; last = Date.now(); show(s); startBtn.hidden = true; arriveBtn.hidden = false; stopBtn.hidden = false;
+        document.querySelector('input[name="action"][value="depart"]')?.closest("form")?.setAttribute("hidden", ""); }
+      catch (e) { out.textContent = e.message; }
+      finally { starting = false; }
+    };
+    const payload = pos => ({visit, lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: Math.round(pos.coords.accuracy || 0), speed: pos.coords.speed ?? null});
+    const flush = async () => {
+      if (!started || !lastPos || (lastPos === sentPos && Date.now() - last < 60000)) return;
+      const pos = lastPos; sentPos = pos; last = Date.now();
+      try { show(await post(scope, {action: "update", ...payload(pos)})); } catch (e) { out.textContent = e.message; }
+    };
+    const fail = e => { out.textContent = e.code === 1 ? "Konum izni verilmedi. Telefon ayarlarından VetZimo için konum iznini açın; ziyareti konumsuz da sürdürebilirsiniz." : "Konum alınamadı: " + (e.message || ""); };
+    const stopWatch = async () => { clearInterval(poll); if (watch != null) { Geo ? await Geo.clearWatch({id: watch}) : navigator.geolocation.clearWatch(watch); watch = null; } try { await lock?.release(); } catch {} lock = null; };
+    startBtn.addEventListener("click", async () => {
+      out.textContent = "Konum izni isteniyor…";
+      try { lock = await navigator.wakeLock?.request("screen"); } catch {}
+      if (Geo) {
+        try { const p = await Geo.requestPermissions({permissions: ["location"]}); if (p.location === "denied") return fail({code: 1}); } catch {}
+        watch = await Geo.watchPosition({enableHighAccuracy: true, timeout: 20000, maximumAge: 5000}, (pos, err) => err ? fail(err) : send(pos));
+      } else if (navigator.geolocation) {
+        watch = navigator.geolocation.watchPosition(send, fail, {enableHighAccuracy: true, timeout: 20000, maximumAge: 5000});
+      } else { out.textContent = "Bu cihaz konum paylaşımını desteklemiyor."; return; }
+      poll = setInterval(flush, 15000);
+    });
+    arriveBtn.addEventListener("click", async () => { await stopWatch(); try { await post(scope, {action: "arrive", visit}); location.reload(); } catch (e) { out.textContent = e.message; } });
+    stopBtn.addEventListener("click", async () => { await stopWatch(); try { await post(scope, {action: "stop", visit}); out.textContent = "Konum paylaşımı durduruldu."; startBtn.hidden = false; stopBtn.hidden = true; started = false; } catch (e) { out.textContent = e.message; } });
+  }
+  if (reviewBox) {
+    const btn = reviewBox.querySelector("[data-live-review-send]"), out = reviewBox.querySelector("[data-live-out]");
+    btn?.addEventListener("click", async () => {
+      btn.disabled = true;
+      try { const r = await post(reviewBox.dataset.scope, {action: "review", visit: reviewBox.dataset.visit}); out.textContent = "Değerlendirme isteği gönderildi (" + r.sent.map(c => ({app: "uygulama bildirimi", sms: "SMS", whatsapp: "WhatsApp"})[c] || c).join(", ") + ")."; btn.hidden = true; }
+      catch (e) { out.textContent = e.message; btn.disabled = false; }
+    });
+  }
+  if (ownerBox) {
+    const visit = ownerBox.dataset.visit, eta = ownerBox.querySelector("[data-live-eta]"), dist = ownerBox.querySelector("[data-live-distance]"), out = ownerBox.querySelector("[data-live-out]");
+    const tick = async () => {
+      try {
+        const r = await fetch("/api/evde-hizmet/canli?visit=" + encodeURIComponent(visit), {credentials: "same-origin", cache: "no-store"});
+        if (!r.ok) return;
+        const s = await r.json();
+        if (s.active && s.eta != null) { eta.textContent = "~" + mins(s.eta) + " dk"; dist.textContent = km(s.distance); out.textContent = s.staff + (s.approaching ? " adresinize yaklaştı." : " yolda.") + " Son güncelleme " + new Date(s.updatedAt * 1000).toLocaleTimeString("tr-TR", {hour: "2-digit", minute: "2-digit"}); }
+        else if (s.status === "arrived") { eta.textContent = "Ulaştı"; dist.textContent = ""; out.textContent = "Ekibimiz adresinize ulaştı."; ownerBox.querySelector(".visit-live-road")?.remove(); }
+      } catch {}
+    };
+    tick(); setInterval(() => document.hidden || tick(), 15000);
+  }
+})();

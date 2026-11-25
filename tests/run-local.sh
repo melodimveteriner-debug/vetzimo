@@ -46,6 +46,7 @@ fresh test_agree empty;    run dealer-agreement.php env VETNET_TEST_DSN='mysql:h
 fresh test_alert empty;    run clinic-alerts.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_alert' php tests/clinic-alerts.php
 fresh test_apphub empty;  run app-hub.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_apphub' php tests/app-hub.php
 fresh test_dev empty;     run device-hub.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_dev' php tests/device-hub.php
+fresh test_track empty;   run visit-track.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_track' php tests/visit-track.php
 fresh test_center empty;   run center.php  env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_center' php tests/center.php
 if command -v node >/dev/null; then
   fx=$(mktemp); node tests/finance-fixtures.mjs "$fx" >/dev/null 2>&1 && run finance.php php tests/finance.php "$fx"; rm -f "$fx"

@@ -77,7 +77,7 @@ final class HomeVisitPages
         http_response_code($code);
         $classes=trim(($notificationSkin?'notification-center ':'').(self::$clinicPanel?'clinic-visit-panel':'').($surface?'visit-surface':''));
         echo '<!doctype html><html lang="tr"'.($palette!==''?' data-theme="'.self::e($palette).'" class="'.$classes.'"':'').'><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'.
-            '<title>'.self::e($title).' · VetZimo</title><link rel="icon" href="/favicon.ico?v=51" type="image/x-icon"><link rel="stylesheet" href="/home-visits.css?v=63"><script src="/home-visits.js?v=54" defer></script>'.
+            '<title>'.self::e($title).' · VetZimo</title><link rel="icon" href="/favicon.ico?v=51" type="image/x-icon"><link rel="stylesheet" href="/home-visits.css?v=65"><script src="/home-visits.js?v=59" defer></script>'.
             ($palette!==''?'<link rel="stylesheet" href="/themes.css?v=20261126-r9">':'').
             ($surface?'<link rel="stylesheet" href="/surface-themes.css?v=20261126-r5">':'').
             ($notificationSkin?'<link rel="stylesheet" href="/notification-center.css?v=53">':'').
@@ -890,10 +890,26 @@ final class HomeVisitPages
                 if (isset($next[$status])) $actions.=self::button($row,...$next[$status]);
                 if (isset($next[$status])) $actions.=self::button($row,'unavailable','Hizmet verilemedi');
             }
+            if ($this->visits->staffAllowed($actor,$settings,true)&&in_array($status,['assigned','departed'],true)) {
+                // Canlı rota: konum yalnız bu ziyaret süresince paylaşılır; hasta sahibine yola çıktı / yaklaştı bildirimi.
+                $actions.='<section class="visit-live" data-live-staff data-visit="'.self::e($row['id']).'" data-status="'.self::e($status).'" data-scope="'.self::e($actor['membership_id']).'">'.
+                    '<h3>Canlı rota</h3><p>“Yola çık”a dokunduğunuzda konumunuz yalnız bu ziyaret boyunca paylaşılır. Hasta sahibine tahmini varış süresi, yaklaştığınızda da ikinci bir bildirim gider. Tam konumunuz hasta sahibine gösterilmez.</p>'.
+                    '<div class="visit-live-state" data-live-out role="status"></div><div class="visit-live-actions"><button type="button" class="button primary" data-live-start>'.($status==='departed'?'Konum paylaşımını sürdür':'Yola çık ve konumumu paylaş').'</button>'.
+                    '<button type="button" class="button" data-live-arrive'.($status==='departed'?'':' hidden').'>Adrese vardım</button><button type="button" class="button secondary" data-live-stop hidden>Paylaşımı durdur</button></div></section>';
+            }
+            if ($this->visits->staffAllowed($actor,$settings,true)&&in_array($status,['started','completed','closed'],true)) {
+                $review=(new ReviewLink($this->db))->get($row['partner_id']);
+                $actions.='<section class="visit-live" data-live-review data-visit="'.self::e($row['id']).'" data-scope="'.self::e($actor['membership_id']).'"><h3>Değerlendirme isteği</h3>'.
+                    ($review['url']!==''?'<p>Hasta sahibine kliniğin Google işletme sayfasında yorum yazma bağlantısı gönderilir (ziyaret başına bir kez).</p><button type="button" class="button primary" data-live-review-send>Google yorum isteği gönder</button><p data-live-out role="status"></p>'
+                        :'<p>Google yorum bağlantısı henüz eklenmedi. <a href="/clinic#ayarlar?sekme=klinik&bolum=google-yorum" target="_top">Ayarlar › Klinik › Google yorum bağlantısı</a></p>').'</section>';
+            }
             if ($manager&&$status==='completed'&&($payment['status']??'')==='paid') $actions.=self::button($row,'close','Kapat');
             if ($row['patient_id']&&in_array($status,['started','completed','closed'],true)) {
                 $actions.='<a class="visit-link" href="/clinic#patient/'.rawurlencode($row['patient_id']).'">Hasta dosyasında yapılan işlemleri kaydet</a>';
             }
+        }
+        if (!$staff&&in_array($status,['departed','arrived'],true)) {
+            $actions.='<section class="visit-live owner" data-live-owner data-visit="'.self::e($row['id']).'"><h3>Ekibimiz yolda</h3><div class="visit-live-eta"><strong data-live-eta>—</strong><span data-live-distance></span></div><div class="visit-live-road"><i></i></div><p data-live-out role="status">Tahmini varış süresi birkaç saniye içinde görünür.</p></section>';
         }
         if ((!$staff||$manager)&&in_array($status,['new','review','quoted','revision','address','payment','planning','assigned','postponed'],true)&&($payment['status']??'')!=='paid') {
             $actions.=self::button($row,'cancel','Talebi iptal et');
