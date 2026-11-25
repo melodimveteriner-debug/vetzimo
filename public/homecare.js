@@ -1,5 +1,5 @@
 import {uiLabel,uiLanguage} from "./ui-locale.js?v=20261123-r64";
-import {evaluate,loadRules} from "./homecare-triage.js?v=20261126-r1";
+import {evaluate,loadRules} from "./homecare-triage.js?v=20261201-r2";
 const observations={routine:"Rutin gözlem",change:"Bir değişiklik fark ettim",contact:"Kliniğin beni aramasını istiyorum"};
 const decisions={reviewed:"İncelendi",contact:"Klinik iletişim isteği",called:"Arandı"};
 const dateFormat=new Intl.DateTimeFormat((document.documentElement.lang||"tr"),{dateStyle:"short",timeStyle:"short",timeZone:"Europe/Istanbul"});
@@ -13,6 +13,11 @@ const checkinFields={
   water:{label:"Su tüketimi",values:{usual:"Her zamanki gibi",less:"Azaldı",more:"Arttı"}},
   activity:{label:"Hareketlilik",values:{usual:"Her zamanki gibi",less:"Azaldı",more:"Arttı"}},
   medication:{label:"Planlanan ilaç uygulaması",values:{given:"Uygulandı",missed:"Uygulanmadı",none:"Planlanmadı"}},
+  stool:{label:"Dışkı",values:{normal:"Normal",soft:"Yumuşak",diarrhea:"Sulu (ishal)",bloody:"Kanlı",none:"Dışkılamadı"}},
+  urine:{label:"İdrar",values:{normal:"Normal",less:"Azaldı",more:"Arttı",bloody:"Kanlı",unable:"Yapamıyor / zorlanıyor"}},
+  vomit:{label:"Bugün kusma",values:{"0":"Kusmadı","1":"1 kez","2":"2 kez","3plus":"3 ve üzeri"}},
+  comfort:{label:"Genel rahatlık",values:{calm:"Rahat",restless:"Huzursuz",pain:"Ağrılı görünüyor"}},
+  wound:{label:"Yara / dikiş yeri",values:{clean:"Temiz, kuru",red:"Kızarık",discharge:"Akıntılı",open:"Açılmış"}},
 };
 const kilograms=new Intl.NumberFormat("tr-TR",{maximumFractionDigits:3});
 
@@ -24,6 +29,8 @@ export const triageReasons={
   vomit:"Kusma",diarrhea:"İshal",not_eating:"Yemiyor",lethargy:"Halsizlik",wound:"Yara veya dikiş",limp:"Topallama",eye_soon:"Göz sorunu",
   fever:"Ateş",cough:"Öksürük veya hapşırma",swelling:"Şişlik",pain:"Ağrı",appetite_none:"Hiç yemedi",water_less:"Su içmesi azaldı",
   appetite_activity:"Yemiyor ve hareketsiz",contact:"Aranma isteği",med_missed:"İlaç dozu atlandı",
+  stool_blood:"Kanlı dışkı",stool_diarrhea:"İshal",urine_unable:"İdrar yapamıyor",urine_blood:"Kanlı idrar",vomit_many:"Sık kusma",pain_seen:"Ağrılı görünüyor",
+  wound_discharge:"Yarada akıntı",wound_open:"Dikiş açılmış",temp_critical:"Ateş tehlikeli düzeyde",temp_high:"Yüksek ateş",
 };
 const advice={
   urgent:{title:"Bu durum acil olabilir",text:"Lütfen beklemeden kliniğinizi arayın ve hayvanınızı en kısa sürede kliniğe götürün. Klinik kapalıysa ve ulaşamıyorsanız en yakın 7/24 açık veteriner kliniğine başvurun."},
@@ -209,7 +216,11 @@ export function mountHomeCare(root,{scope,patient="",patients,clinic=false,recor
       const weight=element("input");
       weight.inputMode="decimal";weight.maxLength=8;weight.placeholder="Örn. 4,25";
       formGrid.append(field("Evde ölçülen kilo (kg)",weight));entries.push(["weight",weight]);
-      details.append(element("summary","İştah, su, hareket, ilaç ve kilo ekle"),formGrid);
+      const temperature=element("input");
+      temperature.inputMode="decimal";temperature.maxLength=4;temperature.placeholder="Örn. 38,6";
+      formGrid.append(field("Evde ölçülen ateş (°C)",temperature));entries.push(["temperature",temperature]);
+      details.open=true;
+      details.append(element("summary","Günlük kontrol: iştah, su, dışkı, idrar, kusma, ağrı, yara, ateş ve kilo"),formGrid);
       const checkin=element("section","","homecare-card");
       const emergencyHint=element("div","","homecare-hint");
       emergencyHint.append(paragraph("Klinik gözlemleri daha sonra inceler. Acil durumda kliniğinizi doğrudan arayın."),...contactLines(contact));
@@ -271,6 +282,11 @@ export function mountHomeCare(root,{scope,patient="",patients,clinic=false,recor
       if(Number(row.details?.weight)>0){
         const line=element("div");
         line.append(element("dt","Evde ölçülen kilo"),element("dd",kilograms.format(Number(row.details.weight))+" kg"));
+        recorded.append(line);
+      }
+      if(Number(row.details?.temperature)>0){
+        const t=Number(row.details.temperature),line=element("div",null,t>=39.5||t<37?"homecare-flag":"");
+        line.append(element("dt","Evde ölçülen ateş"),element("dd",String(t).replace(".",",")+" °C"));
         recorded.append(line);
       }
       if(recorded.childElementCount)article.append(recorded);

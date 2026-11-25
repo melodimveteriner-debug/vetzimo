@@ -97,6 +97,14 @@ final class HomeCareTriage
         if (($details['appetite'] ?? '') === 'none') $raise(1, 'appetite_none');
         if (($details['water'] ?? '') === 'less') $raise(1, 'water_less');
         if (($details['appetite'] ?? '') === 'none' && ($details['activity'] ?? '') === 'less') $raise(1, 'appetite_activity');
+        if (in_array($details['stool'] ?? '', ['bloody'], true)) $raise(2, 'stool_blood');
+        if (($details['stool'] ?? '') === 'diarrhea') $raise(1, 'stool_diarrhea');
+        if (($details['urine'] ?? '') === 'unable') $raise(2, 'urine_unable');
+        if (($details['urine'] ?? '') === 'bloody') $raise(1, 'urine_blood');
+        if (($details['vomit'] ?? '') === '3plus') $raise(1, 'vomit_many');
+        if (($details['comfort'] ?? '') === 'pain') $raise(1, 'pain_seen');
+        if (in_array($details['wound'] ?? '', ['discharge', 'open'], true)) $raise(($details['wound'] ?? '') === 'open' ? 2 : 1, 'wound_'.$details['wound']);
+        if (isset($details['temperature'])) { $t = (float)$details['temperature']; if ($t >= 40.5 || $t < 37.0) $raise(2, 'temp_critical'); elseif ($t >= 39.5) $raise(1, 'temp_high'); }
         if ($observation === 'contact') $raise(1, 'contact');
         if (($details['medication'] ?? '') === 'missed' && !in_array('med_missed', $reasons, true)) $reasons[] = 'med_missed';
         $urgent = $p['urgent'];

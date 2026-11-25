@@ -925,3 +925,4 @@ th[aria-sort] .column-sort span{color:var(--brand)}
 .store-package.is-current{outline:2px solid color-mix(in srgb,var(--accent,#5b3fd6) 55%,transparent)}
 .store-pay-frame{width:100%;min-height:720px;border:1px solid var(--line);border-radius:14px;background:#fff}
 .store-ok{border-left:4px solid #15803d}.store-bad{border-left:4px solid #b91c1c}
+.homecare-flag dd{color:#b91c1c;font-weight:700}

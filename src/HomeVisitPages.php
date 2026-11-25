@@ -77,7 +77,7 @@ final class HomeVisitPages
         http_response_code($code);
         $classes=trim(($notificationSkin?'notification-center ':'').(self::$clinicPanel?'clinic-visit-panel':'').($surface?'visit-surface':''));
         echo '<!doctype html><html lang="tr"'.($palette!==''?' data-theme="'.self::e($palette).'" class="'.$classes.'"':'').'><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'.
-            '<title>'.self::e($title).' · VetZimo</title><link rel="icon" href="/favicon.ico?v=51" type="image/x-icon"><link rel="stylesheet" href="/home-visits.css?v=62"><script src="/home-visits.js?v=53" defer></script>'.
+            '<title>'.self::e($title).' · VetZimo</title><link rel="icon" href="/favicon.ico?v=51" type="image/x-icon"><link rel="stylesheet" href="/home-visits.css?v=63"><script src="/home-visits.js?v=54" defer></script>'.
             ($palette!==''?'<link rel="stylesheet" href="/themes.css?v=20261126-r9">':'').
             ($surface?'<link rel="stylesheet" href="/surface-themes.css?v=20261126-r5">':'').
             ($notificationSkin?'<link rel="stylesheet" href="/notification-center.css?v=53">':'').

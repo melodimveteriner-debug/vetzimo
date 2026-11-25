@@ -54,6 +54,14 @@ export function evaluate(rules, {observation = "", details = {}, note = ""} = {}
   if (details?.appetite === "none") raise(1, "appetite_none");
   if (details?.water === "less") raise(1, "water_less");
   if (details?.appetite === "none" && details?.activity === "less") raise(1, "appetite_activity");
+  if (details?.stool === "bloody") raise(2, "stool_blood");
+  if (details?.stool === "diarrhea") raise(1, "stool_diarrhea");
+  if (details?.urine === "unable") raise(2, "urine_unable");
+  if (details?.urine === "bloody") raise(1, "urine_blood");
+  if (details?.vomit === "3plus") raise(1, "vomit_many");
+  if (details?.comfort === "pain") raise(1, "pain_seen");
+  if (details?.wound === "discharge" || details?.wound === "open") raise(details.wound === "open" ? 2 : 1, "wound_" + details.wound);
+  if (details?.temperature != null && details.temperature !== "") { const t = Number(String(details.temperature).replace(",", ".")); if (t >= 40.5 || t < 37) raise(2, "temp_critical"); else if (t >= 39.5) raise(1, "temp_high"); }
   if (observation === "contact") raise(1, "contact");
   if (details?.medication === "missed") { if (!reasons.includes("med_missed")) reasons.push("med_missed"); }
   const order = code => (p.urgent.some(([c]) => c === code) ? 0 : 1);

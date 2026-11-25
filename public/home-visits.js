@@ -1,3 +1,4 @@
+const MAX_STOPS=25;
 const loadOptions=async(kind,id,target,signal)=>{
   target.replaceChildren(new Option("Seçin",""));
   if(!id)return;
@@ -266,6 +267,9 @@ if (board) {
         maps.rel="noopener noreferrer";
         maps.className="visit-link";
         actions.append(maps);
+        for(const [label,url] of [["Apple Haritalar","https://maps.apple.com/?daddr="+stop.lat+","+stop.lon+"&dirflg=d"],["Yandex","https://yandex.com.tr/maps/?rtext=~"+stop.lat+","+stop.lon+"&rtt=auto"]]){
+          const a=link(label,url);a.target="_blank";a.rel="noopener noreferrer";a.className="visit-link visit-link-alt";actions.append(a);
+        }
       }
       if (hasPlan) for(const [delta,label] of [[-1,"Yukarı"],[1,"Aşağı"]]) {
         const button=document.createElement("button");
@@ -279,8 +283,10 @@ if (board) {
       list.append(row);
     });
     drawRoadMap();
-    planButton.disabled=!start||!stops.length||stops.length>15||Boolean(active);
-    if (!message&&stops.length>15) feedback.textContent=stops.length+" ziyaret bulundu. Rota için filtrelerle listeyi 15 veya daha az durağa indirin.";
+    planButton.disabled=!start||!stops.length||stops.length>MAX_STOPS||Boolean(active);
+    if (!message&&stops.length>MAX_STOPS) feedback.textContent=stops.length+" ziyaret bulundu. Rota için filtrelerle listeyi "+MAX_STOPS+" veya daha az durağa indirin.";
+    if (complete) list.after(routeTools(start));
+    else board.querySelector("[data-route-tools]")?.remove();
   }
   function reset() {
     active=0;
@@ -313,6 +319,42 @@ if (board) {
     }
     return ordered;
   }
+  // 2-opt: en yakın komşu sırasındaki çapraz etapları ters çevirerek toplam sürüyü kısaltır (başlangıçtan açık yol).
+  function twoOpt(roads,order) {
+    const cost=list=>list.reduce((sum,stop,i)=>{const leg=roads[i===0?0:list[i-1].index+1][stop.index];return sum+(leg?leg.seconds:1e9)},0);
+    let best=order.slice(),bestCost=cost(best),improved=true,rounds=0;
+    while (improved&&rounds++<50) {
+      improved=false;
+      for (let i=0;i<best.length-1;i++) for (let k=i+1;k<best.length;k++) {
+        const next=[...best.slice(0,i),...best.slice(i,k+1).reverse(),...best.slice(k+1)];
+        const c=cost(next);
+        if (c+1<bestCost) { best=next; bestCost=c; improved=true; }
+      }
+    }
+    return best;
+  }
+  // Tüm rotayı haritada açma ve paylaşma (ücretsiz bağlantılar; Google en çok 9 ara durak kabul eder, rota parçalanır).
+  function routeTools(start) {
+    board.querySelector("[data-route-tools]")?.remove();
+    const box=document.createElement("div");
+    box.className="vis-route-tools";box.dataset.routeTools="";
+    const points=stops.map(s=>s.lat+","+s.lon);
+    const chunks=[];
+    for (let i=0;i<points.length;i+=10) chunks.push(points.slice(i,i+10));
+    chunks.forEach((chunk,n)=>{
+      const from=n===0?start.lat+","+start.lon:points[n*10-1];
+      const query=new URLSearchParams({api:"1",origin:from,destination:chunk.at(-1),travelmode:"driving"});
+      if (chunk.length>1) query.set("waypoints",chunk.slice(0,-1).join("|"));
+      const a=link(chunks.length>1?"Rota "+(n+1)+". bölüm · Google Haritalar":"Tüm rotayı Google Haritalar'da aç","https://www.google.com/maps/dir/?"+query);
+      a.target="_blank";a.rel="noopener noreferrer";a.className="visit-link visit-link-main";box.append(a);
+    });
+    const text=()=>["Eve Hizmet rotası · "+stops.length+" durak",...stops.map((s,i)=>(i+1)+". "+[s.name,s.time,s.district,s.neighborhood,s.address].filter(Boolean).join(" · ")+"\nhttps://www.google.com/maps/dir/?api=1&destination="+s.lat+","+s.lon)].join("\n");
+    const copy=document.createElement("button");copy.type="button";copy.textContent="Rota listesini kopyala";
+    copy.addEventListener("click",async()=>{try{await navigator.clipboard.writeText(text());copy.textContent="Kopyalandı";}catch{copy.textContent="Kopyalanamadı";}setTimeout(()=>{copy.textContent="Rota listesini kopyala"},2000)});
+    const wa=link("WhatsApp ile paylaş","https://wa.me/?text="+encodeURIComponent(text()));wa.target="_blank";wa.rel="noopener noreferrer";wa.className="visit-link";
+    box.append(copy,wa);
+    return box;
+  }
   function ensureWorker() {
     if (worker) return worker;
     worker=new Worker("/visit-road-worker.js?v=49");
@@ -327,7 +369,7 @@ if (board) {
       }
       roadPlan=data;
       matrix=data.matrix;
-      if (!val("strategy")||val("strategy")==="near") stops=closestOrder(matrix,stops);
+      if (!val("strategy")||val("strategy")==="near") stops=twoOpt(matrix,closestOrder(matrix,stops));
       render();
     });
     worker.addEventListener("error",()=>{
@@ -340,7 +382,7 @@ if (board) {
   }
   planButton.addEventListener("click",()=>{
     const start=origin();
-    if (!start||active||!stops.length||stops.length>15) return;
+    if (!start||active||!stops.length||stops.length>MAX_STOPS) return;
     active=++nextRequest;
     matrix=null;
     roadPlan=null;

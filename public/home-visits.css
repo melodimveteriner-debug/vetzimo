@@ -76,3 +76,6 @@ html:has(.visit-embedded){background:transparent;color:var(--visit-ink,#20352c)}
 .visit-list-entry>.visit-delete:not([open]){justify-self:end;width:fit-content}
 .visit-auto-branch{margin:.15rem 0}
 .visit-language{flex:0 0 auto;margin-inline-start:auto}header>div>span:not(.visit-language){margin-inline-start:auto}
+.vis-route-tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0;padding:12px;border:1px dashed var(--line,#d6d3e6);border-radius:14px}
+.vis-route-tools button{min-height:38px;padding:8px 14px;border-radius:10px;border:1px solid var(--line,#d6d3e6);background:var(--paper,#fff);color:inherit;font:inherit;font-weight:600;cursor:pointer}
+.visit-link-main{font-weight:700}.visit-link-alt{font-size:.9em;opacity:.85}

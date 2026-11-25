@@ -17,6 +17,11 @@ final class HomeCare
         'water'=>['usual','less','more'],
         'activity'=>['usual','less','more'],
         'medication'=>['given','missed','none'],
+        'stool'=>['normal','soft','diarrhea','bloody','none'],
+        'urine'=>['normal','less','more','bloody','unable'],
+        'vomit'=>['0','1','2','3plus'],
+        'comfort'=>['calm','restless','pain'],
+        'wound'=>['clean','red','discharge','open'],
     ];
 
     public function __construct(private readonly PDO $db) {}
@@ -202,6 +207,13 @@ final class HomeCare
                 throw new RuntimeException('Kilo değerini kg olarak girin.',422);
             }
             $out['weight']=str_replace(',','.',$weight);
+        }
+        $temp=$input->temperature ?? '';
+        if ($temp!=='') {
+            if (!is_string($temp)||!preg_match('/\A[0-9]{2}(?:[.,][0-9])?\z/',$temp)) throw new RuntimeException('Ateşi derece olarak girin (ör. 38,6).',422);
+            $t=(float)str_replace(',','.',$temp);
+            if ($t<30||$t>45) throw new RuntimeException('Ateş değeri 30–45 °C arasında olmalı.',422);
+            $out['temperature']=str_replace(',','.',$temp);
         }
         return $out;
     }

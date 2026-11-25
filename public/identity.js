@@ -1,5 +1,5 @@
 import {uiText,uiLanguage,uiLabel,mountLanguageSelect} from "./ui-locale.js?v=20261123-r64";
-import {mountHomeCare} from "./homecare.js?v=20261126-r73";
+import {mountHomeCare} from "./homecare.js?v=20261201-r74";
 import {healthEvents,mountHealthTimeline} from "./health-timeline.js";
 import {petPortrait} from "./pet-portrait.js";
 import {loadAppearance} from "./theme.js";
