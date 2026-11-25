@@ -34,9 +34,23 @@ export function setClinicRequestScope(scope) {
   clinicRequestScope=scope||"";
 }
 
-export function clinicFetch(url,options={}) {
-  if (!clinicRequestScope) return fetch(url,options);
+// Ayrı yüklenen modüller (personel/hesaplar, ayarlar vb.) ana uygulamanın kapsam bilgisini paylaşmaz.
+// Kapsam verilmemişse etkin üyelik oturumdan bir kez alınır; böylece istekler bayi yöneticisi kimliğiyle gider.
+let sessionScopePromise=null;
+function sessionScope() {
+  if (!sessionScopePromise) {
+    sessionScopePromise=fetch("/api/identity/session",{credentials:"same-origin"})
+      .then(response=>response.ok?response.json():{})
+      .then(data=>{const scope=typeof data?.scopeId==="string"?data.scopeId:"";if(!scope)sessionScopePromise=null;return scope;})
+      .catch(()=>{sessionScopePromise=null;return "";});
+  }
+  return sessionScopePromise;
+}
+export async function clinicFetch(url,options={}) {
+  let scope=clinicRequestScope;
+  if (!scope && !String(url).startsWith("/api/identity/session")) scope=await sessionScope();
+  if (!scope) return fetch(url,options);
   const headers=new Headers(options.headers);
-  headers.set("X-VeTNet-Scope",clinicRequestScope);
+  if (!headers.has("X-VeTNet-Scope")) headers.set("X-VeTNet-Scope",scope);
   return fetch(url,{...options,headers});
 }
