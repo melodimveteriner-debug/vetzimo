@@ -302,6 +302,17 @@ final class PhoneGateway
         return $this->status($actor, $now);
     }
 
+    /** Kurulum betiği indirmesi için: süresi dolmamış, henüz kullanılmamış eşleştirme kodu mu? */
+    public function pendingCode(mixed $code, int $now): bool
+    {
+        $code = is_string($code) ? strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $code) ?? '') : '';
+        if (!preg_match('/\A[A-Z0-9]{10}\z/', $code)) return false;
+        $q = $this->db->prepare('SELECT pair_expires FROM phone_device WHERE pair_hash=? AND token_hash IS NULL AND revoked_at IS NULL');
+        $q->execute([self::hash($code)]);
+        $exp = $q->fetchColumn();
+        return $exp !== false && (int)$exp >= $now;
+    }
+
     public function agentPair(mixed $code, mixed $name, mixed $version, mixed $info, int $now): array
     {
         $code = is_string($code) ? strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $code) ?? '') : '';

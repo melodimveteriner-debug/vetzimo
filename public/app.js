@@ -799,7 +799,7 @@ st=Aa(st,"purchases",{id:crypto.randomUUID(),branch:Ge,date:job.date||today,supp
 await Bt(st,{module:"Ürünler",action:"Faturadan stok girişi"});return{lines:job.lines.length,created}}finally{ue=!1}}})}).catch(x=>{root.isConnected&&(root.textContent=x.message)})}
 
 // Bakanlık Köprüsü (bridge-ui.js): e-Reçete ve aşı belgesi kuyruğu; gönderimi klinik bilgisayarındaki ajan yapar.
-function vzBridge(root){if(!root)return;root.textContent=We("Yükleniyor…");import("./bridge-ui.js?v=2").then(({mountBridge})=>{if(!root.isConnected)return;
+function vzBridge(root){if(!root)return;root.textContent=We("Yükleniyor…");import("./bridge-ui.js?v=3").then(({mountBridge})=>{if(!root.isConnected)return;
 mountBridge(root,{tr:We,fetch:Ye,toast:m=>be(m),patient:id=>W("patients",id),client:id=>W("clients",id),
 prescriptions:()=>Y("prescriptions"),vaccines:()=>Y("followups").filter(f=>f.kind==="Aşı"&&(f.status==="Tamamlandı"||f.done)),
 canWrite:Ne!=="readonly"&&!S.subscriptionRestricted&&ne(S,Fe("patients"),!0),canManage:Ne!=="readonly"&&(S.role==="dealer"||S.memberRole==="branch"||S.member?.role==="branch")})}).catch(x=>{root.isConnected&&(root.textContent=x.message)})}
@@ -818,7 +818,7 @@ search(q){let k=De(q||""),d=String(q||"").replace(/\D/g,"");if(k.length<2&&d.len
 
 // Telefon Bağlantısı (phone-gateway-ui.js): SMS kliniğin SIM kartından, WhatsApp kliniğin kendi numarasından.
 var vzPhoneStop=null;
-function vzPhone(root){if(!root)return;vzPhoneStop?.();root.textContent=We("Yükleniyor…");import("./phone-gateway-ui.js?v=4").then(({mountPhoneGateway})=>{if(!root.isConnected)return;
+function vzPhone(root){if(!root)return;vzPhoneStop?.();root.textContent=We("Yükleniyor…");import("./phone-gateway-ui.js?v=5").then(({mountPhoneGateway})=>{if(!root.isConnected)return;
 vzPhoneStop=mountPhoneGateway(root,{tr:We,fetch:Ye,toast:m=>be(m)})}).catch(x=>{root.isConnected&&(root.textContent=x.message)})}
 
 // Müşteri onay formu (permit-ui.js): KVKK aydınlatma ve SMS/WhatsApp/e-posta/kampanya izni; tek kullanımlık bağlantı veya bu cihazda imza.
@@ -831,8 +831,8 @@ function vzPermitList(root){if(!root)return;root.textContent=We("Yükleniyor…"
 
 // e-Belgeler (edoc-ui.js): satıştan e-Arşiv / e-Fatura ve e-SMM; düzenlemeyi klinik bilgisayarındaki ajan, kliniğin kendi portal oturumunda yapar.
 function vzEdocApi(){return{tr:We,fetch:Ye,toast:m=>be(m),sale:id=>W("sales",id),client:id=>W("clients",id)}}
-function vzEdoc(id){import("./edoc-ui.js?v=1").then(({openDocDialog})=>openDocDialog(id,vzEdocApi())).catch(x=>be(x.message))}
-function vzEdocPage(root){if(!root)return;root.textContent=We("Yükleniyor…");import("./edoc-ui.js?v=1").then(({mountDocPage})=>{root.isConnected&&mountDocPage(root,vzEdocApi())}).catch(x=>{root.isConnected&&(root.textContent=x.message)})}
+function vzEdoc(id){import("./edoc-ui.js?v=2").then(({openDocDialog})=>openDocDialog(id,vzEdocApi())).catch(x=>be(x.message))}
+function vzEdocPage(root){if(!root)return;root.textContent=We("Yükleniyor…");import("./edoc-ui.js?v=2").then(({mountDocPage})=>{root.isConnected&&mountDocPage(root,vzEdocApi())}).catch(x=>{root.isConnected&&(root.textContent=x.message)})}
 
 // Klinik dikte (voice-clinical.js): "kilo 4 kg ateş 41,3 kusma öksürük" → muayene alanları; hızlı tarayıcı ses tanıma.
 var vzVC=null,vzFill=null;import("./voice-clinical.js?v=1").then(m=>{vzVC=m}).catch(()=>{});
@@ -856,10 +856,10 @@ var vzAlertN=0,vzAlertMod=null;
 function vzStartAlerts(){import("./clinic-alerts.js?v=2").then(m=>{vzAlertMod=m;m.startAlerts({fetch:(u,o)=>fetch(u,o),scope:S.scopeId,tr:We,onChange:n=>{vzAlertN=n;try{fi()}catch{}}})}).catch(()=>{})}
 function vzAlertRender(e){let x=e.querySelector("[data-alert-list]");x&&vzAlertMod&&vzAlertMod.render(x)}
 function vzSettingsRoutes(){return ["settings","branches","services","cikti-sablonlari","users","merkezi-hesaplar","bayi-yetkiler","bayi-admin","personel-plani","iki-adimli-dogrulama","bildirim-merkezi","hatirlaticilar","templates","messages","telefon-baglantisi","gelen-kutusu","bildirim-epostasi","cihaz-entegrasyonu","e-belgeler","bakanlik-koprusu","okc","evde-hizmet","hesap-ayarlari","abonelik","kredi-magazasi","bayi-hesabim","kurum-sec","import","activity","son-degisiklikler"]}
-function vzSettingsCtx(){return{allowed:r=>{if(r==="/web-sitem")return!!S.php&&vzF("webSite")&&["dealer","branch"].includes(S.role);try{return!!H(r)}catch{return!1}},inlineAllowed:r=>r==="google-yorum"?!!S.php&&["dealer","branch"].includes(S.role):r==="bas-konus"?typeof Oi=="function"&&Oi():!0,tr:t=>We(t),api:(p,i={})=>fetch(p,{credentials:"same-origin",...i}),scope:S.scopeId||"",openTheme:()=>{location.hash="#settings";setTimeout(()=>{let x=document.getElementById("personalPalette");x?.scrollIntoView({block:"center"});x?.focus()},500)},openVoice:()=>{location.hash="#settings";setTimeout(()=>document.getElementById("voiceSettingsMount")?.scrollIntoView({block:"start"}),500)},inline:{"google-yorum":a=>vzReviewLink(a)}}}
-function vzSettingsHub(el){el&&import("./settings-hub.js?v=3").then(m=>m.mountSettingsHub(el,vzSettingsCtx()))}
-function vzSettingsCrumb(e){let m=document.getElementById("main");if(!m)return;m.querySelector(":scope > .sh-crumb")?.remove();let f=!1;try{f=sessionStorage.getItem("vz-sh")==="1";vzSettingsRoutes().includes(e)||e==="ayarlar"||sessionStorage.removeItem("vz-sh")}catch{}let g=Ys(e)==="settings";if(!vzSettingsRoutes().includes(e)||!(f||g))return;!g&&m.querySelector(":scope > .module-nav")?.setAttribute("hidden","");import("./settings-hub.js?v=3").then(x=>x.settingsCrumb(e,m,vzSettingsCtx()))}
-function vzDevices(el){el&&import("./device-hub.js?v=2").then(m=>m.mountDevices(el,{canManage:["dealer","branch"].includes(S.role),onMatched:()=>setTimeout(vzDeviceImport,800),api:(p,i={})=>fetch(p,{credentials:"same-origin",...i}),scope:S.scopeId||"",tr:t=>We(t),branch:Se,patients:()=>U.patients||[],owners:()=>U.clients||[],openPatient:id=>{location.hash="#patient/"+encodeURIComponent(id)}})).catch(()=>{el.textContent=We("Cihaz entegrasyonu yüklenemedi.")})}
+function vzSettingsCtx(){return{allowed:r=>{if(r==="/web-sitem")return!!S.php&&vzF("webSite")&&["dealer","branch"].includes(S.role);try{return!!H(r)}catch{return!1}},inlineAllowed:r=>r==="google-yorum"||r==="ajanlar"?!!S.php&&["dealer","branch"].includes(S.role):r==="bas-konus"?typeof Oi=="function"&&Oi():!0,tr:t=>We(t),api:(p,i={})=>fetch(p,{credentials:"same-origin",...i}),scope:S.scopeId||"",openTheme:()=>{location.hash="#settings";setTimeout(()=>{let x=document.getElementById("personalPalette");x?.scrollIntoView({block:"center"});x?.focus()},500)},openVoice:()=>{location.hash="#settings";setTimeout(()=>document.getElementById("voiceSettingsMount")?.scrollIntoView({block:"start"}),500)},inline:{"google-yorum":a=>vzReviewLink(a)}}}
+function vzSettingsHub(el){el&&import("./settings-hub.js?v=4").then(m=>m.mountSettingsHub(el,vzSettingsCtx()))}
+function vzSettingsCrumb(e){let m=document.getElementById("main");if(!m)return;m.querySelector(":scope > .sh-crumb")?.remove();let f=!1;try{f=sessionStorage.getItem("vz-sh")==="1";vzSettingsRoutes().includes(e)||e==="ayarlar"||sessionStorage.removeItem("vz-sh")}catch{}let g=Ys(e)==="settings";if(!vzSettingsRoutes().includes(e)||!(f||g))return;!g&&m.querySelector(":scope > .module-nav")?.setAttribute("hidden","");import("./settings-hub.js?v=4").then(x=>x.settingsCrumb(e,m,vzSettingsCtx()))}
+function vzDevices(el){el&&import("./device-hub.js?v=3").then(m=>m.mountDevices(el,{canManage:["dealer","branch"].includes(S.role),onMatched:()=>setTimeout(vzDeviceImport,800),api:(p,i={})=>fetch(p,{credentials:"same-origin",...i}),scope:S.scopeId||"",tr:t=>We(t),branch:Se,patients:()=>U.patients||[],owners:()=>U.clients||[],openPatient:id=>{location.hash="#patient/"+encodeURIComponent(id)}})).catch(()=>{el.textContent=We("Cihaz entegrasyonu yüklenemedi.")})}
 function vzReviewLink(el){import("./review-link.js?v=1").then(m=>m.mountReviewLink(el,{api:(p,i={})=>fetch(p,{credentials:"same-origin",...i}),scope:S.scopeId||"",tr:t=>We(t)})).catch(()=>{el.textContent=We("Yüklenemedi.")})}
 var vzDevBusy=!1;
 function vzDeviceStart(){if(!S.php||!vzF("devices")||!H("labs"))return;setTimeout(vzDeviceImport,4e3);setInterval(()=>{document.hidden||vzDeviceImport()},6e4)}

@@ -37,12 +37,14 @@ export async function mountDevices(root, ctx) {
   };
   let tab = "inbox", state = "pending", info = await call("/api/clinic/devices").catch(e => ({error: e.message}));
   if (info.error) { root.replaceChildren(h("p", "dv-error", info.error)); return; }
+  const access = await import("./agent-access.js?v=1"), paid = (await access.agentAccess()).paid;
+  if (!root.isConnected) return;
   const wrap = h("section", "dv-root");
   const head = h("header", "dv-head");
   const agentOk = !!info.agent?.online;
   const agentLink = h("a", "dv-agent " + (agentOk ? "on" : "off"), null, {href: agentOk ? "#bakanlik-koprusu" : "#cihaz-entegrasyonu"});
   agentLink.append(h("span", "", agentOk ? "● " : "○ "), h("span", "", tr(agentOk ? "Klinik bilgisayarı ajanı bağlı" : "Ajan bağlı değil · kurulum")));
-  head.append(h("div", "", null), agentLink);
+  head.append(h("div", "", null), ...(paid ? [agentLink] : []));
   head.firstChild.append(h("h2", "", tr("Cihaz entegrasyonu")), h("p", "", tr("Hemogram, biyokimya, kan gazı, idrar, röntgen, ultrason, MR ve tomografi sonuçları otomatik olarak hasta sahibi ve hastayla eşleşir, hastanın muayenesine tetkik olarak eklenir.")));
   const nav = h("div", "dv-tabs"), body = h("div", "dv-body"), note = h("p", "dv-note", "", {hidden: true});
   wrap.append(head, nav, note, body);
@@ -50,7 +52,7 @@ export async function mountDevices(root, ctx) {
   const say = (t, bad) => { note.hidden = !t; note.textContent = t || ""; note.classList.toggle("bad", !!bad); };
   const canManage = ctx.canManage ?? true;
   const tabs = [["inbox", "Gelen sonuçlar"], ["devices", "Cihazlarım"], ["manual", "Elle yükle"], ["setup", "Kurulum rehberi"]];
-  if (!agentOk && !info.devices.length) tab = "setup";
+  if (paid && !agentOk && !info.devices.length) tab = "setup";
   function drawNav() {
     nav.replaceChildren(...tabs.map(([k, l]) => { const b = h("button", "dv-tab", null, {type: "button"}); b.append(h("span", "", tr(l))); if (k === "inbox" && info.counts?.pending) b.append(h("span", "dv-count", " (" + info.counts.pending + ")")); b.setAttribute("aria-selected", String(k === tab)); b.addEventListener("click", () => { tab = k; say(""); draw(); }); return b; }));
   }
@@ -113,6 +115,7 @@ export async function mountDevices(root, ctx) {
     catch (e) { say(e.message, true); }
   }
   function devices() {
+    if (!paid) { body.replaceChildren(access.paidNotice(tr)); return; }
     const list = h("div", "dv-grid");
     for (const d of info.devices) {
       const card = h("article", "dv-card");
@@ -199,13 +202,14 @@ export async function mountDevices(root, ctx) {
     body.replaceChildren(f);
   }
   function setup() {
+    if (!paid) { body.replaceChildren(access.paidNotice(tr)); return; }
     const steps = h("ol", "dv-steps");
     [[tr("Ajanı kurun"), tr("Klinikte cihazların bağlı olduğu bilgisayara VetZimo ajanını kurun ve eşleştirin (Bakanlık köprüsü ile aynı program). Ajan Windows açılınca kendiliğinden başlar."), "#bakanlik-koprusu", tr("Ajanı indir ve eşleştir")],
       [tr("Cihazı ekleyin"), tr("'Cihazlarım' sekmesinde hazır listeden cihazınızı seçin; bağlantı türü ve ayarlar önerilir."), null, null],
       [tr("Cihazı yönlendirin"), tr("Laboratuvar cihazında LIS / Host ayarına klinik bilgisayarının IP adresini ve bağlantı noktasını girin; dosya veren cihazlarda dışa aktarma klasörünü seçin. Röntgen, ultrason, BT ve MR konsolunda DICOM hedefi olarak aynı IP, bağlantı noktası ve AE Title'ı ekleyin."), null, null],
       [tr("Hasta bilgisini cihaza girin"), tr("En kesin eşleşme için cihaza hasta numarası olarak mikroçip veya VetZimo protokol numarasını yazın. Hasta adı ve sahip adı da yeterlidir; aynı adlı birden çok hasta varsa sonuç onayınıza düşer."), null, null],
       [tr("Sonuçlar kendiliğinden gelir"), tr("Eşleşen sonuç hastanın o günkü muayenesine tetkik olarak eklenir, değerler referans aralığıyla işaretlenir, trend grafiklerinde ve tetkik yorumunda görünür; 'Tetkik sonucu hazır' bildirimi gelir."), null, null]]
-      .forEach(([t, d, href, link]) => { const li = h("li"); li.append(h("strong", "", t), h("p", "", d)); if (href) li.append(h("a", "dv-btn primary", link, {href})); steps.append(li); });
+      .forEach(([t, d, href, link], i) => { const li = h("li"); li.append(h("strong", "", t), h("p", "", d)); if (i === 0) { const dl = h("div"); li.append(dl); access.mountAgentDownloads(dl, {tr, keys: ["agent"], compact: true}); } if (href) li.append(h("a", "dv-btn", tr("Eşleştirme kodu al"), {href})); steps.append(li); });
     body.replaceChildren(steps, h("h4", "", tr("Desteklenen bağlantılar")), h("p", "dv-muted", "HL7 v2 (ORU^R01, MLLP) · ASTM E1381/E1394 · CSV / TXT / XML dışa aktarma · DICOM C-STORE (CR, DX, US, CT, MR) · PDF ve görüntü"));
   }
   function draw() { drawNav(); ({inbox, devices, manual, setup})[tab](); }

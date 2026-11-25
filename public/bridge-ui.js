@@ -13,6 +13,8 @@ export function mountBridge(root, api) {
   const {tr} = api;
   const lang = document.documentElement.lang || "tr";
   const ui = {data: null, tab: "pending", pair: null, error: "", busy: false};
+  let paid = null, notice = null;
+  import("./agent-access.js?v=1").then(m => { notice = m.paidNotice; return m.agentAccess(); }).then(a => { paid = a.paid; draw(); }).catch(() => {});
   const fmt = t => t ? new Intl.DateTimeFormat(lang, {dateStyle: "medium", timeStyle: "short"}).format(new Date(t * 1000)) : "";
   const fdate = d => d ? new Intl.DateTimeFormat(lang, {dateStyle: "medium"}).format(new Date(d + "T12:00:00")) : "";
 
@@ -83,7 +85,7 @@ export function mountBridge(root, api) {
       "Ajan panelinde e-Devlet ile Bakanlık girişini siz yapın; şifreniz görülmez ve saklanmaz.",
       "Ajana reçete ve aşı ekranını bir kez öğretin (Kaydet'e basmadan işaretlersiniz; öğretirken kayıt oluşmaz)."]) steps.append(el("li", tr(s)));
     const row = el("div", "", {className: "br-row"});
-    row.append(el("a", tr("Ajanı indir (.zip)"), {href: "/bakanlik-koprusu-ajani.zip", className: "button"}));
+    if (paid) row.append(el("a", tr("Ajanı indir (.zip)"), {href: "/download/agent?src=panel", className: "button"}));
     if (api.canManage) {
       const pair = el("button", tr(d?.agent ? "Yeniden eşleştir" : "Ajanı bağla"), {type: "button", className: "button primary"});
       pair.addEventListener("click", async () => { const r = await act({action: "pair"}); if (r) { ui.pair = r; draw(); } });
@@ -242,6 +244,7 @@ export function mountBridge(root, api) {
 
   function draw() {
     if (!root.isConnected) return;
+    if (paid === false && notice) { root.replaceChildren(el("h1", tr("Bakanlık Köprüsü")), notice(tr)); return; }
     const head = el("div", "", {className: "br-head"});
     const t = el("div");
     t.append(el("h1", tr("Bakanlık Köprüsü")), el("p", tr("Reçete ve aşı kayıtlarını, klinik bilgisayarındaki ajan sizin e-Devlet oturumunuzda Bakanlık sistemine girer. Bakanlık ekranlarını elle doldurmanıza gerek kalmaz.")));
@@ -266,5 +269,5 @@ export function mountBridge(root, api) {
     root.replaceChildren(...parts);
   }
   load();
-  const timer = setInterval(() => { if (!root.isConnected) clearInterval(timer); else if (!document.hidden) load(true); }, 10000);
+  const timer = setInterval(() => { if (!root.isConnected || paid === false) clearInterval(timer); else if (!document.hidden) load(true); }, 10000);
 }

@@ -15,19 +15,24 @@ function detect() {
   return "";
 }
 
-// İndirme sayfası için kısa adres (/indir); dosyalar için doğrudan indirme adresi.
-const target = path => path === PAGE ? origin + "/indir" : new URL(path, origin).href;
+// QR kodlar sayaçlı adrese gider (?src=qr): yönetim panelinde QR ile gelen indirmeler ayrıca görünür.
+const target = path => {
+  if (path === PAGE) return origin + "/download/?src=qr";
+  const u = new URL(path, origin);
+  if (u.origin === origin && u.pathname.startsWith("/download/")) u.searchParams.set("src", "qr");
+  return u.href;
+};
 function drawQr(box) {
   const url = target(box.dataset.dlQr);
   try { box.innerHTML = qrSvg(url, {size: box.closest(".big") ? 196 : 112, label: url}); } catch { box.textContent = url; }
   const cap = box.parentElement.querySelector("figcaption");
-  if (box.dataset.dlQr === PAGE && cap && box.closest(".big")) cap.textContent = location.host + "/indir";
+  if (box.dataset.dlQr === PAGE && cap && box.closest(".big")) cap.textContent = location.host + "/download";
 }
 
 const size = n => n >= 1048576 ? (n / 1048576).toFixed(1).replace(".", ",") + " MB" : Math.max(1, Math.round(n / 1024)) + " KB";
 async function refreshFiles() {
   try {
-    const r = await fetch("/indir/manifest.json", {cache: "no-cache"});
+    const r = await fetch("/download/manifest.json", {cache: "no-cache"});
     if (!r.ok) return;
     const {files = {}} = await r.json();
     for (const a of $$("[data-dl-file]")) {

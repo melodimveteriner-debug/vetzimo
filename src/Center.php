@@ -234,7 +234,7 @@ final class Center
         }
     }
 
-    public function create(array $actor,object $input,int $now): array
+    public function create(array $actor,object $input,int $now,bool $audit=true): array
     {
         $name=$input->name ?? ''; $phone=is_string($input->phone ?? null)?DealerLogin::normalizePhone($input->phone):'';
         $email=is_string($input->email ?? null)?strtolower(trim($input->email)):'';
@@ -253,7 +253,8 @@ final class Center
             (new WorkspaceRepository($this->db))->save('partner:'.$partner, 0, $state);
             $token=bin2hex(random_bytes(32));
             $this->db->prepare('INSERT INTO identity_activation(token_hash,membership_id,expires) VALUES (?,?,?)')->execute([hash('sha256',$token),$member,$now+259200]);
-            $this->audit($actor['account_id'],'partner.created',$partner);
+            if ($audit) $this->audit($actor['account_id'],'partner.created',$partner);
+            else $this->db->prepare('INSERT INTO clinic_audit(partner_id,account_id,action) VALUES (?,?,?)')->execute([$partner,$account,'partner.auto-demo']);
             if ($ownsTransaction) $this->db->commit();
             return ['id'=>$partner,'link'=>'/app#aktivasyon/'.$token,'name'=>$name,'phone'=>$phone,'email'=>$email];
         } catch(\Throwable $e){if ($ownsTransaction) $this->db->rollBack();throw $e;}

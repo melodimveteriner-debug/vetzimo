@@ -1,0 +1,5 @@
+# İndirme klasörü: dosyalar doğrudan sunulmaz. Bu klasöre gelen her istek index.php üzerinden
+# src/AppDownloads.php sayacına gider (erişim denetimi, sayım, Range desteği).
+Options -Indexes -ExecCGI
+RewriteEngine On
+RewriteRule ^ /index.php [END]

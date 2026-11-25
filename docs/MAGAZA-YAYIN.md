@@ -141,12 +141,16 @@ Her madde Android (en az bir Samsung ve bir Pixel), iPhone ve iPad'de denenmelid
 - [ ] Hesap silme talebi ve merkez panelinden tamamlanması.
 - [ ] Sürüm yönetimi: zorunlu güncellemede uygulamanın güncelleme ekranına yönlendirmesi.
 
-## İndirme klasörü ve "Uygulama indir" sayfası
+## İndirme klasörü, sayaç ve "Uygulama indir" sayfası
 
-- Tüm kurulum dosyaları `public/indir/` klasöründe toplanır; kaynakları `apps/` altında da kalır. Klasörü güncellemek için: `php bin/build-downloads.php` (dosyaları kopyalar, klinik ajanı zip'ini üretir, `manifest.json` içine boyut ve SHA-256 yazar).
-- Satış sitesinde sayfa: `/platform/uygulama-indir` (kısa adres `/indir`). Her dosya için QR kod, cihaza göre öneri ve SHA-256 değeri gösterilir.
-- Google Play, App Store ve Mac bağlantıları **Merkez › Uygulama Yönetimi › Sürümler** bölümünde yayımlanan sürümün adresinden otomatik alınır; yayımlanana kadar bekleme metni görünür.
-- Büyük kurulum dosyaları depoya girmez (`.gitignore`); kurulum paketine dahil edilir.
+- Tüm kurulum dosyaları `public/download/` klasöründe toplanır (ajanlar `public/download/agents/` altında); kaynakları `apps/`, `bridge-agent/` ve `phone-agent/` altında da kalır. Güncellemek için: `php bin/build-downloads.php`.
+- Dosyalara doğrudan erişim kapalıdır. Her indirme sürümden bağımsız sayaçlı adresten verilir: `/download/android`, `/download/ios`, `/download/windows`, `/download/macos-arm64`, `/download/macos-x64`, `/download/linux-deb` … (kaldığı yerden devam desteği vardır). QR kodlar `?src=qr` ile sayılır.
+- Sayaç (src/AppDownloads.php): toplam, günlük benzersiz (IP saklanmaz), kaynak (QR / web / panel) ve cihaz türü. Merkez › Satış Sitesi Stüdyosu › Uygulama indirmeleri ekranında uygulama bazında görünür.
+- Klinik ajanı ve telefon ajanı yalnız **ücretli bayi** (ödenmiş veya yönetici ataması dönemi olan) yöneticisi oturumuyla iner; telefon ajanı betiği ayrıca geçerli eşleştirme kodu ister. Demo/deneme hesaplarında ajan bölümlerinde yalnız "Ücretli versiyona entegre edilmiştir." yazar.
+- Satış sitesi sayfası: `/platform/uygulama-indir` (kısa adresler `/download`, `/indir`).
+- **iPhone/iPad:** App Store yayımlanana kadar `VetZimo-iOS.mobileconfig` kurulum profili VetZimo'yu ana ekrana tam ekran uygulama olarak ekler (iOS 16.4+ bildirim alır). App Store paketi için `apps/ci/apple-builds.yml`.
+- **Mac:** Apple Silicon ve Intel için ayrı `.zip` (Linux'ta üretilir, imzasızdır: ilk açılışta sağ tık › Aç). İmzalı ve notarize edilmiş `.dmg` için `apps/ci/apple-builds.yml` (Apple Developer hesabı gerekir); `.dmg` varsa `build-downloads.php` onu sunar.
+- Google Play, App Store ve Mac App Store bağlantıları Merkez › Uygulama Yönetimi › Sürümler'de yayımlanınca indirme sayfasındaki düğmeler kendiliğinden açılır.
 
 ## Windows kurucusu (Linux'ta da üretilebilir)
 

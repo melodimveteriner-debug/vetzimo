@@ -19,6 +19,7 @@ const docJobs=d=>d.jobs.filter(j=>KIND[j.kind]);
 
 export async function openDocDialog(saleId,api){
  ensure();const tr=api.tr||(s=>s),x=io(api),sale=api.sale(saleId),client=sale?.client?api.client(sale.client):null;
+ {const m=await import("./agent-access.js?v=1");if(!(await m.agentAccess()).paid){api.toast?.(tr("Ücretli versiyona entegre edilmiştir."));return}}
  if(!sale){api.toast?.(tr("Satış bulunamadı."));return}
  let data;try{data=await x.get()}catch(e){api.toast?.(e.message);return}
  const dlg=h("dialog",{class:"ed-dialog","aria-labelledby":"edTitle"}),body=h("div",{class:"ed-body"});let timer=0;
@@ -77,6 +78,7 @@ export async function mountDocPage(root,api){
   ["teach","4. Bir kez öğretin (belge oluşmadan)","'e-Arşiv faturasını öğret' deyin. Açılan portal ekranında alıcı bilgilerini ve bir hizmet satırını her zamanki gibi doldurun. 'Onayla/Oluştur' düğmesine BASMAYIN; panelde 'Kaydet düğmesini işaretle' deyip düğmeye tıklayın. Alanları açılır listeden eşleyin (Alıcı VKN, Mal/hizmet adı, Birim fiyat…), kalem satırını 'Kalem satırı' olarak işaretleyip 'Tarifi kaydet'e basın. e-Fatura ve e-SMM için aynısını yapın."],
   ["send","5. Satıştan düzenleyin","Satış listesinde 'e-Fatura / e-Arşiv / e-SMM' düğmesine basın, belge türünü seçip 'Kuyruğa al'. Ajan portalda belgeyi düzenler; fatura/makbuz numarası e-Belgeler listesinde satışın yanında görünür. Portal oturumu kapanmışsa belge sırada bekler; ajan panelinden giriş yapmanız yeterli."]];
  const draw=async()=>{
+  {const m=await import("./agent-access.js?v=1");if(!(await m.agentAccess()).paid){fill(root,h("h1",{text:api.tr?api.tr("e-Fatura / e-Arşiv / e-SMM"):"e-Fatura / e-Arşiv / e-SMM"}),m.paidNotice(api.tr||(s=>s)));return}}
   let d;try{d=await x.get()}catch(e){fill(root,h("p",{class:"ed-error",text:e.message}));return}
   const jobs=docJobs(d).filter(j=>filter==="all"||(filter==="open"?["queued","claimed","uncertain","error"].includes(j.status):j.kind===filter));
   const recipes=new Set((d.recipes||[]).map(r=>r.kind));

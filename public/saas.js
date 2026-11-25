@@ -52,6 +52,11 @@ if (form) {
       });
       const result=await response.json();
       if (!response.ok) throw Error(result.error||"Başvuru kaydedilemedi.");
+      if (result.verify) {
+        const {mountDemoVerify}=await import("./demo-verify.js?v=2");
+        await mountDemoVerify(form,{reference:result.reference,phone:result.phone});
+        return;
+      }
       feedback.textContent="Başvurunuz kaydedildi. Takip numarası: "+result.reference;
       form.reset();
       lastPayload=null;

@@ -159,14 +159,16 @@ def showcase():
 
 # ───────────────────────── Uygulama indir sayfası ─────────────────────────
 DL_PATH = '/platform/uygulama-indir'
-DL_ASSETS = '<link rel="stylesheet" href="/market-downloads.css?v=2"><script src="/market-downloads.js?v=1" type="module"></script>'
+DL_ASSETS = '<link rel="stylesheet" href="/market-downloads.css?v=3"><script src="/market-downloads.js?v=2" type="module"></script>'
 NAV_LINK = '<a href="/platform/uygulama-indir" class="" data-dl-nav>Uygulama indir</a>'
 FOOT_LINK = '<a href="/platform/uygulama-indir" data-dl-nav>Uygulama indir</a>'
 
 def manifest():
     try:
         import json
-        with open(os.path.join(ROOT, 'public', 'indir', 'manifest.json'), encoding='utf-8') as f: return json.load(f).get('files', {})
+        with open(os.path.join(ROOT, 'public', 'download', 'manifest.json'), encoding='utf-8') as f: files = json.load(f).get('files', {})
+        # Ajanlar satış sitesinde gösterilmez (yalnız ücretli bayi panelinde); her dosyanın adresi sürümden bağımsız sayaçlı adrestir.
+        return {k: {**v, 'url': '/download/' + k} for k, v in files.items() if k not in ('agent', 'phone')}
     except (OSError, ValueError): return {}
 
 def mb(n): return f'{n / 1048576:.1f} MB'.replace('.', ',') if n >= 1048576 else f'{max(1, round(n / 1024))} KB'
@@ -175,7 +177,7 @@ def dl_button(files, key, label, cls='button primary'):
     f = files.get(key)
     if not f: return ''
     meta = ' · '.join(x for x in [('v' + f['version']) if f.get('version') else '', mb(f['size'])] if x)
-    return (f'<a class="{cls} dl-file" href="{e(f["url"])}" download data-dl-file="{e(key)}"><span>{e(label)}</span>'
+    return (f'<a class="{cls} dl-file" href="{e(f["url"])}" data-dl-file="{e(key)}"><span>{e(label)}</span>'
             f'<small data-dl-meta>{e(meta)}</small></a>')
 
 def dl_sum(files, keys):
@@ -196,37 +198,31 @@ def downloads_main(main_open):
                 store('android', 'Google Play’den yükle') + dl_button(f, 'android', 'APK dosyasını indir') +
                 '<p class="dl-note">APK’yı açarken telefon “bilinmeyen kaynak” izni isteyebilir; yalnız bu sayfadan indirdiğiniz dosyaya izin verin.</p>',
                 f.get('android', {}).get('url', DL_PATH), f, ['android']),
-        dl_card('ios', '📱', 'iPhone ve iPad', 'iOS 15 ve üzeri. App Store sürümü yayımlandığında bu düğme kendiliğinden açılır.',
-                store('ios', 'App Store’dan yükle') +
-                '<p class="dl-wait" data-dl-wait="ios">App Store onayı sürerken Safari’de web uygulamasını açıp Paylaş › Ana Ekrana Ekle ile uygulama gibi kullanabilirsiniz.</p><a class="button outline" data-dl-wait="ios" href="/app">Web uygulamasını aç</a>',
-                '/app', f),
+        dl_card('ios', '📱', 'iPhone ve iPad', 'iOS 15 ve üzeri. Kurulum profili VetZimo’yu ana ekranınıza tam ekran uygulama olarak ekler; iOS 16.4 ve üzerinde bildirimler kilit ekranına gelir.',
+                store('ios', 'App Store’dan yükle') + dl_button(f, 'ios', 'iPhone / iPad için kur') +
+                '<ol class="dl-steps"><li>Bu sayfayı iPhone veya iPad’de Safari ile açıp “iPhone / iPad için kur”a dokunun.</li><li>Ayarlar › Profil İndirildi › Yükle deyin.</li><li>Ana ekrandaki VetZimo simgesine dokunup giriş yapın; bildirim iznini verin.</li></ol>'
+                '<p class="dl-note">Profil yalnız ana ekran simgesi ekler; cihazınızda başka bir ayarı değiştirmez ve Ayarlar › Genel › VPN ve Aygıt Yönetimi’nden kaldırılabilir.</p>',
+                f.get('ios', {}).get('url', '/app'), f, ['ios']),
         dl_card('windows', '🪟', 'Windows bilgisayar', 'Windows 10 ve 11 (64 bit). Yönetici izni gerekmez; masaüstü ve Başlat menüsü kısayolu oluşturur.',
                 dl_button(f, 'windows', 'Kurulum dosyasını indir (.exe)') + dl_button(f, 'windows-zip', 'Taşınabilir sürüm (.zip)', 'button outline'),
                 f.get('windows', {}).get('url', DL_PATH), f, ['windows', 'windows-zip']),
-        dl_card('macos', '💻', 'Mac bilgisayar', 'macOS 11 ve üzeri, Apple Silicon ve Intel. Mac sürümü yayımlandığında bu düğme kendiliğinden açılır.',
-                store('macos', 'Mac için indir') + dl_button(f, 'macos', 'Mac kurulum dosyası (.dmg)') +
-                '<p class="dl-wait" data-dl-wait="macos">Şimdilik web uygulamasını Safari veya Chrome’da açıp Dock’a ekleyerek kullanabilirsiniz.</p><a class="button outline" data-dl-wait="macos" href="/app">Web uygulamasını aç</a>',
-                f.get('macos', {}).get('url', '/app'), f, ['macos']),
+        dl_card('macos', '💻', 'Mac bilgisayar', 'macOS 11 ve üzeri. M1, M2, M3 ve M4 işlemcili Mac’ler için Apple Silicon, daha eski Mac’ler için Intel sürümünü seçin.',
+                store('macos', 'Mac App Store’dan yükle') + dl_button(f, 'macos-arm64', 'Apple Silicon (M1–M4)') + dl_button(f, 'macos-x64', 'Intel işlemcili Mac', 'button outline') +
+                '<ol class="dl-steps"><li>İnen arşivi açın ve VetZimo’yu Uygulamalar klasörüne sürükleyin.</li><li>İlk açılışta VetZimo’ya sağ tıklayıp “Aç”ı seçin ve onaylayın.</li><li>“Hasarlı” uyarısı çıkarsa Terminal’de şu komutu bir kez çalıştırın: xattr -cr /Applications/VetZimo.app</li></ol>',
+                f.get('macos-arm64', {}).get('url', '/app'), f, ['macos-arm64', 'macos-x64']),
         dl_card('linux', '🐧', 'Linux bilgisayar', 'Ubuntu, Debian, Pardus ve diğer 64 bit dağıtımlar.',
                 dl_button(f, 'linux-deb', 'Debian / Ubuntu / Pardus (.deb)') + dl_button(f, 'linux', 'Tüm dağıtımlar (AppImage)', 'button outline'),
                 f.get('linux-deb', {}).get('url', DL_PATH), f, ['linux-deb', 'linux']),
         dl_card('web', '🌐', 'Web uygulaması', 'Kurulum gerektirmez; her tarayıcıda çalışır, ana ekrana eklenince uygulama gibi açılır ve bildirim alır.',
                 '<a class="button primary" href="/app">Tarayıcıda aç</a>', '/app', f),
     ]
-    tools = [
-        dl_card('agent', '🖥', 'Klinik ajanı', 'Klinik bilgisayarına bir kez kurulur: laboratuvar ve görüntüleme cihazları, Bakanlık köprüsü, e-Fatura/e-Arşiv ve WhatsApp bağlantısı. Panelde verilen kodla eşleşir.',
-                dl_button(f, 'agent', 'Klinik ajanını indir (.zip)'), f.get('agent', {}).get('url', DL_PATH), f, ['agent']),
-        dl_card('phone', '📱', 'Telefon ajanı (SMS hattı)', 'SMS’lerin kliniğin kendi SIM kartından gitmesi için klinik telefonuna Termux ile kurulur. Kurulum komutu Ayarlar › Telefon Bağlantısı’ndadır.',
-                dl_button(f, 'phone', 'Kurulum betiğini indir', 'button outline'), f.get('phone', {}).get('url', DL_PATH), f, ['phone']),
-    ]
     return (f'{main_open}<header class="intro"><div class="lp-mesh" aria-hidden="true"><i></i><i></i><i></i></div><span class="eyebrow">Uygulamalar</span>'
             '<h1>VetZimo uygulamasını indirin</h1><p>Telefon, tablet ve bilgisayarınıza kurun; bildirimler kilit ekranına gelsin. Tüm indirmeler tek sayfada, her biri için QR kodla.</p></header>'
             '<section class="dl-hero" data-edit-area="Hızlı indirme"><div><span class="eyebrow">Tek QR</span><h2>Telefonunuzla okutun, doğru uygulama açılsın</h2>'
             '<p>Kamerayla okuttuğunuzda bu sayfa telefonunuzda açılır ve cihazınıza uygun indirme en üstte gösterilir.</p>'
             '<ul class="ms-points"><li>Bayi, şube, personel ve hasta sahibi aynı uygulamaya kendi hesabıyla girer.</li><li>Uygulamalar ücretsizdir; kullanım klinik paketinize dahildir.</li><li>Dosyalar VetZimo sunucusundan iner; SHA-256 değeriyle doğrulayabilirsiniz.</li></ul></div>'
-            '<figure class="dl-qr big"><div data-dl-qr="/platform/uygulama-indir"></div><figcaption>vetzimo.com/indir</figcaption></figure></section>'
+            '<figure class="dl-qr big"><div data-dl-qr="/platform/uygulama-indir"></div><figcaption>vetzimo.com/download</figcaption></figure></section>'
             f'<h2 class="sub-title">Cihazınızı seçin</h2><section class="dl-grid" data-edit-area="Uygulamalar">{"".join(cards)}</section>'
-            f'<h2 class="sub-title">Klinik araçları</h2><section class="dl-grid tools" data-edit-area="Klinik araçları">{"".join(tools)}</section>'
             '<section class="callout" data-edit-area="Sayfa sonu çağrısı"><div><span class="eyebrow">Hesabınız yok mu?</span><h2>Ücretsiz demo ile başlayın</h2></div><a href="/platform/deneme" class="button primary">Ücretsiz Demo</a></section></main>')
 
 def downloads_page(base):
@@ -250,6 +246,7 @@ def site_links():
     for name in os.listdir(PAGES):
         p = os.path.join(PAGES, name); t = open(p, encoding='utf-8').read(); o = t
         t = t.replace('market-showcase.css?v=1"', 'market-showcase.css?v=3"')
+        t = t.replace('market-downloads.css?v=2"', 'market-downloads.css?v=3"').replace('market-downloads.js?v=1"', 'market-downloads.js?v=2"')
         if 'id="main-nav"' in t and 'data-dl-nav' not in t:
             t = re.sub(r'(<nav id="main-nav"[^>]*>.*?)(</nav>)', lambda m: m.group(1) + NAV_LINK + m.group(2), t, count=1, flags=re.S)
             t = re.sub(r'(<nav aria-label="Alt menü">.*?)(</nav>)', lambda m: m.group(1) + FOOT_LINK + m.group(2), t, count=1, flags=re.S)

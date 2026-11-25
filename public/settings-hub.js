@@ -32,6 +32,7 @@ export const GROUPS = [
     ["cihaz-entegrasyonu", "Cihaz entegrasyonu", "Hemogram, biyokimya, kan gazı, idrar, röntgen, ultrason, MR ve tomografi"],
     ["e-belgeler", "e-Fatura / e-Arşiv / e-SMM", "Ajanla API'siz e-belge"],
     ["bakanlik-koprusu", "Bakanlık köprüsü", "e-Reçete ve aşı kayıtları"],
+    ["ajanlar", "Ajanlar ve indirmeler", "Klinik ajanı ve telefon ajanı kurulum dosyaları"],
     ["okc", "Yazar kasa (ÖKC)", "Ödeme kaydedici cihazlar"],
     ["web-sitem", "Web sitesi", "Klinik web sitesi ve online randevu"],
     ["evde-hizmet", "Evde hizmet", "Bölgeler, fiyatlar ve rota"],
@@ -54,7 +55,7 @@ export const GROUPS = [
     ["son-degisiklikler", "Son değişiklikler", "VetZimo sürüm notları"],
   ]],
 ];
-const INLINE = new Set(["bildirimler", "cihazlarim", "tema", "bas-konus", "google-yorum"]);
+const INLINE = new Set(["bildirimler", "cihazlarim", "tema", "bas-konus", "google-yorum", "ajanlar"]);
 const ROUTE_GROUP = Object.fromEntries(GROUPS.flatMap(([g, , items]) => items.map(([r]) => [r, g])));
 const h = (tag, cls, text, props = {}) => { const n = Object.assign(document.createElement(tag), props); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
 const css = () => { if (!document.querySelector(`link[href="${STYLE}"]`)) document.head.append(Object.assign(document.createElement("link"), {rel: "stylesheet", href: STYLE})); };
@@ -95,6 +96,7 @@ export function mountSettingsHub(root, ctx) {
     body.replaceChildren(panel);
     if (route === "bildirimler") notificationPrefs(area, ctx);
     else if (route === "cihazlarim") devicesAndAccount(area, ctx);
+    else if (route === "ajanlar") import("./agent-access.js?v=1").then(m => m.mountAgentDownloads(area, {tr}));
     else ctx.inline?.[route]?.(area);
   }
   function draw() {

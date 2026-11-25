@@ -1,0 +1,12 @@
+/* Ajan erişimi: ücretli bayide indirme kartları, demo/deneme hesabında kilitli bilgi satırı (tüm temalarda okunur). */
+.agent-paid{display:flex;align-items:center;gap:12px;padding:16px 18px;border-radius:16px;border:1px dashed color-mix(in srgb,currentColor 28%,transparent);background:color-mix(in srgb,var(--accent,#7c3aed) 7%,transparent);margin:6px 0}
+.agent-paid-icon{font-size:1.3rem;line-height:1}
+.agent-paid strong{font-size:1rem}
+.agent-dl{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr))}
+.agent-dl.compact{grid-template-columns:1fr}
+.agent-dl-card{display:grid;gap:8px;padding:14px;border-radius:14px;border:1px solid color-mix(in srgb,currentColor 12%,transparent);min-width:0}
+.agent-dl-link{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:4px 10px;text-decoration:none}
+.agent-dl-link small{color:inherit!important;opacity:.9;font-weight:500}
+.agent-note{margin:0;font-size:.88rem;opacity:.8;line-height:1.5}
+.agent-sum{font-size:.78rem}.agent-sum summary{cursor:pointer;opacity:.8}
+.agent-sum code{display:block;margin-top:6px;overflow-wrap:anywhere;opacity:.8}

@@ -12,7 +12,7 @@ use VetNet\Cpanel\SessionRepository;
 
 require_once dirname(__DIR__).'/src/StaffPlan.php';
 
-foreach (['AppHub','AppPush','DeviceHub','VisitTracker','ReviewLink','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','SaasPayment','DealerAgreement','CenterAnalytics','ClinicAlerts','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','TeamTotp','WebInbox','MinistryBridge','SiteLegal','OmniInbox','PhoneGateway','ClientPermit','PrintTemplates','Support','Commerce','Appearance'] as $class) {
+foreach (['AppHub','AppDownloads','DemoAuto','AppPush','DeviceHub','VisitTracker','ReviewLink','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','SaasPayment','DealerAgreement','CenterAnalytics','ClinicAlerts','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','TeamTotp','WebInbox','MinistryBridge','SiteLegal','OmniInbox','PhoneGateway','ClientPermit','PrintTemplates','Support','Commerce','Appearance'] as $class) {
     require_once dirname(__DIR__) . '/src/' . $class . '.php';
 }
 
@@ -257,6 +257,37 @@ try {
         header('Content-Type: application/json'); header('Cache-Control: public, max-age=3600');
         echo json_encode($doc,JSON_UNESCAPED_SLASHES); exit;
     }
+    if (!$externalWeb && ($path==='/download' || str_starts_with($path,'/download/') || $path==='/indir' || str_starts_with($path,'/indir/')) && in_array($method,['GET','HEAD'],true)) {
+        // İndirme merkezi: her indirme sayılır; dosyalara doğrudan erişim kapalıdır. Ajanlar yalnız ücretli bayilere.
+        $downloads=new VetNet\Cpanel\AppDownloads($db,dirname(__DIR__),(string)$config['rateSecret']);
+        $key=substr($path,strlen(str_starts_with($path,'/indir')?'/indir':'/download'));
+        $key=trim($key,'/');
+        if ($key==='manifest.json') {
+            header('Cache-Control: no-cache');
+            reply(['files'=>$downloads->publicCatalog()]);
+        }
+        if ($key==='' || str_starts_with($path,'/indir')) {
+            if ($key==='' && ($_GET['src'] ?? '')==='qr' && $method==='GET') {
+                try { $downloads->count(VetNet\Cpanel\AppDownloads::PAGE,'qr',(string)($_SERVER['REMOTE_ADDR'] ?? ''),(string)($_SERVER['HTTP_USER_AGENT'] ?? ''),$now); }
+                catch (\Throwable $error) { error_log('VetZimo download page count: '.get_class($error)); }
+            }
+            header('Cache-Control: no-store');
+            header('Location: /platform/uygulama-indir',true,302);
+            exit;
+        }
+        if (!preg_match('~\A[a-z0-9-]{2,24}\z~',$key)) throw new RuntimeException('İndirme bulunamadı.',404);
+        $actor=null;
+        if ((VetNet\Cpanel\AppDownloads::APPS[$key][2] ?? '')==='paid') {
+            try { $actor=(new VetNet\Cpanel\IdentityApi($db))->actor($_COOKIE,$now); } catch (RuntimeException) { $actor=null; }
+        }
+        $downloads->serve($key,$_SERVER,$actor,$now);
+    }
+    if (!$externalWeb && $path==='/api/clinic/agents' && $method==='GET') {
+        try { $agentActor=(new VetNet\Cpanel\IdentityApi($db))->actor($_COOKIE,$now); } catch (RuntimeException) { $agentActor=null; }
+        if (!$agentActor) throw new RuntimeException('Oturum doğrulanamadı.',401);
+        header('Cache-Control: private, no-store');
+        reply((new VetNet\Cpanel\AppDownloads($db,dirname(__DIR__),(string)$config['rateSecret']))->agents($agentActor));
+    }
     if (!$externalWeb && str_starts_with($path,'/api/app/')) {
         // Uygulama merkezi: Android, iOS, masaüstü ve web aynı oturumla çalışır (çerez, aynı köken).
         $hub=new VetNet\Cpanel\AppHub($db,$config);
@@ -395,7 +426,35 @@ try {
 
     if ($path === '/api/saas/applications' && $method === 'POST') {
         (new DealerLogin($db,$config['rateSecret']))->throttle('sales:'.($_SERVER['REMOTE_ADDR'] ?? ''),$now);
-        reply((new VetNet\Cpanel\Commerce($db))->submit(input(16000),$config['rateSecret'],new VetNet\Cpanel\Notifications($db,$config['encryptionKey'] ?? '')));
+        $application=(new VetNet\Cpanel\Commerce($db))->submit(input(16000),$config['rateSecret'],new VetNet\Cpanel\Notifications($db,$config['encryptionKey'] ?? ''));
+        // Otomatik demo: telefona kod gider; kod + telefondan imzalanan sözleşme ile demo kendiliğinden açılır.
+        try { $application+=(new VetNet\Cpanel\DemoAuto($db,(string)$config['rateSecret']))->start($application['reference'],new VetNet\Cpanel\PhoneGateway($db),$now); }
+        catch (\Throwable $error) { error_log('VetZimo demo auto start: '.get_class($error).' '.$error->getMessage()); $application['verify']=false; }
+        reply($application);
+    }
+    if ($path === '/api/saas/demo-agreement' && $method === 'GET') {
+        header('Cache-Control: no-cache');
+        reply((new VetNet\Cpanel\DealerAgreement($db))->current());
+    }
+    if (in_array($path,['/api/saas/demo-verify','/api/saas/demo-resend'],true) && $method === 'POST') {
+        $auto=new VetNet\Cpanel\DemoAuto($db,(string)$config['rateSecret']);
+        $body=input(420000);
+        (new DealerLogin($db,$config['rateSecret']))->throttle('demo-verify:'.($_SERVER['REMOTE_ADDR'] ?? '').':'.(is_string($body->reference ?? null)?substr($body->reference,0,36):''),$now);
+        if ($path==='/api/saas/demo-resend') {
+            $reference=is_string($body->reference ?? null) ? $body->reference : '';
+            if (!preg_match('/\A[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\z/',$reference)) throw new RuntimeException('Başvuru bulunamadı.',404);
+            reply($auto->start($reference,new VetNet\Cpanel\PhoneGateway($db),$now,true));
+        }
+        $result=$auto->verify($body,new Center($db,$config),new VetNet\Cpanel\Commerce($db),(string)($_SERVER['REMOTE_ADDR'] ?? ''),(string)($_SERVER['HTTP_USER_AGENT'] ?? ''),$now);
+        try {
+            $notifications=new VetNet\Cpanel\Notifications($db,$config['encryptionKey'] ?? '');
+            if ($notifications->settings()['smtpEnabled']) {
+                $notifications->send('smtp',null,'Otomatik demo açıldı','Telefonu doğrulanan ve sözleşmeyi imzalayan '.$result['clinic'].' için '.$result['days'].' günlük demo açıldı.');
+                $notifications->send('smtp',$result['email'],'VetZimo demonuz açıldı','VetZimo '.$result['days'].' günlük demonuz açıldı. Şifrenizi belirlemek için: '.$origin.$result['activation']);
+            }
+        } catch (\Throwable $error) { error_log('VetZimo demo auto mail: '.get_class($error)); }
+        unset($result['email']);
+        reply($result);
     }
     if ($path === '/api/saas/my-subscription' && $method === 'GET') {
         $actor = $workspaces->actor($_COOKIE,$now);
@@ -606,6 +665,12 @@ try {
             'SELECT p.name,s.partner_id,s.plan_name,s.kind,s.starts_on,s.ends_on FROM clinic_subscription s JOIN partner_account p ON p.id=s.partner_id ORDER BY s.ends_on DESC,s.id DESC LIMIT 300'
         )->fetchAll()]);
         if ($method==='GET' && $action==='overview') reply($center->overview());
+        if ($method==='GET' && $action==='downloads') {
+            $days=filter_var($_GET['days'] ?? 30,FILTER_VALIDATE_INT,['options'=>['min_range'=>7,'max_range'=>365]]) ?: 30;
+            reply((new VetNet\Cpanel\AppDownloads($db,dirname(__DIR__),(string)$config['rateSecret']))->stats($days,$now)+['origin'=>$origin]);
+        }
+        if ($method==='GET' && $action==='market-status') reply(['pages'=>$management->marketStatus()]);
+        if ($method==='GET' && $action==='demo-auto') reply((new VetNet\Cpanel\DemoAuto($db,(string)$config['rateSecret']))->overview()+['plans'=>array_values(array_map(static fn($p)=>['id'=>$p['id'],'name'=>$p['name']],$commerce->catalog()))]);
         $notifications=new VetNet\Cpanel\Notifications($db,$config['encryptionKey'] ?? '');
         if ($method==='GET' && $action==='notifications') reply($notifications->settings());
         if ($method==='GET' && $action==='mail-settings') reply($management->mailSettings());
@@ -655,6 +720,11 @@ try {
                 reply(['ok'=>true]);
             }
             if ($action==='appearance') reply($appearance->save('global',$body));
+            if ($action==='demo-auto') {
+                $result=(new VetNet\Cpanel\DemoAuto($db,(string)$config['rateSecret']))->saveSettings($body,$commerce);
+                $center->audit($actor['account_id'],'demo.auto.updated');
+                reply($result+['plans'=>array_values(array_map(static fn($p)=>['id'=>$p['id'],'name'=>$p['name']],$commerce->catalog()))]);
+            }
             if ($action==='crm') {
                 $result=$commerce->review($body,$actor,$center,$now);
                 if ($result['activation']) {
@@ -1062,14 +1132,18 @@ try {
         try {
             if ($method==='GET') reply($gateway->status($actor,$now)+['server'=>$origin]);
             if (!hash_equals($actor['membership_id'] ?? '',$_SERVER['HTTP_X_VETNET_SCOPE'] ?? '')) throw new RuntimeException('Çalışma alanı oturumu değişti.',409);
-            reply($gateway->act($actor,input(20000),$now)+['server'=>$origin]);
+            $phoneBody=input(20000);
+            if (($phoneBody->action ?? '')==='pair' && !(new VetNet\Cpanel\AppDownloads($db,dirname(__DIR__),(string)$config['rateSecret']))->paid((string)$actor['partner_id'])) throw new RuntimeException('Ücretli versiyona entegre edilmiştir.',403);
+            reply($gateway->act($actor,$phoneBody,$now)+['server'=>$origin]);
         } catch (PDOException $error) {
             if ($error->getCode()==='42S02') throw new RuntimeException('Telefon bağlantısı tabloları henüz kurulmadı; güncellemeyi tamamlayın.',503);
             throw $error;
         }
     }
     if (in_array($path,['/telefon-ajani.sh','/telefon-ajani.py'],true) && $method==='GET') {
-        // Android (Termux) telefon ajanı: herkese açık, anahtar içermez; eşleştirme klinik panelindeki kodla yapılır.
+        // Android (Termux) telefon ajanı: yalnız ücretli bayinin klinik panelinde ürettiği geçerli eşleştirme koduyla indirilir.
+        (new DealerLogin($db,$config['rateSecret']))->throttle('phone-agent:'.($_SERVER['REMOTE_ADDR'] ?? ''),$now);
+        if (!(new VetNet\Cpanel\PhoneGateway($db))->pendingCode($_GET['kod'] ?? null,$now)) throw new RuntimeException('Geçerli bir eşleştirme kodu gerekli. Kodu klinik panelinde Telefon Bağlantısı bölümünden alın.',403);
         $file=dirname(__DIR__).'/phone-agent/'.($path==='/telefon-ajani.sh'?'kur.sh':'vetzimo-telefon.py');
         if (!is_file($file)) throw new RuntimeException('Dosya bulunamadı.',404);
         header('Content-Type: text/plain; charset=utf-8');
@@ -1079,22 +1153,8 @@ try {
         exit;
     }
     if ($path==='/bakanlik-koprusu-ajani.zip' && $method==='GET') {
-        // Ajan paketi: yalnız giriş yapmış klinik ekibi indirir. Paket anahtar içermez; eşleştirme kodla yapılır.
-        $actor=$identity->actor($_COOKIE,$now);
-        if (!in_array($actor['role'],['dealer','branch','staff'],true)) throw new RuntimeException('Klinik ekibi girişi gerekli.',403);
-        $dir=dirname(__DIR__).'/bridge-agent';
-        $tmp=tempnam(sys_get_temp_dir(),'vzbridge');
-        $zip=new ZipArchive();
-        $zip->open($tmp,ZipArchive::OVERWRITE);
-        foreach (['agent.mjs','whatsapp.mjs','devices.mjs','device-parsers.mjs','recorder.js','panel.html','package.json','kur.cmd','kur.ps1','baslat.vbs','baslat.sh','OKU-BENI.txt'] as $file) $zip->addFile($dir.'/'.$file,'VetZimoKopru/'.$file);
-        $zip->addFromString('VetZimoKopru/config.json',json_encode(['server'=>rtrim((string)$config['origin'],'/'),'token'=>'','ministryUrl'=>'https://vetbis.tarimorman.gov.tr'],JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES));
-        $zip->close();
-        header('Content-Type: application/zip');
-        header('Content-Disposition: attachment; filename="vetzimo-bakanlik-koprusu.zip"');
-        header('Content-Length: '.filesize($tmp));
-        header('Cache-Control: no-store');
-        readfile($tmp);
-        unlink($tmp);
+        // Eski adres: klinik ajanı artık indirme merkezinden (yalnız ücretli bayi, sayılarak) verilir.
+        header('Location: /download/agent?src=panel',true,302);
         exit;
     }
     if ($path==='/api/bridge' && in_array($method,['GET','POST'],true)) {
@@ -1107,6 +1167,7 @@ try {
             if (!hash_equals($actor['membership_id'] ?? '',$_SERVER['HTTP_X_VETNET_SCOPE'] ?? '')) throw new RuntimeException('Çalışma alanı oturumu değişti.',409);
             $body=input(20000);
             $op=$body->action ?? '';
+            if ($op==='pair' && !(new VetNet\Cpanel\AppDownloads($db,dirname(__DIR__),(string)$config['rateSecret']))->paid((string)$actor['partner_id'])) throw new RuntimeException('Ücretli versiyona entegre edilmiştir.',403);
             reply(match($op){
                 'pair'=>$bridge->pair($actor,$now),
                 'revoke'=>$bridge->revoke($actor,$now),

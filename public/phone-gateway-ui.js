@@ -11,6 +11,7 @@ export function mountPhoneGateway(root,api){
  const get=async()=>{const r=await api.fetch("/api/phone");const d=await r.json();if(!r.ok)throw Error(d.error||tr("İşlem tamamlanamadı."));return d};
  const post=async body=>{const r=await api.fetch("/api/phone",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});const d=await r.json();if(!r.ok)throw Error(d.error||tr("İşlem tamamlanamadı."));return d};
  let data=null,tab="kurulum",code=null,filter="all",timer=0;
+ let paid=null,notice=null;import("./agent-access.js?v=1").then(m=>{notice=m.paidNotice;return m.agentAccess()}).then(a=>{paid=a.paid;if(data)draw()}).catch(()=>{});
  root.classList.add("pg-root");
  const strip=h("div",{class:"pg-strip"}),tabs=h("div",{class:"pg-tabs",role:"tablist"}),body=h("div",{class:"pg-body"});
  fill(root,h("header",{class:"pg-head"},h("div",{},h("h2",{text:tr("Telefon Bağlantısı")}),h("p",{class:"pg-muted",text:tr("Hatırlatma, toplu mesaj ve gelen kutusu yanıtları kliniğin kendi telefon numarasından gider. Ücretli SMS veya WhatsApp sağlayıcısı gerekmez.")}))),strip,tabs,body);
@@ -33,7 +34,8 @@ export function mountPhoneGateway(root,api){
  const waiting=()=>data.outbox.filter(o=>o.channel==="whatsapp"&&o.status==="queued"&&data.settings.whatsapp==="assist").length;
 
  function setup(){
-  const cmd=code?`curl -fsSL ${data.server}/telefon-ajani.sh | bash -s ${code.code}`:"";
+  if(paid===false&&notice)return[notice(tr)];
+  const cmd=code?`curl -fsSL "${data.server}/telefon-ajani.sh?kod=${code.code}" | bash -s ${code.code}`:"";
   const copyBtn=h("button",{type:"button",class:"pg-btn",text:tr("Kopyala"),onclick:async e=>{try{await navigator.clipboard.writeText(cmd);e.target.textContent=tr("Kopyalandı")}catch{}}});
   const devices=data.devices.map(d=>h("article",{class:"pg-device "+(d.online?"on":"off")},
    h("div",{},h("strong",{text:d.name||tr("Android telefon")}),h("span",{class:"pg-muted",text:(d.online?tr("Çevrimiçi"):tr("Son görülme")+": "+ago(d.lastSeen,tr))+(d.battery!=null?" · 🔋 %"+d.battery:"")+(d.version?" · v"+d.version:"")})),

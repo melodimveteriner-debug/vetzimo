@@ -1,0 +1,12 @@
+/* Satış sitesi · otomatik demo doğrulama adımı (telefonda tek sütun, tüm temalarda okunur). */
+.demo-verify{scroll-margin-top:110px;box-sizing:border-box;width:100%;display:grid;gap:14px;padding:clamp(16px,4vw,28px);max-width:760px;margin-inline:auto}
+.demo-verify h2{margin:4px 0 6px;text-wrap:balance}
+.demo-verify p{margin:0;line-height:1.55}
+.dv-form{display:grid;gap:14px}
+.dv-phone b{letter-spacing:.04em}
+.dv-code{display:grid;gap:6px;max-width:240px}
+.dv-code input{width:100%;box-sizing:border-box;font-size:1.6rem;letter-spacing:.4em;text-align:center;padding:10px 12px;border-radius:12px;border:1px solid color-mix(in srgb,currentColor 25%,transparent);background:transparent;color:inherit}
+.dv-status{min-height:1.4em;font-weight:600}
+.dv-error{color:#c0262d}
+.dv-agreement{min-width:0}
+.dv-form .button.small{justify-self:start}

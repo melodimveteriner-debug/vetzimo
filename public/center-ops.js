@@ -16,7 +16,7 @@ export async function mountCenterSuite(ui,session){
   ['basvurular','Demo İstek-Değerlendirme',crm],['paketler','Yazılım Paketleri',plans],
   ['abonelikler','Bayi Abonelikleri',subscriptions],['destek','Destek Talepleri',support],
   ['uygulamalar','Uygulama Yönetimi',nativeApps],['tema','Ayarlar ve Tema',theme],['bildirimler','Bildirim Merkezi',notifications],['guvenlik','Güvenlik',security],['kayitlar','İşlem Günlüğü',audit],
-  ['odemeler','Ödeme Onayları',()=>manage('payments')],['odeme-kanallari','Ödeme Kanalları',paymentChannels],['magaza-banka','Mağaza Havale Ayarları',()=>manage('shop_bank')],['site','Satış Sitesi Yönetimi',marketEditor],['yasal','Yasal Metinler',legalDocs],
+  ['odemeler','Ödeme Onayları',()=>manage('payments')],['odeme-kanallari','Ödeme Kanalları',paymentChannels],['magaza-banka','Mağaza Havale Ayarları',()=>manage('shop_bank')],['site','Satış Sitesi Stüdyosu',marketEditor],['yasal','Yasal Metinler',legalDocs],
   ['duyurular','Duyurular',()=>manage('announcements')],['reklam','Reklam Yönetimi',()=>manage('ads')],
   ['degisiklikler','Son Değişiklikler',()=>manage('releases')],
   ['yedekleme','Yedekleme',()=>backup(false)],['aktarim','Klinik Verisi İçe Aktar',()=>backup(true)],
@@ -664,129 +664,9 @@ export async function mountCenterSuite(ui,session){
   await module.mountLegalAdmin(content,{call,reauthUrl:url('guvenlik',{returnTab:'yasal'})});
  }
  async function marketEditor(){
-  const response=await fetch('/cpanel-market-pages.json');
-  if(!response.ok)throw Error('Satış sitesi sayfa listesi yüklenemedi.');
-  const pages=await response.json();
-  const selected=pages.find(([path])=>path===params.get('page'))||pages[0];
-  const [path,title]=selected;
-  const page=await call('market-text?'+new URLSearchParams({page:path}));
-  const record=page.record||{};
-  const pageUrl=path==='/platform'?'/':path;
-  const requested=params.get('view');
-  const view=['seo','sections'].includes(requested)?requested:'content';
-  const search=field('search','Sayfa adı veya adresi ara',{type:'search',required:false});
-  const nav=el('aside','',{className:'market-studio-nav'});
-  const links=el('div','',{className:'market-studio-page-list'});
-  const draw=()=>{
-   const query=search.querySelector('input').value.trim().toLocaleLowerCase('tr');
-   links.replaceChildren(...pages.filter(([key,name])=>(name+' '+key).toLocaleLowerCase('tr').includes(query)).map(([key,name])=>{
-    const item=el('a',name,{className:'market-page-link',href:url('site',{page:key,view})});
-    if(key===path)item.setAttribute('aria-current','page');
-    return item;
-   }));
-   if(!links.childElementCount)links.append(el('p','Eşleşen sayfa yok.'));
-  };
-  search.addEventListener('input',draw);draw();
-  nav.append(el('strong','Sayfalar'),search,links);
-  const area=el('div','',{className:'market-studio-main'});
-  const toolbar=el('div','',{className:'market-editor-toolbar'});
-  const tabs=el('nav','',{className:'market-studio-tabs',ariaLabel:'Sayfa düzenleme bölümleri'});
-  for(const [key,label] of [['content','İçerik'],['seo','Başlık ve SEO'],['sections','Ek bölüm']]){
-   const item=el('a',label,{href:url('site',{page:path,view:key})});
-   if(key===view)item.setAttribute('aria-current','page');
-   tabs.append(item);
-  }
-  const preview=el('div','',{className:'market-studio-preview',hidden:true});
-  const frame=el('iframe','',{title:title+' · yayındaki görünüm'});
-  preview.append(frame);
-  const togglePreview=el('button','Yayındaki görünümü aç',{type:'button',className:'secondary',ariaExpanded:'false'});
-  const loadPreview=()=>{frame.src=pageUrl;};
-  togglePreview.addEventListener('click',()=>{
-   preview.hidden=!preview.hidden;
-   togglePreview.textContent=preview.hidden?'Yayındaki görünümü aç':'Yayındaki görünümü kapat';
-   togglePreview.setAttribute('aria-expanded',String(!preview.hidden));
-   if(!preview.hidden)loadPreview();
-  });
-  toolbar.append(el('h2',title),togglePreview,el('a','Siteyi aç ↗',{href:pageUrl,target:'_blank',rel:'noopener'}));
-  const payload={
-   title:record.title||page.title||title,description:record.description||'VetZimo · '+title,
-   section_title:record.section_title||'',section_text:record.section_text||'',section_url:record.section_url||'',
-  };
-  let edits={...record.edits}, draftBaseline=JSON.stringify(edits), metadataDirty=false;
-  const dirty=()=>metadataDirty||JSON.stringify(edits)!==draftBaseline;
-  const syncUnload=()=>{
-   if(dirty())window.addEventListener('beforeunload',warn);
-   else window.removeEventListener('beforeunload',warn);
-  };
-  function warn(event){event.preventDefault();event.returnValue='';}
-  const fields=[];
-  if(view==='seo'){
-   const description=textArea('description','Arama sonucu açıklaması',350);
-   description.querySelector('textarea').value=payload.description;
-   fields.push(field('title','Sayfa başlığı',{value:payload.title,maxLength:160}),description);
-  }else if(view==='sections'){
-   const body=textArea('section_text','Bölüm metni',1500);
-   body.querySelector('textarea').required=false;
-   body.querySelector('textarea').value=payload.section_text;
-   fields.push(field('section_title','Bölüm başlığı',{value:payload.section_title,required:false,maxLength:160}),body,
-    field('section_url','HTTPS bağlantısı',{type:'url',value:payload.section_url,required:false,maxLength:500}));
-  }
-  const form=makeForm(fields,'Değişiklikleri yayımla',async values=>{
-   if(!dirty())return;
-   await call('market',{...payload,...(view==='content'?{}:values),path,id:record.id||'',edits});
-   Object.assign(payload,view==='content'?{}:values);
-   draftBaseline=JSON.stringify(edits);metadataDirty=false;syncUnload();
-   if(!preview.hidden)loadPreview();
-   status.textContent='Sayfa yayımlandı.';
-  });
-  form.classList.add('market-editor-form');
-  if(view!=='content')form.addEventListener('input',()=>{
-   metadataDirty=[...new FormData(form)].some(([name,value])=>payload[name]!==value);
-   syncUnload();
-  });
-  if(view==='content'){
-   const groups=new Map();
-   for(const entry of Object.entries(page.fields||{})){
-    const name=entry[1].group||'Sayfa içeriği';
-    if(!groups.has(name))groups.set(name,[]);
-    groups.get(name).push(entry);
-   }
-   const filter=field('textQuery','Düzenlenecek metni ara',{type:'search',required:false});
-   const results=el('div','',{className:'market-editor-results'});
-   const drawText=()=>{
-    const q=filter.querySelector('input').value.trim().toLocaleLowerCase('tr');
-    results.replaceChildren();
-    for(const [group,entries] of groups){
-     const matches=entries.filter(([key,row])=>(row.text+' '+(edits[key]??'')).toLocaleLowerCase('tr').includes(q));
-     if(!matches.length)continue;
-     const block=el('details','',{open:!!q||!results.childElementCount});
-     block.append(el('summary',group+' ('+matches.length+')'),paginate(matches,items=>{
-      const rows=el('div','',{className:'market-editor-fields'});
-      for(const [key,row] of items){
-       const label=textArea(key,row.text.slice(0,100),1000);
-       const input=label.querySelector('textarea');input.required=false;input.rows=row.text.length>120?4:2;
-       input.value=edits[key]??row.text;
-       const update=()=>{if(input.value===row.text)delete edits[key];else edits[key]=input.value;syncUnload();};
-       input.addEventListener('input',update);
-       const reset=el('button','Varsayılana dön',{type:'button',className:'secondary'});
-       reset.addEventListener('click',()=>{input.value=row.text;update();});
-       const item=el('div');item.append(label,reset);rows.append(item);
-      }
-      return rows;
-     },10));
-     results.append(block);
-    }
-    if(!results.childElementCount)results.append(el('p','Düzenlenebilir metin bulunamadı.'));
-   };
-   filter.addEventListener('input',drawText);drawText();
-   form.prepend(filter,results);
-   if(path==='/platform/paketler'){
-    form.prepend(el('a','Paket kartlarını ve fiyatları Yazılım Paketleri’nde düzenle',{href:url('paketler')}));
-   }
-  }
-  area.append(toolbar,tabs,preview,form);
-  const shell=el('div','',{className:'market-studio'});
-  shell.append(nav,area);content.replaceChildren(shell);
+  // Satış Sitesi Stüdyosu: sayfalar (canlı önizleme, SEO, ek bölüm), uygulama indirmeleri ve QR, otomatik demo.
+  const module=await import('./center-market.js?v=1');
+  await module.mountMarketStudio(content,{call,url,params});
  }
  async function notifications(){
   const settings=await call('notifications');

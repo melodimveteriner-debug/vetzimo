@@ -72,6 +72,19 @@ final class CenterManagement
         return $value ? json_decode($value,true,32,JSON_THROW_ON_ERROR) : null;
     }
 
+    /** Satış sitesi stüdyosu: düzenlenmiş sayfalar (yol, değişen metin sayısı, SEO ve ek bölüm, son güncelleme). */
+    public function marketStatus(): array
+    {
+        $rows=[];
+        foreach ($this->db->query("SELECT payload,updated_at FROM center_management WHERE kind='market'") as $row) {
+            $p=json_decode((string)$row['payload'],true) ?: [];
+            if (!isset($p['path'])) continue;
+            $rows[]=['path'=>$p['path'],'edits'=>count((array)($p['edits'] ?? [])),'seo'=>($p['title'] ?? '')!=='' || ($p['description'] ?? '')!=='',
+                'section'=>($p['section_title'] ?? '')!=='' || ($p['section_text'] ?? '')!=='','updated'=>$row['updated_at']];
+        }
+        return $rows;
+    }
+
     public function published(string $partner): array
     {
         $this->purgePublications();
