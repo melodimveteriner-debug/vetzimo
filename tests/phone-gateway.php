@@ -131,6 +131,24 @@ $id=$gw->enqueue($partner,'sms','05551000139','Geçmiş hatırlatma','reminder',
 $gw->sync($device,(object)[],$now+1300,$inbox);
 ok($db->query("SELECT status FROM phone_outbox WHERE id=$id")->fetchColumn()==='expired','Süresi geçen hatırlatma düşmedi');
 
+// ── uygulama bildirimleri: Instagram/Facebook/Telegram/WhatsApp mesajı telefondan gelir, yanıt "kopyala ve aç" ile döner
+$app=(object)['app'=>'instagram','key'=>'nabc123456','name'=>'Deniz Kaya','text'=>'Merhaba, kediniz için aşı randevusu alabilir miyim?','at'=>$now];
+$gw->sync($device,(object)['apps'=>[$app]],$now+1301,$inbox);
+ok(!$db->query("SELECT COUNT(*) FROM inbox_message WHERE external_id LIKE 'pn:%'")->fetchColumn(),'Kapalıyken uygulama mesajı alındı');
+$gw->saveSettings($actor,$settings(['apps'=>true]),$now);
+$r=$gw->sync($device,(object)['apps'=>[$app,$app,(object)['app'=>'tiktok','key'=>'nzzz999999','name'=>'X','text'=>'y']]],$now+1302,$inbox);
+ok($r['apps']===true && (int)$db->query("SELECT COUNT(*) FROM inbox_message WHERE external_id LIKE 'pn:%'")->fetchColumn()===1,'Uygulama mesajı gelen kutusuna tek kez düşmedi');
+$ig=$inbox->list($actor,["channel"=>"instagram"],$now+1303)["items"];
+ok(count($ig)===1 && $ig[0]['name']==='Deniz Kaya','Instagram konuşması oluşmadı');
+$inbox->act($actor,(object)['action'=>'reply','id'=>$ig[0]['id'],'text'=>'Tabii, yarın 11:00 uygun.'],$now+1304);
+$r=$gw->sync($device,(object)[],$now+1305,$inbox);
+ok(count($r['replies'])===1 && $r['replies'][0]['app']==='instagram' && $r['replies'][0]['name']==='Deniz Kaya' && str_starts_with($r['replies'][0]['link'],'instagram://') && str_ends_with($r['replies'][0]['body'],"\n— Dr. Ayşe"),'Yanıt telefona kopyala-aç olarak dönmedi');
+$gw->sync($device,(object)['opened'=>[$r['replies'][0]['id']]],$now+1306,$inbox);
+ok($db->query("SELECT status FROM inbox_message WHERE direction='out' ORDER BY id DESC LIMIT 1")->fetchColumn()==='sent','Açılan yanıt gönderildi sayılmadı');
+$wa=(object)['app'=>'whatsapp','key'=>'nwa1234567','name'=>'+90 532 999 88 77','text'=>'Selam','at'=>$now];
+$gw->sync($device,(object)['apps'=>[$wa]],$now+1307,$inbox);
+ok((bool)$db->query("SELECT 1 FROM inbox_conversation WHERE contact_key='+905329998877'")->fetchColumn(),'WhatsApp numarası kişi anahtarı olmadı');
+
 // ── yetki ve ayrım
 $foreign=$actor; $foreign['partner_id']=str_repeat('f',32);
 try { $gw->act($foreign,(object)['action'=>'cancel','id'=>$id],$now); $leak=true; } catch (RuntimeException) { $leak=false; }

@@ -2,14 +2,25 @@
 # VetZimo Telefon Ajanı (Android · Termux)
 # Kliniğin kendi SIM kartından SMS gönderir, gelen SMS'leri VetZimo gelen kutusuna iletir ve
 # yarı otomatik WhatsApp mesajlarını bildirim olarak gösterir. Ücretli SMS sağlayıcısı gerekmez.
+# İsteğe bağlı: WhatsApp, Instagram, Facebook Messenger ve Telegram'a gelen mesajları telefonun bildirimlerinden okuyup
+# VetZimo gelen kutusuna aktarır; gelen kutusundan yazılan yanıt telefonda "Kopyala ve aç" bildirimiyle gönderilir.
 # Kullanım:  python vetzimo-telefon.py eslestir KOD [SUNUCU]   ·   python vetzimo-telefon.py   ·   python vetzimo-telefon.py durum
 import hashlib, json, os, random, shutil, subprocess, sys, time, urllib.error, urllib.request
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 HOME = os.environ.get("VZ_PHONE_HOME") or os.path.join(os.path.expanduser("~"), ".vetzimo-telefon")
 CONFIG = os.path.join(HOME, "config.json")
 STATE = os.path.join(HOME, "durum.json")
 OPENED = os.path.join(HOME, "acilan.txt")
+REPLIES = os.path.join(HOME, "yanitlar")
+# Bildirimleri okunan uygulamalar (paket adı → kanal)
+APPS = {"com.whatsapp": "whatsapp", "com.whatsapp.w4b": "whatsapp", "com.instagram.android": "instagram", "com.instagram.lite": "instagram",
+        "com.facebook.orca": "messenger", "com.facebook.mlite": "messenger", "com.facebook.katana": "messenger",
+        "org.telegram.messenger": "telegram", "org.telegram.messenger.web": "telegram", "org.thunderdog.challegram": "telegram"}
+APP_NAMES = {"whatsapp": "WhatsApp", "instagram": "Instagram", "messenger": "Facebook", "telegram": "Telegram"}
+# Özet bildirimleri ("5 yeni mesaj", "WhatsApp Web etkin" vb.) aktarılmaz.
+SUMMARY = ("yeni mesaj", "new message", "messages from", "sohbetten", "chats", "whatsapp web", "arama", "calling", "missed call", "cevapsız",
+           "yedekleniyor", "backup", "checking for new messages", "yeni mesajlar kontrol")
 LOG = os.path.join(HOME, "gunluk.txt")
 DEFAULT_SERVER = "__VETZIMO_SERVER__"
 os.makedirs(HOME, exist_ok=True)
@@ -96,6 +107,27 @@ def read_inbox():
     return result
 
 
+def read_apps():
+    """WhatsApp, Instagram, Facebook ve Telegram bildirimlerinden gelen mesajları okur (Termux:API bildirim erişimi gerekir)."""
+    items = json.loads(termux("termux-notification-list", timeout=30) or "[]")
+    result = []
+    for n in items if isinstance(items, list) else []:
+        app = APPS.get(str(n.get("packageName", "")))
+        if not app:
+            continue
+        title, text = str(n.get("title") or "").strip(), str(n.get("content") or "").strip()
+        if not title or not text or title.lower() in ("whatsapp", "instagram", "messenger", "facebook", "telegram", "whatsapp business"):
+            continue
+        if any(w in (title + " " + text).lower() for w in SUMMARY) and len(text) < 60:
+            continue
+        # Grup bildirimlerinde başlık "Grup: Kişi" olabilir; kişi adı alınır.
+        name = title.split(": ", 1)[-1] if app == "whatsapp" and ": " in title else title
+        name = name.split(" (")[0].strip()[:120]
+        key = hashlib.sha1((app + "|" + name + "|" + text).encode()).hexdigest()[:40]
+        result.append({"key": "n" + key, "app": app, "name": name, "text": text[:4000], "at": int(int(n.get("when") or 0) / 1000) if str(n.get("when", "")).isdigit() else int(time.time())})
+    return result
+
+
 def battery():
     try:
         return int(json.loads(termux("termux-battery-status", timeout=20)).get("percentage"))
@@ -132,6 +164,7 @@ def run():
     state = load(STATE, {"seen": [], "baseline": False, "notified": []})
     results, last_battery, battery_at, wait, error = [], None, 0, 2, ""
     log("VetZimo Telefon Ajanı " + VERSION + " çalışıyor · sunucu: " + config["server"])
+    apps_on, apps_seen = bool(state.get("apps")), set(state.get("appsSeen", []))
     while True:
         time.sleep(wait)
         inbound = []
@@ -147,6 +180,17 @@ def run():
             error = ""
         except Exception as e:
             current, error = [], "Gelen SMS okunamadı: " + str(e)
+        apps_in = []
+        if apps_on:
+            try:
+                found = read_apps()
+                if not state.get("appsBaseline"):
+                    apps_seen.update(m["key"] for m in found)
+                    state["appsBaseline"] = True
+                else:
+                    apps_in = [m for m in found if m["key"] not in apps_seen]
+            except Exception as e:
+                error = (error + " · " if error else "") + "Uygulama bildirimleri okunamadı (Termux:API bildirim erişimi açık mı?): " + str(e)[:120]
         if time.time() - battery_at > 300:
             last_battery, battery_at = battery(), time.time()
         opened = []
@@ -157,7 +201,7 @@ def run():
             pass
         try:
             reply = api(config, "sync", {"version": VERSION, "battery": last_battery, "info": "Termux", "error": error,
-                                         "inbound": sorted(inbound, key=lambda m: m["id"]), "results": results, "opened": opened})
+                                         "inbound": sorted(inbound, key=lambda m: m["id"]), "apps": apps_in, "results": results, "opened": opened})
         except Exception as e:
             if getattr(e, "status", 0) == 401:
                 log(str(e))
@@ -178,6 +222,14 @@ def run():
         state["seen"] = sorted(seen)[-2000:]
         if inbound:
             log(str(len(inbound)) + " gelen SMS VetZimo'ya iletildi.")
+        if apps_in:
+            apps_seen.update(m["key"] for m in apps_in)
+            log(str(len(apps_in)) + " uygulama mesajı VetZimo'ya iletildi.")
+        state["appsSeen"] = list(apps_seen)[-3000:]
+        if bool(reply.get("apps")) != apps_on:
+            apps_on = bool(reply.get("apps"))
+            state["apps"], state["appsBaseline"] = apps_on, False
+            log("Uygulama mesajlarını aktarma " + ("açıldı." if apps_on else "kapatıldı."))
         slot = reply.get("simSlot") or ""
         for job in reply.get("jobs", []):
             args = ["-n", job["phone"]]
@@ -192,6 +244,7 @@ def run():
                 log("SMS gönderilemedi: " + str(e))
             time.sleep(random.uniform(3, 7))
         notify(reply.get("assist", []), state)
+        notify_replies(reply.get("replies", []), state)
         save(STATE, state)
         wait = 1 if results else int(reply.get("interval") or 15)
 
@@ -212,6 +265,50 @@ def notify(items, state):
         except Exception as e:
             log("Bildirim gösterilemedi: " + str(e))
     state["notified"] = sorted(n for n in notified if n in active)[-200:]
+
+
+def notify_replies(items, state):
+    """Gelen kutusundan yazılan Instagram/Facebook/Telegram/WhatsApp yanıtı: dokununca metin kopyalanır ve uygulama açılır."""
+    os.makedirs(REPLIES, exist_ok=True)
+    done = set(state.get("replied", []))
+    script = os.path.abspath(__file__)
+    active = {i["id"] for i in items}
+    for item in items:
+        if item["id"] in done:
+            continue
+        save(os.path.join(REPLIES, str(int(item["id"])) + ".json"), {"body": item["body"], "link": item["link"]})
+        action = "python '" + script + "' yanit " + str(int(item["id"]))
+        try:
+            termux("termux-notification", "--id", "vzap" + str(item["id"]), "--title", APP_NAMES.get(item["app"], "Mesaj") + " yanıtı · " + (item.get("name") or ""),
+                   "--content", item["body"][:120], "--action", action, "--button1", "Kopyala ve aç", "--button1-action", action, "--priority", "high", timeout=20)
+            done.add(item["id"])
+        except Exception as e:
+            log("Bildirim gösterilemedi: " + str(e))
+    state["replied"] = sorted(n for n in done if n in active)[-200:]
+
+
+def reply_open(job_id):
+    """Yanıt metnini panoya kopyalar, ilgili uygulamayı açar ve yanıtı gönderildi olarak işaretler."""
+    path = os.path.join(REPLIES, str(int(job_id)) + ".json")
+    data = load(path, {})
+    if data.get("body"):
+        termux("termux-clipboard-set", stdin=data["body"], timeout=10)
+        try:
+            termux("termux-toast", "Yanıt kopyalandı · sohbete yapıştırıp gönderin", timeout=10)
+        except Exception:
+            pass
+        if str(data.get("link", "")).split("://")[0] in ("whatsapp", "instagram", "fb-messenger", "tg"):
+            termux("termux-open-url", data["link"], timeout=10)
+    try:
+        os.remove(path)
+    except OSError:
+        pass
+    with open(OPENED, "a", encoding="utf-8") as f:
+        f.write(str(int(job_id)) + "\n")
+    try:
+        termux("termux-notification-remove", "vzap" + str(int(job_id)), timeout=10)
+    except Exception:
+        pass
 
 
 def opened(job_id):
@@ -240,6 +337,8 @@ if __name__ == "__main__":
         pair(args[1], args[2] if len(args) > 2 else "")
     elif args[:1] == ["acildi"] and len(args) == 2 and args[1].isdigit():
         opened(args[1])
+    elif args[:1] == ["yanit"] and len(args) == 2 and args[1].isdigit():
+        reply_open(args[1])
     elif args[:1] == ["durum"]:
         status()
     elif not args:

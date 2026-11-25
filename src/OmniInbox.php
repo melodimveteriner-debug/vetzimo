@@ -93,7 +93,7 @@ final class OmniInbox
         $visible = [];
         foreach ($config as $field => $value) $visible[$field] = in_array($field, self::SECRET_FIELDS, true) ? ($value !== '' ? 'saved' : '') : $value;
         $hook = $this->origin.'/api/inbox/hook/'.$row['hook_key'];
-        if (in_array($config['provider'] ?? '', ['phone', 'device'], true)) {
+        if (in_array($config['provider'] ?? '', ['phone', 'device', 'notify'], true)) {
             return ['id' => $row['id'], 'kind' => $row['kind'], 'kindLabel' => self::KINDS[$row['kind']] ?? $row['kind'], 'label' => $row['label'], 'status' => $row['status'],
                 'externalId' => '', 'lastError' => $row['last_error'], 'lastEventAt' => $row['last_event_at'] === null ? null : (int)$row['last_event_at'], 'config' => [], 'managed' => 'phone'];
         }
@@ -853,6 +853,14 @@ final class OmniInbox
     {
         $kind = $channel['kind'];
         $to = (string)$conv['contact_key'];
+        if (($c['provider'] ?? '') === 'notify') {
+            // Telefon bildiriminden gelen konuşma: WhatsApp'ta numara biliniyorsa doğrudan, diğerlerinde telefonda "kopyala ve aç" ile yanıtlanır.
+            $gateway = new PhoneGateway($this->db);
+            if ($template) throw new RuntimeException('Bu kanalda şablon gerekmez; mesajı doğrudan yazın.', 422);
+            if ($kind === 'whatsapp' && str_starts_with($to, '+') && $gateway->route($conv['partner_id'], 'whatsapp')) return 'gw:'.$gateway->enqueue($conv['partner_id'], 'whatsapp', $to, $text, 'inbox', 'm'.$messageId, 0, $now, null, $by);
+            if (!$gateway->route($conv['partner_id'], 'app')) throw new RuntimeException('Telefon Bağlantısı sayfasında "Uygulama mesajlarını aktar" kapalı veya bağlı telefon yok.', 422);
+            return 'gw:'.$gateway->enqueue($conv['partner_id'], 'app', $kind, $text, 'inbox', 'm'.$messageId, 0, $now, null, $by);
+        }
         if (in_array($c['provider'] ?? '', ['phone', 'device'], true)) {
             // Telefon Bağlantısı: mesaj kliniğin kendi hattından (SMS) veya WhatsApp numarasından gider; 24 saat kuralı yoktur.
             $gateway = new PhoneGateway($this->db);

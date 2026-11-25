@@ -8,16 +8,16 @@ const KIND={whatsapp:{label:"WhatsApp",color:"#25d366",icon:"M12 3a9 9 0 0 0-7.8
  email:{label:"E-posta",color:"#f59e0b",icon:"M4 5h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Zm0 2v.3l8 5 8-5V7H4Zm16 2.6-8 5-8-5V17h16V9.6Z"},
  web:{label:"Web sitesi",color:"#7c3aed",icon:"M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm6.9 6h-3a15 15 0 0 0-1.4-3.9A8 8 0 0 1 18.9 8ZM12 4c.8 1.1 1.5 2.5 1.9 4h-3.8c.4-1.5 1.1-2.9 1.9-4ZM4.3 14a8 8 0 0 1 0-4h3.4a16 16 0 0 0 0 4H4.3Zm.8 2h3a15 15 0 0 0 1.4 3.9A8 8 0 0 1 5.1 16ZM8 8H5.1a8 8 0 0 1 4.4-3.9C8.9 5.3 8.4 6.6 8 8Zm4 12c-.8-1.1-1.5-2.5-1.9-4h3.8c-.4 1.5-1.1 2.9-1.9 4Zm2.3-6H9.7a14 14 0 0 1 0-4h4.6a14 14 0 0 1 0 4Zm.2 5.9c.6-1.2 1.1-2.5 1.4-3.9h3a8 8 0 0 1-4.4 3.9ZM16.3 14a16 16 0 0 0 0-4h3.4a8 8 0 0 1 0 4h-3.4Z"}};
 const SETUP={
- whatsapp:{title:"WhatsApp Business (Cloud API)",fields:[["phoneNumberId","Telefon numarası kimliği (Phone number ID)",1],["displayPhone","Görünen numara (isteğe bağlı)"],["accessToken","Kalıcı erişim anahtarı (System User token)",1,1],["appSecret","Uygulama gizli anahtarı (App Secret)",1,1],["apiVersion","API sürümü (boşsa v21.0)"]],
+ whatsapp:{title:"WhatsApp Business Cloud API (isteğe bağlı)",fields:[["phoneNumberId","Telefon numarası kimliği (Phone number ID)",1],["displayPhone","Görünen numara (isteğe bağlı)"],["accessToken","Kalıcı erişim anahtarı (System User token)",1,1],["appSecret","Uygulama gizli anahtarı (App Secret)",1,1],["apiVersion","API sürümü (boşsa v21.0)"]],
   steps:["Meta for Developers'ta bir uygulama oluşturun ve WhatsApp ürününü ekleyin; işletme numaranızı doğrulayın.","Business Manager › Sistem Kullanıcıları'ndan whatsapp_business_messaging izinli kalıcı erişim anahtarı üretin.","Aşağıdaki bilgileri kaydedin; ardından WhatsApp › Yapılandırma › Webhook bölümüne Geri Çağırma URL'si ve Doğrulama Anahtarı'nı yapıştırıp messages alanına abone olun.","Mevcut WhatsApp Business uygulamanızı kullanmaya devam etmek isterseniz Meta'nın uygulama ile Cloud API'nin birlikte çalışma (coexistence) kurulumunu seçin."]},
- messenger:{title:"Facebook Messenger",fields:[["pageId","Facebook sayfa kimliği",1],["pageName","Sayfa adı (isteğe bağlı)"],["pageToken","Sayfa erişim anahtarı",1,1],["appSecret","Uygulama gizli anahtarı (App Secret)",1,1],["apiVersion","API sürümü (boşsa v21.0)"]],
+ messenger:{title:"Facebook Messenger API (isteğe bağlı)",fields:[["pageId","Facebook sayfa kimliği",1],["pageName","Sayfa adı (isteğe bağlı)"],["pageToken","Sayfa erişim anahtarı",1,1],["appSecret","Uygulama gizli anahtarı (App Secret)",1,1],["apiVersion","API sürümü (boşsa v21.0)"]],
   steps:["Meta uygulamanıza Messenger ürününü ekleyin ve klinik sayfanızı bağlayın; pages_messaging izniyle sayfa erişim anahtarı oluşturun.","Bilgileri kaydedin; Messenger › Webhook ayarına URL ve doğrulama anahtarını girip messages ve message_echoes alanlarına abone olun."]},
- instagram:{title:"Instagram mesajları",fields:[["igId","Instagram profesyonel hesap kimliği",1],["username","Kullanıcı adı (isteğe bağlı)"],["pageToken","Bağlı Facebook sayfasının erişim anahtarı",1,1],["appSecret","Uygulama gizli anahtarı (App Secret)",1,1],["apiVersion","API sürümü (boşsa v21.0)"]],
+ instagram:{title:"Instagram API (isteğe bağlı)",fields:[["igId","Instagram profesyonel hesap kimliği",1],["username","Kullanıcı adı (isteğe bağlı)"],["pageToken","Bağlı Facebook sayfasının erişim anahtarı",1,1],["appSecret","Uygulama gizli anahtarı (App Secret)",1,1],["apiVersion","API sürümü (boşsa v21.0)"]],
   steps:["Instagram hesabınızı profesyonel hesaba çevirip Facebook sayfanıza bağlayın; Instagram ayarlarında 'Mesajlara erişime izin ver'i açın.","Meta uygulamanızda instagram_manage_messages iznini alın, bilgileri kaydedin ve Instagram webhook'una URL ile doğrulama anahtarını girip messages alanına abone olun."]},
- telegram:{title:"Telegram botu",fields:[["botToken","Bot anahtarı (BotFather)",1,1]],steps:["Telegram'da @BotFather'a /newbot yazarak kliniğiniz için bir bot oluşturun ve verilen anahtarı kopyalayın.","Anahtarı kaydettiğinizde webhook otomatik kurulur; müşterileriniz botunuza yazdığında mesajlar buraya düşer."]},
- sms:{title:"SMS (Netgsm)",fields:[["account","Netgsm hesap numarası (850…)",1],["password","API şifresi",1,1],["sender","Onaylı SMS başlığı",1],["number","Gelen SMS numarası (isteğe bağlı)"]],
+ telegram:{title:"Telegram botu (ücretsiz)",fields:[["botToken","Bot anahtarı (BotFather)",1,1]],steps:["Telegram'da @BotFather'a /newbot yazarak kliniğiniz için bir bot oluşturun ve verilen anahtarı kopyalayın.","Anahtarı kaydettiğinizde webhook otomatik kurulur; müşterileriniz botunuza yazdığında mesajlar buraya düşer."]},
+ sms:{title:"SMS (Netgsm · isteğe bağlı, ücretli)",fields:[["account","Netgsm hesap numarası (850…)",1],["password","API şifresi",1,1],["sender","Onaylı SMS başlığı",1],["number","Gelen SMS numarası (isteğe bağlı)"]],
   steps:["Netgsm'de API alt kullanıcısı ve onaylı SMS başlığınızı hazırlayın; yanıtlar bu başlıkla gider.","Gelen SMS için Netgsm panelinde 'Gelen SMS'leri URL'ye yönlendir' ayarına aşağıdaki adresi girin (GET veya POST desteklenir)."]},
- email:{title:"E-posta",fields:[["address","Klinik e-posta adresi",1],["smtpHost","SMTP sunucusu",1],["smtpPort","SMTP portu (465 veya 587)",1],["imapHost","IMAP sunucusu (gelen kutusu)"],["imapPort","IMAP portu (boşsa 993)"],["username","Kullanıcı adı",1],["password","Şifre veya uygulama şifresi",1,1]],
+ email:{title:"E-posta (kendi adresiniz, ücretsiz)",fields:[["address","Klinik e-posta adresi",1],["smtpHost","SMTP sunucusu",1],["smtpPort","SMTP portu (465 veya 587)",1],["imapHost","IMAP sunucusu (gelen kutusu)"],["imapPort","IMAP portu (boşsa 993)"],["username","Kullanıcı adı",1],["password","Şifre veya uygulama şifresi",1,1]],
   steps:["Yanıtlar SMTP ile kliniğin kendi adresinden gönderilir.","Gelen e-postalar IMAP girilirse her dakika otomatik alınır (sunucuda bin/inbox-poll.php zamanlanmış görevi). IMAP kullanmıyorsanız e-posta sağlayıcınızın 'gelen postayı URL'ye yönlendir' özelliğine aşağıdaki adresi girin."]}};
 const h=(tag,attrs={},...kids)=>{const n=document.createElement(tag);for(const[k,v]of Object.entries(attrs||{})){if(v==null||v===false)continue;if(k==="class")n.className=v;else if(k==="text")n.textContent=v;else if(k.startsWith("on"))n.addEventListener(k.slice(2),v);else if(v===true)n.setAttribute(k,"");else n.setAttribute(k,v)}for(const c of kids.flat())c!=null&&c!==false&&n.append(c);return n};
 const svg=(path,size=16)=>{const s=document.createElementNS("http://www.w3.org/2000/svg","svg");s.setAttribute("viewBox","0 0 24 24");s.setAttribute("width",size);s.setAttribute("height",size);s.setAttribute("aria-hidden","true");const p=document.createElementNS("http://www.w3.org/2000/svg","path");p.setAttribute("d",path);p.setAttribute("fill","currentColor");s.append(p);return s};
@@ -37,7 +37,7 @@ export function mountOmniInbox(root,api){
  const post=async body=>{const r=await api.fetch("/api/inbox",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});const d=await r.json();if(!r.ok)throw Error(d.error||tr("İşlem tamamlanamadı."));return d};
  const st={box:"open",channel:"",q:"",items:[],boxes:{},chan:{},cursor:0,sel:null,thread:null,team:[],me:"",quick:[],settings:{},mode:"reply",view:"inbox",channels:null,canManage:!1,pane:"list",draft:new Map};
  root.classList.add("ox-root");
- const css="/omni-inbox.css?v=3";if(!document.querySelector(`link[href="${css}"]`))document.head.append(h("link",{rel:"stylesheet",href:css}));
+ const css="/omni-inbox.css?v=4";if(!document.querySelector(`link[href="${css}"]`))document.head.append(h("link",{rel:"stylesheet",href:css}));
  const side=h("aside",{class:"ox-side","aria-label":tr("Kutular ve kanallar")}),list=h("section",{class:"ox-list","aria-label":tr("Konuşmalar")}),chat=h("section",{class:"ox-chat","aria-label":tr("Konuşma")}),card=h("aside",{class:"ox-card","aria-label":tr("Müşteri kartı")});
  const shell=h("div",{class:"ox-shell"},side,list,chat,card);
  root.replaceChildren(shell);
@@ -187,7 +187,7 @@ export function mountOmniInbox(root,api){
  // ── kanal bağlantıları
  async function drawChannels(){
   drawSide();setPane("chat");
-  fill(chat,h("p",{class:"ox-empty",text:tr("Yükleniyor…")}));fill(card,);fill(list,h("div",{class:"ox-empty"},h("strong",{text:tr("Kanal bağlantıları")}),h("p",{text:tr("Her kanal kliniğin kendi resmi hesabıyla bağlanır. Mesajlar yalnızca bu klinikte saklanır.")})));
+  fill(chat,h("p",{class:"ox-empty",text:tr("Yükleniyor…")}));fill(card,);fill(list,h("div",{class:"ox-empty"},h("strong",{text:tr("Kanal bağlantıları")}),h("p",{text:tr("Kanallar kliniğin kendi telefonu ve hesaplarıyla, ücretsiz bağlanır. Mesajlar yalnızca bu klinikte saklanır.")})));
   let d;try{d=await get({op:"channels"})}catch(e){fill(chat,h("p",{class:"ox-empty",text:e.message}));return}
   st.channels=d.channels;st.canManage=d.canManage;
   const cards=d.channels.map(c=>{
@@ -204,10 +204,20 @@ export function mountOmniInbox(root,api){
      h("button",{type:"button",class:"ox-btn",text:tr("Bağlantıyı dene"),onclick:async e=>{e.target.disabled=!0;try{toast((await post({action:"channel-test",id:c.id})).message)}catch(x){toast(x.message)}finally{e.target.disabled=!1;drawChannels()}}}),
      h("button",{type:"button",class:"ox-btn",text:tr("Düzenle"),onclick:()=>channelForm(c.kind,c)}),
      h("button",{type:"button",class:"ox-btn danger",text:tr("Kaldır"),onclick:async()=>{if(!confirm(tr("Kanal kaldırılsın mı? Geçmiş yazışmalar saklanır, yeni mesaj alınmaz.")))return;try{await post({action:"channel-delete",id:c.id});drawChannels()}catch(x){toast(x.message)}}})):null)});
-  const add=d.canManage?h("div",{class:"ox-add"},h("p",{class:"ox-group",text:tr("YENİ KANAL BAĞLA")}),h("div",{class:"ox-add-grid"},...Object.keys(SETUP).map(k=>h("button",{type:"button",class:"ox-add-btn",style:`--k:${KIND[k].color}`,onclick:()=>channelForm(k)},badge(k,22),h("span",{text:tr(KIND[k].label)}))))):h("p",{class:"ox-muted",text:tr("Kanal eklemek ve ayarlarını görmek için klinik yöneticisi yetkisi gerekir.")});
+  const addBtn=(k,title)=>h("button",{type:"button",class:"ox-add-btn",style:`--k:${KIND[k].color}`,onclick:()=>channelForm(k)},badge(k,22),h("span",{text:tr(title||KIND[k].label)}));
+  const phoneCard=h("article",{class:"ox-free"},
+   h("div",{class:"ox-free-kinds"},...["sms","whatsapp","instagram","messenger","telegram"].map(k=>badge(k,22))),
+   h("strong",{text:tr("Önerilen: Telefon Bağlantısı (ücretsiz)")}),
+   h("p",{text:tr("Kliniğin Android telefonuna VetZimo telefon uygulamasını bir kez kurun. SMS telefonun kendi hattından, WhatsApp kliniğin numarasından gider; Instagram, Facebook, Telegram ve WhatsApp'a gelen mesajlar telefonun bildirimlerinden Gelen Kutusu'na aktarılır. Netgsm, Meta API veya başka ücretli hizmet gerekmez.")}),
+   h("a",{class:"ox-btn dark",href:"#telefon-baglantisi",text:tr("Telefon Bağlantısı'nı aç ve kur")}));
+  const add=d.canManage?h("div",{class:"ox-add"},h("p",{class:"ox-group",text:tr("YENİ KANAL BAĞLA")}),phoneCard,
+   h("p",{class:"ox-group",text:tr("ÜCRETSİZ · KENDİ HESABINIZLA")}),h("div",{class:"ox-add-grid"},addBtn("email","E-posta"),addBtn("telegram","Telegram botu")),
+   h("details",{class:"ox-api"},h("summary",{text:tr("İsteğe bağlı: resmi API ile bağla (Meta Cloud API, Netgsm · ücretli olabilir)")}),
+    h("p",{class:"ox-muted",text:tr("Telefon Bağlantısı yeterlidir. Bu seçenekler yalnızca kendi Meta geliştirici hesabı veya Netgsm aboneliği olan klinikler içindir.")}),
+    h("div",{class:"ox-add-grid"},...["whatsapp","messenger","instagram","sms"].map(k=>addBtn(k))))):h("p",{class:"ox-muted",text:tr("Kanal eklemek ve ayarlarını görmek için klinik yöneticisi yetkisi gerekir.")});
   const settings=d.canManage?settingsForm():null;
   fill(chat,h("div",{class:"ox-setup"},h("h2",{text:tr("Kanal bağlantıları")}),
-   h("p",{class:"ox-muted",text:tr("Mesajlar her platformun resmi API'si üzerinden gelir ve aynı kanaldan yanıtlanır. Erişim anahtarları şifreli saklanır ve yeniden gösterilmez.")}),
+   h("p",{class:"ox-muted",text:tr("Mesajlar geldiği kanaldan yanıtlanır. Telefon Bağlantısı ile tüm kanallar ücretsiz çalışır; e-posta ve API anahtarları şifreli saklanır ve yeniden gösterilmez.")}),
    cards.length?h("div",{class:"ox-chans"},cards):h("p",{class:"ox-muted",text:tr("Henüz bağlı kanal yok.")}),add,settings));
  }
  function settingsForm(){

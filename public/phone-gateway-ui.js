@@ -7,7 +7,7 @@ const when=ts=>new Date(ts*1000).toLocaleString("tr-TR",{day:"numeric",month:"sh
 
 export function mountPhoneGateway(root,api){
  const tr=api.tr||(s=>s),toast=api.toast||(()=>{});
- const css="/phone-gateway.css?v=3";if(!document.querySelector(`link[href="${css}"]`))document.head.append(h("link",{rel:"stylesheet",href:css}));
+ const css="/phone-gateway.css?v=4";if(!document.querySelector(`link[href="${css}"]`))document.head.append(h("link",{rel:"stylesheet",href:css}));
  const get=async()=>{const r=await api.fetch("/api/phone");const d=await r.json();if(!r.ok)throw Error(d.error||tr("İşlem tamamlanamadı."));return d};
  const post=async body=>{const r=await api.fetch("/api/phone",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});const d=await r.json();if(!r.ok)throw Error(d.error||tr("İşlem tamamlanamadı."));return d};
  let data=null,tab="kurulum",code=null,filter="all",timer=0;
@@ -64,7 +64,7 @@ export function mountPhoneGateway(root,api){
   const num=(v,min,max)=>h("input",{type:"number",min:String(min),max:String(max),value:String(v),disabled:dis});
   const f={sms:h("input",{type:"checkbox",checked:s.sms,disabled:dis}),simSlot:h("select",{disabled:dis},...[["","Varsayılan SIM"],["0","SIM 1"],["1","SIM 2"]].map(([v,l])=>h("option",{value:v,selected:s.simSlot===v,text:tr(l)}))),
    smsInterval:num(s.smsInterval,60,3600),smsPerDay:num(s.smsPerDay,1,1000),waInterval:num(s.waInterval,30,3600),waPerDay:num(s.waPerDay,1,400),
-   sendStart:h("input",{type:"time",value:s.sendStart,disabled:dis}),sendHours:num(s.sendHours,1,16),both:h("input",{type:"checkbox",checked:s.both,disabled:dis}),ascii:h("input",{type:"checkbox",checked:s.smsAscii!==false,disabled:dis}),risk:h("input",{type:"checkbox",checked:s.waRiskAccepted,disabled:dis})};
+   sendStart:h("input",{type:"time",value:s.sendStart,disabled:dis}),sendHours:num(s.sendHours,1,16),both:h("input",{type:"checkbox",checked:s.both,disabled:dis}),ascii:h("input",{type:"checkbox",checked:s.smsAscii!==false,disabled:dis}),risk:h("input",{type:"checkbox",checked:s.waRiskAccepted,disabled:dis}),apps:h("input",{type:"checkbox",checked:!!s.apps,disabled:dis})};
   let mode=s.whatsapp;
   const plan=h("div",{class:"pg-plan"});
   const calc=()=>{
@@ -90,7 +90,8 @@ export function mountPhoneGateway(root,api){
   const field=(label,input,hint)=>h("label",{class:"pg-field"},h("span",{text:tr(label)}),input,hint?h("small",{class:"pg-muted",text:tr(hint)}):null);
   calc();
   return [h("form",{class:"pg-card pg-settings",onsubmit:e=>{e.preventDefault();act({action:"settings",sms:f.sms.checked,simSlot:f.simSlot.value,smsInterval:+f.smsInterval.value,smsPerDay:+f.smsPerDay.value,
-    whatsapp:mode,waRiskAccepted:f.risk.checked,waInterval:+f.waInterval.value,waPerDay:+f.waPerDay.value,sendStart:f.sendStart.value,sendHours:+f.sendHours.value,both:f.both.checked,smsAscii:f.ascii.checked},tr("Ayarlar kaydedildi."))}},
+    whatsapp:mode,waRiskAccepted:f.risk.checked,waInterval:+f.waInterval.value,waPerDay:+f.waPerDay.value,sendStart:f.sendStart.value,sendHours:+f.sendHours.value,both:f.both.checked,smsAscii:f.ascii.checked,apps:f.apps.checked},tr("Ayarlar kaydedildi."))}},
+   h("p",{class:"pg-link"},h("span",{text:tr("Hangi mesajların (aşı, randevu, kontrol, doğum günü, borç) otomatik gideceğini ve kaç saat önce gideceğini seçmek için:")})," ",h("a",{class:"pg-btn",href:"#hatirlaticilar",text:tr("Otomatik SMS ve WhatsApp")})),
    h("h3",{text:tr("Gönderim zamanı")}),
    h("div",{class:"pg-grid"},field("Her gün başlangıç saati",f.sendStart),field("Kaç saat boyunca gönderilsin",f.sendHours,"Bitmeyen mesajlar ertesi gün aynı saatte devam eder.")),
    h("p",{class:"pg-muted",text:tr("Hatırlatma ve toplu mesajlar sıraya alınır ve bu pencerede tek tek, aralıklı gönderilir. Gelen kutusundan yazılan yanıtlar ve onay formu bağlantıları beklemeden gider. Randevu saati geçen hatırlatma gönderilmez.")}),
@@ -99,6 +100,10 @@ export function mountPhoneGateway(root,api){
    h("h3",{text:"WhatsApp"}),modes,riskBox,
    h("div",{class:"pg-grid"},field("Kaç saniyede bir (otomatik, en az 30)",f.waInterval,"Önerilen 120 sn (saatte yaklaşık 30 mesaj)."),field("Günde en fazla (otomatik)",f.waPerDay,"Yeni numarada ilk hafta 20-50 ile başlayın.")),
    h("label",{class:"pg-check"},f.both,h("span",{text:tr("Hatırlatmaları SMS ve WhatsApp'tan aynı anda gönder (müşterinin iki kanalda da izni varsa)")})),
+   h("h3",{text:tr("Instagram, Facebook, Telegram ve WhatsApp mesajları")}),
+   h("label",{class:"pg-check"},f.apps,h("span",{text:tr("Uygulama mesajlarını Gelen Kutusu'na aktar (API ve ücret gerekmez)")})),
+   h("ol",{class:"pg-steps"},...["Bu telefonda klinik hesaplarınızla Instagram, Facebook Messenger, Telegram ve WhatsApp (Business) uygulamaları açık olsun.","Telefonda Ayarlar › Bildirimler › Bildirim erişimi bölümünden Termux:API'ye izin verin.","Gelen mesajlar bildirimden okunur ve Gelen Kutusu'na düşer. Yanıtınız telefonda \"Kopyala ve aç\" bildirimi olarak çıkar: dokunun, sohbete yapıştırıp gönderin. WhatsApp'ta numara biliniyorsa yanıt yukarıdaki WhatsApp ayarıyla gider."].map(x=>h("li",{text:tr(x)}))),
+   h("p",{class:"pg-muted",text:tr("Yalnızca bildirimi gelen yazılı mesajlar aktarılır; fotoğraf, sesli mesaj ve uygulama açıkken okunan mesajlar aktarılmaz.")}),
    plan,
    h("p",{class:"pg-muted",text:tr("Not: Bilgilendirme amaçlı hatırlatmalar için izin gerekmez; kampanya ve tanıtım iletileri için müşterinin onayı (İYS) gerekir. Sistem yalnızca SMS/WhatsApp izni \"Var\" olan müşterilere gönderir.")}),
    data.canManage?h("div",{class:"pg-actions"},h("button",{class:"pg-btn dark",text:tr("Kaydet")})):h("p",{class:"pg-muted",text:tr("Ayarları yalnızca klinik yöneticisi değiştirebilir.")})),

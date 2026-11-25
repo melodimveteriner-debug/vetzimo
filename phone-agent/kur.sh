@@ -24,3 +24,5 @@ nohup python "$HOME/vetzimo-telefon.py" >/dev/null 2>&1 &
 echo
 echo "Tamam. Telefon yeniden başladığında ajanın kendiliğinden açılması için F-Droid'den Termux:Boot uygulamasını kurup bir kez açın."
 echo "Ayarlar › Pil bölümünden Termux ve Termux:API için pil optimizasyonunu kapatın."
+echo "Instagram, Facebook, Telegram ve WhatsApp mesajlarını da aktarmak için: Ayarlar › Bildirimler › Bildirim erişimi › Termux:API'yi açın"
+echo "ve VetZimo'da Telefon Bağlantısı › 'Uygulama mesajlarını Gelen Kutusu'na aktar' kutusunu işaretleyin."

@@ -16,8 +16,11 @@ final class PhoneGateway
     // Varsayılanlar araştırmaya dayanır: Android 30 dakikada 30'dan fazla SMS'te kullanıcı onayı ister (SMS arası ≥ 60 sn);
     // WhatsApp için resmi sınır yoktur, sabit değil rastgele aralık ve saatte 30'un altı önerilir (120 sn ±%20 ≈ saatte 30).
     public const DEFAULTS = ['sms' => false, 'simSlot' => '', 'smsInterval' => 75, 'smsPerDay' => 150,
-        'whatsapp' => 'off', 'waRiskAccepted' => false, 'waInterval' => 120, 'waPerDay' => 100, 'sendStart' => '10:00', 'sendHours' => 9, 'both' => false, 'smsAscii' => true];
+        'whatsapp' => 'off', 'waRiskAccepted' => false, 'waInterval' => 120, 'waPerDay' => 100, 'sendStart' => '10:00', 'sendHours' => 9, 'both' => false, 'smsAscii' => true, 'apps' => false];
     private const STALE = 900; // sonuç bildirilmeyen işler 15 dakika sonra "belirsiz" olur, tekrar gönderilmez
+    /** Telefondaki uygulama bildirimlerinden okunan kanallar (Instagram, Facebook Messenger, Telegram, WhatsApp). */
+    public const APP_KINDS = ['whatsapp', 'instagram', 'messenger', 'telegram'];
+    private const APP_LINKS = ['whatsapp' => 'whatsapp://', 'instagram' => 'instagram://direct-inbox', 'messenger' => 'fb-messenger://', 'telegram' => 'tg://'];
     private const PAIR_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
     public function __construct(private readonly PDO $db) {}
@@ -55,6 +58,7 @@ final class PhoneGateway
         try { $s = $this->settings($partner); } catch (\Throwable) { return false; }
         if ($channel === 'sms') return $s['sms'] && $this->hasDevice($partner);
         if ($channel === 'whatsapp') return in_array($s['whatsapp'], ['auto', 'assist'], true) ? $s['whatsapp'] : false;
+        if ($channel === 'app') return $s['apps'] && $this->hasDevice($partner);
         return false;
     }
 
@@ -93,6 +97,7 @@ final class PhoneGateway
         $s['sendHours'] = $int($input->sendHours ?? $s['sendHours'], 1, 16, 'Gönderim süresi (saat)');
         $s['both'] = !empty($input->both);
         $s['smsAscii'] = !empty($input->smsAscii);
+        $s['apps'] = !empty($input->apps);
         $this->db->prepare('INSERT INTO phone_gateway (partner_id,settings,updated_at) VALUES (?,?,?) ON DUPLICATE KEY UPDATE settings=VALUES(settings),updated_at=VALUES(updated_at)')
             ->execute([$actor['partner_id'], json_encode($s, JSON_UNESCAPED_UNICODE), $now]);
         if ($s['sms']) $this->channel($actor['partner_id'], 'sms', $now);
@@ -101,9 +106,9 @@ final class PhoneGateway
     }
 
     /** Gelen kutusunda telefon kanalı (SMS: Android ajanı, WhatsApp: bilgisayardaki WhatsApp Web). */
-    public function channel(string $partner, string $kind, int $now): array
+    public function channel(string $partner, string $kind, int $now, string $provider = ''): array
     {
-        $provider = $kind === 'sms' ? 'phone' : 'device';
+        $provider = $provider !== '' ? $provider : ($kind === 'sms' ? 'phone' : 'device');
         $q = $this->db->prepare("SELECT * FROM inbox_channel WHERE partner_id=? AND kind=? AND JSON_VALUE(config,'$.provider')=?");
         $q->execute([$partner, $kind, $provider]);
         $row = $q->fetch(PDO::FETCH_ASSOC);
@@ -113,7 +118,7 @@ final class PhoneGateway
         }
         $id = bin2hex(random_bytes(16));
         $this->db->prepare('INSERT INTO inbox_channel (id,partner_id,kind,label,status,hook_key,external_id,config,created_at) VALUES (?,?,?,?,?,?,?,?,?)')
-            ->execute([$id, $partner, $kind, $kind === 'sms' ? 'SMS (klinik telefonu)' : 'WhatsApp (klinik numarası)', 'active', bin2hex(random_bytes(20)), $provider,
+            ->execute([$id, $partner, $kind, $provider === 'notify' ? (OmniInbox::KINDS[$kind] ?? $kind).' (klinik telefonu)' : ($kind === 'sms' ? 'SMS (klinik telefonu)' : 'WhatsApp (klinik numarası)'), 'active', bin2hex(random_bytes(20)), $provider,
                 json_encode(['provider' => $provider]), $now]);
         $q->execute([$partner, $kind, $provider]);
         return $q->fetch(PDO::FETCH_ASSOC);
@@ -123,11 +128,12 @@ final class PhoneGateway
     /** Mesajı gönderim kuyruğuna ekler; aynı kaynak+referans ikinci kez eklenmez. Kuyruk kimliğini döndürür. */
     public function enqueue(string $partner, string $channel, string $phone, string $body, string $source, string $ref, int $priority, int $now, ?int $expires = null, string $by = ''): int
     {
-        $phone = DealerLogin::normalizePhone($phone);
+        // Uygulama yanıtında (Instagram/Facebook/Telegram) numara yerine uygulama adı tutulur.
+        $phone = $channel === 'app' ? (in_array($phone, self::APP_KINDS, true) ? $phone : '') : DealerLogin::normalizePhone($phone);
         if ($phone === '') throw new RuntimeException('Telefon numarası geçersiz (Türkiye cep numarası gerekli).', 422);
         $body = trim($body);
         if ($body === '' || mb_strlen($body) > 4000) throw new RuntimeException('Mesaj 1-4000 karakter olmalı.', 422);
-        if (!in_array($channel, ['sms', 'whatsapp'], true) || !in_array($source, ['reminder', 'bulk', 'inbox', 'test', 'manual', 'center'], true)) throw new RuntimeException('Kuyruk isteği geçersiz.', 422);
+        if (!in_array($channel, ['sms', 'whatsapp', 'app'], true) || !in_array($source, ['reminder', 'bulk', 'inbox', 'test', 'manual', 'center'], true)) throw new RuntimeException('Kuyruk isteği geçersiz.', 422);
         $this->checkMonthlyLimit($partner, $channel, $source, $ref, $now);
         $this->db->prepare('INSERT IGNORE INTO phone_outbox (partner_id,channel,phone,body,source,source_ref,priority,expires_at,created_by,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)')
             ->execute([$partner, $channel, $phone, $body, $source, mb_substr($ref, 0, 190), $priority, $expires, mb_substr($by, 0, 120), $now]);
@@ -149,7 +155,7 @@ final class PhoneGateway
 
     private function checkMonthlyLimit(string $partner, string $channel, string $source, string $ref, int $now): void
     {
-        if ($source === 'test' || $source === 'center') return; // merkez mesajları (VetZimo hattı) bayinin paket sınırına sayılmaz
+        if ($source === 'test' || $source === 'center' || $channel === 'app') return; // merkez mesajları (VetZimo hattı) bayinin paket sınırına sayılmaz
         $q = $this->db->prepare('SELECT 1 FROM phone_outbox WHERE source=? AND source_ref=?');
         $q->execute([$source, mb_substr($ref, 0, 190)]);
         if ($q->fetchColumn()) return;
@@ -349,7 +355,7 @@ final class PhoneGateway
         // Yarı otomatik WhatsApp: personel bildirimdeki mesajı açtıysa gönderildi sayılır.
         foreach (is_array($input->opened ?? null) ? array_slice($input->opened, 0, 50) : [] as $id) {
             if (!is_int($id)) continue;
-            $q = $this->db->prepare("SELECT * FROM phone_outbox WHERE id=? AND partner_id=? AND channel='whatsapp' AND status='queued'");
+            $q = $this->db->prepare("SELECT * FROM phone_outbox WHERE id=? AND partner_id=? AND channel IN ('whatsapp','app') AND status='queued'");
             $q->execute([$id, $partner]);
             if ($row = $q->fetch(PDO::FETCH_ASSOC)) $this->finish($row, 'sent', '', $now);
         }
@@ -367,8 +373,20 @@ final class PhoneGateway
             }
             $this->db->prepare('UPDATE phone_device SET inbound_mark=? WHERE id=?')->execute([$mark, $device['id']]);
         }
-        $this->sweep($partner, $now);
         $s = $this->settings($partner);
+        // Uygulama bildirimleri: Instagram, Facebook, Telegram ve WhatsApp'a gelen mesajlar telefonun bildiriminden okunur.
+        if ($inbox && $s['apps'] && is_array($input->apps ?? null)) {
+            foreach (array_slice($input->apps, 0, 100) as $m) {
+                if (!is_object($m) || !in_array($m->app ?? '', self::APP_KINDS, true) || !is_string($m->key ?? null) || !is_string($m->name ?? null) || !is_string($m->text ?? null)) continue;
+                $name = self::text($m->name, 120);
+                if ($name === '' || !preg_match('/\A[A-Za-z0-9:_-]{6,80}\z/', $m->key)) continue;
+                $at = is_int($m->at ?? null) && $m->at > 0 ? min($m->at, $now) : $now;
+                $phone = $m->app === 'whatsapp' ? OmniInbox::phone($name) : '';
+                $contact = $phone !== '' && strlen(preg_replace('/\D/', '', $phone) ?? '') >= 10 ? $phone : $name;
+                if ($inbox->ingest($this->channel($partner, $m->app, $now, 'notify'), $contact, $name, $contact, mb_substr($m->text, 0, 4000, 'UTF-8'), 'pn:'.$device['id'].':'.$m->key, $at)) $inbound++;
+            }
+        }
+        $this->sweep($partner, $now);
         $jobs = [];
         $wait = 15;
         if ($s['sms']) {
@@ -382,7 +400,14 @@ final class PhoneGateway
             $q->execute([$partner]);
             foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $r) $assist[] = ['id' => (int)$r['id'], 'phone' => $r['phone'], 'link' => self::waLink($r['phone'], $r['body']), 'preview' => mb_substr($r['body'], 0, 80, 'UTF-8')];
         }
-        return ['jobs' => $jobs, 'assist' => $assist, 'simSlot' => $s['simSlot'], 'interval' => max(3, min(30, $wait)), 'received' => $inbound, 'mark' => (int)$this->db->query('SELECT inbound_mark FROM phone_device WHERE id='.$this->db->quote($device['id']))->fetchColumn()];
+        $replies = [];
+        if ($s['apps']) {
+            $q = $this->db->prepare("SELECT o.id,o.phone app,o.body,c.contact_name name FROM phone_outbox o LEFT JOIN inbox_message m ON m.partner_id=o.partner_id AND m.external_id=CONCAT('gw:',o.id)
+                LEFT JOIN inbox_conversation c ON c.id=m.conversation_id WHERE o.partner_id=? AND o.channel='app' AND o.status='queued' ORDER BY o.priority,o.id LIMIT 10");
+            $q->execute([$partner]);
+            foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $r) if (isset(self::APP_LINKS[$r['app']])) $replies[] = ['id' => (int)$r['id'], 'app' => $r['app'], 'name' => (string)$r['name'], 'body' => $r['body'], 'link' => self::APP_LINKS[$r['app']]];
+        }
+        return ['jobs' => $jobs, 'assist' => $assist, 'replies' => $replies, 'apps' => $s['apps'], 'simSlot' => $s['simSlot'], 'interval' => max(3, min(30, $wait)), 'received' => $inbound, 'mark' => (int)$this->db->query('SELECT inbound_mark FROM phone_device WHERE id='.$this->db->quote($device['id']))->fetchColumn()];
     }
 
     /**

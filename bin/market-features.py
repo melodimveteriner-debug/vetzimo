@@ -95,7 +95,7 @@ ART = {
 FEATURES = [
  ('/platform/ozellikler/gelen-kutusu', 'inbox', 'İletişim', 'Çok kanallı gelen kutusu',
   'WhatsApp, Instagram, Facebook, Telegram, SMS, e-posta ve web formu mesajları tek ekranda. Kim yanıtladıysa adı ve imzasıyla görünür.',
-  'Tüm mesajlar tek yerde', ['Her kanaldan gelen mesaj konuşma olarak düşer; hasta sahibi kartına bağlanır.', 'Yanıtlayan ekip üyesi konuşmayı üstlenir; başkasına atanmışsa devraldığı kayda geçer, mesajın sonuna adı eklenir.', 'Hızlı yanıtlar, notlar, etiketler ve okunmamış uyarıları sağ üstte bildirim olarak gelir.']),
+  'Tüm mesajlar tek yerde', ['Kliniğin kendi Android telefonuyla bağlanır; ücretli API, SMS paketi veya aracı hizmet gerekmez.', 'Her kanaldan gelen mesaj konuşma olarak düşer; hasta sahibi kartına bağlanır.', 'Yanıtlayan ekip üyesi konuşmayı üstlenir; başkasına atanmışsa devraldığı kayda geçer, mesajın sonuna adı eklenir.', 'Hızlı yanıtlar, notlar, etiketler ve okunmamış uyarıları sağ üstte bildirim olarak gelir.']),
  ('/platform/ozellikler/sms', 'phone', 'İletişim', 'Kendi hattınızdan SMS',
   'Hatırlatma, toplu mesaj ve yanıtlar kliniğinizin kendi telefon hattından gider. SMS paketi veya aracı firma gerekmez.',
   'Ücretli SMS paketine gerek yok', ['Klinik telefonuna kurulan VetZimo uygulaması mesajları kendi SIM kartınızdan gönderir; gelen SMS’ler gelen kutusuna düşer.', 'Başlangıç saati, gönderim süresi, günlük sınır ve mesaj arası saniye ayarıyla operatör engeline takılmadan sıralı gönderim.', 'Türkçe karakter sadeleştirme ile mesaj tek SMS’e sığar; aylık sınırı paketiniz belirler.']),

@@ -696,7 +696,7 @@ async function portal() {
   account.append(change);
   const appSettings=el("section","",{className:"owner-app-settings"});
   account.append(appSettings);
-  import("./settings-hub.js?v=6").then(async m=>{
+  import("./settings-hub.js?v=7").then(async m=>{
     const ctx={tr:uiLabel,api:(p,i={})=>fetch(p,{credentials:"same-origin",...i}),scope:session.scopeId||""};
     const prefs=el("div"),devices=el("div");
     appSettings.append(el("h2",uiLabel("Uygulama bildirimleri")),prefs,el("h2",uiLabel("Cihazlarım ve hesap")),devices);

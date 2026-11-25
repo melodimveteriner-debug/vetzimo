@@ -948,3 +948,8 @@ th[aria-sort] .column-sort span{color:var(--brand)}
 .vz-ib-empty{margin:0;color:var(--muted)}.vz-ib-go{justify-self:start}
 .vz-ib-count{justify-self:end}
 @media (max-width:560px){.vz-inbox-card{padding:14px}.vz-ib-list a{grid-template-columns:auto minmax(0,1fr) auto}.vz-ib-prev{grid-column:1/-1;order:5}}
+
+.reminder-route{display:grid;gap:8px;padding:14px 16px;border-inline-start:4px solid #22c55e}
+.reminder-route p{margin:0;line-height:1.5}
+.reminder-route .button{justify-self:start;text-decoration:none}
+@media (max-width:600px){.reminder-route .button{justify-self:stretch;text-align:center}}

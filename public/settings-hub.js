@@ -19,14 +19,16 @@ export const GROUPS = [
     ["personel-plani", "Vardiya ve izinler", "Çalışma planı, izin ve nöbet"],
     ["iki-adimli-dogrulama", "İki adımlı doğrulama", "Ekip hesapları için ek güvenlik"],
   ]],
-  ["iletisim", "İletişim ve bildirimler", [
+  ["mesajlar", "SMS, WhatsApp ve mesajlar", [
+    ["telefon-baglantisi", "1 · Gönderim hattı ve saatleri", "SMS ve WhatsApp kliniğin telefonundan gider: telefonu bağlama, gönderim saatleri, mesaj arası bekleme, günlük sınır, Instagram/Facebook/Telegram aktarımı"],
+    ["hatirlaticilar", "2 · Otomatik SMS ve WhatsApp", "Aşı, randevu, kontrol, doğum günü ve borç mesajları: açık/kapalı, kaç saat önce, hangi kanal, metin"],
+    ["templates", "3 · Mesaj şablonları", "Elle ve toplu gönderilen hazır SMS ve WhatsApp metinleri"],
+    ["gelen-kutusu", "4 · Gelen Kutusu kanalları", "WhatsApp, Instagram, Facebook, Telegram, SMS ve e-posta mesajlarını tek yerde yanıtlama"],
+    ["bayi-hesabim", "Aylık gönderim hakkı", "Paketinize göre bu ay gönderilen SMS ve WhatsApp sayısı"],
+  ]],
+  ["iletisim", "Bildirimler", [
     ["bildirimler", "Uygulama bildirimleri", "Telefon, tablet ve bilgisayar bildirimleri, sesler, sessiz saatler"],
-    ["bildirim-merkezi", "Bildirim merkezi (e-posta)", "Hasta sahibine giden e-posta bildirimleri"],
-    ["hatirlaticilar", "Müşteri hatırlatıcıları", "Aşı, randevu ve borç hatırlatmaları"],
-    ["templates", "Mesaj şablonları", "SMS ve WhatsApp metinleri"],
-    ["messages", "SMS ve WhatsApp", "Gönderim ayarları"],
-    ["telefon-baglantisi", "Telefon bağlantısı", "Kliniğin kendi hattından SMS ve WhatsApp"],
-    ["gelen-kutusu", "Gelen kutusu kanalları", "WhatsApp, Instagram, Facebook, Telegram, e-posta"],
+    ["bildirim-merkezi", "Hasta sahibine e-posta bildirimleri", "Hasta sahibine giden e-posta bildirimleri"],
     ["bildirim-epostasi", "Bildirim e-postası", "Kliniğe gelen sistem e-postaları"],
   ]],
   ["entegrasyon", "Entegrasyonlar", [
@@ -46,7 +48,6 @@ export const GROUPS = [
     ["hesap-ayarlari", "Hesap ayarları", "Şifre ve oturum"],
     ["abonelik", "Abonelik", "Paket ve bitiş tarihi"],
     ["kredi-magazasi", "Abonelik mağazası", "Paket yükseltme ve online ödeme"],
-    ["bayi-hesabim", "Aylık gönderim hakkı", "SMS ve WhatsApp kullanımı"],
     ["cihazlarim", "Cihazlarım ve hesabımı sil", "Bildirim alan cihazlar, hesap silme talebi"],
     ["kurum-sec", "Kurum değiştir", "Birden fazla klinikte çalışanlar için"],
   ]],

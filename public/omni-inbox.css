@@ -146,3 +146,12 @@
 .ox-shell[data-view=setup] .ox-chat{grid-column:3/5}.ox-shell[data-view=setup] .ox-card{display:none}
 @media (max-width:1280px){.ox-shell[data-view=setup] .ox-chat{grid-column:3/4}}
 @media (max-width:980px){.ox-shell[data-view=setup] .ox-chat{grid-column:2/3}}
+
+.ox-free{display:grid;gap:8px;padding:16px;border:1.5px solid color-mix(in srgb,#22c55e 45%,var(--ox-line));border-radius:16px;background:color-mix(in srgb,#22c55e 7%,var(--ox-paper));margin-bottom:6px}
+.ox-free p{margin:0;line-height:1.5;color:var(--ox-ink)}
+.ox-free .ox-btn{justify-self:start;text-decoration:none}
+.ox-free-kinds{display:flex;flex-wrap:wrap;gap:6px}
+.ox-api{margin-top:8px;border:1px dashed var(--ox-line);border-radius:12px;padding:10px 12px}
+.ox-api summary{cursor:pointer;font-weight:600;color:var(--ox-muted,inherit)}
+.ox-api[open] summary{margin-bottom:8px}
+@media (max-width:600px){.ox-free .ox-btn{justify-self:stretch;text-align:center}}
