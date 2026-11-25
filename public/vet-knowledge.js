@@ -162,12 +162,14 @@ export function vetAnswer(text, context = {}) {
   const who = context.name ? context.name + " · " : "";
 
   // İlaç dozu
-  const drug = DRUGS.find(([name, syn]) => [fold(name), ...syn].some(s => new RegExp("\\b" + s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).test(t)));
-  if (drug && (/\b(doz|dozu|mg|ne kadar|kac|verilir|verelim|hesapla|ml|tablet|kullanim|nasil)\b/.test(t) || weight > 0 || t.split(" ").length <= 3)) return doseAnswer(drug, species, weight, concOf(t), who);
+  // En uzun eşleşen ad kazanır ("milbemisin oksim + prazikuantel" › "prazikuantel").
+  const hit = (name, syn) => Math.max(0, ...[fold(name), ...syn].filter(s => new RegExp("\\b" + s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).test(t)).map(s => s.length));
+  const drug = DRUGS.map(d => [hit(d[0], d[1]), d]).filter(([n]) => n > 0).sort((a, b) => b[0] - a[0])[0]?.[1];
+  if (drug && (/\b(doz\w*|mg|ne kadar|kac|verilir|verelim|hesapla|ml|tablet|kullanim\w*|nasil|endikasyon\w*|uygula\w*)\b/.test(t) || weight > 0 || t.split(" ").length <= 3)) return doseAnswer(drug, species, weight, concOf(t), who);
 
   // Zehirlenme
   const toxin = TOXINS.find(([, re]) => re.test(t));
-  if (toxin && (/\b(zehir|toksik|toksisite|yedi|yemis|yuttu|yutmus|icti|zararli|tehlikeli|doz)\b/.test(t) || t.split(" ").length <= 3)) return toxinAnswer(toxin, t, species, weight, who);
+  if (toxin && (/\b(zehir\w*|toksik\w*|toksisite|yedi|yemis|yuttu|yutmus|icti|zararli|tehlikeli|doz|maruz\w*|bulas\w*|temas\w*)\b/.test(t) || t.split(" ").length <= 4 || species)) return toxinAnswer(toxin, t, species, weight, who);
 
   // Aşı takvimi
   if (/\b(asi takvimi|asi programi|asilari|asilar|hangi asi|asi ne zaman|kuduz asisi|karma asi|vaccin|rapel)\b/.test(t)) {
@@ -190,7 +192,7 @@ export function vetAnswer(text, context = {}) {
 
   // Ayırıcı tanı
   const diff = DIFFERENTIALS.find(([re]) => re.test(t));
-  if (diff && /\b(ayirici|ayirt|neden|sebep|olasi|tani|ddx|differansiyel|nelerdir|ne olabilir)\b/.test(t)) {
+  if (diff && /\b(ayirici\w*|ayirt\w*|neden\w*|sebep\w*|olasi\w*|tani\w*|ddx|differansiyel|nelerdir|ne olabilir)\b/.test(t)) {
     return {text: "Ayırıcı tanı · " + diff[1], items: diff[2].map(d => [d, ""]), stats: [["Önerilen tetkikler", diff[3]]], note: "Liste sıklık ve önem sırasına göredir; öykü, yaş, ırk ve muayene bulgularıyla daraltın."};
   }
 

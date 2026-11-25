@@ -432,3 +432,6 @@ export function renderLabInsight(container, {values = "", result = "", date = ""
   }
   return res;
 }
+
+// VeBot referans listeleri için
+export const LAB_REF = REF, LAB_LABEL = LABEL;

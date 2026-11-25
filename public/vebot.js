@@ -4,8 +4,9 @@
 // Yalnızca kullanıcının görmeye yetkili olduğu koleksiyonları okur (ctx.data izin süzgecinden geçer).
 // Metinler Türkçe kalıp anahtarlarıdır; ui-copy.js bunları seçili dile çevirir.
 
-import {interpretLabs} from "./lab-interpret.js?v=20261124-r2";
-import {vetAnswer, KNOWLEDGE_EXAMPLES} from "./vet-knowledge.js?v=1";
+import {interpretLabs} from "./lab-interpret.js?v=20261125-r3";
+import {vetAnswer, KNOWLEDGE_EXAMPLES} from "./vet-knowledge.js?v=2";
+import {clinicalAnswer} from "./vet-clinical.js?v=1";
 
 const TZ = "Europe/Istanbul";
 const isoDay = new Intl.DateTimeFormat("en-CA", {timeZone:TZ, year:"numeric", month:"2-digit", day:"2-digit"});
@@ -499,10 +500,15 @@ export function createEngine(ctx) {
     if (!t) return help();
     // Hekim başvuru bilgisi (doz, aşı, referans, zehirlenme, ayırıcı tanı…); hasta adı geçiyorsa tür ve kilo kayıttan alınır.
     // "Geciken aşılar", "yarınki aşılar" gibi liste soruları hekim bilgisine değil klinik kayıtlarına gider.
-    const listQuery = /\b(geciken|gecikmis|gecmis|bugun(ku)?|yarin(ki)?|bu (hafta|ay)|liste|kac|hangi (hasta|musteri)|yaklasan|planlanan)/.test(t);
+    // "kaç" tek başına liste sorusu sayılmaz ("kedide normal ateş kaç" hekim bilgisidir); klinik kayıt kelimesiyle birlikteyse sayılır.
+    const listQuery = /\b(geciken|gecikmis|gecmis|bugun(ku)?|yarin(ki)?|bu (hafta|ay)|liste|hangi (hasta|musteri)|yaklasan|planlanan)/.test(t)
+      || /\bkac\b/.test(t) && /\b(randevu|hasta(lar|miz)?|musteri|asi(lar)?|satis|urun|stok|tahsilat|ciro|muayene|kayit|fatura|borc|mesaj|personel|sube)\w*\b/.test(t) && !/\b(normal|referans|doz\w*|olmali)\b/.test(t);
     if (!/^(yardim|help|merhaba|selam)\b/.test(t) && !listQuery) {
       const named = findPatients(text);
       const pet = named.length === 1 ? named[0] : null;
+      const petCtx = pet ? {species: /kedi/i.test(pet.species || "") ? "cat" : /k[öo]pek/i.test(pet.species || "") ? "dog" : "", weight: pet.weight, name: pet.name} : {};
+      const clinical = clinicalAnswer(text, petCtx);
+      if (clinical) return answer(clinical.text, clinical);
       const known = vetAnswer(text, pet ? {species: /kedi/i.test(pet.species || "") ? "cat" : /k[öo]pek/i.test(pet.species || "") ? "dog" : /tav[şs]an/i.test(pet.species || "") ? "rabbit" : "", weight: pet.weight, name: pet.name} : {});
       if (known) return answer(known.text, known);
     }
