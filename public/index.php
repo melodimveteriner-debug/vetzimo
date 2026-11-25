@@ -252,6 +252,11 @@ try {
     $now = time();
     $sessions = new SessionRepository($db);
     $workspaces = new DealerWorkspace($db);
+    if (!$externalWeb && in_array($path,['/.well-known/assetlinks.json','/.well-known/apple-app-site-association'],true) && $method==='GET') {
+        $doc=(new VetNet\Cpanel\AppPush($db,$config))->wellKnown(basename($path));
+        header('Content-Type: application/json'); header('Cache-Control: public, max-age=3600');
+        echo json_encode($doc,JSON_UNESCAPED_SLASHES); exit;
+    }
     if (!$externalWeb && str_starts_with($path,'/api/app/')) {
         // Uygulama merkezi: Android, iOS, masaüstü ve web aynı oturumla çalışır (çerez, aynı köken).
         $hub=new VetNet\Cpanel\AppHub($db,$config);

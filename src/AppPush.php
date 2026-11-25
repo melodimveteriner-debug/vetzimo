@@ -42,7 +42,7 @@ final class AppPush
         $raw = $this->q("SELECT payload FROM center_management WHERE id=? AND kind='app_push'", [self::SETTINGS_ID])->fetchColumn();
         $s = $raw ? json_decode((string)$raw, true) : [];
         foreach (['fcmCredential', 'apnsKey'] as $f) if (!empty($s[$f])) { try { $s[$f] = Totp::decrypt($s[$f], $this->key()); } catch (\Throwable) { $s[$f] = ''; } }
-        return $this->settings = $s + ['fcmProject' => '', 'fcmCredential' => '', 'apnsKey' => '', 'apnsKeyId' => '', 'apnsTeamId' => '', 'apnsTopic' => '', 'apnsSandbox' => false, 'contact' => 'https://vetzimo.com'];
+        return $this->settings = $s + ['fcmProject' => '', 'fcmCredential' => '', 'apnsKey' => '', 'apnsKeyId' => '', 'apnsTeamId' => '', 'apnsTopic' => '', 'apnsSandbox' => false, 'contact' => 'https://vetzimo.com', 'androidSha256' => ''];
     }
 
     public function saveSettings(object $b): void
@@ -54,6 +54,7 @@ final class AppPush
             'apnsTeamId' => preg_match('/\A[A-Z0-9]{0,10}\z/', (string)($b->apnsTeamId ?? '')) ? (string)($b->apnsTeamId ?? '') : throw new RuntimeException('Apple ekip kimliği geçersiz.', 422),
             'apnsTopic' => preg_match('/\A[A-Za-z0-9.-]{0,120}\z/', (string)($b->apnsTopic ?? '')) ? (string)($b->apnsTopic ?? '') : throw new RuntimeException('Paket kimliği geçersiz.', 422),
             'apnsSandbox' => !empty($b->apnsSandbox),
+            'androidSha256' => preg_match('/\A([0-9A-F]{2}:){31}[0-9A-F]{2}\z/', strtoupper(trim((string)($b->androidSha256 ?? '')))) ? strtoupper(trim((string)$b->androidSha256)) : (trim((string)($b->androidSha256 ?? '')) === '' ? '' : throw new RuntimeException('Android imza parmak izi (SHA-256) AA:BB:… biçiminde olmalı.', 422)),
             'contact' => preg_match('~\A(https://[A-Za-z0-9./-]{3,120}|mailto:[^@\s]{1,64}@[A-Za-z0-9.-]{3,120})\z~', (string)($b->contact ?? '')) ? (string)$b->contact : 'https://vetzimo.com',
         ];
         $cred = trim((string)($b->fcmCredential ?? ''));
@@ -77,7 +78,22 @@ final class AppPush
         return ['fcm' => $s['fcmProject'] !== '' && $s['fcmCredential'] !== '', 'fcmProject' => $s['fcmProject'],
             'apns' => $s['apnsKey'] !== '' && $s['apnsKeyId'] !== '' && $s['apnsTeamId'] !== '' && $s['apnsTopic'] !== '',
             'apnsKeyId' => $s['apnsKeyId'], 'apnsTeamId' => $s['apnsTeamId'], 'apnsTopic' => $s['apnsTopic'], 'apnsSandbox' => $s['apnsSandbox'],
-            'webpush' => true, 'vapid' => $this->vapidPublic(), 'contact' => $s['contact']];
+            'webpush' => true, 'vapid' => $this->vapidPublic(), 'contact' => $s['contact'], 'androidSha256' => $s['androidSha256']];
+    }
+
+    /** Uygulama bağlantıları: Android App Links ve iOS Universal Links doğrulama dosyaları. */
+    public function wellKnown(string $file): ?array
+    {
+        $s = $this->settings();
+        if ($file === 'assetlinks.json') {
+            if ($s['androidSha256'] === '') return [];
+            return [['relation' => ['delegate_permission/common.handle_all_urls'], 'target' => ['namespace' => 'android_app', 'package_name' => 'com.vetzimo.app', 'sha256_cert_fingerprints' => [$s['androidSha256']]]]];
+        }
+        if ($file === 'apple-app-site-association') {
+            $id = ($s['apnsTeamId'] ?: 'TEAMID').'.'.($s['apnsTopic'] ?: 'com.vetzimo.app');
+            return ['applinks' => ['details' => [['appIDs' => [$id], 'components' => [['/' => '/app*'], ['/' => '/clinic*'], ['/' => '/hasta-sahibi*'], ['/' => '/evde-hizmet/*']]]]], 'webcredentials' => ['apps' => [$id]]];
+        }
+        return null;
     }
 
     // ───────────────────────── VAPID ─────────────────────────
@@ -202,7 +218,7 @@ final class AppPush
                 if (!$this->status()['apns']) return ['skipped', 'APNs ayarlanmadı'];
                 $jwt = self::jwt(['alg' => 'ES256', 'kid' => $s['apnsKeyId']], ['iss' => $s['apnsTeamId'], 'iat' => intdiv($now, 1800) * 1800], $s['apnsKey'], 'ES256');
                 $aps = ['alert' => ['title' => $msg['title'], 'body' => $msg['body']], 'badge' => $msg['badge'], 'thread-id' => $msg['category'], 'category' => 'VZ_'.strtoupper($msg['category']),
-                    'mutable-content' => 1] + ($sound === 'silent' ? [] : ['sound' => $sound === 'default' ? 'default' : $sound.'.caf']) + ($msg['critical'] ? ['interruption-level' => 'time-sensitive'] : []);
+                    'mutable-content' => 1] + ($sound === 'silent' ? [] : ['sound' => $sound === 'default' ? 'default' : $sound.'.wav']) + ($msg['critical'] ? ['interruption-level' => 'time-sensitive'] : []);
                 $host = $s['apnsSandbox'] ? 'https://api.sandbox.push.apple.com' : 'https://api.push.apple.com';
                 [$code, $res] = $this->http($host.'/3/device/'.rawurlencode($token), ['authorization: bearer '.$jwt, 'apns-topic: '.$s['apnsTopic'], 'apns-push-type: alert',
                     'apns-priority: 10', 'apns-collapse-id: vz'.$msg['id'], 'apns-expiration: '.($now + 86400), 'content-type: application/json'],

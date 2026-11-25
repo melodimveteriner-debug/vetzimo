@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="false"
+        android:usesCleartextTraffic="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/AppTheme">
+
+        <activity
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"
+            android:name=".MainActivity"
+            android:label="@string/title_activity_main"
+            android:theme="@style/AppTheme.NoActionBarLaunch"
+            android:launchMode="singleTask"
+            android:exported="true">
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- Bildirim ve e-posta bağlantıları uygulamada açılır: https://vetzimo.com/... ve vetzimo://open?href=... -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="vetzimo.com" android:pathPrefix="/app" />
+                <data android:scheme="https" android:host="vetzimo.com" android:pathPrefix="/clinic" />
+                <data android:scheme="https" android:host="vetzimo.com" android:pathPrefix="/hasta-sahibi" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="vetzimo" />
+            </intent-filter>
+
+        </activity>
+
+        <!-- Push bildirimi simgesi ve rengi (FCM) -->
+        <meta-data android:name="com.google.firebase.messaging.default_notification_icon" android:resource="@drawable/ic_stat_vz" />
+        <meta-data android:name="com.google.firebase.messaging.default_notification_color" android:resource="@color/vz_primary" />
+        <meta-data android:name="com.google.firebase.messaging.default_notification_channel_id" android:value="vz_system" />
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths"></meta-data>
+        </provider>
+    </application>
+
+    <!-- İzinler: yalnız ilgili özellik kullanılırken istenir. Arka planda konum izni YOKTUR. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Bildirimler (Android 13+ çalışma zamanı izni) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Evde hizmet canlı rota ve adres doğrulama: yalnız uygulama açıkken -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-feature android:name="android.hardware.location.gps" android:required="false" />
+    <!-- Hasta fotoğrafı, belge ve barkod/QR -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <!-- Bas Konuş ve sesli soru: yalnız mikrofon düğmesine basılınca -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <!-- Biyometrik kilit -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+    <!-- Ekranın rota sırasında açık kalması -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+</manifest>

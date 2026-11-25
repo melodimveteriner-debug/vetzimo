@@ -115,7 +115,7 @@ export async function mountCenterSuite(ui,session){
   subscriptions:'Geçerli abonelik',applications:'Yeni başvuru',support:'Açık destek talebi',receipts:'Bugünkü klinik tahsilatı'};
  const roleLabels={dealer:'Bayi yöneticisi',branch:'Şube yöneticisi',staff:'Personel',customer:'Hasta sahibi'};
  async function nativeApps(){
-  const m=await import('./center-apps.js?v=1');
+  const m=await import('./center-apps.js?v=2');
   await m.mountApps(content,{fetch:opsFetch,scope:session.scopeId,reauth:session.reauthRequired,tr:uiLabel});
  }
  const statuses={active:'Etkin',pending:'Beklemede',revoked:'Kapalı'};

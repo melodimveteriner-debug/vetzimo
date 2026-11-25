@@ -5,7 +5,7 @@ RewriteRule "(^|/)(?:\.git|\.svn|\.env(?:\.[^/]*)?)(/|$)" - [F,END,NC]
 <FilesMatch "(?i)(?:\.(?:bak|sql|orig|swp)|~)$">
     Require all denied
 </FilesMatch>
-RewriteRule ^(?:uygulama|\.well-known/assetlinks\.json)$ index.php [END]
+RewriteRule ^(?:uygulama|\.well-known/assetlinks\.json|\.well-known/apple-app-site-association)$ index.php [END]
 RewriteRule ^(?:market-pages(?:/|$)|vendor/vebot(?:/|$)) - [R=404,END,NC]
 RewriteRule ^(?:(?:app|giris|hasta-sahibi|yonetim|clinic|klinik)/?$|platform(?:/|$)|api/) index.php [END]
 

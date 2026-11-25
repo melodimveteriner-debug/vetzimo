@@ -38,10 +38,21 @@ Klinik, SMS ve WhatsApp mesajlarını ücretli bir sağlayıcı yerine kendi tel
 ## 5. Bakanlık Köprüsü ajanı
 Bakanlık Köprüsü, kliniğin kendi bilgisayarında çalışan bir yardımcı programdır. e-Devlet giriş bilgileri **Şirkete iletilmez ve saklanmaz**; giriş, hekim tarafından kendi bilgisayarında yapılır. Ajan yalnızca kliniğin gönderilmesini onayladığı reçete ve aşı kayıtlarını, kamu sistemine kliniğin oturumu üzerinden iletir ve sonuç belge numarasını kliniğin kaydına yazar.
 
-## 6. Yapay zekâ ve otomatik yardımcılar
+Aynı ajan, kliniğin bağladığı laboratuvar ve görüntüleme cihazlarından (hemogram, biyokimya, kan gazı, idrar, röntgen, ultrason, MR, tomografi) gelen sonuçları okuyup kliniğin VetZimo hesabına iletir. Sonuçlar yalnız o kliniğin hesabında saklanır ve kliniğin hastasıyla eşleştirilir.
+
+## 6. Mobil ve masaüstü uygulamalar
+VetZimo'nun Android, iOS, Windows ve macOS uygulamaları web sürümüyle aynı hesabı ve aynı yetkileri kullanır. Uygulamalara özgü olarak işlenen veriler:
+- **Bildirim anahtarı:** Push bildirimi gönderebilmek için cihazın bildirim anahtarı (Google Firebase, Apple APNs veya tarayıcı Web Push) şifreli olarak saklanır. Oturum kapatılınca veya cihaz kaldırılınca kullanılmaz hâle gelir. Kilit ekranında hasta, ödeme ve mesaj ayrıntıları gösterilmez; ayrıntı uygulama açılıp oturum doğrulanınca görünür.
+- **Konum:** Yalnız evde hizmet personelinin "Yola çık" düğmesine basmasıyla, o ziyaret süresince ve uygulama açıkken kullanılır. Hasta sahibine yalnız tahmini varış süresi ve kalan mesafe gösterilir; personelin tam konumu gösterilmez. Adrese varılınca konum kaydı silinir. Arka planda konum toplanmaz.
+- **Kamera, fotoğraflar, mikrofon:** Yalnız kullanıcı ilgili özelliği (hasta fotoğrafı, belge yükleme, Bas Konuş) kullandığında ve izin verdiğinde çalışır.
+- **Biyometrik doğrulama:** Face ID, Touch ID ve parmak izi doğrulaması cihazın işletim sistemi tarafından yapılır; biyometrik veri VetZimo'ya iletilmez ve saklanmaz.
+- **Hata raporları:** Uygulama hatalarını gidermek için hata mesajı, sayfa adı, uygulama sürümü ve platform bilgisi toplanır; hasta veya kişi verisi eklenmez.
+Uygulama içinden Ayarlar › Cihazlarım ve hesabımı sil yolundan ya da web sitemizdeki /hesap-silme sayfasından hesap silme talebi oluşturulabilir. Talep en geç 30 gün içinde tamamlanır; kliniklerin tuttuğu tıbbi kayıtlar yasal saklama yükümlülüğü gereği klinikte kalır.
+
+## 7. Yapay zekâ ve otomatik yardımcılar
 Röntgen değerlendirme yardımcısı, klinik hesaplayıcılar ve benzeri araçlar tarayıcıda yerel olarak çalışır; görüntüler bu amaçla dışarı gönderilmez. Metin tabanlı yardımcı özellikler bir hizmet sağlayıcısı üzerinden çalıştığında yalnızca görevin gerektirdiği asgari içerik iletilir. Hiçbir otomatik çıktı veteriner hekimin mesleki değerlendirmesinin yerine geçmez ve tek başına hukuki sonuç doğuran bir karar oluşturmaz.
 
-## 7. Güvenlik önlemleri
+## 8. Güvenlik önlemleri
 Kişisel Verilerin Korunması Kurulu'nun Kişisel Veri Güvenliği Rehberi esas alınarak alınan başlıca önlemler:
 - Tüm bağlantılarda TLS şifrelemesi, güvenli ve yalnızca sunucu tarafından okunabilir oturum çerezleri,
 - Şifrelerin güçlü ve tuzlanmış özet algoritmalarıyla saklanması, ekip hesapları için iki adımlı doğrulama,
@@ -51,17 +62,17 @@ Kişisel Verilerin Korunması Kurulu'nun Kişisel Veri Güvenliği Rehberi esas 
 - Değişiklik ve erişim günlükleri, olağan dışı hareketlerin izlenmesi,
 - Personelin gizlilik taahhüdü ve en az yetki ilkesine göre erişim.
 
-### 7.1 Veri ihlali bildirimi
+### 8.1 Veri ihlali bildirimi
 Şirket'in veri sorumlusu olduğu verilerde bir ihlal yaşanması hâlinde Kurul'a ve ilgili kişilere KVKK m.12/5 ile Kurul kararlarında öngörülen sürede (öğrenildiği andan itibaren en geç 72 saat içinde) bildirim yapılır. Kliniklerin verilerini etkileyen bir ihlalde ilgili klinik, kendi bildirim yükümlülüğünü yerine getirebilmesi için gecikmeksizin bilgilendirilir.
 
-## 8. Çocukların verileri
+## 9. Çocukların verileri
 Hizmet, 18 yaşını doldurmuş meslek mensupları ve işletmeler için tasarlanmıştır. Çocuklara yönelik değildir ve bilerek çocuklardan veri toplanmaz.
 
-## 9. Avrupa Birliği'ndeki kullanıcılar
+## 10. Avrupa Birliği'ndeki kullanıcılar
 Hizmeti Avrupa Ekonomik Alanı'ndan kullanan klinikler için Genel Veri Koruma Tüzüğü (GDPR) kapsamındaki haklar (erişim, düzeltme, silme, işlemeyi kısıtlama, veri taşınabilirliği, itiraz) {kvkk_eposta} adresine yapılacak başvuruyla kullanılabilir. Klinikler, kendi kayıtlarını uygulama içinden dışa aktararak veri taşınabilirliğini sağlayabilir.
 
-## 10. Hesabın kapatılması ve verilerin iadesi
+## 11. Hesabın kapatılması ve verilerin iadesi
 Abonelik sona erdiğinde klinik, sözleşmede belirtilen süre içinde verilerini dışa aktarabilir. Bu sürenin sonunda klinik verileri, yasal saklama yükümlülükleri saklı kalmak üzere silinir veya anonim hâle getirilir. Yedeklerdeki kopyalar olağan yedek döngüsü içinde kendiliğinden silinir.
 
-## 11. İletişim
+## 12. İletişim
 Gizlilikle ilgili soru ve talepleriniz için {kvkk_eposta} adresine, genel destek için {destek_eposta} adresine yazabilirsiniz.

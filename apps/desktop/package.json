@@ -1,0 +1,32 @@
+{
+  "name": "vetzimo-desktop",
+  "productName": "VetZimo",
+  "version": "1.0.0",
+  "description": "VetZimo masaüstü uygulaması (Windows, macOS, Linux). Merkezi VetZimo sistemine bağlanır; işletim sistemi bildirimleri, simge rozeti, tepsi simgesi ve Touch ID desteği.",
+  "main": "main.js",
+  "author": "VetZimo",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist:win": "electron-builder --win nsis --x64",
+    "dist:mac": "electron-builder --mac dmg zip --universal",
+    "dist:linux": "electron-builder --linux AppImage deb"
+  },
+  "devDependencies": {
+    "electron": "45.2.3",
+    "electron-builder": "26.0.12"
+  },
+  "build": {
+    "appId": "com.vetzimo.desktop",
+    "productName": "VetZimo",
+    "copyright": "© VetZimo",
+    "files": ["main.js", "preload.js", "offline.html", "build/icon.png"],
+    "protocols": [{"name": "VetZimo", "schemes": ["vetzimo"]}],
+    "directories": {"output": "dist", "buildResources": "build"},
+    "win": {"target": ["nsis"], "icon": "build/icon.png", "signAndEditExecutable": false},
+    "nsis": {"oneClick": false, "perMachine": false, "allowToChangeInstallationDirectory": true, "createDesktopShortcut": true, "shortcutName": "VetZimo", "language": "1055"},
+    "mac": {"category": "public.app-category.medical", "icon": "build/icon.png", "hardenedRuntime": true, "entitlements": "build/entitlements.mac.plist", "entitlementsInherit": "build/entitlements.mac.plist", "gatekeeperAssess": false},
+    "linux": {"target": ["AppImage", "deb"], "category": "Office", "icon": "build/icon.png", "maintainer": "VetZimo"}
+  }
+}

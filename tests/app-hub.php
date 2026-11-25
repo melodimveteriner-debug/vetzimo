@@ -100,4 +100,11 @@ $actor['reauth_at']=$now; $hub->deletion($actor,$now,true);
 $hub->manage((object)['action'=>'deletion','account'=>$actor['account_id'],'decision'=>'done'],$now);
 ok((int)$db->query("SELECT blocked FROM identity_account WHERE id=".$db->quote($actor['account_id']))->fetchColumn()===1,'Hesap kapatılmadı');
 ok((int)$db->query("SELECT COUNT(*) FROM identity_session")->fetchColumn()===0 && (int)$db->query("SELECT COUNT(*) FROM app_device")->fetchColumn()===0,'Oturum/cihaz silinmedi');
+// Uygulama bağlantıları: parmak izi yokken boş, girilince Android App Links dosyası; iOS dosyası ekip kimliğiyle
+ok((new AppPush($db,$config))->wellKnown('assetlinks.json')===[],'Parmak izi yokken assetlinks dolu');
+(new AppPush($db,$config))->saveSettings((object)['androidSha256'=>implode(':',array_fill(0,32,'AB')),'apnsTeamId'=>'TEAM123456','apnsTopic'=>'com.vetzimo.app']);
+$al=(new AppPush($db,$config))->wellKnown('assetlinks.json');
+ok($al[0]['target']['package_name']==='com.vetzimo.app' && strlen($al[0]['target']['sha256_cert_fingerprints'][0])===95,'assetlinks yanlış');
+ok((new AppPush($db,$config))->wellKnown('apple-app-site-association')['applinks']['details'][0]['appIDs'][0]==='TEAM123456.com.vetzimo.app','AASA yanlış');
+try { (new AppPush($db,$config))->saveSettings((object)['androidSha256'=>'kotu']); ok(false,'Geçersiz parmak izi kabul edildi'); } catch (RuntimeException $e) {}
 echo "PASS uygulama merkezi: olay→bildirim (bir kez), gizlilik, sessize alma, rozet, Web Push RFC 8291 + VAPID, FCM geçersiz anahtar, politika, sürüm, hata, hesap silme\n";

@@ -135,14 +135,16 @@ export async function mountApps(root, {fetch: api, scope, reauth, tr = s => s}) 
       const p8 = h("textarea", "", null, {rows: 3, placeholder: p.apns ? tr("Kayıtlı · değiştirmek için yeni .p8 içeriği yapıştırın") : "-----BEGIN PRIVATE KEY-----"});
       const sandbox = h("input", "", null, {type: "checkbox", checked: !!p.apnsSandbox}); const sl = h("label", "capp-inline"); sl.append(sandbox, " " + tr("Geliştirme (sandbox) ortamı"));
       const contact = h("input", "", null, {value: p.contact || "https://vetzimo.com", maxLength: 140});
+      const sha = h("input", "", null, {value: p.androidSha256 || "", placeholder: "AA:BB:CC:…", maxLength: 95});
       f.append(h("h4", "", "Android · Firebase Cloud Messaging"), field(tr("Proje kimliği"), fcmProject), field(tr("Hizmet hesabı JSON"), fcmCred),
         h("h4", "", "iPhone / iPad · Apple Push Notification service"), field(tr("Anahtar kimliği (Key ID)"), keyId), field(tr("Ekip kimliği (Team ID)"), team), field(tr("Paket kimliği (Bundle ID)"), topic), field(tr("APNs .p8 anahtarı"), p8), sl,
         h("h4", "", "Web / PWA · Web Push (VAPID)"), h("p", "capp-muted", tr("Hesap gerektirmez, ücretsizdir; anahtar otomatik üretildi.") + " " + (p.vapid ? p.vapid.slice(0, 22) + "…" : "")), field(tr("İletişim adresi (VAPID)"), contact),
+        h("h4", "", tr("Uygulama bağlantıları")), h("p", "capp-muted", tr("Bildirim ve e-posta bağlantıları uygulamada açılsın diye Google Play Console › Uygulama imzalama sayfasındaki SHA-256 parmak izini girin. iOS için Apple ekip kimliği ve paket kimliği yukarıdan alınır.")), field("Android SHA-256", sha),
         h("div", "capp-actions", null));
       f.lastChild.append(h("button", "capp-btn primary", tr("Ayarları kaydet"), {type: "submit"}), btn(tr("Kendi cihazıma deneme bildirimi"), async () => {
         try { const r = await api(endpoint, {action: "testPush"}, scope); data = r; say(tr("Deneme bildirimi gönderildi") + ": " + r.test + " " + tr("cihaz")); } catch (e) { say(e.message, true); }
       }));
-      f.addEventListener("submit", e => { e.preventDefault(); send({action: "providers", fcmProject: fcmProject.value, fcmCredential: fcmCred.value, apnsKeyId: keyId.value, apnsTeamId: team.value, apnsTopic: topic.value, apnsKey: p8.value, apnsSandbox: sandbox.checked, contact: contact.value}); });
+      f.addEventListener("submit", e => { e.preventDefault(); send({action: "providers", fcmProject: fcmProject.value, fcmCredential: fcmCred.value, apnsKeyId: keyId.value, apnsTeamId: team.value, apnsTopic: topic.value, apnsKey: p8.value, apnsSandbox: sandbox.checked, contact: contact.value, androidSha256: sha.value}); });
       body.replaceChildren(h("p", "capp-muted", tr("Anahtarlar sunucuda şifreli saklanır ve bir daha gösterilmez.")), f);
     },
   };
