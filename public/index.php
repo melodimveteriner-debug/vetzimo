@@ -1174,7 +1174,13 @@ try {
             $auth=(string)($_SERVER['HTTP_AUTHORIZATION']??$_SERVER['REDIRECT_HTTP_AUTHORIZATION']??'');
             if ($auth==='' && is_string($_SERVER['HTTP_X_PHONE_TOKEN']??null)) $auth='Bearer '.$_SERVER['HTTP_X_PHONE_TOKEN'];
             $device=$gateway->agentAuth($auth);
-            if ($op==='sync') reply($gateway->sync($device,$body,$now,new VetNet\Cpanel\OmniInbox($db,(string)($config['encryptionKey'] ?? ''),$origin)));
+            $agentFile=dirname(__DIR__).'/phone-agent/vetzimo-telefon.py';
+            if ($op==='sync') {
+                // Telefon uygulaması kendini günceller: sunucudaki sürüm daha yeniyse "script" ile yeni dosyayı alır.
+                preg_match('/^VERSION = "([0-9.]+)"/m',(string)@file_get_contents($agentFile),$agentVersion);
+                reply($gateway->sync($device,$body,$now,new VetNet\Cpanel\OmniInbox($db,(string)($config['encryptionKey'] ?? ''),$origin))+['agentVersion'=>$agentVersion[1] ?? '']);
+            }
+            if ($op==='script') reply(['script'=>str_replace('__VETZIMO_SERVER__',$origin,(string)file_get_contents($agentFile))]);
             throw new RuntimeException('İşlem bulunamadı.',404);
         } catch (PDOException $error) {
             if ($error->getCode()==='42S02') throw new RuntimeException('Telefon bağlantısı tabloları henüz kurulmadı; güncellemeyi tamamlayın.',503);

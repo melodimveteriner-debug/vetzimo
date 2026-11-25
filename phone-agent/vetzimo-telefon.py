@@ -7,7 +7,7 @@
 # Kullanım:  python vetzimo-telefon.py eslestir KOD [SUNUCU]   ·   python vetzimo-telefon.py   ·   python vetzimo-telefon.py durum
 import hashlib, json, os, random, shutil, subprocess, sys, time, urllib.error, urllib.request
 
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 HOME = os.environ.get("VZ_PHONE_HOME") or os.path.join(os.path.expanduser("~"), ".vetzimo-telefon")
 CONFIG = os.path.join(HOME, "config.json")
 STATE = os.path.join(HOME, "durum.json")
@@ -162,6 +162,8 @@ def run():
     except Exception as e:
         log("Uyanık tutma açılamadı: " + str(e))
     state = load(STATE, {"seen": [], "baseline": False, "notified": []})
+    # Açılışta bekleyen WhatsApp/uygulama yanıtı bildirimleri yeniden gösterilir (kapatılmış olsalar bile).
+    state["notified"], state["replied"] = [], []
     results, last_battery, battery_at, wait, error = [], None, 0, 2, ""
     log("VetZimo Telefon Ajanı " + VERSION + " çalışıyor · sunucu: " + config["server"])
     apps_on, apps_seen = bool(state.get("apps")), set(state.get("appsSeen", []))
@@ -243,10 +245,32 @@ def run():
                 results.append({"id": job["id"], "status": "failed", "error": str(e)[:300]})
                 log("SMS gönderilemedi: " + str(e))
             time.sleep(random.uniform(3, 7))
+        maybe_update(config, reply.get("agentVersion") or "", state)
         notify(reply.get("assist", []), state)
         notify_replies(reply.get("replies", []), state)
         save(STATE, state)
         wait = 1 if results else int(reply.get("interval") or 15)
+
+
+def maybe_update(config, latest, state):
+    """Sunucudaki telefon uygulaması daha yeniyse indirir, sözdizimini denetler, dosyayı değiştirir ve kendini yeniden başlatır."""
+    ver = lambda v: tuple(int(x) for x in v.split(".") if x.isdigit())
+    if not latest or ver(latest) <= ver(VERSION):
+        return
+    try:
+        code = api(config, "script", {}).get("script", "")
+        compile(code, "vetzimo-telefon.py", "exec")
+        if 'VERSION = "' + latest + '"' not in code:
+            return
+        path = os.path.abspath(__file__)
+        with open(path + ".new", "w", encoding="utf-8") as f:
+            f.write(code)
+        os.replace(path + ".new", path)
+        save(STATE, state)
+        log("Telefon uygulaması " + VERSION + " → " + latest + " güncellendi, yeniden başlatılıyor.")
+        os.execv(sys.executable, [sys.executable, path])
+    except Exception as e:
+        log("Güncelleme yapılamadı: " + str(e)[:200])
 
 
 def notify(items, state):
@@ -260,7 +284,7 @@ def notify(items, state):
         action = "termux-open-url '" + item["link"].replace("'", "%27") + "'; python '" + script + "' acildi " + str(item["id"])
         try:
             termux("termux-notification", "--id", "vzwa" + str(item["id"]), "--title", "WhatsApp mesajı bekliyor · " + item["phone"],
-                   "--content", item["preview"], "--action", action, "--button1", "Aç ve gönder", "--button1-action", action, "--priority", "high", timeout=20)
+                   "--content", item["preview"], "--action", action, "--button1", "Aç ve gönder", "--button1-action", action, "--priority", "high", "--ongoing", "--alert-once", timeout=20)
             notified.add(item["id"])
         except Exception as e:
             log("Bildirim gösterilemedi: " + str(e))
@@ -280,7 +304,7 @@ def notify_replies(items, state):
         action = "python '" + script + "' yanit " + str(int(item["id"]))
         try:
             termux("termux-notification", "--id", "vzap" + str(item["id"]), "--title", APP_NAMES.get(item["app"], "Mesaj") + " yanıtı · " + (item.get("name") or ""),
-                   "--content", item["body"][:120], "--action", action, "--button1", "Kopyala ve aç", "--button1-action", action, "--priority", "high", timeout=20)
+                   "--content", item["body"][:120], "--action", action, "--button1", "Kopyala ve aç", "--button1-action", action, "--priority", "high", "--ongoing", "--alert-once", timeout=20)
             done.add(item["id"])
         except Exception as e:
             log("Bildirim gösterilemedi: " + str(e))
