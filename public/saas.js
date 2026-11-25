@@ -9,7 +9,7 @@ for (const [key,label] of [["","Site varsayılanı"],...sitePalettes]) {
 }
 function applyMarketTheme(value) {
   const local=value==="light"?"orchid":validPalette(value)?value:"";
-  const current=(!locked&&local)||(validPalette(sitePalette)?sitePalette:"")||"orchid";
+  const current=(!locked&&local)||(validPalette(sitePalette)?sitePalette:"")||"prizma";
   html.dataset.theme=current;
   theme.value=locked?current:local;
   theme.disabled=locked;

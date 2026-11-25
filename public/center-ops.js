@@ -29,7 +29,7 @@ export async function mountCenterSuite(ui,session){
  const url=(key,extra={})=>'/yonetim?'+new URLSearchParams({tab:key,...extra});
  const call=(action,body)=>opsFetch('/api/cpanel-center/'+action,body,session.scopeId);
  const applyAppearance=appearance=>{
-  const palette=appearance.palette||'orchid';
+  const palette=appearance.palette||'prizma';
   document.body.dataset.centerPalette=palette;
   document.body.classList.toggle('center-dark',darkPalette(palette));
  };

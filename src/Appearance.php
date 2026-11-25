@@ -7,6 +7,8 @@ use RuntimeException;
 
 final class Appearance
 {
+    public const DEFAULT = 'prizma';
+
     public function __construct(private readonly PDO $db) {}
 
     public function read(string $key = 'global'): array
@@ -15,6 +17,8 @@ final class Appearance
         $query->execute([$key]);
         $row = $query->fetch(PDO::FETCH_ASSOC);
         $palette = in_array($row['palette'] ?? '', ['orchid','prizma','nebula'], true) ? $row['palette'] : ''; // kaldırılan temalar varsayılana döner
+        // Sitenin varsayılan teması Prizma · Işıltı; kişisel kayıtta boş değer "genel temayı izle" anlamına gelir.
+        if ($palette === '' && $key === 'global') $palette = self::DEFAULT;
         return ['palette'=>$palette, 'locked'=>(bool)($row['locked'] ?? false)];
     }
 

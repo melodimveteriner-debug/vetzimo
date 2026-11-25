@@ -145,7 +145,7 @@ def main():
             t = re.sub(r'(<a class="card" href="' + re.escape(path) + r'"[^>]*>)<span class="eyebrow">[^<]*</span><h3>[^<]*</h3><p>[^<]*</p>',
                        lambda m: m.group(1) + f'<span class="eyebrow">{e(eyebrow)}</span><h3>{e(title)}</h3><p>{e(lead)}</p>', t)
         if t != o: open(p, 'w', encoding='utf-8').write(t)
-        if 'data-theme="classic"' in t: open(p, 'w', encoding='utf-8').write(t.replace('data-theme="classic"', 'data-theme="orchid"'))
+        if 'data-theme="classic"' in t: open(p, 'w', encoding='utf-8').write(t.replace('data-theme="classic"', 'data-theme="prizma"'))
     print('Yeni/güncel sayfa:', len(FEATURES))
 
 main()

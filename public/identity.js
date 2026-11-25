@@ -269,11 +269,7 @@ function login(mode="login") {
     });
     links.append(reset);
     if (center) links.append(link(uiLabel("Telefonla giriş"),"/app"));
-    else {
-      const scope=new URLSearchParams([...params].filter(([key])=>["clinic","branch"].includes(key)));
-      const target=entryKind==="owner"?"/app":"/hasta-sahibi";
-      links.append(link(uiText(entryKind==="owner"?"clinic":"ownerSignIn"),target+(scope.size?"?"+scope:"")));
-    }
+    // Tek giriş: bayi, şube, personel ve hasta sahibi aynı ekrandan girer; ayrı "hasta sahibi girişi" bağlantısı yok.
   } else links.append(link(uiLabel("Girişe dön"),route+location.search));
   view.append(links);
   if (config.preview && mode==="login") view.append(previewAccounts(form));
