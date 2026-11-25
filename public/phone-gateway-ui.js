@@ -111,8 +111,13 @@ export function mountPhoneGateway(root,api){
  }
  function testForm(){
   const ch=h("select",{},h("option",{value:"sms",text:"SMS"}),h("option",{value:"whatsapp",text:"WhatsApp"})),phone=h("input",{type:"tel",placeholder:"05XX XXX XX XX",required:!0}),text=h("input",{value:tr("VetZimo deneme mesajı"),maxlength:"300",required:!0});
-  return h("form",{class:"pg-card",onsubmit:e=>{e.preventDefault();act({action:"test",channel:ch.value,phone:phone.value,text:text.value},tr("Deneme mesajı kuyruğa eklendi."))}},
-   h("h3",{text:tr("Deneme mesajı")}),h("div",{class:"pg-grid"},h("label",{class:"pg-field"},h("span",{text:tr("Kanal")}),ch),h("label",{class:"pg-field"},h("span",{text:tr("Telefon")}),phone),h("label",{class:"pg-field wide"},h("span",{text:tr("Metin")}),text)),
+  const paired=data.devices.length>0,s=data.settings;
+  const hint=!paired?tr("Henüz telefon bağlanmadı: önce Kurulum sekmesinden telefonu eşleştirin."):!s.sms?tr("SMS gönderimi kapalı: yukarıda “SMS'leri kliniğin telefonundan gönder” kutusunu işaretleyip Kaydet'e basın."):"";
+  return h("form",{class:"pg-card",onsubmit:e=>{e.preventDefault();
+    const d=phone.value.replace(/\D/g,"").replace(/^(0090|090|90|0)(?=5\d{9}$)/,"");
+    if(!/^5\d{9}$/.test(d)){toast(tr("Telefon numarası 05XX XXX XX XX biçiminde, 0 ile birlikte 11 hane olmalı."));phone.focus();return}
+    act({action:"test",channel:ch.value,phone:phone.value,text:text.value},tr("Deneme mesajı kuyruğa eklendi."))}},
+   h("h3",{text:tr("Deneme mesajı")}),hint?h("p",{class:"pg-warnline",text:"⚠ "+hint}):null,h("div",{class:"pg-grid"},h("label",{class:"pg-field"},h("span",{text:tr("Kanal")}),ch),h("label",{class:"pg-field"},h("span",{text:tr("Telefon")}),phone),h("label",{class:"pg-field wide"},h("span",{text:tr("Metin")}),text)),
    h("div",{class:"pg-actions"},h("button",{class:"pg-btn",text:tr("Gönder")})));
  }
  function queue(){

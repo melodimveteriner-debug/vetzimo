@@ -509,7 +509,10 @@ final class PhoneGateway
         if ($action === 'test') {
             $channel = $input->channel ?? '';
             if (!in_array($channel, ['sms', 'whatsapp'], true)) throw new RuntimeException('Kanal seçin.', 422);
-            if (!$this->route($partner, $channel)) throw new RuntimeException($channel === 'sms' ? 'Önce SMS gönderimini açın ve bir Android telefon bağlayın.' : 'Önce WhatsApp modunu seçin.', 422);
+            if ($channel === 'sms' && !$this->hasDevice($partner)) throw new RuntimeException('Henüz telefon bağlanmadı. Kurulum sekmesinde "Eşleştirme kodu oluştur"a basın ve çıkan komutu telefondaki Termux uygulamasına yapıştırın.', 422);
+            if (!$this->route($partner, $channel)) throw new RuntimeException($channel === 'sms' ? 'SMS gönderimi kapalı. Ayarlar sekmesinde "SMS\'leri kliniğin telefonundan gönder" kutusunu işaretleyip Kaydet\'e basın.' : 'WhatsApp kapalı. Ayarlar sekmesinde WhatsApp için "Yarı otomatik" seçip Kaydet\'e basın.', 422);
+            $digits = preg_replace('/\D/', '', (string)($input->phone ?? '')) ?? '';
+            if (DealerLogin::normalizePhone((string)($input->phone ?? '')) === '') throw new RuntimeException('Telefon numarası geçersiz: başında 0 ile 11 hane (05XX XXX XX XX) olmalı; girilen '.strlen($digits).' hane.', 422);
             $this->enqueue($partner, $channel, (string)($input->phone ?? ''), (string)($input->text ?? ''), 'test', bin2hex(random_bytes(12)), 0, $now, null, (string)($actor['name'] ?? ''));
             return $this->status($actor, $now);
         }

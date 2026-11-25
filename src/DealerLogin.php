@@ -121,7 +121,7 @@ final class DealerLogin
     public static function normalizePhone(string $phone): string
     {
         $phone = preg_replace('/[\s()+-]/', '', $phone);
-        $phone = preg_replace('/^(?:0090|90|0)(?=5[0-9]{9}$)/D', '', $phone);
+        $phone = preg_replace('/^(?:0090|090|90|0)(?=5[0-9]{9}$)/D', '', $phone);
         return preg_match('/\A5[0-9]{9}\z/', $phone) === 1 ? '+90' . $phone : '';
     }
 
