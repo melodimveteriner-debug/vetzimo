@@ -36,10 +36,8 @@ RewriteRule ^ index.php [END]
     Header always unset X-Powered-By
 </IfModule>
 
-# Kurulum sihirbazı yalnızca ilk kurulumda gereklidir; kurulumdan sonra erişime kapalı.
-<Files "install.php">
-    Require all denied
-</Files>
+# Kurulum sihirbazı yalnızca ilk kurulumda çalışır: config.php'de installationToken boşsa (403) veya veritabanı
+# doluysa (409) kendini kilitler. Kurulumdan sonra public/install.php dosyasını silin.
 
 # Sunucu ayar ve hata kayıt dosyaları (cPanel bunları public/ içine yazar) dışarıya kapalı.
 <FilesMatch "(?i)^(?:error_log|php\.ini|\.user\.ini|php_errorlog)$">

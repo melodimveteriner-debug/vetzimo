@@ -1,8 +1,22 @@
-
-
 # php -- BEGIN cPanel-generated handler, do not edit
 # “ea-php85” paketini varsayılan “PHP” programlama dili olarak ayarlayın.
 <IfModule mime_module>
   AddHandler application/x-httpd-ea-php85___lsphp .php .php8 .phtml
 </IfModule>
 # php -- END cPanel-generated handler, do not edit
+
+# Önerilen: alan adının belge kökü bu klasörün içindeki "public" olmalıdır.
+# Belge kökü değiştirilemiyorsa aşağıdaki kurallar tüm istekleri public/ içine yönlendirir;
+# config.php, src/, database/, bin/ gibi klasörlere dışarıdan erişilemez.
+Options -Indexes
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^index\.php$ public/index.php [L]
+    RewriteCond %{ENV:REDIRECT_STATUS} ^$
+    RewriteRule ^public(?:/|$) - [R=404,L]
+    RewriteCond %{ENV:REDIRECT_STATUS} ^$
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>
+<IfModule !mod_rewrite.c>
+    Require all denied
+</IfModule>

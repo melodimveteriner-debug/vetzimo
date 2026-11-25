@@ -6,7 +6,7 @@ foreach (['Totp','ClinicAccess','WorkspaceRepository','Database','DealerLogin','
 header('Cache-Control: no-store');
 header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: same-origin');
-header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'");
+header("Content-Security-Policy: default-src 'none'; script-src 'self'; img-src data:; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'");
 header('Content-Type: text/html; charset=utf-8');
 $setupSecret=\VetNet\Cpanel\Totp::secret();
 $message = '';
@@ -59,9 +59,9 @@ try {
     }
 }
 ?>
-<!doctype html><html lang="tr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>VetZimo · PHP Kurulumu</title>
+<!doctype html><html lang="tr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>VetZimo · Kurulum</title>
 <style>body{margin:0;background:#eef3f8;color:#172b40;font:16px system-ui,sans-serif}main{max-width:620px;margin:4vh auto;padding:28px;background:white;border-radius:20px;box-shadow:0 10px 40px #16324f12}h1{font-size:26px}p{line-height:1.6}label{display:block;margin-top:14px;font-weight:600}input{box-sizing:border-box;width:100%;padding:12px;border:1px solid #bac9d8;border-radius:8px;margin-top:6px;font:inherit}button,a{display:inline-block;margin-top:20px;background:#1965c2;color:white;padding:12px 24px;border:0;border-radius:8px;font:inherit;text-decoration:none}.notice{background:#eef4ff;padding:16px;border-left:4px solid #1965c2}.status{padding:16px;background:#fff5d9;overflow-wrap:anywhere}@media(max-width:680px){main{margin:12px;padding:20px}}</style>
-<main><h1>VetZimo <small>PHP / MySQL kurulumu</small></h1><p class="notice">Bu PHP aktarımı merkez ve klinik hesaplarını, temel hasta kayıtlarını ve satış–stok–tahsilat akışını içerir. Tüm platformun dönüşümü tamamlanmamıştır. Yalnızca yeni ve boş bir test veritabanına kurunuz.</p>
+<main><h1>VetZimo <small>ilk kurulum</small></h1><p class="notice">Bu ekran VetZimo'yu <b>boş</b> bir veritabanına ilk kez kurar: tüm tabloları oluşturur, ilk klinik (bayi) hesabını ve merkez yöneticisini (Google Authenticator 2FA) açar. Dolu bir veritabanında çalışmaz ve mevcut kayıtlara dokunmaz.</p>
 <?php if ($message !== ''): ?><p class="status" role="alert"><?=htmlspecialchars($message,ENT_QUOTES,'UTF-8')?></p><?php endif; ?>
 <?php if ($done): ?><a href="/app">Klinik girişine geç</a><?php endif; ?>
 <?php if ($ready): ?><form method="post" action="/install.php">
@@ -75,7 +75,8 @@ try {
 <label>Yönetici e-postası<input name="centerEmail" type="email" required autocomplete="username"></label>
 <label>Ayrı yönetici şifresi<input name="centerPassword" type="password" required minlength="12" autocomplete="new-password"></label>
 <p>Doğrulama uygulamanızda yeni hesap ekleyin. Zaman tabanlı, 6 haneli kod ve 30 saniye seçin. Aşağıdaki anahtarı uygulamaya girin; kimseyle paylaşmayın.</p>
-<p><code><?=htmlspecialchars($setupSecret,ENT_QUOTES,'UTF-8')?></code></p>
+<div id="setup-qr" data-uri="<?=htmlspecialchars('otpauth://totp/VetZimo%20Merkez:yonetici?secret='.$setupSecret.'&issuer=VetZimo%20Merkez&algorithm=SHA1&digits=6&period=30',ENT_QUOTES,'UTF-8')?>" style="width:190px;margin:8px 0"></div>
+<p>QR okutamıyorsanız anahtarı elle girin: <code><?=htmlspecialchars($setupSecret,ENT_QUOTES,'UTF-8')?></code></p>
 <input type="hidden" name="centerSecret" value="<?=htmlspecialchars($setupSecret,ENT_QUOTES,'UTF-8')?>">
 <label>Uygulamanın ürettiği kod<input name="centerOtp" required inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code"></label>
-<button type="submit">Klinik ve yönetici hesaplarını oluştur</button></form><?php endif; ?></main></html>
+<button type="submit">Klinik ve yönetici hesaplarını oluştur</button></form><script type="module" src="/install-qr.js"></script><?php endif; ?></main></html>
