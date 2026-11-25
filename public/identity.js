@@ -686,12 +686,12 @@ async function portal() {
   // Bildirim merkezi ve uygulama ayarları (bildirim tercihleri, cihazlar, biyometrik kilit, hesap silme)
   const inbox=panel("notifications","Bildirimler");
   let inboxReady=false;
-  panels.get("notifications").button.addEventListener("click",()=>{if(inboxReady)return;inboxReady=true;import("./notification-hub.js?v=2").then(m=>m.mountNotificationHub(inbox,{tr:uiLabel,onSettings:()=>show("account")}));});
+  panels.get("notifications").button.addEventListener("click",()=>{if(inboxReady)return;inboxReady=true;import("./notification-hub.js?v=3").then(m=>m.mountNotificationHub(inbox,{tr:uiLabel,onSettings:()=>show("account")}));});
   const account=panel("account","Hesabım");
   account.append(change);
   const appSettings=el("section","",{className:"owner-app-settings"});
   account.append(appSettings);
-  import("./settings-hub.js?v=2").then(async m=>{
+  import("./settings-hub.js?v=3").then(async m=>{
     const ctx={tr:uiLabel,api:(p,i={})=>fetch(p,{credentials:"same-origin",...i}),scope:session.scopeId||""};
     const prefs=el("div"),devices=el("div");
     appSettings.append(el("h2",uiLabel("Uygulama bildirimleri")),prefs,el("h2",uiLabel("Cihazlarım ve hesap")),devices);

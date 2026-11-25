@@ -18,7 +18,7 @@ export async function mountNotificationHub(root, {tr = s => s, onSettings} = {})
   const tools = h("div", "nh-tools");
   const readAll = h("button", "nh-btn", tr("Tümünü okundu say"), {type: "button"});
   const clearAll = h("button", "nh-btn ghost", tr("Tümünü temizle"), {type: "button"});
-  const settings = h("button", "nh-btn ghost", "⚙ " + tr("Bildirim ayarları"), {type: "button"});
+  const settings = h("button", "nh-btn ghost", null, {type: "button"}); settings.append(h("span", "", "⚙ "), h("span", "", tr("Bildirim ayarları")));
   tools.append(readAll, clearAll, ...(onSettings ? [settings] : []));
   head.append(title, tools);
   const bar = h("div", "nh-bar");
@@ -32,7 +32,7 @@ export async function mountNotificationHub(root, {tr = s => s, onSettings} = {})
   const moreBtn = h("button", "nh-btn more", tr("Daha eski bildirimler"), {type: "button", hidden: true});
   wrap.append(head, bar, list, moreBtn);
   root.replaceChildren(wrap);
-  const status = n => { title.querySelector(".nh-sub").textContent = n ? n + " " + tr("okunmamış bildirim") : tr("Tüm bildirimler okundu"); window.VetZimoNative?.refreshBadge?.(n); };
+  const status = n => { const sub = title.querySelector(".nh-sub"); sub.replaceChildren(...(n ? [h("b", "", String(n) + " "), h("span", "", tr("okunmamış bildirim"))] : [h("span", "", tr("Tüm bildirimler okundu"))])); window.VetZimoNative?.refreshBadge?.(n); };
   function row(i) {
     const li = h("li", "nh-item" + (i.unread ? " unread" : "") + " c-" + i.category);
     const main = h("button", "nh-main", null, {type: "button"});

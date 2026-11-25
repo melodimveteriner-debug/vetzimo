@@ -7,6 +7,8 @@ const ORIGIN = new URL(SERVER).origin;
 let win = null, tray = null, unread = 0;
 const icon = nativeImage.createFromPath(path.join(__dirname, "build", "icon.png"));
 
+// Yalnız yerel test sunucusu için (VZ_INSECURE_LOCAL=1 ve localhost adresi): kendinden imzalı sertifika kabul edilir.
+if (process.env.VZ_INSECURE_LOCAL === "1" && /^https:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/.test(SERVER)) app.commandLine.appendSwitch("ignore-certificate-errors");
 if (!app.requestSingleInstanceLock()) app.quit();
 app.setAppUserModelId("com.vetzimo.desktop");
 app.setAsDefaultProtocolClient("vetzimo");

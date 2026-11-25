@@ -40,7 +40,9 @@ export async function mountDevices(root, ctx) {
   const wrap = h("section", "dv-root");
   const head = h("header", "dv-head");
   const agentOk = !!info.agent?.online;
-  head.append(h("div", "", null), h("a", "dv-agent " + (agentOk ? "on" : "off"), agentOk ? "● " + tr("Klinik bilgisayarı ajanı bağlı") : "○ " + tr("Ajan bağlı değil · kurulum"), {href: agentOk ? "#bakanlik-koprusu" : "#cihaz-entegrasyonu"}));
+  const agentLink = h("a", "dv-agent " + (agentOk ? "on" : "off"), null, {href: agentOk ? "#bakanlik-koprusu" : "#cihaz-entegrasyonu"});
+  agentLink.append(h("span", "", agentOk ? "● " : "○ "), h("span", "", tr(agentOk ? "Klinik bilgisayarı ajanı bağlı" : "Ajan bağlı değil · kurulum")));
+  head.append(h("div", "", null), agentLink);
   head.firstChild.append(h("h2", "", tr("Cihaz entegrasyonu")), h("p", "", tr("Hemogram, biyokimya, kan gazı, idrar, röntgen, ultrason, MR ve tomografi sonuçları otomatik olarak hasta sahibi ve hastayla eşleşir, hastanın muayenesine tetkik olarak eklenir.")));
   const nav = h("div", "dv-tabs"), body = h("div", "dv-body"), note = h("p", "dv-note", "", {hidden: true});
   wrap.append(head, nav, note, body);
@@ -50,7 +52,7 @@ export async function mountDevices(root, ctx) {
   const tabs = [["inbox", "Gelen sonuçlar"], ["devices", "Cihazlarım"], ["manual", "Elle yükle"], ["setup", "Kurulum rehberi"]];
   if (!agentOk && !info.devices.length) tab = "setup";
   function drawNav() {
-    nav.replaceChildren(...tabs.map(([k, l]) => { const b = h("button", "dv-tab", tr(l) + (k === "inbox" && info.counts?.pending ? ` (${info.counts.pending})` : ""), {type: "button"}); b.setAttribute("aria-selected", String(k === tab)); b.addEventListener("click", () => { tab = k; say(""); draw(); }); return b; }));
+    nav.replaceChildren(...tabs.map(([k, l]) => { const b = h("button", "dv-tab", null, {type: "button"}); b.append(h("span", "", tr(l))); if (k === "inbox" && info.counts?.pending) b.append(h("span", "dv-count", " (" + info.counts.pending + ")")); b.setAttribute("aria-selected", String(k === tab)); b.addEventListener("click", () => { tab = k; say(""); draw(); }); return b; }));
   }
   const paramList = params => {
     const ul = h("ul", "dv-params");

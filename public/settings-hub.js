@@ -87,7 +87,7 @@ export function mountSettingsHub(root, ctx) {
     if (route === "tema") return ctx.openTheme?.();
     if (route === "bas-konus") return ctx.openVoice?.();
     const panel = h("div", "sh-inline");
-    const back = h("button", "sh-back", "← " + tr("Ayarlar"), {type: "button"});
+    const back = h("button", "sh-back", null, {type: "button"}); back.append(h("span", "", "← "), h("span", "", tr("Ayarlar")));
     back.addEventListener("click", draw);
     panel.append(back, h("h3", "", tr(title)));
     const area = h("div", "sh-inline-body");
@@ -126,7 +126,8 @@ export function settingsCrumb(route, main, ctx) {
   const [, label, items] = GROUPS.find(([k]) => k === g);
   const bar = h("nav", "sh-crumb"); bar.setAttribute("aria-label", tr("Ayarlar"));
   const top = h("div", "sh-crumb-top");
-  top.append(h("a", "", "← " + tr("Ayarlar"), {href: "#ayarlar?sekme=" + g}), h("span", "", "›"), h("strong", "", tr(label)));
+  const home = h("a", "", null, {href: "#ayarlar?sekme=" + g}); home.append(h("span", "", "← "), h("span", "", tr("Ayarlar")));
+  top.append(home, h("span", "", "›"), h("strong", "", tr(label)));
   const tabs = h("div", "sh-crumb-tabs");
   items.filter(([r]) => INLINE.has(r) ? false : ctx.allowed(r)).forEach(([r, t]) => {
     const a = h("a", r === route ? "on" : "", tr(t), {href: "#" + r}); if (r === route) a.setAttribute("aria-current", "page");
