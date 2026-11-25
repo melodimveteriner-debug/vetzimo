@@ -1,0 +1,46 @@
+/* Satış sitesi · yeni özellik vitrinleri: hafif, CSS ile hareketli SVG çizimler (hareket azaltma tercihine uyar). */
+.ms-grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));margin:8px 0 34px}
+.ms-card{position:relative;display:grid;gap:8px;align-content:start;padding:18px;border:1px solid color-mix(in srgb,currentColor 12%,transparent);border-radius:20px;background:color-mix(in srgb,var(--brand-bg,#713fa9) 5%,var(--surface,#fff));color:inherit;text-decoration:none;overflow:hidden;transition:transform .25s ease,box-shadow .25s ease}
+.ms-card:hover,.ms-card:focus-visible{transform:translateY(-4px);box-shadow:0 18px 40px color-mix(in srgb,var(--brand-bg,#713fa9) 22%,transparent)}
+.ms-card h3{margin:2px 0 0;font-size:1.06rem}.ms-card p{margin:0;font-size:.92rem;line-height:1.5;opacity:.82}
+.ms-badge{justify-self:start;padding:3px 9px;border-radius:999px;font-size:.72rem;font-weight:700;letter-spacing:.04em;background:color-mix(in srgb,var(--brand-bg,#713fa9) 16%,transparent)}
+.ms-art{display:block;width:100%;height:auto;aspect-ratio:16/9;border-radius:14px;background:linear-gradient(135deg,color-mix(in srgb,var(--brand-bg,#713fa9) 14%,#fff),color-mix(in srgb,#1aa6b7 12%,#fff))}
+.ms-art *{transform-box:fill-box}
+.ms-a{fill:var(--brand-bg,#713fa9)}.ms-b{fill:#1aa6b7}.ms-c{fill:#eb6834}.ms-d{fill:#fff}.ms-e{fill:#2a78d6}.ms-g{fill:#1baf7a}
+.ms-line{fill:none;stroke:var(--brand-bg,#713fa9);stroke-width:4;stroke-linecap:round}.ms-soft{fill:#fff;opacity:.9}
+/* Gelen kutusu: kanallardan gelen baloncuklar ortada toplanır */
+.ms-flow{animation:ms-flow 3.2s ease-in-out infinite}.ms-flow:nth-of-type(2){animation-delay:.5s}.ms-flow:nth-of-type(3){animation-delay:1s}.ms-flow:nth-of-type(4){animation-delay:1.5s}
+@keyframes ms-flow{0%{transform:translate(0,0);opacity:0}15%{opacity:1}70%{transform:translate(var(--dx),var(--dy));opacity:1}100%{transform:translate(var(--dx),var(--dy));opacity:0}}
+.ms-row{animation:ms-row 3.2s ease-in-out infinite}.ms-row:nth-of-type(2){animation-delay:.4s}.ms-row:nth-of-type(3){animation-delay:.8s}
+@keyframes ms-row{0%,20%{transform:scaleX(.2);opacity:.2}50%,100%{transform:scaleX(1);opacity:1}}
+/* Telefon: dalga ve giden mesajlar */
+.ms-wave{fill:none;stroke:var(--brand-bg,#713fa9);stroke-width:3;opacity:0;animation:ms-wave 2.4s ease-out infinite}.ms-wave:nth-of-type(2){animation-delay:.6s}.ms-wave:nth-of-type(3){animation-delay:1.2s}
+@keyframes ms-wave{0%{opacity:.9;transform:scale(.6)}100%{opacity:0;transform:scale(1.5)}}
+.ms-send{animation:ms-send 3s ease-in-out infinite}.ms-send:nth-of-type(2){animation-delay:1s}.ms-send:nth-of-type(3){animation-delay:2s}
+@keyframes ms-send{0%{transform:translateX(-18px);opacity:0}25%,75%{transform:none;opacity:1}100%{transform:translateX(18px);opacity:0}}
+/* İmza: çizgi çizilir, onay işaretleri belirir */
+.ms-sign{fill:none;stroke:#1f2a44;stroke-width:3;stroke-linecap:round;stroke-dasharray:420;stroke-dashoffset:420;animation:ms-sign 3.6s ease-in-out infinite}
+@keyframes ms-sign{0%{stroke-dashoffset:420}55%,100%{stroke-dashoffset:0}}
+.ms-tick{fill:none;stroke:#1baf7a;stroke-width:4;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:30;stroke-dashoffset:30;animation:ms-tick 3.6s ease-in-out infinite}.ms-tick:nth-of-type(2){animation-delay:.3s}.ms-tick:nth-of-type(3){animation-delay:.6s}
+@keyframes ms-tick{0%,55%{stroke-dashoffset:30}75%,100%{stroke-dashoffset:0}}
+/* Belge: satırlar dolar, damga basılır */
+.ms-fill{animation:ms-row 3.4s ease-in-out infinite}.ms-fill:nth-of-type(2){animation-delay:.3s}.ms-fill:nth-of-type(3){animation-delay:.6s}.ms-fill:nth-of-type(4){animation-delay:.9s}
+.ms-stamp{animation:ms-stamp 3.4s ease-in-out infinite;transform-origin:center}
+@keyframes ms-stamp{0%,60%{opacity:0;transform:scale(1.6) rotate(-12deg)}72%,100%{opacity:1;transform:scale(1) rotate(-8deg)}}
+/* Aktarım okları */
+.ms-move{animation:ms-move 2.6s linear infinite}@keyframes ms-move{0%{transform:translateX(0);opacity:0}15%{opacity:1}85%{opacity:1}100%{transform:translateX(var(--dx));opacity:0}}
+/* Mikrofon ve ses dalgası */
+.ms-pulse{animation:ms-pulse 1.6s ease-in-out infinite;transform-origin:center}@keyframes ms-pulse{50%{transform:scale(1.12)}}
+.ms-bar{animation:ms-bar 1s ease-in-out infinite;transform-origin:bottom}.ms-bar:nth-of-type(2){animation-delay:.15s}.ms-bar:nth-of-type(3){animation-delay:.3s}.ms-bar:nth-of-type(4){animation-delay:.45s}.ms-bar:nth-of-type(5){animation-delay:.6s}
+@keyframes ms-bar{0%,100%{transform:scaleY(.3)}50%{transform:scaleY(1)}}
+.ms-type{animation:ms-row 4s steps(6) infinite}.ms-type:nth-of-type(2){animation-delay:.6s}.ms-type:nth-of-type(3){animation-delay:1.2s}
+/* Bildirim kartları sağdan kayar */
+.ms-slide{animation:ms-slide 4s ease-in-out infinite}.ms-slide:nth-of-type(2){animation-delay:.7s}.ms-slide:nth-of-type(3){animation-delay:1.4s}
+@keyframes ms-slide{0%{transform:translateX(60px);opacity:0}15%,70%{transform:none;opacity:1}85%,100%{transform:translateX(-10px);opacity:0}}
+/* Bot gözleri */
+.ms-blink{animation:ms-blink 3.5s infinite;transform-origin:center}@keyframes ms-blink{0%,92%,100%{transform:scaleY(1)}96%{transform:scaleY(.1)}}
+.ms-float{animation:ms-float 3s ease-in-out infinite}@keyframes ms-float{50%{transform:translateY(-6px)}}
+@media (prefers-reduced-motion:reduce){.ms-art *{animation:none!important;opacity:1!important;stroke-dashoffset:0!important}}
+.feature-illustration .ms-art{max-width:520px;margin-inline:auto}
+.ms-home{padding-block:20px;padding-inline:max(16px,env(safe-area-inset-left,0px));max-width:1200px;margin-inline:auto}.ms-home .sub-title{text-align:center}
+.ms-points{margin:10px 0 0;padding-left:20px;display:grid;gap:8px;line-height:1.55}
