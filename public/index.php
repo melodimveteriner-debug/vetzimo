@@ -12,7 +12,7 @@ use VetNet\Cpanel\SessionRepository;
 
 require_once dirname(__DIR__).'/src/StaffPlan.php';
 
-foreach (['NativeApp','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','TeamTotp','WebInbox','MinistryBridge','SiteLegal','OmniInbox','PhoneGateway','ClientPermit','PrintTemplates','Support','Commerce','Appearance'] as $class) {
+foreach (['NativeApp','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','SaasPayment','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','TeamTotp','WebInbox','MinistryBridge','SiteLegal','OmniInbox','PhoneGateway','ClientPermit','PrintTemplates','Support','Commerce','Appearance'] as $class) {
     require dirname(__DIR__) . '/src/' . $class . '.php';
 }
 
@@ -134,7 +134,7 @@ try {
         exit;
     }
     // Bakanlık köprüsü ajanı tarayıcı değildir (Origin göndermez) ve çerezle değil kendi anahtarıyla doğrulanır.
-    $bridgeAgent=!$externalWeb && (str_starts_with($path,'/api/bridge/agent/') || str_starts_with($path,'/api/phone/agent/')) && !isset($_SERVER['HTTP_ORIGIN']);
+    $bridgeAgent=!$externalWeb && (str_starts_with($path,'/api/bridge/agent/') || str_starts_with($path,'/api/phone/agent/') || $path==='/api/saas/paytr/callback') && !isset($_SERVER['HTTP_ORIGIN']);
     if ($method !== 'GET' && !$bridgeAgent && !hash_equals($externalWeb ? 'https://'.$host : $origin, $_SERVER['HTTP_ORIGIN'] ?? '')) {
         if (!$externalWeb && $path==='/clinic/evde-hizmet' && ($_GET['gorunum']??'')==='ayarlar') {
             VetNet\Cpanel\HomeVisitPages::settingsError('İstek kaynağı doğrulanamadı. Ayarları VetZimo üzerinden yeniden açıp kaydetmeyi deneyin.',403);
@@ -214,7 +214,7 @@ try {
             default => '/identity.html',
         });
         if (!is_readable($file)) throw new RuntimeException('VetZimo arayüz dosyaları eksik.', 503);
-        header("Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; frame-src 'self'; connect-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
+        header("Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; frame-src 'self' https://www.paytr.com; connect-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
         header('Content-Type: text/html; charset=utf-8');
         $html = marketAndPanelFavicon(file_get_contents($file),$config['assets']);
         $pwa = '<link rel="manifest" href="/vetzimo.webmanifest"><link rel="apple-touch-icon" href="/vetzimo-pwa-192.png"><script defer src="/pwa-install.js?v=68"></script>';
@@ -357,15 +357,33 @@ try {
         $actor=$workspaces->actor($_COOKIE,$now);
         reply(['items'=>(new VetNet\Cpanel\CenterManagement($db,new Center($db,$config)))->published($actor['partner_id'])]);
     }
-    if ($path==='/api/saas/store') {
-        // Abonelik mağazası (SMS/WhatsApp kredi satışı kaldırıldı; mesajlar kliniğin kendi hattından gider).
+    if ($path==='/api/saas/paytr/callback' && $method==='POST') {
+        // PayTR sunucu bildirimi: imza doğrulanır, ödeme başarılıysa abonelik açılır. PayTR "OK" yanıtı bekler.
+        $result=(new VetNet\Cpanel\SaasPayment($db,(string)($config['encryptionKey'] ?? ''),$config))->callback($_POST,$now);
+        header('Content-Type: text/plain; charset=utf-8');
+        echo $result;
+        exit;
+    }
+    if (in_array($path,['/api/saas/store','/api/saas/store/order','/api/saas/store/reference'],true)) {
+        // Abonelik mağazası: demo/denemeden pakete geçiş ve yenileme (kart: PayTR, havale: yönetici onayı).
         $actor=$workspaces->actor($_COOKIE,$now);
         if ($actor['role']!=='dealer') throw new RuntimeException('Bayi yöneticisi yetkisi gerekli.',403);
-        if ($method==='GET') reply([
-            'scopeId'=>$actor['membership_id'],'bank'=>false,'orders'=>[],
+        $payment=new VetNet\Cpanel\SaasPayment($db,(string)($config['encryptionKey'] ?? ''),$config);
+        $methods=$payment->methods();
+        if ($method==='GET' && $path==='/api/saas/store') reply([
+            'scopeId'=>$actor['membership_id'],'card'=>$methods['card'],'bank'=>$methods['bank'],'orders'=>$payment->orders($actor['partner_id']),
             'subscription'=>(new VetNet\Cpanel\Commerce($db))->subscription($actor['partner_id']),
-            'plans'=>array_map(static fn($plan)=>$plan+['card'=>false,'purchasable'=>false],array_values((new VetNet\Cpanel\Commerce($db))->publishedCatalog())),
+            'plans'=>array_map(static fn($plan)=>$plan+['amounts'=>['monthly'=>VetNet\Cpanel\SaasPayment::amount($plan,'monthly'),'yearly'=>VetNet\Cpanel\SaasPayment::amount($plan,'yearly')],
+                'purchasable'=>($methods['card']||$methods['bank']) && (VetNet\Cpanel\SaasPayment::amount($plan,'monthly')!==null || VetNet\Cpanel\SaasPayment::amount($plan,'yearly')!==null)],
+                array_values((new VetNet\Cpanel\Commerce($db))->publishedCatalog())),
         ]);
+        if ($method==='POST') {
+            if (!hash_equals($actor['membership_id'],$_SERVER['HTTP_X_VETNET_SCOPE'] ?? '')) throw new RuntimeException('Çalışma alanı oturumu değişti.',409);
+            (new DealerLogin($db,$config['rateSecret']))->throttle('saas-order:'.$actor['account_id'],$now);
+            $body=input(4096);
+            if ($path==='/api/saas/store/order') reply($payment->order($actor,$body,(string)($_SERVER['REMOTE_ADDR'] ?? ''),$origin,$now));
+            if ($path==='/api/saas/store/reference') { $payment->reference($actor,$body); reply(['ok'=>true]); }
+        }
         throw new RuntimeException('Mağaza işlemi desteklenmiyor.',405);
     }
     if ($method==='POST' && $path==='/api/ops/cache') {
@@ -513,6 +531,10 @@ try {
             if (!is_string($month)) throw new RuntimeException('Geçerli bir ay seçin.',422);
             reply($center->finance($month));
         }
+        if ($method==='GET' && in_array($action,['saas-orders','paytr'],true)) {
+            $saas=new VetNet\Cpanel\SaasPayment($db,(string)($config['encryptionKey'] ?? ''),$config);
+            reply($action==='paytr'?$saas->settings()+['callback'=>$origin.'/api/saas/paytr/callback']:['rows'=>$saas->adminOrders()]);
+        }
         if ($method==='GET' && $action==='plans') reply(['plans'=>array_values($commerce->catalog()),'termFields'=>VetNet\Cpanel\Commerce::TERMS,'featureFields'=>ClinicAccess::FEATURES]);
         if ($method==='GET' && $action==='subscriptions') reply(['terms'=>$db->query(
             'SELECT p.name,s.partner_id,s.plan_name,s.kind,s.starts_on,s.ends_on FROM clinic_subscription s JOIN partner_account p ON p.id=s.partner_id ORDER BY s.ends_on DESC,s.id DESC LIMIT 300'
@@ -586,6 +608,12 @@ try {
                 }
                 unset($result['email']);
                 reply($result);
+            }
+            if (in_array($action,['saas-orders','paytr'],true)) {
+                $saas=new VetNet\Cpanel\SaasPayment($db,(string)($config['encryptionKey'] ?? ''),$config);
+                if ($action==='paytr') reply($saas->saveSettings($body));
+                $saas->review($body,$now);
+                reply(['ok'=>true]);
             }
             if ($action==='plans') {
                 $commerce->savePackage($body);

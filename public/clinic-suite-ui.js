@@ -1,7 +1,7 @@
 import {clinicFetch} from "./access.js?v=20261123-r64";
 import {mountClinicAccounts} from "./clinic-accounts-ui.js?v=r70";
 import {mountTemplates} from "./clinic-tools-ui.js";
-import {mountCreditShop} from "./center-shop.js";
+import {mountCreditShop} from "./center-shop.js?v=2";
 import {opsFetch} from "./center-ops.js";
 import {mountReleaseHistory} from "./release-history.js";
 

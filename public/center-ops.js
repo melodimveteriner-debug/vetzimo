@@ -161,12 +161,31 @@ export async function mountCenterSuite(ui,session){
   if(mode!=='summary')content.append(el('h3','Son hareketler'),paginate(entries.filter(visible),rows=>table(
    ['Tarih','Bayi','Hareket türü','Tutar'],rows.map(row=>[row.entry_date,row.name,financeLabels[row.source_type],currency(row.amount_cents)]))));
  }
- function paymentChannels(){
-  content.replaceChildren(table(['Kanal','Durum','İşlem'],[
-   ['EFT / Havale','Yönetim ayarından açılabilir',el('a','Havale ayarlarını aç',{href:url('magaza-banka')})],
-   ['iyzico','Canlı entegrasyon yok',el('a','iyzico entegrasyon belgeleri',{href:'https://docs.iyzico.com/',target:'_blank',rel:'noopener'})],
-   ['TEB Sanal POS','Canlı entegrasyon yok',el('a','TEB Sanal POS bilgileri',{href:'https://www.teb.com.tr/pos-urunleri-sanal-pos/',target:'_blank',rel:'noopener'})]
-  ]));
+ async function paymentChannels(){
+  // Abonelik satışı: kart (PayTR iFrame) ve havale. Kart ödemesi PayTR bildirimiyle otomatik onaylanır.
+  const [cfg,{rows}]=await Promise.all([call('paytr'),call('saas-orders')]);
+  const enabled=el('label','Kartla ödemeyi aç (PayTR)');enabled.prepend(el('input','',{type:'checkbox',name:'enabled',checked:cfg.enabled}));
+  const test=el('label','Test modu (gerçek para çekilmez)');test.prepend(el('input','',{type:'checkbox',name:'test',checked:cfg.test}));
+  const guide=el('ol','',{className:'center-guide'});
+  for(const t of ['PayTR mağaza panelinde Bilgi sayfasından Mağaza No, Mağaza Parola (merchant_key) ve Mağaza Gizli Anahtar (merchant_salt) bilgilerini kopyalayın.',
+   'PayTR panelinde Destek & Kurulum › Ayarlar › Bildirim URL alanına aşağıdaki adresi yazın.','Önce test modunda bir deneme ödemesi yapın, sipariş "Ödendi" olunca test modunu kapatın.'])guide.append(el('li',t));
+  const callback=el('p','',{className:'center-callback'});callback.append(el('strong','Bildirim URL: '),el('code',cfg.callback));
+  const form=makeForm([enabled,test,field('merchantId','PayTR Mağaza No',{required:false,value:cfg.merchantId,inputMode:'numeric',maxLength:12}),
+   field('key','Mağaza Parola (merchant_key)'+(cfg.hasKey?' · kayıtlı, değiştirmek için yazın':''),{required:false,type:'password',autocomplete:'off',maxLength:64}),
+   field('salt','Mağaza Gizli Anahtar (merchant_salt)'+(cfg.hasSalt?' · kayıtlı, değiştirmek için yazın':''),{required:false,type:'password',autocomplete:'off',maxLength:64})],'Ödeme ayarlarını kaydet',async values=>{
+   await call('paytr',{enabled:values.enabled==='on',test:values.test==='on',merchantId:values.merchantId,key:values.key,salt:values.salt});
+   status.textContent='Ödeme ayarları kaydedildi.';await paymentChannels();
+  });
+  const labels={pending:'Ödeme bekleniyor',review:'Havale kontrolü',paid:'Ödendi · abonelik açıldı',failed:'Başarısız',rejected:'Reddedildi'};
+  const list=table(['Tarih','Bayi','Paket','Tutar','Yöntem','Durum','Dönem','İşlem'],rows.map(r=>[new Date(r.created_at*1000).toLocaleString('tr-TR'),r.partner_name||r.partner_id,r.plan_name+' · '+(r.period==='yearly'?'Yıllık':'Aylık'),currency(r.amount),
+   r.method==='card'?'Kredi kartı':'EFT / Havale',labels[r.status]||r.status,r.starts_on?r.starts_on+' → '+r.ends_on:'—',
+   r.method==='bank'&&['pending','review'].includes(r.status)?(()=>{const box=el('div','',{className:'center-package-actions'});
+    if(r.reference)box.append(el('small','Ref: '+r.reference));
+    box.append(button('Tutarı doğruladım · onayla',async()=>{await call('saas-orders',{id:r.id,action:'approved',verified:true});await paymentChannels()}),
+     button('Reddet',async()=>{await call('saas-orders',{id:r.id,action:'rejected'});await paymentChannels()}));return box})():'']));
+  content.replaceChildren(el('h3','Kartla ödeme · PayTR'),guide,callback,form,
+   el('p','Havale ile satış için "Mağaza Havale Ayarları" sekmesinden IBAN girin ve açın.',{className:'muted'}),
+   el('h3','Abonelik siparişleri'),list);
  }
  async function plans(){
   const {plans:catalog,termFields,featureFields}=await call('plans');opsFeatureFields=featureFields||{};

@@ -8,7 +8,7 @@ export const saasNotice="basvuru-v1";
 export const saasStages={new:"Yeni",contacted:"Görüşüldü",qualified:"Değerlendiriliyor",won:"Olumlu sonuçlandı",lost:"Olumsuz sonuçlandı"};
 export const saasTerms=[
   ["users","Kullanıcı",100000],["branches","Şube",100000],["patients","Hasta kaydı",10000000],
-  ["storage","Depolama (GB)",100000],["sms","SMS kredisi",10000000],["whatsapp","WhatsApp mesajı",10000000],
+  ["storage","Depolama (GB)",100000],["sms","Aylık SMS gönderim sınırı",10000000],["whatsapp","Aylık WhatsApp gönderim sınırı",10000000],
   ["okc","ÖKC hakkı",100000],["edoc","E-dönüşüm hakkı",100000],
   ["support","Destek kapsamı"],["trial","Deneme süresi (gün)",365],["discount","Yıllık indirim (%)",100],
 ];
