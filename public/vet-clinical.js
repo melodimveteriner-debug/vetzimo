@@ -5,6 +5,7 @@
 // Kaynaklar: Plumb's Veterinary Drug Handbook (genel aralıklar), BSAVA Small Animal Formulary, MSD Veterinary Manual,
 // Ettinger Textbook of Veterinary Internal Medicine. Kesin tanı, doz ve tedavi kararı hekimindir; ürün prospektüsü önceliklidir.
 import {interpretLabs, codeFor, LAB_REF, LAB_LABEL} from "./lab-interpret.js?v=20261125-r3";
+import {CASES} from "./vet-cases.js?v=1";
 
 const fold = s => String(s ?? "").toLocaleLowerCase("tr-TR").replaceAll("ı", "i").normalize("NFD").replace(/\p{M}/gu, "").replace(/[^a-z0-9.,/%\s-]/g, " ").replace(/\s+/g, " ").trim();
 const fmt = (v, d = 2) => Number.isFinite(v) ? new Intl.NumberFormat("tr-TR", {maximumFractionDigits: d}).format(v) : "—";
@@ -402,11 +403,35 @@ function drugAnswer(t, species) {
     note: "Genel referans aralıklarıdır (Plumb's, BSAVA). Hastaya özel doz, böbrek/karaciğer durumu ve etkileşimleri hekim değerlendirir; prospektüs önceliklidir." + (weight > 0 ? "" : " Kilo yazarsanız (ör. “8 kg köpek metamizol”) toplam miktarı hesaplarım.")};
 }
 
+// ───────────── 6) Olgu kütüphanesi (kedi ve köpekte en sık 100+ hastalık) ─────────────
+const CASE_INDEX = CASES.map(c => [c, [fold(c[0]).replace(/\s*\(.*?\)\s*/g, " ").trim(), ...c[1]].filter(s => s.length >= 3)]);
+const reOf = s => new RegExp("\\b" + s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b");
+function caseAnswer(t, species, context) {
+  // Doz ve zehirlenme soruları ilgili bölümlere; belirti odaklı ayırıcı tanı soruları ayırıcı tanı listesine gider.
+  if (/\b(doz\w*|mg\/kg|zehir\w*)\b/.test(t)) return null;
+  let best = null, len = 0;
+  for (const [c, keys] of CASE_INDEX) for (const k of keys) if (k.length > len && reOf(k).test(t)) { best = c; len = k.length; }
+  if (!best) return null;
+  if (context.name && fold(context.name).split(" ").some(w => w.length >= 3 && reOf(w).test(fold(best[0]) + " " + best[1].join(" ")))) return null;
+  const [name, , sp, who, signs, dx, tx, prog] = best;
+  const label = sp === "both" ? "Kedi ve köpek" : SP_TR[sp];
+  const focus = /\b(tedavi\w*|ilac\w*|ne verilir|yaklasim\w*)\b/.test(t) ? "tx" : /\b(tani\w*|test\w*|teshis\w*|nasil anlas\w*)\b/.test(t) ? "dx" : /\b(belirti\w*|bulgu\w*|semptom\w*)\b/.test(t) ? "signs" : "";
+  const rows = [["signs", "Belirtiler", signs], ["dx", "Tanı", dx], ["tx", "Tedavi", tx], ["prog", "Prognoz / not", prog]];
+  if (focus) rows.sort((a, b) => (b[0] === focus) - (a[0] === focus));
+  return {text: name + " · " + label, stats: [["Kimlerde", who]], items: rows.map(([, l, v]) => [v, l]),
+    note: (species && sp !== "both" && sp !== species ? "Not: bu olgu daha çok " + SP_TR[sp].toLowerCase() + "te görülür. " : "") + "Genel başvuru bilgisidir; doz için ilaç adını ve kiloyu yazın (ör. “4 kg kedi doksisiklin dozu”). " + NOTE};
+}
+const SYMPTOM_ASK = /\b(ayirici\w*|ddx|differansiyel|nedenleri|sebepleri|ne olabilir)\b/;
+
 /** VeBot için: yazılan değer yorumu → anormallik nedenleri → referans listesi → kan gazı rehberi → ayırıcı tanı → ilaç. */
 export function clinicalAnswer(text, context = {}) {
   const t = fold(text);
   if (!t) return null;
   const species = speciesOf(t) || (context.species === "cat" || context.species === "dog" ? context.species : "");
-  return labValues(text, t, context) || panelAnswer(t, species) || gasGuide(t) || causesAnswer(t, species) || diffAnswer(t) || drugAnswer(t, species);
+  const lab = labValues(text, t, context) || panelAnswer(t, species) || gasGuide(t);
+  if (lab) return lab;
+  // Belirti + "ayırıcı tanı / nedenleri" sorusunda önce ayırıcı tanı listesi; aksi halde hastalık kartı önce.
+  if (SYMPTOM_ASK.test(t)) return causesAnswer(t, species) || diffAnswer(t) || caseAnswer(t, species, context) || drugAnswer(t, species);
+  return caseAnswer(t, species, context) || causesAnswer(t, species) || diffAnswer(t) || drugAnswer(t, species);
 }
 export const CLINICAL_STATS = {drugs: DRUGS.length, causes: CAUSES.length, differentials: DIFF.length};

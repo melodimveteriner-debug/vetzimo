@@ -6,7 +6,7 @@
 
 import {interpretLabs} from "./lab-interpret.js?v=20261125-r3";
 import {vetAnswer, KNOWLEDGE_EXAMPLES} from "./vet-knowledge.js?v=2";
-import {clinicalAnswer} from "./vet-clinical.js?v=1";
+import {clinicalAnswer} from "./vet-clinical.js?v=2";
 
 const TZ = "Europe/Istanbul";
 const isoDay = new Intl.DateTimeFormat("en-CA", {timeZone:TZ, year:"numeric", month:"2-digit", day:"2-digit"});
