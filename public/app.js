@@ -818,7 +818,7 @@ search(q){let k=De(q||""),d=String(q||"").replace(/\D/g,"");if(k.length<2&&d.len
 
 // Telefon Bağlantısı (phone-gateway-ui.js): SMS kliniğin SIM kartından, WhatsApp kliniğin kendi numarasından.
 var vzPhoneStop=null;
-function vzPhone(root){if(!root)return;vzPhoneStop?.();root.textContent=We("Yükleniyor…");import("./phone-gateway-ui.js?v=7").then(({mountPhoneGateway})=>{if(!root.isConnected)return;
+function vzPhone(root){if(!root)return;vzPhoneStop?.();root.textContent=We("Yükleniyor…");import("./phone-gateway-ui.js?v=8").then(({mountPhoneGateway})=>{if(!root.isConnected)return;
 vzPhoneStop=mountPhoneGateway(root,{tr:We,fetch:Ye,toast:m=>be(m)})}).catch(x=>{root.isConnected&&(root.textContent=x.message)})}
 
 // Müşteri onay formu (permit-ui.js): KVKK aydınlatma ve SMS/WhatsApp/e-posta/kampanya izni; tek kullanımlık bağlantı veya bu cihazda imza.

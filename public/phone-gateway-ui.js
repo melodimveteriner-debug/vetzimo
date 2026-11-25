@@ -110,7 +110,10 @@ export function mountPhoneGateway(root,api){
    testForm()];
  }
  function testForm(){
-  const ch=h("select",{},h("option",{value:"sms",text:"SMS"}),h("option",{value:"whatsapp",text:"WhatsApp"})),phone=h("input",{type:"tel",placeholder:"05XX XXX XX XX",required:!0}),text=h("input",{value:tr("VetZimo deneme mesajı"),maxlength:"300",required:!0});
+  const ch=h("select",{},h("option",{value:"sms",text:"SMS"}),h("option",{value:"whatsapp",text:"WhatsApp"})),phone=h("input",{type:"tel",inputmode:"tel",autocomplete:"tel",placeholder:"05XX XXX XX XX",maxlength:"14",value:data.ownPhone||"",required:!0}),text=h("input",{value:tr("VetZimo deneme mesajı"),maxlength:"300",required:!0});
+  // Sitedeki müşteri numaralarıyla aynı biçim: 05XX XXX XX XX (+90, 90, 0090 veya başında 0 olmadan yazılsa da)
+  phone.addEventListener("input",()=>{let d=phone.value.replace(/\D/g,"").replace(/^0+/,"");if(/^90/.test(d)&&(d[2]==="5"||d.length>10))d=d.slice(2);d=d.slice(0,10);
+   phone.value=d?("0"+d).replace(/^(\d{4})(\d{0,3})(\d{0,2})(\d{0,2}).*$/,(m,a,b,c,e)=>[a,b,c,e].filter(Boolean).join(" ")):""});
   const paired=data.devices.length>0,s=data.settings;
   const hint=!paired?tr("Henüz telefon bağlanmadı: önce Kurulum sekmesinden telefonu eşleştirin."):!s.sms?tr("SMS gönderimi kapalı: yukarıda “SMS'leri kliniğin telefonundan gönder” kutusunu işaretleyip Kaydet'e basın."):"";
   return h("form",{class:"pg-card",onsubmit:e=>{e.preventDefault();

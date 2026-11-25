@@ -491,7 +491,8 @@ final class PhoneGateway
         $counts = [];
         foreach ($c->fetchAll(PDO::FETCH_ASSOC) as $r) $counts[$r['channel']] = ['queued' => (int)$r['q'], 'sentToday' => (int)$r['s'], 'failedToday' => (int)$r['f']];
         $s = $this->settings($partner);
-        return ['settings' => $s, 'devices' => $devices, 'canManage' => ($actor['role'] ?? '') === 'dealer', 'quietNow' => self::quiet($s, $now),
+        $own = DealerLogin::normalizePhone((string)($actor['identifier'] ?? ''));
+        return ['ownPhone' => $own === '' ? '' : '0'.substr($own, 3, 3).' '.substr($own, 6, 3).' '.substr($own, 9, 2).' '.substr($own, 11, 2), 'settings' => $s, 'devices' => $devices, 'canManage' => ($actor['role'] ?? '') === 'dealer', 'quietNow' => self::quiet($s, $now),
             'capacity' => ['sms' => self::capacity($s, 'sms'), 'whatsapp' => self::capacity($s, 'whatsapp')],
             'whatsappAgent' => ['state' => $waOnline ? $wa['wa_state'] : ($wa['wa_seen'] ? 'offline' : ''), 'lastSeen' => $wa['wa_seen'] === null ? null : (int)$wa['wa_seen'], 'error' => $wa['wa_error']],
             'counts' => $counts, 'outbox' => $outbox];
