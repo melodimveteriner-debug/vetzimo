@@ -9,7 +9,8 @@ use RuntimeException;
  * Evde hizmet canlı rota: personel "Yola çık"a dokununca konumu yalnız bu ziyaret süresince paylaşılır.
  * Hasta sahibine "X kliniğinden Y yola çıktı, tahmini varış ~N dk" bildirimi gider; araç yaklaşınca (≈800 m ya da
  * 5 dk) ikinci bildirim gider. Hizmet tamamlanınca personel isterse kliniğin Google yorum bağlantısını gönderir.
- * Tahmini süre ücretsizdir: kuş uçuşu mesafe × yol katsayısı ve aracın ölçülen hızı (yoksa şehir içi ortalama).
+ * Tahmini süre ücretsizdir: personelin telefonu adrese OpenStreetMap yol ağı üzerinden en hızlı rotayı hesaplar ve kalan
+ * gerçek yol mesafesi/süresini gönderir (tüm Türkiye). Yol verisi alınamazsa kuş uçuşu × yol katsayısı ve ölçülen hız kullanılır.
  * Hasta sahibi personelin tam konumunu değil, yalnız kalan süre ve mesafeyi görür.
  */
 final class VisitTracker
@@ -36,8 +37,13 @@ final class VisitTracker
     }
 
     /** @return array{0:int,1:int} [yol mesafesi m, süre sn] */
-    public static function eta(float $straight, ?float $speed): array
+    public static function eta(float $straight, ?float $speed, mixed $roadMeters = null, mixed $roadSeconds = null): array
     {
+        // Telefonda yol ağı üzerinden ölçülen kalan mesafe ve süre (makul aralıktaysa) kullanılır.
+        if (is_numeric($roadMeters) && is_numeric($roadSeconds) && $roadMeters >= 0 && $roadSeconds >= 0
+            && $roadMeters >= $straight * 0.9 - 300 && $roadMeters <= $straight * 6 + 3000 && $roadSeconds <= 86400) {
+            return [(int)round((float)$roadMeters), (int)round((float)$roadSeconds) + ($roadMeters > 300 ? 60 : 0)];
+        }
         $road = $straight * self::ROAD;
         $kmh = $speed !== null && $speed > 2.5 ? max(15.0, min(70.0, $speed * 3.6)) : self::CITY_KMH;
         return [(int)round($road), (int)round($road / ($kmh / 3.6)) + ($road > 300 ? 60 : 0)];
@@ -99,7 +105,7 @@ final class VisitTracker
         if ($row['status'] === 'assigned') $this->visits->change(['id' => $row['id'], 'partner_id' => $row['partner_id']], $actor, ['action' => 'depart', 'revision' => $row['revision']], false);
         $to = $snap['location'] ?? [];
         $straight = isset($to['latitude'], $to['longitude']) ? self::distance($lat, $lon, (float)$to['latitude'], (float)$to['longitude']) : null;
-        [$road, $eta] = $straight !== null ? self::eta($straight, $speed) : [null, null];
+        [$road, $eta] = $straight !== null ? self::eta($straight, $speed, $b->roadMeters ?? null, $b->roadSeconds ?? null) : [null, null];
         $token = bin2hex(random_bytes(16));
         $this->q('INSERT INTO clinic_visit_track(visit_id,partner_id,staff_account,staff_name,lat,lng,accuracy,speed,distance_m,eta_s,started_at,updated_at,public_hash,active)
             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,1) ON DUPLICATE KEY UPDATE staff_account=VALUES(staff_account),staff_name=VALUES(staff_name),lat=VALUES(lat),lng=VALUES(lng),accuracy=VALUES(accuracy),
@@ -131,7 +137,7 @@ final class VisitTracker
         $speed = is_numeric($b->speed ?? null) ? (float)$b->speed : null;
         $to = $snap['location'] ?? [];
         $straight = isset($to['latitude'], $to['longitude']) ? self::distance($lat, $lon, (float)$to['latitude'], (float)$to['longitude']) : null;
-        [$road, $eta] = $straight !== null ? self::eta($straight, $speed) : [null, null];
+        [$road, $eta] = $straight !== null ? self::eta($straight, $speed, $b->roadMeters ?? null, $b->roadSeconds ?? null) : [null, null];
         $this->q('UPDATE clinic_visit_track SET lat=?,lng=?,accuracy=?,speed=?,distance_m=?,eta_s=?,updated_at=? WHERE visit_id=?', [$lat, $lon, (int)($b->accuracy ?? 0), $speed, $road, $eta, $now, $row['id']]);
         if (!(int)$track['approach_notified'] && $road !== null && ($road <= self::APPROACH_M || $eta <= self::APPROACH_S)) {
             $clinic = $this->clinicName($row['partner_id']);
@@ -186,7 +192,7 @@ final class VisitTracker
         $e = static fn($v) => htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8');
         $body = $s ? '<p class="k">'.$e($s['clinic']).'</p><h1 data-title>'.$e($s['active'] ? $s['staff'].' yolda' : $s['statusLabel']).'</h1><div class="eta"><strong data-eta>'.
             ($s['active'] && $s['eta'] !== null ? '~'.max(1, (int)round($s['eta'] / 60)).' dk' : '—').'</strong><span data-distance>'.($s['active'] && $s['distance'] !== null ? number_format($s['distance'] / 1000, 1, ',', '').' km' : '').'</span></div>'.
-            '<div class="road"><i></i></div><p class="m" data-updated>Sayfa kendiliğinden yenilenir.</p>'
+            '<div class="road"><i></i></div><canvas class="map" data-map role="img" aria-label="Ekibin adresinize yol üzerindeki konumu" hidden></canvas><p class="m" data-updated>Sayfa kendiliğinden yenilenir.</p><p class="m osm">Harita verisi © OpenStreetMap katkıda bulunanlar</p>'
             : '<h1>Takip bağlantısının süresi doldu</h1><p class="m">Ziyaret tamamlanmış ya da bağlantı geçersiz olabilir. Sorularınız için kliniğinizi arayın.</p>';
         return '<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><meta name="color-scheme" content="light dark"><title>Canlı takip · VetZimo</title>'.
             '<style>:root{--a:#6a3df0;--b:#c4306e;--bg:#f6f3ff;--fg:#1b1640;--m:#5e5880;--card:#fff}@media(prefers-color-scheme:dark){:root{--bg:#120d24;--fg:#efeaff;--m:#b5addb;--card:#1d1638}}'.
@@ -194,8 +200,8 @@ final class VisitTracker
             'main{width:min(440px,calc(100% - 32px));background:var(--card);border-radius:24px;padding:28px;box-shadow:0 30px 60px rgba(40,20,110,.18);text-align:center}.k{margin:0;color:var(--m);font-weight:600}h1{margin:.3em 0;font-size:1.6rem}'.
             '.eta{display:grid;gap:2px;margin:18px 0}.eta strong{font-size:3rem;background:linear-gradient(110deg,var(--a),var(--b));-webkit-background-clip:text;background-clip:text;color:transparent}.eta span,.m{color:var(--m)}'.
             '.road{height:10px;border-radius:999px;background:color-mix(in srgb,var(--a) 14%,transparent);overflow:hidden}.road i{display:block;height:100%;width:35%;border-radius:inherit;background:linear-gradient(90deg,var(--a),var(--b));animation:r 1.8s ease-in-out infinite}'.
-            '@keyframes r{0%{transform:translateX(-100%)}100%{transform:translateX(300%)}}@media(prefers-reduced-motion:reduce){.road i{animation:none;width:100%}}</style></head>'.
-            '<body><main>'.$body.'</main>'.($s ? '<script src="/visit-live-public.js?v=1" defer></script>' : '').'</body></html>';
+            '.map{display:block;width:100%;height:260px;margin-top:14px;border-radius:16px}.osm{font-size:.75rem}@keyframes r{0%{transform:translateX(-100%)}100%{transform:translateX(300%)}}@media(prefers-reduced-motion:reduce){.road i{animation:none;width:100%}}</style></head>'.
+            '<body><main>'.$body.'</main>'.($s ? '<script src="/visit-live-map.js?v=1" defer></script><script src="/visit-live-public.js?v=2" defer></script>' : '').'</body></html>';
     }
 
     /** Personel ekranı (tam konum) ya da hasta sahibi (yalnız süre ve mesafe). */
@@ -206,7 +212,29 @@ final class VisitTracker
         $out = ['active' => (bool)$t['active'], 'staff' => explode(' ', trim((string)$t['staff_name']))[0], 'distance' => $t['distance_m'] !== null ? (int)$t['distance_m'] : null,
             'eta' => $t['eta_s'] !== null ? (int)$t['eta_s'] : null, 'updatedAt' => (int)$t['updated_at'], 'approaching' => (bool)$t['approach_notified'], 'reviewSent' => (bool)$t['review_sent']];
         if ($staff) $out += ['lat' => $t['lat'] !== null ? (float)$t['lat'] : null, 'lng' => $t['lng'] !== null ? (float)$t['lng'] : null];
+        // Harita: aktif ziyarette aracın konumu (yaklaşık 10 m) ve adres noktası; yol haritası tarayıcıda OpenStreetMap verisiyle çizilir.
+        if ($t['active'] && $t['lat'] !== null) {
+            $dest = $this->visits->decode((string)$this->q('SELECT snapshot FROM clinic_visit_request WHERE id=?', [$visit])->fetchColumn())['location'] ?? [];
+            $out['pos'] = ['lat' => round((float)$t['lat'], 4), 'lon' => round((float)$t['lng'], 4)];
+            if (is_numeric($dest['latitude'] ?? null) && is_numeric($dest['longitude'] ?? null)) $out['dest'] = ['lat' => (float)$dest['latitude'], 'lon' => (float)$dest['longitude']];
+        }
         return $out;
+    }
+
+    /** Klinik canlı izleme: şu an yolda olan tüm personel (yalnız evde hizmet yetkili ekip). */
+    public function activeTracks(array $actor, int $now): array
+    {
+        if (!$this->visits->staffAllowed($actor, $this->visits->settings($actor['partner_id']), true)) throw new RuntimeException('Evde hizmet yetkiniz yok.', 403);
+        $rows = $this->q("SELECT t.*,r.snapshot,r.status FROM clinic_visit_track t JOIN clinic_visit_request r ON r.id=t.visit_id WHERE t.partner_id=? AND t.active=1 AND t.updated_at>? AND t.lat IS NOT NULL ORDER BY t.updated_at DESC LIMIT 30",
+            [$actor['partner_id'], $now - 7200])->fetchAll();
+        $out = [];
+        foreach ($rows as $t) {
+            $snap = $this->visits->decode((string)$t['snapshot']); $loc = $snap['location'] ?? [];
+            $out[] = ['visit' => $t['visit_id'], 'staff' => (string)$t['staff_name'], 'animal' => (string)($snap['animal'] ?? ''), 'area' => trim(($loc['district'] ?? '').' / '.($loc['neighborhood'] ?? ''), ' /'),
+                'pos' => ['lat' => (float)$t['lat'], 'lon' => (float)$t['lng']], 'dest' => is_numeric($loc['latitude'] ?? null) && is_numeric($loc['longitude'] ?? null) ? ['lat' => (float)$loc['latitude'], 'lon' => (float)$loc['longitude']] : null,
+                'eta' => $t['eta_s'] !== null ? (int)$t['eta_s'] : null, 'distance' => $t['distance_m'] !== null ? (int)$t['distance_m'] : null, 'updatedAt' => (int)$t['updated_at'], 'approaching' => (bool)$t['approach_notified']];
+        }
+        return ['tracks' => $out];
     }
 
     public function ownerState(array $actor, string $id): array

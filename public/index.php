@@ -425,6 +425,7 @@ try {
         $actor=(new IdentityApi($db))->actor($_COOKIE,$now);
         if ($actor['role']!=='customer') $actor=(new VetNet\Cpanel\Commerce($db))->packageActor($actor);
         $visit=(string)($_GET['visit']??'');
+        if ($method==='GET' && ($_GET['op']??'')==='all' && $actor['role']!=='customer') { requireFeature($actor,'homeVisit',false); reply($tracker->activeTracks($actor,$now)); }
         if ($method==='GET') reply($actor['role']==='customer'?$tracker->ownerState($actor,$visit):$tracker->state($tracker->staffVisit($actor,$visit),true));
         if ($method!=='POST' || $actor['role']==='customer') throw new RuntimeException('Yöntem desteklenmiyor.',405);
         if (!hash_equals($actor['membership_id'],$_SERVER['HTTP_X_VETNET_SCOPE']??'')) throw new RuntimeException('Çalışma alanı oturumu değişti.',409);

@@ -1,7 +1,7 @@
 "use strict";
 
 const SCALE = 1000000;
-const SNAP_LIMIT_METERS = 120;
+const SNAP_LIMIT_METERS = 400; // köy, çiftlik ve site içi adresler için en yakın araç yoluna bağlanma sınırı
 let manifest;
 const tiles=new Map();
 const TURKEY=[35.8,25.5,42.2,45];
@@ -220,42 +220,43 @@ function search(graph, source, targets) {
   if (remaining.delete(source)) result.set(source,{meters:0,seconds:0,path:[source]});
   if (!remaining.size) return result;
   const {edges,outgoing} = graph;
-  const distances = new Float64Array(edges.length).fill(Infinity);
-  const seconds = new Float64Array(edges.length);
+  // En hızlı yol: öncelik süre (yol tipine göre hız), eşitlikte mesafe. Mesafe seçilen yol boyunca toplanır.
+  const seconds = new Float64Array(edges.length).fill(Infinity);
+  const distances = new Float64Array(edges.length);
   const parents = new Int32Array(edges.length).fill(-1);
   const heap = new MinHeap();
   for (const index of outgoing[source]) {
     const [, , meters, speed] = edges[index];
-    distances[index] = meters;
     seconds[index] = meters*3.6/speed;
-    heap.push(index,meters);
+    distances[index] = meters;
+    heap.push(index,seconds[index]);
   }
   for (let item; remaining.size && (item=heap.pop());) {
     const {edge,cost} = item;
-    if (cost !== distances[edge]) continue;
+    if (cost !== seconds[edge]) continue;
     const current = edges[edge], node = current[1];
     if (remaining.delete(node)) {
       const path = [];
       for (let cursor=edge;cursor!==-1;cursor=parents[cursor]) path.push(edges[cursor][1]);
       path.push(source);
-      result.set(node,{meters:cost,seconds:Math.round(seconds[edge]),path:path.reverse()});
+      result.set(node,{meters:Math.round(distances[edge]),seconds:Math.round(cost),path:path.reverse()});
     }
     for (const index of outgoing[node]) {
       if (!allowed(graph,edges[index],current)) continue;
       const [,,meters,speed] = edges[index];
-      const distance=cost+meters, duration=seconds[edge]+meters*3.6/speed;
-      if (distance>distances[index] || (distance===distances[index] && duration>=seconds[index])) continue;
-      distances[index]=distance;
+      const duration=cost+meters*3.6/speed, distance=distances[edge]+meters;
+      if (duration>seconds[index] || (duration===seconds[index] && distance>=distances[index])) continue;
       seconds[index]=duration;
+      distances[index]=distance;
       parents[index]=edge;
-      heap.push(index,distance);
+      heap.push(index,duration);
     }
   }
   return result;
 }
 
 function calculate(graph,points) {
-  if (!Array.isArray(points) || points.length<2 || points.length>16) throw new Error("En fazla 15 ziyaret planlanabilir.");
+  if (!Array.isArray(points) || points.length<2 || points.length>26) throw new Error("En fazla 25 ziyaret planlanabilir.");
   const snaps = points.map(point => snap(graph,point));
   if (snaps[0] === null) throw new Error("Başlangıç noktası araç yoluna bağlanamadı. Yakındaki bir araç yolu üzerindeki konumu seçin.");
   const targets=snaps.slice(1), results=new Map();

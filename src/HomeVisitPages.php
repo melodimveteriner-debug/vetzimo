@@ -77,7 +77,7 @@ final class HomeVisitPages
         http_response_code($code);
         $classes=trim(($notificationSkin?'notification-center ':'').(self::$clinicPanel?'clinic-visit-panel':'').($surface?'visit-surface':''));
         echo '<!doctype html><html lang="tr"'.($palette!==''?' data-theme="'.self::e($palette).'" class="'.$classes.'"':'').'><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'.
-            '<title>'.self::e($title).' · VetZimo</title><link rel="icon" href="/favicon.ico?v=51" type="image/x-icon"><link rel="stylesheet" href="/home-visits.css?v=65"><script src="/home-visits.js?v=59" defer></script>'.
+            '<title>'.self::e($title).' · VetZimo</title><link rel="icon" href="/favicon.ico?v=51" type="image/x-icon"><link rel="stylesheet" href="/home-visits.css?v=66"><script src="/visit-live-map.js?v=1" defer></script><script src="/home-visits.js?v=62" defer></script>'.
             ($palette!==''?'<link rel="stylesheet" href="/themes.css?v=20261126-r9">':'').
             ($surface?'<link rel="stylesheet" href="/surface-themes.css?v=20261126-r5">':'').
             ($notificationSkin?'<link rel="stylesheet" href="/notification-center.css?v=53">':'').
@@ -743,14 +743,21 @@ final class HomeVisitPages
             if (isset($provinces[$id])) $covered[$provinces[$id]]=$provinces[$id];
         }
         foreach ($data as $stop) $covered[$stop['province']]=$stop['province'];
-        asort($covered);
-        return '<section data-itinerary data-stops="'.self::e(WebBuilder::json($data)).'"><h2>Harita ve rota planlama</h2>'.
+        // Hizmet bölgesi seçilmemişse (ör. yeni kurulum) 81 ilin tamamı listelenir; ilçe ve mahalleler il seçilince adres verisinden gelir.
+        $noRegions=!$regions;
+        if (!$covered) foreach ($provinces as $name) $covered[$name]=$name;
+        $trKey=static fn(string $x): string => strtr(mb_strtolower($x,'UTF-8'),['ç'=>'c~','ğ'=>'g~','ı'=>'h~','i̇'=>'i','ö'=>'o~','ş'=>'s~','ü'=>'u~']);
+        uasort($covered,static fn($a,$b)=>strcmp($trKey($a),$trKey($b)));
+        return '<section data-itinerary data-stops="'.self::e(WebBuilder::json($data)).'" data-province-ids="'.self::e(WebBuilder::json(array_flip($provinces))).'"><h2>Harita ve rota planlama</h2>'.
+            '<section class="vis-live-board" data-live-board><h3>Canlı izleme</h3><p class="state">Şu an yolda olan ekip, gittikleri adres ve kalan yol rotası. Konum yalnız personel “Yola çık”a bastığında paylaşılır; 20 saniyede bir yenilenir.</p>'.
+            '<canvas class="visit-live-map wide" data-live-canvas role="img" aria-label="Yoldaki ekiplerin haritası"></canvas><ul class="vis-live-list" data-live-list></ul></section>'.
+            ($noRegions?'<p class="state">Hizmet bölgesi seçilmemiş; tüm iller listelendi. Hizmet verdiğiniz il ve ilçeleri <a href="?gorunum=ayarlar">Hizmet, bölge ve ödeme ayarları</a> bölümünden seçin.</p>':'').
             '<p>Türkiye’deki ziyaretleri araç yolu mesafesine göre planlayın. Konumlar bu tarayıcıda işlenir.</p>'.
             ($missing?'<p class="state">'.$missing.' açık ziyaretin harita konumu eksik. Bu ziyaretler plan listesine alınamadı.</p>':'').
             '<div class="vis-actions"><button type="button" data-locate>Konumumu kullan</button>'.
             '<label>Başlangıç enlemi<input name="latitude" inputmode="decimal"></label><label>Başlangıç boylamı<input name="longitude" inputmode="decimal"></label>'.
             self::select('province','Hizmet ili',$covered,count($covered)===1?array_key_first($covered):'',false,'Tüm hizmet illeri').
-            '<label>Gün<input type="date" name="day"></label><label>İlçe / mahalle<input name="area"></label><label>Şube<input name="branch"></label>'.
+            '<label>Gün<input type="date" name="day"></label><label>İlçe / mahalle<input name="area" list="vis-area-list" autocomplete="off" placeholder="İl seçince ilçe ve mahalleler önerilir"><datalist id="vis-area-list"></datalist></label><label>Şube<input name="branch"></label>'.
             '<label>Hizmet<input name="services"></label><label>Personel kimliği<input name="person"></label>'.
             self::select('status','Durum',['open'=>'Açık ziyaretler','all'=>'Tümü']+HomeVisit::STATUS,'open').
             self::select('strategy','Sırala',['near'=>'Yol mesafesine göre','time'=>'Randevu saati','neighborhood'=>'Mahalleye göre','district'=>'İlçeye göre'],'near').
@@ -892,7 +899,9 @@ final class HomeVisitPages
             }
             if ($this->visits->staffAllowed($actor,$settings,true)&&in_array($status,['assigned','departed'],true)) {
                 // Canlı rota: konum yalnız bu ziyaret süresince paylaşılır; hasta sahibine yola çıktı / yaklaştı bildirimi.
-                $actions.='<section class="visit-live" data-live-staff data-visit="'.self::e($row['id']).'" data-status="'.self::e($status).'" data-scope="'.self::e($actor['membership_id']).'">'.
+                $dest=($this->visits->decode($row['snapshot'])['location'] ?? []);
+                $actions.='<section class="visit-live" data-live-staff data-visit="'.self::e($row['id']).'" data-status="'.self::e($status).'" data-scope="'.self::e($actor['membership_id']).'"'.
+                    (is_numeric($dest['latitude']??null)&&is_numeric($dest['longitude']??null)?' data-dest-lat="'.self::e((string)$dest['latitude']).'" data-dest-lon="'.self::e((string)$dest['longitude']).'"':'').'>'.
                     '<h3>Canlı rota</h3><p>“Yola çık”a dokunduğunuzda konumunuz yalnız bu ziyaret boyunca paylaşılır. Hasta sahibine tahmini varış süresi, yaklaştığınızda da ikinci bir bildirim gider. Tam konumunuz hasta sahibine gösterilmez.</p>'.
                     '<div class="visit-live-state" data-live-out role="status"></div><div class="visit-live-actions"><button type="button" class="button primary" data-live-start>'.($status==='departed'?'Konum paylaşımını sürdür':'Yola çık ve konumumu paylaş').'</button>'.
                     '<button type="button" class="button" data-live-arrive'.($status==='departed'?'':' hidden').'>Adrese vardım</button><button type="button" class="button secondary" data-live-stop hidden>Paylaşımı durdur</button></div></section>';
@@ -909,7 +918,7 @@ final class HomeVisitPages
             }
         }
         if (!$staff&&in_array($status,['departed','arrived'],true)) {
-            $actions.='<section class="visit-live owner" data-live-owner data-visit="'.self::e($row['id']).'"><h3>Ekibimiz yolda</h3><div class="visit-live-eta"><strong data-live-eta>—</strong><span data-live-distance></span></div><div class="visit-live-road"><i></i></div><p data-live-out role="status">Tahmini varış süresi birkaç saniye içinde görünür.</p></section>';
+            $actions.='<section class="visit-live owner" data-live-owner data-visit="'.self::e($row['id']).'"><h3>Ekibimiz yolda</h3><div class="visit-live-eta"><strong data-live-eta>—</strong><span data-live-distance></span></div><div class="visit-live-road"><i></i></div><canvas class="visit-live-map" data-live-map role="img" aria-label="Ekibin adresinize yol üzerindeki konumu" hidden></canvas><p data-live-out role="status">Tahmini varış süresi birkaç saniye içinde görünür.</p></section>';
         }
         if ((!$staff||$manager)&&in_array($status,['new','review','quoted','revision','address','payment','planning','assigned','postponed'],true)&&($payment['status']??'')!=='paid') {
             $actions.=self::button($row,'cancel','Talebi iptal et');

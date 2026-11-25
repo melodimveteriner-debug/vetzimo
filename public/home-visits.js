@@ -123,6 +123,15 @@ for(const button of document.querySelectorAll("[data-copy]")){
 }
 const board=document.querySelector("[data-itinerary]");
 if (board) {
+  // İl seçilince ilçeler, ilçe yazılınca o ilçenin mahalleleri öneri listesine gelir (adres verisi: OpenStreetMap kaynaklı yerel dosya).
+  const ids=JSON.parse(board.dataset.provinceIds||"{}"),pSel=board.querySelector("[name=province]"),areaIn=board.querySelector("[name=area]"),dl=board.querySelector("#vis-area-list");
+  let districts=new Map(),ctl=null;
+  const fetchItems=async(kind,parent)=>{ctl?.abort();ctl=new AbortController();const r=await fetch("/api/evde-hizmet/konum?"+new URLSearchParams({kind,parent}),{signal:ctl.signal});if(!r.ok)throw Error();return (await r.json()).items};
+  const fillList=names=>dl.replaceChildren(...names.map(n=>new Option(n,n)));
+  const loadDistricts=async()=>{districts=new Map();fillList([]);const id=ids[pSel?.value];if(!id)return;try{const items=await fetchItems("districts",id);districts=new Map(items.map(([v,n])=>[n,v]));fillList([...districts.keys()])}catch{}};
+  pSel?.addEventListener("change",loadDistricts);
+  areaIn?.addEventListener("change",async()=>{const d=districts.get(areaIn.value.trim());if(!d)return;try{const items=await fetchItems("neighborhoods",d);fillList([areaIn.value.trim(),...items.map(([,n])=>n)])}catch{}});
+  if(pSel?.value)loadDistricts();
   const all=JSON.parse(board.dataset.stops);
   const list=board.querySelector("[data-route-list]");
   const feedback=board.querySelector("[data-route-feedback]");
@@ -310,7 +319,7 @@ if (board) {
       let closest=-1;
       for (let i=0;i<remaining.length;i++) {
         const leg=roads[source][remaining[i].index];
-        if (leg&&(closest===-1||leg.meters<roads[source][remaining[closest].index].meters)) closest=i;
+        if (leg&&(closest===-1||leg.seconds<roads[source][remaining[closest].index].seconds)) closest=i;
       }
       if (closest===-1) return [...ordered,...remaining];
       const [next]=remaining.splice(closest,1);
@@ -327,6 +336,20 @@ if (board) {
       improved=false;
       for (let i=0;i<best.length-1;i++) for (let k=i+1;k<best.length;k++) {
         const next=[...best.slice(0,i),...best.slice(i,k+1).reverse(),...best.slice(k+1)];
+        const c=cost(next);
+        if (c+1<bestCost) { best=next; bestCost=c; improved=true; }
+      }
+    }
+    return orOpt(roads,best,cost);
+  }
+  // Or-opt: tek bir durağı rotanın başka bir yerine taşıyarak toplam süreyi kısaltır (2-opt'un kaçırdığı iyileştirmeler).
+  function orOpt(roads,order,cost) {
+    let best=order.slice(),bestCost=cost(best),improved=true,rounds=0;
+    while (improved&&rounds++<30) {
+      improved=false;
+      for (let i=0;i<best.length;i++) for (let j=0;j<best.length;j++) {
+        if (i===j) continue;
+        const rest=best.slice(0,i).concat(best.slice(i+1)), next=[...rest.slice(0,j),best[i],...rest.slice(j)];
         const c=cost(next);
         if (c+1<bestCost) { best=next; bestCost=c; improved=true; }
       }
@@ -357,7 +380,7 @@ if (board) {
   }
   function ensureWorker() {
     if (worker) return worker;
-    worker=new Worker("/visit-road-worker.js?v=49");
+    worker=new Worker("/visit-road-worker.js?v=50");
     worker.addEventListener("message",({data})=>{
       if (data.request!==active) return;
       active=0;
@@ -566,17 +589,53 @@ if (mailFeedback) {
     let watch = null, last = 0, lock = null, started = false, starting = false, poll = null;
     const show = s => { out.textContent = s.eta != null ? `Tahmini varış ~${mins(s.eta)} dk · ${km(s.distance)}${s.approaching ? " · hasta sahibine yaklaştığınız bildirildi" : ""}` : "Konum paylaşılıyor. Adres haritada işaretli değilse süre hesaplanamaz."; };
     let lastPos = null, sentPos = null;
+    // Gerçek yol mesafesi: telefonda OpenStreetMap yol ağı üzerinden adrese en hızlı rota hesaplanır (tüm Türkiye, ücretsiz).
+    // Kalan mesafe rota çizgisi üzerinden ölçülür; rotadan 250 m'den fazla sapılırsa (en fazla dakikada bir) yeniden hesaplanır.
+    const dest = {lat: Number(box.dataset.destLat), lon: Number(box.dataset.destLon)};
+    let route = null, routing = false, routedAt = 0, roadWorker = null;
+    const meters = (a, b) => { const r = 6371000, p = Math.PI / 180, x = (b.lon - a.lon) * p * Math.cos((a.lat + b.lat) * p / 2), y = (b.lat - a.lat) * p; return Math.sqrt(x * x + y * y) * r; };
+    const planRoad = from => new Promise(resolve => {
+      if (!Number.isFinite(dest.lat) || !Number.isFinite(dest.lon)) return resolve(null);
+      try {
+        roadWorker ??= new Worker("/visit-road-worker.js?v=50");
+        const id = Date.now();
+        const done = ({data}) => { if (data.request !== id) return; roadWorker.removeEventListener("message", done);
+          const leg = data.matrix?.[0]?.[0];
+          if (data.error || !leg) return resolve(null);
+          const line = leg.path.map(i => ({lat: data.positions[i][0] / 1e6, lon: data.positions[i][1] / 1e6}));
+          const tail = [0]; for (let i = line.length - 2; i >= 0; i--) tail.unshift(tail[0] + meters(line[i], line[i + 1]));
+          resolve({line, tail, meters: leg.meters, seconds: leg.seconds}); };
+        roadWorker.addEventListener("message", done);
+        roadWorker.postMessage({request: id, points: [from, dest]});
+      } catch { resolve(null); }
+    });
+    const roadLeft = pos => {
+      const here = {lat: pos.coords.latitude, lon: pos.coords.longitude};
+      if (!route) return null;
+      let best = -1, gap = Infinity;
+      for (let i = 0; i < route.line.length; i++) { const d = meters(here, route.line[i]); if (d < gap) { gap = d; best = i; } }
+      if (gap > 250) return null;
+      const left = Math.round(route.tail[best] + gap), total = Math.max(1, route.tail[0]);
+      return {roadMeters: left, roadSeconds: Math.round(route.seconds * left / total)};
+    };
+    const ensureRoute = async pos => {
+      if (routing || (route && roadLeft(pos)) || Date.now() - routedAt < 60000) return;
+      routing = true; routedAt = Date.now();
+      try { route = await planRoad({lat: pos.coords.latitude, lon: pos.coords.longitude}) || route; } finally { routing = false; }
+    };
     // İzleyiciden gelen son konum saklanır; ilk konumda rota başlar, sonra zamanlayıcı 15 sn'de bir değişen konumu gönderir.
     const send = async pos => {
       lastPos = pos;
+      ensureRoute(pos);
       if (started || starting) return;
       starting = true;
-      try { const s = await post(scope, {action: "start", ...payload(pos)}); started = true; sentPos = pos; last = Date.now(); show(s); startBtn.hidden = true; arriveBtn.hidden = false; stopBtn.hidden = false;
+      try { await Promise.race([ensureRoute(pos), new Promise(r => setTimeout(r, 8000))]);
+        const s = await post(scope, {action: "start", ...payload(pos)}); started = true; sentPos = pos; last = Date.now(); show(s); startBtn.hidden = true; arriveBtn.hidden = false; stopBtn.hidden = false;
         document.querySelector('input[name="action"][value="depart"]')?.closest("form")?.setAttribute("hidden", ""); }
       catch (e) { out.textContent = e.message; }
       finally { starting = false; }
     };
-    const payload = pos => ({visit, lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: Math.round(pos.coords.accuracy || 0), speed: pos.coords.speed ?? null});
+    const payload = pos => ({visit, lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: Math.round(pos.coords.accuracy || 0), speed: pos.coords.speed ?? null, ...(roadLeft(pos) || {})});
     const flush = async () => {
       if (!started || !lastPos || (lastPos === sentPos && Date.now() - last < 60000)) return;
       const pos = lastPos; sentPos = pos; last = Date.now();
@@ -606,13 +665,36 @@ if (mailFeedback) {
       catch (e) { out.textContent = e.message; btn.disabled = false; }
     });
   }
+  // Klinik canlı izleme: yoldaki tüm ekipler haritada (OpenStreetMap yerel yol verisi, ücretsiz).
+  const liveBoard = document.querySelector("[data-live-board]");
+  if (liveBoard && window.VZLiveMap) {
+    const canvas = liveBoard.querySelector("[data-live-canvas]"), listEl = liveBoard.querySelector("[data-live-list]");
+    let tracks = [];
+    const ago = t => { const m = Math.round((Date.now() / 1000 - t) / 60); return m < 1 ? "az önce" : m + " dk önce"; };
+    const poll = async () => {
+      try {
+        const r = await fetch("/api/evde-hizmet/canli?op=all", {credentials: "same-origin", cache: "no-store"});
+        if (!r.ok) return;
+        const d = await r.json();
+        tracks = d.tracks.map(t => ({...t, id: t.visit, label: (t.staff.trim()[0] || "•").toLocaleUpperCase("tr")}));
+        listEl.replaceChildren(...(tracks.length ? tracks.map((t, i) => { const li = document.createElement("li"); const dot = document.createElement("b"); dot.style.background = VZLiveMap.colors[i % VZLiveMap.colors.length]; dot.textContent = t.label;
+          const txt = document.createElement("span"); txt.textContent = [t.staff, t.animal, t.area].filter(Boolean).join(" · ") + (t.eta != null ? " · ~" + mins(t.eta) + " dk · " + km(t.distance || 0) : "") + (t.approaching ? " · yaklaştı bildirildi" : "") + " · konum " + ago(t.updatedAt);
+          li.append(dot, txt); return li; }) : [Object.assign(document.createElement("li"), {textContent: "Şu an yolda olan ekip yok. Personel ziyaret sayfasında “Yola çık”a bastığında burada görünür."})]));
+        await VZLiveMap.update(canvas, tracks);
+      } catch {}
+    };
+    poll(); setInterval(() => document.hidden || poll(), 20000);
+    addEventListener("resize", () => VZLiveMap.redraw(canvas, tracks));
+  }
   if (ownerBox) {
     const visit = ownerBox.dataset.visit, eta = ownerBox.querySelector("[data-live-eta]"), dist = ownerBox.querySelector("[data-live-distance]"), out = ownerBox.querySelector("[data-live-out]");
+    const map = ownerBox.querySelector("[data-live-map]");
     const tick = async () => {
       try {
         const r = await fetch("/api/evde-hizmet/canli?visit=" + encodeURIComponent(visit), {credentials: "same-origin", cache: "no-store"});
         if (!r.ok) return;
         const s = await r.json();
+        if (map && window.VZLiveMap && s.active && s.pos && s.dest) { map.hidden = false; VZLiveMap.update(map, [{id: visit, pos: s.pos, dest: s.dest, label: (s.staff || "•")[0].toLocaleUpperCase("tr")}]); } else if (map) map.hidden = true;
         if (s.active && s.eta != null) { eta.textContent = "~" + mins(s.eta) + " dk"; dist.textContent = km(s.distance); out.textContent = s.staff + (s.approaching ? " adresinize yaklaştı." : " yolda.") + " Son güncelleme " + new Date(s.updatedAt * 1000).toLocaleTimeString("tr-TR", {hour: "2-digit", minute: "2-digit"}); }
         else if (s.status === "arrived") { eta.textContent = "Ulaştı"; dist.textContent = ""; out.textContent = "Ekibimiz adresinize ulaştı."; ownerBox.querySelector(".visit-live-road")?.remove(); }
       } catch {}
