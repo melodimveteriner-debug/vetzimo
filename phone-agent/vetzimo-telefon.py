@@ -7,7 +7,7 @@
 # Kullanım:  python vetzimo-telefon.py eslestir KOD [SUNUCU]   ·   python vetzimo-telefon.py   ·   python vetzimo-telefon.py durum
 import hashlib, json, os, random, shutil, subprocess, sys, time, urllib.error, urllib.request
 
-VERSION = "1.3.0"
+VERSION = "1.3.1"
 HOME = os.environ.get("VZ_PHONE_HOME") or os.path.join(os.path.expanduser("~"), ".vetzimo-telefon")
 CONFIG = os.path.join(HOME, "config.json")
 STATE = os.path.join(HOME, "durum.json")
@@ -63,6 +63,18 @@ def termux(name, *args, timeout=60, stdin=None):
     done = subprocess.run([command, *args], capture_output=True, text=True, timeout=timeout, input=stdin)
     if done.returncode != 0:
         raise RuntimeError((done.stderr or done.stdout or name + " hata verdi").strip()[:300])
+    # Termux:API izin hatalarını çıkış kodu 0 ile, JSON {"error": "..."} olarak döndürür.
+    out = done.stdout.strip()
+    if out.startswith("{") and '"error"' in out:
+        try:
+            err = json.loads(out).get("error", "")
+        except ValueError:
+            err = out
+        if err:
+            if "permission" in str(err).lower():
+                raise RuntimeError("Termux:API izni eksik (" + ", ".join(p.split(".")[-1] for p in str(err).replace(" ", "").split(":")[-1].split(",")) + "). "
+                                   "Ayarlar › Uygulamalar › Termux:API › İzinler'den SMS ve Telefon iznini açın (gerekirse önce ⋮ › Kısıtlanmış ayarlara izin ver).")
+            raise RuntimeError(str(err)[:300])
     return done.stdout
 
 
