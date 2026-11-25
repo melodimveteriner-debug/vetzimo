@@ -23,7 +23,7 @@ final class ClinicAccess
         'webSite'=>'Web sitesi oluşturucu','onlineBooking'=>'Web randevu','vebot'=>'VeBot asistan','voice'=>'Sesli komut',
         'xray'=>'Röntgen yapay zekâ yorumu','dicom'=>'DICOM görüntüleyici','labAi'=>'Laboratuvar yorum desteği','calculators'=>'Klinik hesaplayıcılar',
         'taskBoard'=>'İş takibi panosu','commission'=>'Prim raporu','debtReminders'=>'Borç hatırlatma','bulkPrice'=>'Toplu fiyat ve Excel',
-        'invoiceImport'=>'Faturadan stok','okc'=>'Yazar kasa (ÖKC)',
+        'invoiceImport'=>'Faturadan stok','okc'=>'Yazar kasa (ÖKC)','devices'=>'Cihaz entegrasyonu (laboratuvar ve görüntüleme)',
     ];
     /** Hasta sahibi portalında gösterilebilecek bölümler. Yeni bölümler (evden takip, borç, belgeler) varsayılan olarak açıktır. */
     public const CUSTOMER_SECTIONS = ['vaccines','appointments','shares','exam','lab','xray','homeCare','balance','documents'];

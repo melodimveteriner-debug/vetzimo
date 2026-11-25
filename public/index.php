@@ -12,7 +12,7 @@ use VetNet\Cpanel\SessionRepository;
 
 require_once dirname(__DIR__).'/src/StaffPlan.php';
 
-foreach (['AppHub','AppPush','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','SaasPayment','DealerAgreement','CenterAnalytics','ClinicAlerts','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','TeamTotp','WebInbox','MinistryBridge','SiteLegal','OmniInbox','PhoneGateway','ClientPermit','PrintTemplates','Support','Commerce','Appearance'] as $class) {
+foreach (['AppHub','AppPush','DeviceHub','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','SaasPayment','DealerAgreement','CenterAnalytics','ClinicAlerts','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','TeamTotp','WebInbox','MinistryBridge','SiteLegal','OmniInbox','PhoneGateway','ClientPermit','PrintTemplates','Support','Commerce','Appearance'] as $class) {
     require_once dirname(__DIR__) . '/src/' . $class . '.php';
 }
 
@@ -792,6 +792,47 @@ try {
             throw $error;
         }
     }
+    if (preg_match('~\A/api/clinic/devices(?:/(inbox|patient|file|upload))?(?:/([A-Za-z0-9_-]{1,80}))?\z~D',$path,$deviceRoute)) {
+        // Cihaz entegrasyonu: cihaz listesi, gelen sonuçlar, eşleştirme, tetkik olarak ekleme, dosya.
+        $actor=(new VetNet\Cpanel\Commerce($db))->packageActor($identity->actor($_COOKIE,$now));
+        if (!in_array($actor['role'],['dealer','branch','staff'],true) || !VetNet\Cpanel\ClinicAccess::allowed($actor,'labs')) throw new RuntimeException('Tetkik yetkiniz yok.',403);
+        requireFeature($actor,'devices',$method==='POST');
+        $hub=new VetNet\Cpanel\DeviceHub($db);
+        $sub=$deviceRoute[1]??'';
+        if ($method==='GET') {
+            if ($sub==='inbox') reply($hub->inbox($actor,(string)($_GET['state']??'pending')));
+            if ($sub==='patient') reply($hub->forPatient($actor,(string)($deviceRoute[2]??'')));
+            if ($sub==='file') {
+                $file=$hub->file($actor,(string)($deviceRoute[2]??''));
+                header('Content-Type: '.$file['type']); header('Content-Length: '.$file['size']);
+                header('Content-Disposition: inline; filename*=UTF-8\'\''.rawurlencode($file['name']));
+                header('Cache-Control: private, max-age=3600'); header('X-Content-Type-Options: nosniff');
+                header("Content-Security-Policy: default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox");
+                $hub->streamFile($file['id']); exit;
+            }
+            reply(['devices'=>$hub->devices($actor['partner_id']),'agent'=>$hub->agentState($actor['partner_id'],$now)]+$hub->inbox($actor,'pending',1));
+        }
+        if (!hash_equals($actor['membership_id'],$_SERVER['HTTP_X_VETNET_SCOPE'] ?? '')) throw new RuntimeException('Çalışma alanı oturumu değişti.',409);
+        if ($sub==='upload') {
+            // Elle yüklenen DICOM, PDF veya görüntü 4 MB'lık parçalarla gelir (ajanla aynı depolama).
+            if ((int)($_SERVER['CONTENT_LENGTH']??0)>VetNet\Cpanel\DeviceHub::CHUNK) throw new RuntimeException('Parça çok büyük.',413);
+            $bytes=(string)file_get_contents('php://input',false,null,0,VetNet\Cpanel\DeviceHub::CHUNK+1);
+            reply($hub->agentChunk(['partner_id'=>$actor['partner_id']],(string)($_SERVER['HTTP_X_UPLOAD_ID']??''),(int)($_SERVER['HTTP_X_CHUNK_INDEX']??-1),
+                (int)($_SERVER['HTTP_X_CHUNK_TOTAL']??0),rawurldecode((string)($_SERVER['HTTP_X_FILE_NAME']??'sonuc')),(string)($_SERVER['HTTP_X_FILE_TYPE']??''),$bytes,$now));
+        }
+        $body=input(900000);
+        $action=$body->action??'';
+        if (in_array($action,['save','remove'],true) && !in_array($actor['role'],['dealer','branch'],true)) throw new RuntimeException('Cihaz ayarlarını yalnız yöneticiler değiştirebilir.',403);
+        reply(match($action){
+            'save'=>['devices'=>$hub->save($actor,$body,$now)],
+            'remove'=>['devices'=>$hub->remove($actor,(string)($body->id??''))],
+            'resolve'=>$hub->resolve($actor,$body,$now),
+            'claim'=>$hub->claimMatched($actor),
+            'imported'=>$hub->imported($actor,$body,$now),
+            'manual'=>$hub->manualUpload($actor,$body,$now),
+            default=>throw new RuntimeException('İşlem geçersiz.',422),
+        });
+    }
     if ($path==='/api/clinic/alerts' && in_array($method,['GET','POST'],true)) {
         // Sağ üst bildirimler ve zil paneli: mesajlar, onaylar, sorunlu işler; tamamlananlar kişi bazında gizlenir.
         $actor=(new VetNet\Cpanel\Commerce($db))->packageActor($identity->actor($_COOKIE,$now));
@@ -858,6 +899,16 @@ try {
         $actor=(new VetNet\Cpanel\Commerce($db))->packageActor($actor);
         reply($identity->examPhotos($actor,$examRoute[1],$method==='POST'?input(2800000):null));
     }
+    if ($path==='/api/bridge/agent/device-file' && $method==='POST') {
+        // Cihaz dosyası (DICOM, PDF, görüntü) ajanından 4 MB'lık parçalar halinde gelir.
+        $auth=(string)($_SERVER['HTTP_AUTHORIZATION']??$_SERVER['REDIRECT_HTTP_AUTHORIZATION']??'');
+        if ($auth==='' && is_string($_SERVER['HTTP_X_BRIDGE_TOKEN']??null)) $auth='Bearer '.$_SERVER['HTTP_X_BRIDGE_TOKEN'];
+        $agent=(new VetNet\Cpanel\MinistryBridge($db))->agentAuth($auth);
+        if ((int)($_SERVER['CONTENT_LENGTH']??0)>VetNet\Cpanel\DeviceHub::CHUNK) throw new RuntimeException('Parça çok büyük.',413);
+        $bytes=(string)file_get_contents('php://input',false,null,0,VetNet\Cpanel\DeviceHub::CHUNK+1);
+        reply((new VetNet\Cpanel\DeviceHub($db))->agentChunk($agent,(string)($_SERVER['HTTP_X_UPLOAD_ID']??''),(int)($_SERVER['HTTP_X_CHUNK_INDEX']??-1),
+            (int)($_SERVER['HTTP_X_CHUNK_TOTAL']??0),rawurldecode((string)($_SERVER['HTTP_X_FILE_NAME']??'sonuc')),(string)($_SERVER['HTTP_X_FILE_TYPE']??''),$bytes,$now));
+    }
     if (str_starts_with($path,'/api/bridge/agent/') && $method==='POST') {
         // Bakanlık köprüsü ajanı: çerez değil, eşleştirmede verilen anahtarla (Bearer) konuşur.
         $bridge=new VetNet\Cpanel\MinistryBridge($db);
@@ -880,6 +931,9 @@ try {
                 'recipe'=>$bridge->saveRecipe($agent,$body,$now),
                 'recipes'=>$bridge->recipes($agent),
                 // Aynı ajan, klinik izin verdiyse WhatsApp Web üzerinden kliniğin kendi numarasıyla mesaj gönderir.
+                'devices'=>(new VetNet\Cpanel\DeviceHub($db))->agentDevices($agent,$now),
+                'device-result'=>(new VetNet\Cpanel\DeviceHub($db))->agentResult($agent,$body,$now),
+                'device-error'=>(new VetNet\Cpanel\DeviceHub($db))->agentError($agent,$body),
                 'wa-sync'=>(new VetNet\Cpanel\PhoneGateway($db))->waSync($agent,$body,$now,new VetNet\Cpanel\OmniInbox($db,(string)($config['encryptionKey'] ?? ''),$origin)),
                 default=>throw new RuntimeException('İşlem bulunamadı.',404),
             });

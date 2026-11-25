@@ -12,7 +12,7 @@ use PDO;
  */
 final class ClinicAlerts
 {
-    private const KINDS = ['inbox', 'permit', 'job', 'phone', 'web', 'subscription'];
+    private const KINDS = ['inbox', 'permit', 'job', 'phone', 'web', 'subscription', 'device'];
 
     public function __construct(private readonly PDO $db) {}
 
@@ -73,6 +73,13 @@ final class ClinicAlerts
                 $items[] = ['key' => 'web:'.$r['id'], 'kind' => 'web', 'tone' => 'info', 'title' => 'Web sitesi mesajı',
                     'body' => trim((string)($m['name'] ?? '').' · '.mb_substr((string)($m['body'] ?? ''), 0, 120)), 'href' => '#web-mesajlari', 'time' => (int)$r['t'], 'auto' => true];
             }
+        });
+        if (ClinicAccess::feature($actor, 'devices') && ClinicAccess::allowed($actor, 'labs')) $safe(function () use (&$items, $partner) {
+            $q = $this->db->prepare("SELECT COUNT(*) n,MAX(received_at) t FROM clinic_device_result WHERE partner_id=? AND status='pending'");
+            $q->execute([$partner]);
+            $r = $q->fetch(PDO::FETCH_ASSOC);
+            if ((int)$r['n'] > 0) $items[] = ['key' => 'device:'.$r['t'].':'.$r['n'], 'kind' => 'device', 'tone' => 'warn', 'title' => 'Eşleşmeyen cihaz sonucu',
+                'body' => $r['n'].' tetkik sonucu hastaya bağlanmayı bekliyor. Aynı adlı hastalardan doğru olanı seçin.', 'href' => '#cihaz-entegrasyonu', 'time' => (int)$r['t'], 'auto' => true];
         });
         if (($actor['role'] ?? '') === 'dealer') $safe(function () use (&$items, $partner, $now) {
             $day = (new \DateTimeImmutable('@'.$now))->setTimezone(new \DateTimeZone('Europe/Istanbul'));

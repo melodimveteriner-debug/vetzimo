@@ -11,8 +11,9 @@ import crypto from "node:crypto";
 import {fileURLToPath} from "node:url";
 import {chromium} from "playwright-core";
 import {createWhatsApp} from "./whatsapp.mjs";
+import {createDevices} from "./devices.mjs";
 
-const VERSION = "1.2.0";
+const VERSION = "1.3.0";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const HOME = process.env.VZ_BRIDGE_HOME || path.join(process.env.APPDATA || path.join(os.homedir(), ".config"), "VetZimoKopru");
 const PORT = Number(process.env.VZ_BRIDGE_PORT || 5199);
@@ -295,6 +296,26 @@ async function waTick() {
   catch (e) { if (e.status === 401) { log("Ajan erişimi kaldırılmış; yeniden eşleştirin."); config.token = ""; saveConfig(); } }
 }
 setInterval(waTick, Number(process.env.VZ_WA_TICK_MS || 20000));
+// Laboratuvar ve görüntüleme cihazları: klinik panelinde eklenen cihazlar dinlenir, sonuçlar sunucuda hastayla eşleşir.
+async function uploadChunk(id, index, total, name, type, bytes) {
+  const headers = {"Content-Type": "application/octet-stream", "X-Upload-Id": id, "X-Chunk-Index": String(index), "X-Chunk-Total": String(total), "X-File-Name": encodeURIComponent(name), "X-File-Type": type};
+  if (config.token) { headers.Authorization = "Bearer " + config.token; headers["X-Bridge-Token"] = config.token; }
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const res = await fetch(config.server.replace(/\/$/, "") + "/api/bridge/agent/device-file", {method: "POST", headers, body: bytes}).catch(e => ({ok: false, status: 0, json: async () => ({error: e.message})}));
+    if (res.ok) return res.json();
+    if (res.status && res.status < 500) { const d = await res.json().catch(() => ({})); throw new Error(d.error || "Dosya yüklenemedi " + res.status); }
+    await new Promise(r => setTimeout(r, 2000 * (attempt + 1)));
+  }
+  throw new Error("Dosya yüklenemedi (bağlantı)");
+}
+const devices = createDevices({api, upload: uploadChunk, home: HOME, log});
+async function deviceTick() {
+  if (!config.token) return;
+  try { await devices.refresh(); }
+  catch (e) { if (e.status === 401) { devices.stopAll(); log("Ajan erişimi kaldırılmış; yeniden eşleştirin."); config.token = ""; saveConfig(); } }
+}
+setInterval(deviceTick, Number(process.env.VZ_DEVICE_TICK_MS || 30000));
+setTimeout(deviceTick, 3000);
 setTimeout(waTick, 4000);
 // Oturum yaklaşık saatte bir sessizce denetlenir (Bakanlık oturumu zamanla düşer).
 setInterval(() => { if (config.token && !state.busy && !state.teach && !loginRunning) checkSession(); }, 60 * 60 * 1000);
@@ -365,7 +386,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "GET" && url.pathname === "/durum") {
       return send(res, 200, {version: VERSION, paired: !!config.token, server: config.server, name: config.name, ministryUrl: config.ministryUrl,
         online: state.online, ministry: state.ministry, queued: state.queued, current: state.current, lastError: state.lastError, login: loginRunning,
-        recipes: Object.keys(recipes), whatsapp: whatsapp.state(), portals: Object.fromEntries(["gib", "efatura", "esmm"].map(p => [p, {url: config.portals[p] || "", state: state.portals[p]}])), teach: state.teach ? {kind: state.teach.kind, steps: state.teach.steps, closed: !!state.teach.closed} : null, logs: logs.slice(-60)});
+        recipes: Object.keys(recipes), whatsapp: whatsapp.state(), devices: devices.status(), portals: Object.fromEntries(["gib", "efatura", "esmm"].map(p => [p, {url: config.portals[p] || "", state: state.portals[p]}])), teach: state.teach ? {kind: state.teach.kind, steps: state.teach.steps, closed: !!state.teach.closed} : null, logs: logs.slice(-60)});
     }
     if (req.method === "GET" && url.pathname === "/gunluk") return send(res, 200, logs.join("\n"), "text/plain");
     if (req.method !== "POST") return send(res, 404, {error: "Bulunamadı"});

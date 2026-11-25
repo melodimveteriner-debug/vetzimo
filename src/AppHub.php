@@ -311,7 +311,7 @@ final class AppHub
         $members = $this->q("SELECT DISTINCT m.* ,a.kind FROM app_device d JOIN identity_membership m ON m.account_id=d.account_id AND m.status='active' AND m.role IN ('dealer','branch','staff')
             JOIN identity_account a ON a.id=m.account_id AND a.blocked=0 JOIN partner_account p ON p.id=m.partner_id AND p.active=1
             WHERE d.revoked_at IS NULL AND d.seen_at>? LIMIT 5000", [$now - 90 * 86400])->fetchAll();
-        $map = ['inbox' => 'messages', 'web' => 'messages', 'permit' => 'patients', 'job' => 'system', 'phone' => 'system', 'subscription' => 'payments'];
+        $map = ['inbox' => 'messages', 'web' => 'messages', 'permit' => 'patients', 'job' => 'system', 'phone' => 'system', 'subscription' => 'payments', 'device' => 'labs'];
         $alerts = new ClinicAlerts($this->db);
         $commerce = new Commerce($this->db);
         $policies = $this->policies();

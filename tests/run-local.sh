@@ -23,6 +23,8 @@ fresh test_triage empty;  run homecare-triage.php env VETNET_TEST_DSN='mysql:hos
 command -v node >/dev/null && run homecare-triage.mjs node tests/homecare-triage.mjs
 command -v node >/dev/null && run xray-rules.mjs node tests/xray-rules.mjs
 command -v node >/dev/null && run voice-clinical.mjs node tests/voice-clinical.mjs
+command -v node >/dev/null && run device-parsers.mjs node tests/device-parsers.mjs
+command -v node >/dev/null && run device-agent.mjs node tests/device-agent.mjs
 command -v node >/dev/null && run vet-knowledge.mjs node tests/vet-knowledge.mjs
 fresh test_visit empty;    run home-visit.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_visit' php tests/home-visit.php
 fresh test_staff empty;    run staff-booking.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_staff' php tests/staff-booking.php
@@ -43,6 +45,7 @@ fresh test_saas empty;     run saas-payment.php env VETNET_TEST_DSN='mysql:host=
 fresh test_agree empty;    run dealer-agreement.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_agree' php tests/dealer-agreement.php
 fresh test_alert empty;    run clinic-alerts.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_alert' php tests/clinic-alerts.php
 fresh test_apphub empty;  run app-hub.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_apphub' php tests/app-hub.php
+fresh test_dev empty;     run device-hub.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_dev' php tests/device-hub.php
 fresh test_center empty;   run center.php  env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_center' php tests/center.php
 if command -v node >/dev/null; then
   fx=$(mktemp); node tests/finance-fixtures.mjs "$fx" >/dev/null 2>&1 && run finance.php php tests/finance.php "$fx"; rm -f "$fx"
