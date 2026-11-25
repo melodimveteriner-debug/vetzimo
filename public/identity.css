@@ -247,3 +247,7 @@ main:has(.owner-dashboard){max-width:1050px}
 .owner-consent[data-status=signed]{border-inline-start-color:#059669}.owner-consent[data-status=declined]{border-inline-start-color:#dc2626}
 .owner-consent>div{display:grid;gap:2px;min-width:0;flex:1}.owner-consent span{opacity:.75;font-size:.88rem}
 .homecare-flag dd{color:#b91c1c;font-weight:700}
+.center-subtabs{display:flex;gap:6px;overflow-x:auto;scrollbar-width:thin;padding:2px 0 10px}
+.center-subtabs a{flex:0 0 auto;padding:7px 14px;border-radius:999px;border:1px solid var(--admin-line,#e5e7eb);background:var(--admin-card,#fff);color:var(--admin-ink,inherit);text-decoration:none;font-size:.88rem;font-weight:600;transition:transform .2s}
+.center-subtabs a:hover{transform:translateY(-1px)}
+.center-suite .center-subtabs a[aria-current=page],.center-subtabs a[aria-current=page]{background:linear-gradient(115deg,var(--theme-primary,var(--admin-brand,#6a3df0)),var(--theme-secondary,#c4306e));border-color:transparent;color:#fff!important}

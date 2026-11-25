@@ -80,6 +80,7 @@ export function mountSettingsHub(root, ctx) {
     const a = h("a", "sh-card", null, {href: INLINE.has(route) ? "#ayarlar?sekme=" + ROUTE_GROUP[route] + "&bolum=" + route : "#" + route});
     a.append(h("strong", "", tr(title)), h("span", "", tr(desc)));
     if (INLINE.has(route)) a.addEventListener("click", e => { e.preventDefault(); openInline(route, title); });
+    else a.addEventListener("click", () => { try { sessionStorage.setItem("vz-sh", "1"); } catch {} });
     return a;
   };
   function openInline(route, title) {
@@ -128,7 +129,9 @@ export function settingsCrumb(route, main, ctx) {
   top.append(h("a", "", "← " + tr("Ayarlar"), {href: "#ayarlar?sekme=" + g}), h("span", "", "›"), h("strong", "", tr(label)));
   const tabs = h("div", "sh-crumb-tabs");
   items.filter(([r]) => INLINE.has(r) ? false : ctx.allowed(r)).forEach(([r, t]) => {
-    const a = h("a", r === route ? "on" : "", tr(t), {href: "#" + r}); if (r === route) a.setAttribute("aria-current", "page"); tabs.append(a);
+    const a = h("a", r === route ? "on" : "", tr(t), {href: "#" + r}); if (r === route) a.setAttribute("aria-current", "page");
+    a.addEventListener("click", () => { try { sessionStorage.setItem("vz-sh", "1"); } catch {} });
+    tabs.append(a);
   });
   bar.append(top, tabs);
   const nav = main.querySelector(":scope > .module-nav");

@@ -52,9 +52,10 @@ export async function mountCenterSuite(ui,session){
  nav.append(el('p','VetZimo Yönetim',{className:'center-kicker'}),el('small','Merkez paneli · R20'));
  const groups=[
   ['Çalışma alanı',['genel','analiz','bayiler','paketler','abonelikler','basvurular']],
-  ['Finans',['muhasebe','satislar','tahsilatlar','raporlar','odemeler','odeme-kanallari','magaza-banka']],
+  ['Finans',['muhasebe','satislar','tahsilatlar','raporlar','odemeler']],
   ['Satış sitesi ve yayınlar',['site','yasal','duyurular','reklam','degisiklikler','evde-hizmet']],
-  ['Ayarlar ve destek',[]]
+  ['Uygulamalar ve destek',['uygulamalar','destek','bildirimler']],
+  ['Ayarlar',[]]
  ];
  const assigned=groups.flatMap(([,keys])=>keys);
  for(const [label,keys] of groups){
@@ -91,7 +92,13 @@ export async function mountCenterSuite(ui,session){
   });
   return b;
  };
- main.append(top,content);
+ // Bulunulan grubun sayfaları üstte sekme olarak: sayfalar arası geçiş tek dokunuş.
+ const currentGroup=groups.find(([,keys])=>keys.includes(tab[0]))||groups.find(([,keys])=>!keys.length);
+ const groupKeys=currentGroup[1].length?currentGroup[1]:tabs.map(([key])=>key).filter(key=>!assigned.includes(key));
+ const subtabs=el('nav','',{className:'center-subtabs'});
+ subtabs.setAttribute('aria-label',currentGroup[0]);
+ for(const key of groupKeys){const m=tabs.find(entry=>entry[0]===key);if(!m)continue;const a=el('a',m[1],{href:url(key)});if(key===tab[0])a.setAttribute('aria-current','page');subtabs.append(a);}
+ main.append(top,...(groupKeys.length>1?[subtabs]:[]),content);
  shell.append(sidebar,main);
  view.append(shell,status);
  function visitPackages(){

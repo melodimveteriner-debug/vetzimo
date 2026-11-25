@@ -239,3 +239,7 @@ main:has(.owner-dashboard){max-width:1050px}
 .owner-lab-table td:first-child{white-space:normal}
 .owner-lab-table tr.is-high td:last-child{color:#c03147;font-weight:700}
 .owner-lab-table tr.is-low td:last-child{color:#1f6fb2;font-weight:700}
+.center-subtabs{display:flex;gap:6px;overflow-x:auto;scrollbar-width:thin;padding:2px 0 10px}
+.center-subtabs a{flex:0 0 auto;padding:7px 14px;border-radius:999px;border:1px solid var(--admin-line,#e5e7eb);background:var(--admin-card,#fff);color:var(--admin-ink,inherit);text-decoration:none;font-size:.88rem;font-weight:600;transition:transform .2s}
+.center-subtabs a:hover{transform:translateY(-1px)}
+.center-suite .center-subtabs a[aria-current=page],.center-subtabs a[aria-current=page]{background:linear-gradient(115deg,var(--theme-primary,var(--admin-brand,#6a3df0)),var(--theme-secondary,#c4306e));border-color:transparent;color:#fff!important}
