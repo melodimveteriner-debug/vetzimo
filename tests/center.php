@@ -18,7 +18,7 @@ $auth=$center->login($input,'192.0.2.20',$now);good($auth!==null,'Center login f
 good($center->login($input,'192.0.2.20',$now)===null,'Login code replay accepted');
 $cookies=[SessionRepository::SESSION_COOKIE=>$auth['token'],SessionRepository::DEVICE_COOKIE=>$auth['device']];$actor=$center->requireOwner($cookies,$now,true);
 $created=$center->create($actor,(object)['name'=>'Second Clinic','phone'=>'05551000021','email'=>'second@example.test'],$now);
-$identity=new IdentityApi($db);$identity->redeem((object)['token'=>explode('/',$created['link'])[2],'password'=>'Second-password-42'],$now);
+$identity=new IdentityApi($db);$identity->redeem((object)['token'=>explode('/',$created['link'])[2],'password'=>'Second-password-42','agreement'=>(object)['accepted'=>true,'name'=>'Test Yetkili','signature'=>'data:image/png;base64,'.base64_encode("\x89PNG\r\n\x1a\n".str_repeat("\0",300))]],$now);
 $dealer=(new DealerLogin($db,$config['rateSecret']))->signIn('05551000021','Second-password-42','192.0.2.21',$now);
 $dealerCookies=[SessionRepository::SESSION_COOKIE=>$dealer['token'],SessionRepository::DEVICE_COOKIE=>$dealer['device']];
 denied(fn()=>$center->requireOwner($dealerCookies,$now));

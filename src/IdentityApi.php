@@ -197,13 +197,24 @@ final class IdentityApi
             return ['status'=>'email_failed','link'=>$link];
         }
     }
+    /** Aktivasyon bağlantısı ön bilgisi: hesap türü ve imzalanması gereken sözleşme. Bağlantıyı tüketmez. */
+    public function activationInfo(string $token,int $now): array
+    {
+        if(!preg_match('/\A[a-f0-9]{64}\z/',$token)) throw new RuntimeException('Bağlantı geçersiz veya süresi dolmuş.',422);
+        $q=$this->db->prepare("SELECT m.role,m.partner_id,p.name FROM identity_activation t JOIN identity_membership m ON m.id=t.membership_id JOIN partner_account p ON p.id=m.partner_id WHERE token_hash=? AND t.used=0 AND t.expires>? AND m.status='pending' AND p.active=1");
+        $q->execute([hash('sha256',$token),$now]); $row=$q->fetch();
+        if(!$row) throw new RuntimeException('Bağlantı geçersiz veya süresi dolmuş.',422);
+        $agreement=new DealerAgreement($this->db);
+        $required=$row['role']==='dealer' && !$agreement->signed($row['partner_id']);
+        return ['role'=>$row['role'],'clinic'=>$row['name'],'agreementRequired'=>$required,'agreement'=>$required?$agreement->current():null];
+    }
     public function redeem(object $input,int $now): void
     {
         $token=$input->token ?? '';
         if(!is_string($token)||!preg_match('/\A[a-f0-9]{64}\z/',$token)) throw new RuntimeException('Bağlantı geçersiz veya süresi dolmuş.',422);
         $this->db->beginTransaction();
         try {
-            $q=$this->db->prepare("SELECT t.*,m.account_id,m.status,m.partner_id,a.password_hash,a.blocked FROM identity_activation t JOIN identity_membership m ON m.id=t.membership_id JOIN identity_account a ON a.id=m.account_id JOIN partner_account p ON p.id=m.partner_id WHERE token_hash=? AND t.used=0 AND t.expires>? AND m.status='pending' AND a.blocked=0 AND p.active=1 FOR UPDATE");
+            $q=$this->db->prepare("SELECT t.*,m.account_id,m.status,m.partner_id,m.role AS member_role,a.password_hash,a.blocked FROM identity_activation t JOIN identity_membership m ON m.id=t.membership_id JOIN identity_account a ON a.id=m.account_id JOIN partner_account p ON p.id=m.partner_id WHERE token_hash=? AND t.used=0 AND t.expires>? AND m.status='pending' AND a.blocked=0 AND p.active=1 FOR UPDATE");
             $q->execute([hash('sha256',$token),$now]); $row=$q->fetch();
             if(!$row) throw new RuntimeException('Bağlantı geçersiz veya süresi dolmuş.',422);
             if($row['password_hash']) {
@@ -213,6 +224,11 @@ final class IdentityApi
                 $password=$input->password ?? '';
                 if(!is_string($password)||strlen($password)<12||strlen($password)>512) throw new RuntimeException('En az 12 karakterli bir şifre belirleyin.',422);
                 $this->db->prepare('UPDATE identity_account SET password_hash=?,verified_at=?,version=version+1 WHERE id=?')->execute([password_hash($password,PASSWORD_ARGON2ID),$now,$row['account_id']]);
+            }
+            // Bayi (deneme dahil) hesabı, VetZimo Kullanım Sözleşmesi imzalanmadan açılmaz.
+            $agreement=new DealerAgreement($this->db);
+            if ($row['member_role']==='dealer' && !$agreement->signed($row['partner_id'])) {
+                $agreement->sign($row['partner_id'],$row['account_id'],$input->agreement ?? null,(string)($_SERVER['REMOTE_ADDR'] ?? ''),(string)($_SERVER['HTTP_USER_AGENT'] ?? ''),$now);
             }
             $this->db->prepare("UPDATE identity_membership SET status='active' WHERE id=?")->execute([$row['membership_id']]);
             $this->db->prepare('UPDATE identity_activation SET used=1 WHERE token_hash=?')->execute([hash('sha256',$token)]);

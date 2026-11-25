@@ -198,8 +198,10 @@ function login(mode="login") {
     if (activation) fields.push(password("currentPassword",uiLabel("Mevcut VetZimo hesabınızın şifresi"),"current-password",false));
     if (center) fields.push(otp);
   }
+  let agreement=null;
   const form=makeForm(fields,mode==="recover"?uiLabel("Yenileme isteği gönder"):mode==="redeem"?uiLabel("Onayla"):uiText("signIn"),async (data,form)=>{
     if (mode==="redeem") data.token=fragment[1];
+    if (agreement) data.agreement=agreement.value();
     if (!center && mode==="login") data.returnTo=new URLSearchParams(location.search).get("donus")||"";
     let result;
     try { result=await api(kind+"/"+mode,data); }
@@ -234,6 +236,20 @@ function login(mode="login") {
     else status.textContent="Bu telefon için aktif kurum yetkisi bulunamadı. Bayi yöneticinize başvurun.";
   });
   view.append(form,status);
+  // Bayi aktivasyonu: VetZimo Kullanım Sözleşmesi imzalanmadan hesap (deneme dahil) açılmaz.
+  if (activation && !center) {
+    fetch("/api/identity/phone/activation?token="+encodeURIComponent(fragment[1]||"")).then(r=>r.ok?r.json():null).then(async info=>{
+      if (!info?.agreementRequired || !form.isConnected) return;
+      const {agreementPanel}=await import("./agreement-ui.js?v=2");
+      agreement=agreementPanel({agreement:info.agreement,tr:uiLabel,acceptLabel:"Şifrenizi belirleyip “Onayla” dediğinizde sözleşme imzalanır ve hesabınız açılır.",onReject:()=>{
+        agreement=null;
+        view.replaceChildren(el("h1",uiLabel("Hesabınız açılmadı")),el("p",uiLabel("VetZimo Kullanım Sözleşmesi onaylanmadığı için bayi hesabınız (deneme dahil) açılmadı. Aynı bağlantıyla süresi dolmadan dilediğiniz zaman geri dönüp onaylayabilirsiniz.")),(()=>{const again=el("button",uiLabel("Sözleşmeyi yeniden incele"),{type:"button",className:"button"});again.addEventListener("click",()=>login("redeem"));return again})());
+      }});
+      form.before(agreement.node);
+      const submit=form.querySelector('[type="submit"]');
+      if (submit) submit.textContent=uiLabel("Kabul ediyorum, imzala ve hesabımı aç");
+    }).catch(()=>{});
+  }
   if (!center && mode==="login") {
     const phone=form.elements.phone;
     const hint=el("small",uiLabel("Cep telefonu numaranız kullanıcı adınızdır."),{id:"phone-username-hint",className:"access-phone-hint"});

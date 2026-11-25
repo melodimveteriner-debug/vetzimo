@@ -14,12 +14,14 @@ final class SiteLegal
         'gizlilik-politikasi' => 'Gizlilik Politikası',
         'kullanim-sartlari' => 'Kullanım Şartları',
         'cerez-politikasi' => 'Çerez Politikası',
+        'kullanim-sozlesmesi' => 'VetZimo Kullanım Sözleşmesi',
     ];
     public const SHORT = [
         'kvkk-aydinlatma' => 'KVKK Aydınlatma',
         'gizlilik-politikasi' => 'Gizlilik Politikası',
         'kullanim-sartlari' => 'Kullanım Şartları',
         'cerez-politikasi' => 'Çerez Politikası',
+        'kullanim-sozlesmesi' => 'Kullanım Sözleşmesi',
     ];
     public const COMPANY_FIELDS = [
         'marka' => ['Marka', 120], 'unvan' => ['Ticaret unvanı', 200], 'adres' => ['Adres', 300],

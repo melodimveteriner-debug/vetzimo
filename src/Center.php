@@ -252,10 +252,10 @@ final class Center
             $this->db->prepare("INSERT INTO identity_membership(id,account_id,partner_id,role,name,modules,status) VALUES (?,?,?,'dealer',?,'{}','pending')")->execute([$member,$account,$partner,$name]);
             (new WorkspaceRepository($this->db))->save('partner:'.$partner, 0, $state);
             $token=bin2hex(random_bytes(32));
-            $this->db->prepare('INSERT INTO identity_activation(token_hash,membership_id,expires) VALUES (?,?,?)')->execute([hash('sha256',$token),$member,$now+900]);
+            $this->db->prepare('INSERT INTO identity_activation(token_hash,membership_id,expires) VALUES (?,?,?)')->execute([hash('sha256',$token),$member,$now+259200]);
             $this->audit($actor['account_id'],'partner.created',$partner);
             if ($ownsTransaction) $this->db->commit();
-            return ['id'=>$partner,'link'=>'/app#aktivasyon/'.$token];
+            return ['id'=>$partner,'link'=>'/app#aktivasyon/'.$token,'name'=>$name,'phone'=>$phone,'email'=>$email];
         } catch(\Throwable $e){if ($ownsTransaction) $this->db->rollBack();throw $e;}
     }
     public function toggle(array $actor,object $input,int $now): void
@@ -272,5 +272,14 @@ final class Center
     public function audit(string $account,string $action,string $target=''): void
     {
         $this->db->prepare('INSERT INTO center_audit(account_id,action,target_id) VALUES (?,?,?)')->execute([$account,$action,$target]);
+    }
+
+    /** Bayi hoş geldin mesajı: kullanıcı adı (telefon), tek kullanımlık bağlantı (şifre belirleme + sözleşme imzası). */
+    public static function welcomeText(string $name, string $phone, string $url): string
+    {
+        $local='0'.substr(preg_replace('/\D/','',$phone),-10);
+        return "VetZimo'ya hoş geldiniz, ".$name."!\n\nKullanıcı adınız: ".$local." (cep telefonunuz)\n".
+            "Hesabınızı açmak için bağlantıya dokunun; şifrenizi belirleyip VetZimo Kullanım Sözleşmesini okuyup imzalayın. Sözleşme imzalanmadan hesap (deneme dahil) açılmaz.\n".
+            $url."\n\nBağlantı tek kullanımlıktır ve 72 saat geçerlidir. Kimseyle paylaşmayın.";
     }
 }

@@ -110,6 +110,7 @@ TXT;
         if (class_exists(SiteLegal::class)) {
             $legal = new SiteLegal($this->db);
             foreach (SiteLegal::DOCS as $slug => $title) {
+                if ($slug === DealerAgreement::SLUG) continue; // bayi sözleşmesi hasta sahibine gösterilmez
                 $doc = $legal->doc($slug);
                 $platform[] = ['slug' => $slug, 'title' => $doc['title'], 'version' => $doc['version'], 'date' => $doc['effective_on'], 'url' => $this->origin.'/platform/yasal/'.$slug,
                     'hash' => self::hash($doc['title']."\n".$doc['body'])];

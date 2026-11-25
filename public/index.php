@@ -12,7 +12,7 @@ use VetNet\Cpanel\SessionRepository;
 
 require_once dirname(__DIR__).'/src/StaffPlan.php';
 
-foreach (['NativeApp','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','SaasPayment','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','TeamTotp','WebInbox','MinistryBridge','SiteLegal','OmniInbox','PhoneGateway','ClientPermit','PrintTemplates','Support','Commerce','Appearance'] as $class) {
+foreach (['NativeApp','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','SaasPayment','DealerAgreement','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','TeamTotp','WebInbox','MinistryBridge','SiteLegal','OmniInbox','PhoneGateway','ClientPermit','PrintTemplates','Support','Commerce','Appearance'] as $class) {
     require dirname(__DIR__) . '/src/' . $class . '.php';
 }
 
@@ -562,7 +562,7 @@ try {
         }
         if($method==='GET'&&$action==='partner') {
             $id=$_GET['id'] ?? ''; if(!is_string($id))throw new RuntimeException('Bayi seçin.',422);
-            reply($center->details($id));
+            reply($center->details($id)+['agreements'=>(new VetNet\Cpanel\DealerAgreement($db))->records($id)]);
         }
         if($method==='GET'&&$action==='audit') reply(['events'=>$db->query('SELECT action,target_id,created_at FROM center_audit ORDER BY id DESC LIMIT 100')->fetchAll()]);
         if($method==='POST') {
@@ -598,7 +598,7 @@ try {
                             $signature=$management->mailSettings();
                             $footer=implode("\n",array_filter([$signature['company'],$signature['email'],$signature['phone']]));
                             $notifications->send('smtp',$result['email'],'VetZimo demo başvurunuz onaylandı',
-                                "Demo hesabınızı etkinleştirmek için aşağıdaki 15 dakika geçerli bağlantıyı açın.\n".$origin.$result['activation']."\n\n".$footer);
+                                Center::welcomeText((string)($result['name'] ?? 'Değerli bayimiz'),(string)($result['phone'] ?? ''),$origin.$result['activation'])."\n\n".$footer);
                             $result['mail']='accepted';
                         }
                     } catch (\Throwable $error) {
@@ -630,7 +630,19 @@ try {
                 $center->savePermissions($actor,$body);
                 reply(['ok'=>true]);
             }
-            if($action==='partners') reply($center->create($actor,$body,$now));
+            if($action==='partners') {
+                $created=$center->create($actor,$body,$now);
+                $created['welcome']=Center::welcomeText($created['name'],$created['phone'],$origin.$created['link']);
+                $created['mail']='disabled';
+                try {
+                    if ($notifications->settings()['smtpEnabled']) {
+                        $signature=$management->mailSettings();
+                        $notifications->send('smtp',$created['email'],"VetZimo'ya hoş geldiniz · hesabınızı etkinleştirin",$created['welcome']."\n\n".implode("\n",array_filter([$signature['company'],$signature['email'],$signature['phone']])));
+                        $created['mail']='accepted';
+                    }
+                } catch (\Throwable $error) { $created['mail']='failed'; error_log('VetZimo dealer welcome mail: '.get_class($error)); }
+                reply($created);
+            }
             if($action==='status'){ $center->toggle($actor,$body,$now);reply(['ok'=>true]); }
         }
     }
@@ -755,9 +767,25 @@ try {
             throw $error;
         }
     }
+    if ($path==='/api/agreement' && in_array($method,['GET','POST'],true)) {
+        // VetZimo Kullanım Sözleşmesi: mevcut bayiler ilk girişte imzalar; imza kayıtları bayi yöneticisine gösterilir.
+        $actor=$identity->actor($_COOKIE,$now);
+        if (!in_array($actor['role'],['dealer','branch','staff'],true)) throw new RuntimeException('Klinik hesabı gerekli.',403);
+        $agreement=new VetNet\Cpanel\DealerAgreement($db);
+        if ($method==='GET') reply(['agreement'=>$agreement->current(),'signed'=>$agreement->signed($actor['partner_id']),
+            'records'=>$actor['role']==='dealer'?$agreement->records($actor['partner_id']):[]]);
+        if ($actor['role']!=='dealer') throw new RuntimeException('Sözleşmeyi yalnızca bayi yöneticisi imzalayabilir.',403);
+        if (!hash_equals($actor['membership_id'],$_SERVER['HTTP_X_VETNET_SCOPE'] ?? '')) throw new RuntimeException('Çalışma alanı oturumu değişti.',409);
+        if ($agreement->signed($actor['partner_id'])) reply(['ok'=>true]);
+        reply($agreement->sign($actor['partner_id'],$actor['account_id'],input(420000),(string)($_SERVER['REMOTE_ADDR'] ?? ''),(string)($_SERVER['HTTP_USER_AGENT'] ?? ''),$now));
+    }
+    if ($path === '/api/identity/phone/activation' && $method === 'GET') {
+        (new DealerLogin($db,$config['rateSecret']))->throttle('activation-info:'.($_SERVER['REMOTE_ADDR'] ?? ''),$now);
+        reply($identity->activationInfo(is_string($_GET['token'] ?? null)?$_GET['token']:'',$now));
+    }
     if ($path === '/api/identity/phone/redeem' && $method === 'POST') {
         (new DealerLogin($db,$config['rateSecret']))->throttle('redeem:'.($_SERVER['REMOTE_ADDR'] ?? ''),$now);
-        $identity->redeem(input(4096),$now);
+        $identity->redeem(input(420000),$now);
         reply(['ok'=>true]);
     }
     if (preg_match('~^/api/customers/([A-Za-z0-9_-]{1,80})$~D',$path,$customerRoute) && in_array($method,['GET','POST'],true)) {
@@ -1231,7 +1259,7 @@ try {
                 (new VetNet\Cpanel\WorkspaceRepository($db))->branches('partner:'.$actor['partner_id']);
             $multipleBranches=count(array_filter($branches,static fn($row)=>($row->status??'')!=='Pasif'))>1;
             return [
-            'php'=>true,'workspacePatch'=>true,'recordDeletion'=>$actor['role']==='dealer','packageRestricted'=>isset($actor['packageModules']),'personalPalette'=>$appearance->read('account:'.$actor['account_id'])['palette'],'role'=>$actor['role']==='dealer'?'dealer':'staff','central'=>true,'memberRole'=>$actor['role'],'member'=>['role'=>$actor['role']],'modules'=>ClinicAccess::modules($actor),'branches'=>[$actor['branch_id']],'scopeId'=>$actor['membership_id'],
+            'php'=>true,'workspacePatch'=>true,'recordDeletion'=>$actor['role']==='dealer','packageRestricted'=>isset($actor['packageModules']),'agreementRequired'=>!(new VetNet\Cpanel\DealerAgreement($db))->signed($actor['partner_id']),'personalPalette'=>$appearance->read('account:'.$actor['account_id'])['palette'],'role'=>$actor['role']==='dealer'?'dealer':'staff','central'=>true,'memberRole'=>$actor['role'],'member'=>['role'=>$actor['role']],'modules'=>ClinicAccess::modules($actor),'branches'=>[$actor['branch_id']],'scopeId'=>$actor['membership_id'],
             'partnerId'=>$actor['partner_id'],'partnerName'=>$actor['partner_name'],'multipleBranches'=>$multipleBranches,'name'=>$actor['name'],'author'=>$actor['name'],
         ];
         };

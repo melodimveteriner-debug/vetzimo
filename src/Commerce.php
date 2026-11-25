@@ -227,7 +227,7 @@ final class Commerce
                     ->execute([$id,$actor['identifier'],$stage,$note,$partner]);
             }
             $this->db->commit();
-            return ['activation'=>$activation['link'] ?? null,'email'=>$activation ? $lead['email'] : null];
+            return ['activation'=>$activation['link'] ?? null,'email'=>$activation ? $lead['email'] : null,'name'=>$activation['name'] ?? null,'phone'=>$activation['phone'] ?? null];
         } catch (\Throwable $error) {
             $this->db->rollBack();
             throw $error;

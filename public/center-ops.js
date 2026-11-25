@@ -545,7 +545,14 @@ export async function mountCenterSuite(ui,session){
   const controls=el('div','',{className:'center-columns'});controls.append(search,state);content.append(controls,summary,results);
   const add=el('details');add.append(el('summary','+ Bayi oluştur'));
   add.append(makeForm([field('name','Bayi / klinik adı',{maxLength:160}),field('phone','Yetkili cep telefonu',{type:'tel'}),field('email','Bayi e-postası',{type:'email'})],'Bayi oluştur',async values=>{
-   const result=await call('partners',values);await list();const link=el('a','Tek kullanımlık aktivasyon bağlantısı',{href:result.link});status.replaceChildren('Bayi oluşturuldu. Bu bağlantıyı yalnızca kimliği doğrulanan bayi yetkilisine iletin; 15 dakika geçerlidir. ',link);
+   const result=await call('partners',values);await list();
+   // Hoş geldin mesajı: kullanıcı adı + tek kullanımlık bağlantı (şifre belirleme ve VetZimo Kullanım Sözleşmesi imzası).
+   const box=el('div','',{className:'center-welcome'});
+   const text=el('textarea','',{rows:7,readOnly:true,value:result.welcome});
+   const copy=button('Mesajı kopyala',async()=>{try{await navigator.clipboard.writeText(result.welcome);status.textContent='Mesaj kopyalandı.'}catch{text.select()}});
+   const wa=el('a','WhatsApp ile gönder',{className:'button',target:'_blank',rel:'noopener',href:'https://wa.me/'+String(result.phone||'').replace(/\D/g,'')+'?text='+encodeURIComponent(result.welcome)});
+   box.append(el('h3','Bayi oluşturuldu · hoş geldin mesajı'),el('p',result.mail==='accepted'?'Mesaj bayinin e-posta adresine gönderildi. Ayrıca WhatsApp veya SMS ile iletebilirsiniz.':'Bu mesajı yalnızca kimliği doğrulanan bayi yetkilisine iletin. Bağlantı 72 saat geçerlidir; sözleşme imzalanmadan hesap açılmaz.',{className:'muted'}),text,copy,wa);
+   content.prepend(box);status.textContent='Bayi oluşturuldu.';
   }));content.append(add);await draw();
  }
  async function detail(id){
@@ -575,10 +582,13 @@ export async function mountCenterSuite(ui,session){
    ]))));
   };
   filters.addEventListener('change',draw);
+  const signs=data.agreements||[];
+  const agreementBox=el('section','',{className:'center-agreement'});
+  agreementBox.append(el('h4','VetZimo Kullanım Sözleşmesi'),signs.length?table(['İmzalayan','Unvan','Tarih','Sürüm','IP','İmza'],signs.map(r=>[r.signer_name,r.signer_title||'—',new Date(r.signed_at*1000).toLocaleString('tr-TR'),'v'+r.version,r.ip||'—',el('img','',{src:r.signature,alt:'İmza',style:'max-height:48px;background:#fff;border-radius:6px'})])):el('p','Henüz imzalanmadı · bayi ilk girişte imzalamadan çalışma alanı açılmaz.',{className:'muted'}));
   content.replaceChildren(actions,el('h3',p.name),el('p',[p.code,p.phone,p.email,active?'Etkin':'Kapalı'].join(' · ')),
    el('p',current?current.plan_name+' · '+current.ends_on+' tarihine kadar':'Geçerli abonelik bulunmuyor.'),
    el('h3','Şubeler'),table(['Şube','Durum','Veri düzeni'],data.branches.map(b=>[b.name,b.status,b.sharedWith?'Ortak':'Bağımsız'])),
-   el('h3','Üyelikler'),filters,results);
+   agreementBox,el('h3','Üyelikler'),filters,results);
   const finance=el('section','',{className:'center-card'});
   const report=el('div');
   const period=selectField('period','Dönem',[['day','Günlük'],['week','Haftalık'],['month','Aylık'],['all','Tüm zamanlar'],['custom','Tarih aralığı']]);
