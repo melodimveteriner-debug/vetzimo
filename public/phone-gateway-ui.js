@@ -15,7 +15,8 @@ export function mountPhoneGateway(root,api){
  root.classList.add("pg-root");
  const strip=h("div",{class:"pg-strip"}),tabs=h("div",{class:"pg-tabs",role:"tablist"}),body=h("div",{class:"pg-body"});
  fill(root,h("header",{class:"pg-head"},h("div",{},h("h2",{text:tr("Telefon Bağlantısı")}),h("p",{class:"pg-muted",text:tr("Hatırlatma, toplu mesaj ve gelen kutusu yanıtları kliniğin kendi telefon numarasından gider. Ücretli SMS veya WhatsApp sağlayıcısı gerekmez.")}))),strip,tabs,body);
- const act=async(payload,ok)=>{try{data=await post(payload);ok&&toast(ok);draw()}catch(e){toast(e.message)}};
+ const netMsg=e=>e instanceof TypeError||/failed to fetch|networkerror|load failed/i.test(e?.message||"")?tr("Sunucuya ulaşılamadı. İnternet bağlantınızı kontrol edip tekrar deneyin."):e.message;
+ const act=async(payload,ok)=>{try{data=await post(payload);ok&&toast(ok);draw()}catch(e){toast(netMsg(e))}};
 
  function drawStrip(){
   const s=data.settings,online=data.devices.filter(d=>d.online).length,wa=data.whatsappAgent;
@@ -48,7 +49,7 @@ export function mountPhoneGateway(root,api){
     data.canManage?h("ol",{class:"pg-steps"},
      h("li",{},tr("Telefona F-Droid'den şu üç uygulamayı kurun: Termux, Termux:API, Termux:Boot (Google Play sürümleri eskidir).")),
      h("li",{},tr("Termux'u açın, aşağıdaki komutu yapıştırıp Enter'a basın. Android SMS izni sorarsa izin verin.")),
-     code?h("div",{class:"pg-cmd"},h("code",{text:cmd}),copyBtn):h("button",{type:"button",class:"pg-btn dark",text:tr("Eşleştirme kodu oluştur"),onclick:async()=>{try{code=await post({action:"pair"});draw()}catch(e){toast(e.message)}}}),
+     code?h("div",{class:"pg-cmd"},h("code",{text:cmd}),copyBtn):h("button",{type:"button",class:"pg-btn dark",text:tr("Eşleştirme kodu oluştur"),onclick:async()=>{try{code=await post({action:"pair"});draw()}catch(e){toast(netMsg(e))}}}),
      code?h("p",{class:"pg-muted",text:tr("Kod 30 dakika geçerlidir")+": "+code.code}):null,
      h("li",{},tr("Ayarlar › Pil bölümünden Termux ve Termux:API için pil optimizasyonunu kapatın; Termux:Boot uygulamasını bir kez açın (telefon yeniden başlayınca ajan kendiliğinden açılır)."))):h("p",{class:"pg-muted",text:tr("Telefon eklemek için klinik yöneticisi yetkisi gerekir.")})),
    h("section",{class:"pg-card"},h("h3",{},"💬 "+tr("WhatsApp kliniğin kendi numarasından")),
@@ -143,7 +144,13 @@ export function mountPhoneGateway(root,api){
       o.link?h("a",{class:"pg-link",href:o.link,target:"_blank",rel:"noopener",text:tr("Aç ve gönder"),onclick:()=>setTimeout(()=>act({action:"opened",id:o.id}),400)}):null)))))):h("p",{class:"pg-muted pg-empty",text:tr("Kayıt yok.")})];
  }
  function draw(){if(!data)return;drawStrip();drawTabs();fill(body,...(tab==="kurulum"?setup():tab==="ayarlar"?settings():queue()))}
- async function load(){try{data=await get();draw()}catch(e){fill(body,h("p",{class:"pg-err",text:e.message}))}}
+ // Anlık bağlantı kopmasında (fetch TypeError) ekrandaki bilgi korunur; küçük bir not gösterilip sonraki turda yeniden denenir.
+ let offline=null;
+ async function load(){try{data=await get();offline?.remove();offline=null;draw()}catch(e){
+  const net=e instanceof TypeError||/fetch|network|load failed/i.test(e.message||"");
+  const msg=net?tr("Sunucuya şu an ulaşılamadı; internet bağlantısı kontrol ediliyor ve 15 saniye içinde yeniden denenecek."):e.message;
+  if(data&&net){if(!offline){offline=h("p",{class:"pg-warnline",role:"status"});body.before(offline)}offline.textContent="⚠ "+msg;return}
+  fill(body,h("p",{class:"pg-err",text:msg}))}}
  const loop=()=>{if(!root.isConnected)return;if(!document.hidden&&tab!=="ayarlar"&&!root.querySelector("form :focus"))load();timer=setTimeout(loop,15000)};
  load();timer=setTimeout(loop,15000);
  return()=>clearTimeout(timer);
