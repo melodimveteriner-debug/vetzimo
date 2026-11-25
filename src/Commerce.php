@@ -179,8 +179,7 @@ final class Commerce
             $buyable=$pid!=='ucretsiz' && $pid!=='ozel';
             if ($buyable) {
                 // Pro, Plus ve fiyatı girilmiş diğer paketler: doğrudan ödeme ekranı (kart / havale)
-                $cards.='<a class="button '.($featured?'primary':'outline').'" data-plan-link href="/platform/satin-al?plan='.rawurlencode($pid).'&amp;donem=monthly">Satın Alın</a>'
-                    .'<a class="pk-secondary" data-plan-link href="/platform/deneme?plan='.rawurlencode($pid).'&amp;donem=monthly">Hesabınız yok mu? 14 gün ücretsiz deneyin</a></article>';
+                $cards.='<a class="button '.($featured?'primary':'outline').'" data-plan-link href="/platform/satin-al?plan='.rawurlencode($pid).'&amp;donem=monthly">Satın Alın</a></article>';
             } else {
                 $cards.='<a class="button '.($featured?'primary':'outline').'" data-plan-link href="/platform/deneme?plan='.rawurlencode($pid).'&amp;donem=monthly">'.($pid==='ucretsiz'?'Ücretsiz başlayın':($pid==='ozel'?'Teklif isteyin':'Bilgi alın')).'</a></article>';
             }

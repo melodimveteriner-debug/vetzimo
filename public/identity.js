@@ -2,8 +2,8 @@ import {uiText,uiLanguage,uiLabel,mountLanguageSelect} from "./ui-locale.js?v=20
 import {mountHomeCare} from "./homecare.js?v=20261201-r74";
 import {healthEvents,mountHealthTimeline} from "./health-timeline.js";
 import {petPortrait} from "./pet-portrait.js";
-import {loadAppearance} from "./theme.js";
-import {mountAccessLayout} from "./access-layout.js?v=20261123-r64";
+import {loadAppearance} from "./theme.js?v=2";
+import {mountAccessLayout} from "./access-layout.js?v=20261125-r65";
 import {paginate} from "./paged.js";
 import {mountCenterSuite,opsFetch} from "./center-ops.js";
 import {vaccineLabels} from "./vaccine-progress.js";
@@ -696,7 +696,7 @@ async function portal() {
   account.append(change);
   const appSettings=el("section","",{className:"owner-app-settings"});
   account.append(appSettings);
-  import("./settings-hub.js?v=5").then(async m=>{
+  import("./settings-hub.js?v=6").then(async m=>{
     const ctx={tr:uiLabel,api:(p,i={})=>fetch(p,{credentials:"same-origin",...i}),scope:session.scopeId||""};
     const prefs=el("div"),devices=el("div");
     appSettings.append(el("h2",uiLabel("Uygulama bildirimleri")),prefs,el("h2",uiLabel("Cihazlarım ve hesap")),devices);

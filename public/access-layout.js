@@ -1,5 +1,5 @@
 import {mountLanguageSelect,uiText,uiLabel} from "./ui-locale.js?v=20261123-r64";
-import {defaultAppearance,paletteColor,sitePalettes,validPalette} from "./theme.js";
+import {defaultAppearance,paletteColor,sitePalettes,validPalette} from "./theme.js?v=2";
 
 const themeKey="vetnet-access-theme";
 const icons={

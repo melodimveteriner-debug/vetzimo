@@ -101,13 +101,13 @@ FEATURES = [
   'Ücretli SMS paketine gerek yok', ['Klinik telefonuna kurulan VetZimo uygulaması mesajları kendi SIM kartınızdan gönderir; gelen SMS’ler gelen kutusuna düşer.', 'Başlangıç saati, gönderim süresi, günlük sınır ve mesaj arası saniye ayarıyla operatör engeline takılmadan sıralı gönderim.', 'Türkçe karakter sadeleştirme ile mesaj tek SMS’e sığar; aylık sınırı paketiniz belirler.']),
  ('/platform/ozellikler/whatsapp', 'phone', 'İletişim', 'Kendi numaranızdan WhatsApp',
   'Aşı ve randevu hatırlatmaları kliniğinizin kendi WhatsApp numarasından gider; gelen mesajlar gelen kutusunda toplanır.',
-  'Meta onayı beklemeden', ['Klinik bilgisayarındaki ajan WhatsApp’ı bağlı cihaz olarak bir kez QR ile bağlar.', 'Mesajlar insan benzeri aralıklarla, belirlediğiniz saat penceresinde sırayla gönderilir.', 'İsterseniz SMS ve WhatsApp aynı anda gönderilir; yalnız izin veren hasta sahiplerine iletilir.']),
+  'Meta onayı beklemeden', ['Kliniğin WhatsApp numarası bağlı cihaz olarak bir kez QR kodla eşleştirilir.', 'Mesajlar insan benzeri aralıklarla, belirlediğiniz saat penceresinde sırayla gönderilir.', 'İsterseniz SMS ve WhatsApp aynı anda gönderilir; yalnız izin veren hasta sahiplerine iletilir.']),
  ('/platform/ozellikler/kvkk-onay-formu', 'sign', 'Uyum', 'KVKK onay formu ve tablette imza',
   'Yeni hasta sahibine tek kullanımlık kısa bağlantı gider ya da formu klinikte tablette imzalar; izinler kartına kendiliğinden işlenir.',
   'İzinler kayıt altında', ['KVKK aydınlatma metni, gizlilik ve kullanım şartları ile SMS, WhatsApp, e-posta ve kampanya izinleri tek formda.', 'Hoş geldin SMS’ine kısa onay bağlantısı otomatik eklenir; silinemez.', 'İmzalı belge, imza görüntüsü, IP ve zaman damgasıyla saklanır; gönderimler yalnız izin verenlere yapılır.']),
  ('/platform/ozellikler/e-donusum', 'edoc', 'İşletme', 'e-Fatura, e-Arşiv ve e-SMM',
   'Geçmiş satışlardan tek tıkla e-Arşiv, e-Fatura ve serbest meslek makbuzu. API sözleşmesi gerekmez; kendi GİB, Uyumsoft veya Ödeal hesabınız kullanılır.',
-  'API’siz e-belge', ['Ajan, ekranı bir kez öğrendikten sonra kliniğin kendi portal oturumunda belgeyi doldurur ve numarasını getirir.', 'KDV, iskonto ve stopaj satış toplamıyla kuruşu kuruşuna aynı hesaplanır.', 'Bağlantı koparsa işlem tekrar denenmez; çift fatura yerine “kontrol gerekli” uyarısı düşer.']),
+  'API’siz e-belge', ['Belge, kliniğin kendi portal hesabında doldurulur; belge numarası satışa kendiliğinden işlenir.', 'KDV, iskonto ve stopaj satış toplamıyla kuruşu kuruşuna aynı hesaplanır.', 'Bağlantı koparsa işlem tekrar denenmez; çift fatura yerine “kontrol gerekli” uyarısı düşer.']),
  ('/platform/ozellikler/bakanlik-koprusu', 'bridge', 'Uyum', 'ATS ve İTS · Bakanlık kayıtları',
   'e-Reçete ve aşı kayıtları Bakanlık sistemine (HBS · ATS) kendi e-Devlet oturumunuzla, kayıtları yeniden yazmadan gider; satılan ilaç stoğunuzdan düşer.',
   'Çift girişe son', ['İlaç ve aşılar Bakanlık listesindeki karşılıklarıyla bir kez eşleştirilir, sonra hatırlanır.', 'Mikroçip, parti numarası ve sahip bilgisi eksikse göndermeden önce uyarır; gönderim kuyruğu ve belge numaraları tek ekranda.', 'İTS karekod okutarak ilaç düşümü: yakında.']),
@@ -284,7 +284,7 @@ def main():
     if os.path.exists(ip):
         g = open(ip, encoding='utf-8').read()
         add = ''
-        order = ('/platform/ozellikler/cihaz-entegrasyonu', '/platform/ozellikler/bakanlik-koprusu')
+        order = ('/platform/ozellikler/gelen-kutusu', '/platform/ozellikler/cihaz-entegrasyonu', '/platform/ozellikler/bakanlik-koprusu')
         for path, art, eyebrow, title, lead, *_ in sorted((f for f in FEATURES if f[0] in order), key=lambda f: order.index(f[0])):
             if f'href="{path}"' not in g:
                 add += f'<a class="card" href="{path}" data-feature-open><span class="eyebrow">{e(eyebrow)}</span><h3>{e(title)}</h3><p>{e(lead)}</p><span class="arrow" aria-hidden="true">↗</span></a>'
@@ -300,6 +300,27 @@ def main():
                        lambda m: m.group(1) + f'<span class="eyebrow">{e(eyebrow)}</span><h3>{e(title)}</h3><p>{e(lead)}</p>', t)
         if t != o: open(p, 'w', encoding='utf-8').write(t)
         if 'data-theme="classic"' in t: open(p, 'w', encoding='utf-8').write(t.replace('data-theme="classic"', 'data-theme="prizma"'))
+    shots_pass()
     print('Yeni/güncel sayfa:', len(FEATURES))
+
+SHOTS = os.path.join(ROOT, 'public', 'market-shots')
+def shots_pass():
+    """Özellik sayfalarında temsili çizim yerine gerçek VetZimo ekran görüntüsü; saas.css/js sürümleri."""
+    paths = set(f[0] for f in FEATURES)
+    for name in os.listdir(PAGES):
+        paths.update(re.findall(r'href="(/platform/ozellikler/[a-z0-9-]+)"', open(os.path.join(PAGES, name), encoding='utf-8').read()))
+    for name in os.listdir(PAGES):
+        p = os.path.join(PAGES, name); t = open(p, encoding='utf-8').read(); o = t
+        t = t.replace('href="/saas.css"', 'href="/saas.css?v=2"').replace('saas.js?v=3"', 'saas.js?v=4"')
+        m = re.search(r'<link rel="canonical" href="https?://[^/"]+(/platform/ozellikler/[a-z0-9-]+)"', t) or re.search(r'data-page-path="(/platform/ozellikler/[a-z0-9-]+)"', t)
+        path = m.group(1) if m else next((f for f in paths if key(f) == p), None)
+        if path:
+            slug = path.rsplit('/', 1)[1]
+            if os.path.exists(os.path.join(SHOTS, slug + '.webp')):
+                h1 = re.search(r'<h1>([^<]*)</h1>', t)
+                fig = (f'<figure class="feature-shot"><img src="/market-shots/{slug}.webp?v=1" alt="{h1.group(1) if h1 else "VetZimo"} · VetZimo ekranı" '
+                       'width="1200" height="750" loading="lazy" decoding="async"><figcaption>Gerçek VetZimo ekranı · örnek kurgusal verilerle</figcaption></figure>')
+                t = re.sub(r'<figure class="feature-(?:illustration|shot)">.*?</figure>', fig, t, count=1, flags=re.S)
+        if t != o: open(p, 'w', encoding='utf-8').write(t)
 
 main()

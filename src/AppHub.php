@@ -74,15 +74,76 @@ final class AppHub
         return $out;
     }
 
+    /** Hasta sahibine giden bildirimlerin hazır metinleri. Değişkenler: {sahip} {hasta} {konu} {tarih} {saat} {klinik} {telefon} */
+    public const MESSAGES = [
+        'appointments'  => 'Sayın {sahip}, {hasta} için randevunuz: {konu} · {tarih} {saat}. Değişiklik için bize ulaşın. {klinik} · {telefon}',
+        'vaccines'      => 'Sayın {sahip}, {hasta} için aşı / kontrol hatırlatması: {konu} · {tarih}. Geciken aşılar koruyuculuğu azaltır; randevu için arayın. {klinik} · {telefon}',
+        'homeVisits'    => 'Sayın {sahip}, evde hizmet ekibimizden bilgi: {konu}. {klinik} · {telefon}',
+        'patients'      => 'Sayın {sahip}, {hasta} ile ilgili güncelleme: {konu}. {klinik} · {telefon}',
+        'labs'          => 'Sayın {sahip}, {hasta} için tetkik / görüntüleme sonucu hazır: {konu}. Hekimimiz değerlendirip size bilgi verecek. {klinik} · {telefon}',
+        'payments'      => 'Sayın {sahip}, ödeme bilgilendirmesi: {konu}. Sorularınız için bize ulaşın. {klinik} · {telefon}',
+        'stock'         => '{konu}',
+        'messages'      => '{konu}',
+        'homecare'      => 'Sayın {sahip}, {hasta} için evden takip: {konu}. Durumda kötüleşme olursa hemen arayın. {klinik} · {telefon}',
+        'support'       => '{konu}',
+        'announcements' => 'Sayın {sahip}, {konu}. {klinik} · {telefon}',
+        'security'      => '{konu}',
+        'system'        => '{konu}',
+    ];
+
     public function templates(): array
     {
         $out = [];
-        foreach (self::CATEGORIES as $key => [$label, , $private]) $out[$key] = ['title' => 'VetZimo · '.$label, 'body' => $private ? 'Ayrıntıları görmek için dokunun.' : ''];
+        foreach (self::CATEGORIES as $key => [$label, , $private]) $out[$key] = ['title' => 'VetZimo · '.$label, 'body' => $private ? 'Ayrıntıları görmek için dokunun.' : '', 'message' => self::MESSAGES[$key] ?? '{konu}'];
         try {
-            foreach ($this->q('SELECT category,title,body FROM app_template')->fetchAll() as $r)
-                if (isset($out[$r['category']])) $out[$r['category']] = ['title' => $r['title'], 'body' => $r['body']];
-        } catch (\PDOException) {}
+            foreach ($this->q('SELECT category,title,body,message FROM app_template')->fetchAll() as $r)
+                if (isset($out[$r['category']])) $out[$r['category']] = ['title' => $r['title'], 'body' => $r['body'], 'message' => $r['message'] !== '' ? $r['message'] : $out[$r['category']]['message']];
+        } catch (\PDOException) {
+            try {
+                foreach ($this->q('SELECT category,title,body FROM app_template')->fetchAll() as $r)
+                    if (isset($out[$r['category']])) $out[$r['category']] = ['title' => $r['title'], 'body' => $r['body'], 'message' => $out[$r['category']]['message']];
+            } catch (\PDOException) {}
+        }
         return $out;
+    }
+
+    /** Şablondaki değişkenleri doldurur; boş kalan değişkenin çevresindeki fazla ayraçlar temizlenir. */
+    public static function fill(string $template, array $vars): string
+    {
+        $text = strtr($template, array_map(static fn($v) => trim((string)$v), $vars));
+        $text = preg_replace(['/\{[a-z]+\}/u', '/\s+·\s+(?=[.·]|$)/u', '/\s+([.,])/u', '/\s{2,}/u', '/^[\s·,.]+|[\s·,]+$/u'], ['', '', '$1', ' ', ''], $text);
+        return mb_substr(trim((string)$text), 0, 400);
+    }
+
+    /** Hasta sahibi bildirimi için değişkenler: sahip, hasta, tarih ve saat kayıttan (kayit= parametresi) okunur. */
+    private function ownerVars(array $n, string $ownerName, array &$cache): array
+    {
+        $partner = $n['partner_id'];
+        $cache['p'][$partner] ??= $this->q('SELECT name,phone FROM partner_account WHERE id=?', [$partner])->fetch() ?: ['name' => '', 'phone' => ''];
+        $vars = ['{sahip}' => $ownerName !== '' ? $ownerName : 'hasta sahibimiz', '{hasta}' => 'dostunuz', '{konu}' => $n['title'], '{tarih}' => '', '{saat}' => '',
+            '{klinik}' => (string)$cache['p'][$partner]['name'], '{telefon}' => (string)$cache['p'][$partner]['phone']];
+        parse_str((string)parse_url((string)$n['target'], PHP_URL_QUERY), $query);
+        $record = is_string($query['kayit'] ?? null) ? $query['kayit'] : '';
+        if ($record !== '' && strlen($record) <= 120) {
+            try {
+                $q = $this->db->prepare("SELECT r.collection,r.record_data FROM clinic_record r JOIN clinic_record_set s ON s.id=r.set_id WHERE s.workspace_id=? AND r.record_id=? AND r.collection IN ('appointments','followups','labs','exams','stays','sales') LIMIT 1");
+                $q->execute(['partner:'.$partner, $record]);
+                $row = $q->fetch();
+                $data = $row ? json_decode((string)$row['record_data'], true) : null;
+                if (is_array($data)) {
+                    if (preg_match('/\A\d{4}-\d{2}-\d{2}/', (string)($data['date'] ?? ''))) { [$y, $m, $d] = explode('-', substr((string)$data['date'], 0, 10)); $vars['{tarih}'] = "$d.$m.$y"; }
+                    if (preg_match('/\A\d{2}:\d{2}\z/', (string)($data['time'] ?? ''))) $vars['{saat}'] = $data['time'];
+                    $pid = (string)($data['patient'] ?? '');
+                    if ($pid !== '') {
+                        $p = $this->db->prepare("SELECT r.record_data FROM clinic_record r JOIN clinic_record_set s ON s.id=r.set_id WHERE s.workspace_id=? AND r.collection='patients' AND r.record_id=? LIMIT 1");
+                        $p->execute(['partner:'.$partner, $pid]);
+                        $pd = json_decode((string)$p->fetchColumn(), true);
+                        if (is_array($pd) && trim((string)($pd['name'] ?? '')) !== '') $vars['{hasta}'] = trim((string)$pd['name']);
+                    }
+                }
+            } catch (\PDOException) {}
+        }
+        return $vars;
     }
 
     // ───────────────────────── Cihazlar ─────────────────────────
@@ -275,7 +336,9 @@ final class AppHub
         $policies = $this->policies();
         $cache = [];
         $added = 0;
-        $customer = $this->db->prepare("SELECT m.id,m.account_id FROM identity_membership m JOIN identity_account a ON a.id=m.account_id AND a.blocked=0
+        $templates = $this->templates();
+        $varCache = [];
+        $customer = $this->db->prepare("SELECT m.id,m.account_id,m.name FROM identity_membership m JOIN identity_account a ON a.id=m.account_id AND a.blocked=0
             WHERE m.partner_id=? AND m.customer_id=? AND m.role='customer' AND m.status='active'");
         $clinicName = [];
         foreach ($rows as $n) {
@@ -289,7 +352,9 @@ final class AppHub
                 foreach ($customer->fetchAll() as $m) {
                     if ($n['membership_id'] !== '' && $n['membership_id'] !== $m['id']) continue;
                     $href = str_starts_with($n['target'], '/hasta-sahibi') || str_starts_with($n['target'], '/evde-hizmet') ? $n['target'] : '/hasta-sahibi';
-                    $added += (int)$this->notify($m['account_id'], $m['id'], 'customer', $category, $n['title'], $clinicName[$n['partner_id']], $href, $key, $now, $policies);
+                    // Hazır şablon: "Sayın {sahip}, {hasta} için ... {klinik} · {telefon}" (kilit ekranında gizlilik metni ayrıca uygulanır)
+                    $text = self::fill($templates[$category]['message'] ?? '{konu}', $this->ownerVars($n, (string)($m['name'] ?? ''), $varCache));
+                    $added += (int)$this->notify($m['account_id'], $m['id'], 'customer', $category, $n['title'], $text !== '' ? $text : $clinicName[$n['partner_id']], $href, $key, $now, $policies);
                 }
             } elseif (in_array($n['kind'], ['clinic', 'visit_clinic', 'native_visit_clinic'], true)) {
                 foreach ($this->clinicMembers($n['partner_id'], $n['branch_id'], $module, $cache) as $m) {
@@ -480,8 +545,9 @@ final class AppHub
             case 'template':
                 $c = $body->category ?? '';
                 if (!isset(self::CATEGORIES[$c])) throw new RuntimeException('Kategori geçersiz.', 422);
-                $this->q('INSERT INTO app_template(category,title,body) VALUES (?,?,?) ON DUPLICATE KEY UPDATE title=VALUES(title),body=VALUES(body)',
-                    [$c, self::text($body->title ?? '', 80, true), self::text($body->body ?? '', 160)]);
+                $message = self::text($body->message ?? '', 400);
+                $this->q('INSERT INTO app_template(category,title,body,message) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE title=VALUES(title),body=VALUES(body),message=VALUES(message)',
+                    [$c, self::text($body->title ?? '', 80, true), self::text($body->body ?? '', 160), $message === (self::MESSAGES[$c] ?? '') ? '' : $message]);
                 break;
             case 'release':
                 $p = $body->platform ?? '';

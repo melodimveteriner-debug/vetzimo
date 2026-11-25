@@ -1,6 +1,6 @@
 import {opsFetch} from "./center-ops.js";
 import {paginate} from "./paged.js";
-import {saasTerms,termValue} from "./saas-market.js";
+import {saasTerms,termValue} from "./saas-market.js?v=2";
 import {termDate,termStatus} from "./saas-subscription.js";
 
 const money=value=>new Intl.NumberFormat("tr-TR",{style:"currency",currency:"TRY"}).format(value/100);
@@ -48,7 +48,8 @@ export async function mountCreditShop(ui,{section=""}={}) {
   const methodsFor=()=>[...(data.card?[["card","Kredi / banka kartı (3D Secure)"]]:[]),...(data.bank?[["bank","EFT / Havale"]]:[])];
   function drawCatalog(){
     const grid=el("div","",{className:"store-packages"});
-    for (const row of data.plans) {
+    // Ücretsiz paket zaten sistemde: mağazada gösterilmez. Fiyat gösterimi satış sitesiyle aynıdır (+ KDV / KDV dahil).
+    for (const row of data.plans.filter(p=>p.id!=="ucretsiz"&&!((p.rank??-1)===0&&p.monthly==null&&p.yearly==null))) {
       const card=el("article","",{className:"store-package store-abonelik"+(current?.plan_name===row.name?" is-current":"")});
       const mark=el("div","",{className:"store-package-mark"});mark.innerHTML=artwork("abonelik");
       card.append(mark,el("span",current?.plan_name===row.name&&!trial?"Mevcut paketiniz":"Abonelik",{className:"suite-pill"}),el("h3",row.name),el("p",row.description,{className:"suite-muted"}));
@@ -56,12 +57,17 @@ export async function mountCreditShop(ui,{section=""}={}) {
       for (const key of ["users","branches","patients","storage","sms","whatsapp","support"]) if (Object.hasOwn(row.terms||{},key)) features.append(el("li",(saasTerms.find(([id])=>id===key)?.[1]||key)+" · "+termValue(row.terms[key])));
       for (const f of (row.features||[]).slice(0,6)) features.append(el("li",f));
       card.append(features);
-      const amount=row.amounts?.[period];
+      const amount=row.amounts?.[period], base=row[period];
       const price=el("div","",{className:"store-price"});
-      price.append(el("strong",amount!=null?money(amount):"Teklif alın"),el("small",amount!=null?periodLabel[period]+" · KDV dahil":"Fiyat için görüşün"));
+      price.append(el("strong",base!=null?money(base):"Teklif alın"),el("small",base!=null?periodLabel[period]+" · "+(row.vat==="excluded"?"+ KDV":"KDV dahil"):"Fiyat için görüşün"));
       card.append(price);
-      if (row.purchasable&&amount!=null&&methodsFor().length) card.append(click(trial?"Bu pakete geç":"Satın al / yenile",()=>checkout(row),true),el("small",methodsFor().map(([,t])=>t).join(" · "),{className:"store-methods"}));
-      else card.append(link("Paket için destek isteyin","#bayi-destek/new","button"));
+      if (amount!=null) {
+        card.append(click("Satın Alın",()=>{
+          if (row.purchasable&&methodsFor().length) checkout(row);
+          else {status.textContent="Çevrim içi ödeme henüz açılmadı. Kart (PayTR) ve havale bilgileri VetZimo yönetimi tarafından tanımlandığında buradan ödeyebilirsiniz.";status.scrollIntoView?.({block:"nearest"});}
+        },true));
+        if (methodsFor().length) card.append(el("small",methodsFor().map(([,t])=>t).join(" · "),{className:"store-methods"}));
+      } else card.append(link("Teklif isteyin","#bayi-destek/new","button"));
       grid.append(card);
     }
     if (!data.plans.length) grid.append(el("p","Şu anda satışta paket bulunmuyor.",{className:"suite-muted"}));
@@ -73,7 +79,8 @@ export async function mountCreditShop(ui,{section=""}={}) {
     const top=el("header","",{className:"suite-toolbar"});
     top.append(el("h2",row.name+" · "+periodLabel[period]),click("Paketlere dön",()=>{detail.hidden=true;catalog.hidden=false;}));
     const total=el("div","",{className:"store-checkout-total"});
-    total.append(el("span","Ödenecek toplam"),el("strong",money(amount)),el("small",periodLabel[period]+" · KDV dahil"));
+    const base=row[period];
+    total.append(el("span","Ödenecek toplam"),el("strong",money(amount)),el("small",periodLabel[period]+(row.vat==="excluded"&&base!=null?" · "+money(base)+" + %20 KDV":" · KDV dahil")));
     const requestId=crypto.randomUUID();
     const form=makeForm([method,total],"Ödemeye geç",async values=>{
       const r=await opsFetch("/api/saas/store/order",{requestId,planId:row.id,period,method:values.method},data.scopeId);

@@ -16,7 +16,7 @@ final class Appearance
         $query = $this->db->prepare('SELECT palette,locked FROM vetnet_appearance WHERE scope_key=?');
         $query->execute([$key]);
         $row = $query->fetch(PDO::FETCH_ASSOC);
-        $palette = in_array($row['palette'] ?? '', ['orchid','prizma','nebula'], true) ? $row['palette'] : ''; // kaldırılan temalar varsayılana döner
+        $palette = in_array($row['palette'] ?? '', ['prizma','nebula'], true) ? $row['palette'] : ''; // kaldırılan temalar varsayılana döner
         // Sitenin varsayılan teması Prizma · Işıltı; kişisel kayıtta boş değer "genel temayı izle" anlamına gelir.
         if ($palette === '' && $key === 'global') $palette = self::DEFAULT;
         return ['palette'=>$palette, 'locked'=>(bool)($row['locked'] ?? false)];
@@ -44,7 +44,7 @@ final class Appearance
     public function save(string $key, object $body): array
     {
         $palette = $body->palette ?? null;
-        if (!in_array($palette,['','orchid','prizma','nebula'],true)) {
+        if (!in_array($palette,['','prizma','nebula'],true)) {
             throw new RuntimeException('Geçerli bir tema seçin.',422);
         }
         $locked = $key === 'global' && ($body->locked ?? false) === true;

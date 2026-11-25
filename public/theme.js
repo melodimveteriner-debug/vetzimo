@@ -18,7 +18,6 @@ export function applyTheme(value) {
 }
 
 export const sitePalettes=[
-  ["orchid","Orkide · Safir","#713fa9"],
   ["prizma","Prizma · Işıltı","#6a3df0"],
   ["nebula","Nebula · Neon Gece","#6d4bf5"],
 ];

@@ -21,3 +21,6 @@
 .capp-checks{display:flex;flex-wrap:wrap;gap:12px}.capp-inline{display:flex;gap:6px;align-items:center;font-size:.88rem}
 .capp-actions{display:flex;flex-wrap:wrap;gap:6px}.capp-row-end{display:flex;justify-content:flex-end}
 .capp-chart{width:100%;height:auto;max-height:200px}.capp-bar.ok{fill:var(--capp-ok)}.capp-bar.bad{fill:var(--capp-bad)}.capp-axis{fill:var(--muted,#6b7280);font-size:11px}
+
+/* Bildirim şablonu metin alanı */
+.capp-card textarea{width:100%;min-width:0;box-sizing:border-box;font:inherit;line-height:1.45;padding:8px 10px;border:1px solid var(--line,#e5e4df);border-radius:10px;background:var(--paper,#fff);color:inherit;resize:vertical}

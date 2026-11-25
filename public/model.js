@@ -1,4 +1,4 @@
-import {defaultTheme} from "./theme.js";
+import {defaultTheme} from "./theme.js?v=2";
 import {allocateInventory, applyInventoryPurchase, productLots} from "./stock.js";
 
 export const tz = "Europe/Istanbul";

@@ -3,7 +3,7 @@ import {marketArrangeHome,marketEditableHTML,marketExtraSections,marketShared} f
 const base="/platform";
 const escape=value=>String(value??"").replace(/[&<>"']/g,character=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[character]));
 export const unlimitedTerm="unlimited";
-export const termValue=value=>value===unlimitedTerm?"SINIRSIZ":value??"Görüşmede";
+export const termValue=value=>value===unlimitedTerm||(typeof value==="number"&&value>=999999)?"Sınırsız":typeof value==="number"?value.toLocaleString("tr-TR"):value??"Görüşmede";
 export const saasNotice="basvuru-v1";
 export const saasStages={new:"Yeni",contacted:"Görüşüldü",qualified:"Değerlendiriliyor",won:"Olumlu sonuçlandı",lost:"Olumsuz sonuçlandı"};
 export const saasTerms=[

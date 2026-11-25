@@ -39,7 +39,7 @@ export const GROUPS = [
     ["evde-hizmet", "Evde hizmet", "Bölgeler, fiyatlar ve rota"],
   ]],
   ["gorunum", "Görünüm ve ses", [
-    ["tema", "Tema", "Prizma · Işıltı, Nebula veya Orkide · Safir"],
+    ["tema", "Tema", "Prizma · Işıltı veya Nebula · Neon Gece"],
     ["bas-konus", "Bas Konuş", "Sesli komut ve dikte ayarları"],
   ]],
   ["hesap", "Hesap ve abonelik", [

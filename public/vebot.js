@@ -456,11 +456,40 @@ export function createEngine(ctx) {
     {test:words("ozet|nasil gidiyor|genel bakis|summary|overview|how.*today"), run:summary},
   ];
 
+  // VetZimo kullanım rehberi: "Web sitesi nasıl kurarım?", "Instagram'ı nasıl bağlarım?" gibi sorulara adım adım yanıt ve ilgili ekran.
+  const GUIDES = [
+    [/web ?site|web sitem|internet sitesi|\bsite(mi|yi|ni)? (kur|olustur|yap|ac|yayin)|alan adi|domain|online randevu/, "Klinik web sitenizi kurmak için:", ["Web Sitem ekranını açın (Diğer › Web Sitem).", "Temalardan birini seçin; klinik adı, logo, hizmetler, ekip, galeri ve iletişim bilgilerini girin.", "Online randevu ve iletişim formunu açın; gelen talepler randevu takviminize ve gelen kutunuza düşer.", "Önizleyip Yayınla’ya basın. Kendi alan adınızı bağlamak için ekrandaki yönlendirmeyi izleyin."], [["Web Sitem", "/web-sitem"]]],
+    [/gelen kutu|instagram|facebook|messenger|telegram|kanal bagla|(whatsapp|e-?posta|mail).*(bagla|baglan|gelen|cevap|yanit)/, "WhatsApp, Instagram, Facebook, Telegram, SMS ve e-posta mesajlarını tek yerde toplamak için:", ["Gelen Kutusu’nu açın (sol menü › Gelen Kutusu).", "Ayarlar › Kanal bağlantıları bölümünden bağlamak istediğiniz hesabı seçip bilgilerini girin.", "Gelen mesajlar konuşma olarak düşer; aynı ekrandan yanıtlayın, ekip arkadaşına atayın, hasta sahibi kartına bağlayın.", "Okunmamış mesaj sayısı menüde ve Genel Bakış’ta görünür."], [["Gelen Kutusu", "#gelen-kutusu"]]],
+    [/telefon baglanti|kendi (hattimdan|hattindan|numaramdan|numarasindan)|sms (gonder|kur|bagla|ayarla)|toplu (sms|mesaj)/, "SMS ve WhatsApp’ı kliniğin kendi numarasından göndermek için:", ["Müşteriler › Telefon Bağlantısı’nı açın.", "Kurulum sekmesindeki adımlarla kliniğin telefonunu bir kez eşleştirin.", "Hatırlatmalar, toplu mesajlar ve yanıtlar bu numaradan gider; ek SMS paketi gerekmez.", "Toplu gönderim için: Muhasebe › Toplu gönderim."], [["Telefon Bağlantısı", "#telefon-baglantisi"], ["Toplu gönderim", "#bayi-mesajlari/toplu"]]],
+    [/e-?fatura|e-?arsiv|e-?smm|serbest meslek makbuz|gib portal|fatura (kes|duzenle|olustur)/, "e-Fatura, e-Arşiv ve e-SMM için:", ["Satışlar › e-Fatura / e-SMM ekranını açın.", "Kurulum rehberindeki adımlarla kendi GİB, Uyumsoft veya Ödeal hesabınızı bir kez tanıtın.", "Satış listesinde ilgili satıştaki e-belge düğmesine basın; belge numarası satışa kendiliğinden işlenir."], [["e-Fatura / e-SMM", "#e-belgeler"]]],
+    [/\b(personel|calisan|ekip uyesi|kullanici|yetki)/, "Personel hesabı açmak için:", ["Diğer › Ayarlar › Ekip ve yetkiler (Klinik hesapları ve yetkiler) ekranını açın.", "Yeni üyelik ve aktivasyon › Hesap türü: Personel seçin; ad, cep telefonu ve yöntemi girin.", "Modül yetkilerini (görüntüleme / düzenleme) işaretleyip Personel oluştur’a basın."], [["Ekip ve yetkiler", "#merkezi-hesaplar"]]],
+    [/\bsube/, "Şube eklemek ve yönetmek için:", ["Diğer › Ayarlar › Ekip ve yetkiler › Şubeleri yönet’i açın.", "Şube adını ve şehrini girip kaydedin; paketinizdeki şube sınırı ekranda görünür.", "Sağ üstteki şube seçiciyle şubeler arasında geçiş yapın."], [["Ekip ve yetkiler", "#merkezi-hesaplar"]]],
+    [/\b(paket|abonelik|uyelik|satin al|odeme)/, "Paketinizi satın almak, yenilemek veya yükseltmek için:", ["Muhasebe › Abonelik mağazası’nı açın.", "Paketi ve aylık / yıllık dönemi seçip Satın Alın’a basın.", "Kredi kartı (PayTR, 3D Secure) ile anında ya da havale / EFT ile ödeyin; havalede dekont referansını girin."], [["Abonelik mağazası", "#kredi-magazasi"]]],
+    [/(mobil|telefon|android|ios|iphone|ipad|tablet|bilgisayar|masaustu|windows|mac) (uygulama|programi)|uygulama(yi)? (indir|kur|yukle)|hasta sahibi (uygulama|portal|giris)/, "VetZimo uygulamalarını kurmak için:", ["Satış sitesindeki Uygulama indir sayfasını açın (QR kodu telefonla okutabilirsiniz).", "Android, iPhone/iPad, Windows, Mac ve Linux için kurulum dosyası oradadır.", "Ekibiniz ve hasta sahipleri aynı telefon numarası ve şifreyle giriş yapar; herkes kendi yetkili alanına düşer."], [["Uygulama indir", "/platform/uygulama-indir"]]],
+    [/yedek|aktar|excel|eski program|import/, "Kayıtlarınızı yedeklemek veya başka programdan aktarmak için:", ["Hastalar › Hasta yedeği ve aktarım ekranını açın.", "Excel / CSV dosyanızı yükleyin; sütunları eşleştirip önizlemeyi onaylayın.", "Yedek almak için aynı ekrandaki Yedek indir düğmesini kullanın."], [["Yedek ve aktarım", "#import"]]],
+    [/\btema|renk(ler)?i? degis|karanlik mod|gece modu|gorunum/, "Görünümü değiştirmek için:", ["Diğer › Ayarlar › Görünüm ve ses sekmesini açın.", "Prizma · Işıltı (açık) veya Nebula · Neon Gece (koyu) temasını seçin; menü yerleşimini de buradan değiştirebilirsiniz."], [["Ayarlar", "#ayarlar"]]],
+    [/bildirim|sessiz saat/, "Bildirim tercihleri için:", ["Diğer › Ayarlar › İletişim ve bildirimler sekmesini açın.", "Hangi bildirimlerin geleceğini ve sessiz saatleri seçin; telefon uygulamasında ayrıca kategori bazında sessize alabilirsiniz."], [["Ayarlar", "#ayarlar"]]],
+    [/kvkk|onay formu|izin formu|iletisim izni/, "KVKK ve iletişim izni almak için:", ["Hasta sahibi kartında Onay formu gönder’e basın; tek kullanımlık bağlantı SMS / WhatsApp ile gider.", "Hasta sahibi telefonundan ya da klinikteki tablette imzalar; sonuç Müşteriler › Müşteri Onayları’nda görünür."], [["Müşteri Onayları", "#musteri-onaylari"]]],
+    [/cihaz (bagla|entegr|ekle|tanit)|(hemogram|biyokimya|rontgen|ultrason|kan gazi|idrar) cihaz|lab(oratuvar)? cihaz/, "Laboratuvar ve görüntüleme cihazlarını bağlamak için:", ["Diğer › Ayarlar › Entegrasyonlar › Cihaz entegrasyonu’nu açın.", "Cihazlar sekmesinden cihazınızı ekleyin; HL7, ASTM, CSV/XML veya DICOM çıkışını seçin.", "Gelen sonuçlar mikroçip, protokol ya da hasta adıyla eşleşip muayeneye eklenir; emin olunamayan sonucu tek tıkla doğru hastaya atarsınız."], [["Cihaz entegrasyonu", "#cihaz-entegrasyonu"]]],
+    [/evde hizmet|ev ziyaret|canli rota|eve (git|gel)/, "Evde hizmet için:", ["Diğer › Evde Hizmet’i açın; hizmet, bölge ve ödeme ayarlarını girin.", "Gelen başvuruları planlayın; personel yola çıkınca hasta sahibine tahmini varış süresi gider."], [["Evde Hizmet", "#evde-hizmet"]]],
+    [/hatirlat/, "Otomatik aşı ve randevu hatırlatmaları için:", ["Önce Müşteriler › Telefon Bağlantısı ile kliniğin numarasını eşleştirin.", "Diğer › Ayarlar › İletişim ve bildirimler’den hatırlatma saatini ve kanalı (SMS / WhatsApp) seçin.", "Hasta sahibinin iletişim izni Var ise aşı ve kontrol tarihinden önce mesaj kendiliğinden gider."], [["Telefon Bağlantısı", "#telefon-baglantisi"], ["Ayarlar", "#ayarlar"]]],
+    [/google (yorum|degerlendirme|isletme)/, "Google yorumu istemek için:", ["Diğer › Ayarlar › Klinik › Google yorum bağlantısı’na işletme bağlantınızı ekleyin.", "Ziyaret ve evde hizmet sonrası hasta sahibine isteğe bağlı yorum bağlantısı gönderilir."], [["Ayarlar", "#ayarlar"]]],
+  ];
+  function howTo(t) {
+    const asking = /\b(nasil|nereden|nerede|nereye|ne yapmam|yardim|kurulum|kur(ar|abilir|mak|ulur)|bagla(r|yabilir|mak|nir)|ekle(r|yebilir|mek|nir)|olustur|ac(ar|abilir|mak|ilir)|yap(ar|abilir|ilir|mak)|ogren|ne ise yarar|how|setup|connect)/.test(t);
+    for (const [pattern, title, steps, links] of GUIDES) {
+      if (!pattern.test(t)) continue;
+      if (!asking) continue;
+      return answer(title, {items: steps.map(step => [step, ""]), links});
+    }
+    return null;
+  }
+
   function help() {
     return answer("Size şu konularda yardımcı olabilirim:", {
       items:[["“Bugünkü ciro ne kadar?” · “Bu ay en çok satılan ürün hangisi?”", ""], ["“Kritik stokta neler var?” · “SKT yaklaşan ürünler”", ""],
         ["“Yarınki randevular” · “Bugün kaç muayene yapıldı?”", ""], ["“Geciken aşılar” · “Açık bakiyesi olan müşteriler”", ""],
-        ["“Pamuk’un son hemogramını özetle” · “Pamuk’un son ilaçları”", ""], ["“Yeni randevu” · “Günün özeti”", ""], ["Hekim bilgisi: " + KNOWLEDGE_EXAMPLES.slice(0, 6).join(" · "), ""], [KNOWLEDGE_EXAMPLES.slice(6).join(" · "), ""]],
+        ["“Pamuk’un son hemogramını özetle” · “Pamuk’un son ilaçları”", ""], ["“Yeni randevu” · “Günün özeti”", ""], ["Kullanım: “Web sitesi nasıl kurulur?” · “Instagram’ı nasıl bağlarım?” · “Personel nasıl eklenir?” · “e-Fatura nasıl kesilir?”", ""], ["Hekim bilgisi: " + KNOWLEDGE_EXAMPLES.slice(0, 6).join(" · "), ""], [KNOWLEDGE_EXAMPLES.slice(6).join(" · "), ""]],
       note:"Yanıtlar yalnızca bu cihazda, görmeye yetkili olduğunuz kayıtlardan hazırlanır. Veriler dışarı gönderilmez.",
     });
   }
@@ -469,7 +498,9 @@ export function createEngine(ctx) {
     const t = norm(text);
     if (!t) return help();
     // Hekim başvuru bilgisi (doz, aşı, referans, zehirlenme, ayırıcı tanı…); hasta adı geçiyorsa tür ve kilo kayıttan alınır.
-    if (!/^(yardim|help|merhaba|selam)\b/.test(t)) {
+    // "Geciken aşılar", "yarınki aşılar" gibi liste soruları hekim bilgisine değil klinik kayıtlarına gider.
+    const listQuery = /\b(geciken|gecikmis|gecmis|bugun(ku)?|yarin(ki)?|bu (hafta|ay)|liste|kac|hangi (hasta|musteri)|yaklasan|planlanan)/.test(t);
+    if (!/^(yardim|help|merhaba|selam)\b/.test(t) && !listQuery) {
       const named = findPatients(text);
       const pet = named.length === 1 ? named[0] : null;
       const known = vetAnswer(text, pet ? {species: /kedi/i.test(pet.species || "") ? "cat" : /k[öo]pek/i.test(pet.species || "") ? "dog" : /tav[şs]an/i.test(pet.species || "") ? "rabbit" : "", weight: pet.weight, name: pet.name} : {});
@@ -479,6 +510,8 @@ export function createEngine(ctx) {
       return answer("Acil olabilir", {urgent:true, note:"Anlatılan belirti acil müdahale gerektirebilir. Hayvanı bekletmeden hekime gösterin; kliniğe ulaşamıyorsanız en yakın 7/24 açık veteriner kliniğine başvurun. VeBot tanı koymaz."});
     }
     if (/^(yardim|help|ne yapabilirsin|neler yapabilirsin|merhaba|selam|hello|hi)\b/.test(t)) return help();
+    const guide = howTo(t);
+    if (guide) return guide;
     const counting = /\b(kac|sayi|ne kadar|how many|count)|\b(bu|gecen) (ay|hafta|yil)|\bbugun|\bson \d/.test(t);
     if (/\b(tahlil|tetkik|hemogram|biyokimya|lab)\w*\b.*\b(fotograf|foto|resim|tara|goruntu)/.test(t)) {
       return answer("Tetkik formundaki «Fotoğraftan oku» ile sonuç kâğıdının fotoğrafını tabloya aktarabilirsiniz.", {note:"Okuma cihazınızda yapılır; değerleri kaydetmeden önce kontrol edin.", links:[["Yeni tetkik", "new:labs"]]});

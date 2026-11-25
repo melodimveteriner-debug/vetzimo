@@ -1,6 +1,6 @@
 // Merkez · Uygulama Yönetimi: cihazlar, push durumu, bildirim politikaları (kritik / isteğe bağlı ayrı), kilit ekranı
 // şablonları, duyuru, sürüm yayını, uygulama hataları, hesap silme talepleri ve FCM/APNs/Web Push ayarları.
-const STYLE = "/center-apps.css?v=1";
+const STYLE = "/center-apps.css?v=2";
 const h = (tag, cls, text, props = {}) => { const n = Object.assign(document.createElement(tag), props); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
 const date = t => t ? new Date(Number(t) * 1000).toLocaleString("tr-TR", {dateStyle: "short", timeStyle: "short"}) : "—";
 const PLATFORM = {android: "Android", ios: "iPhone / iPad", web: "Web / PWA", windows: "Windows", macos: "macOS", linux: "Linux"};
@@ -18,7 +18,7 @@ export async function mountApps(root, {fetch: api, scope, reauth, tr = s => s}) 
   const note = h("p", "capp-note", "", {hidden: true});
   wrap.append(nav, note, body);
   root.replaceChildren(wrap);
-  const tabs = [["overview", "Genel durum"], ["policy", "Bildirim politikaları"], ["templates", "Kilit ekranı metinleri"], ["announce", "Duyuru gönder"],
+  const tabs = [["overview", "Genel durum"], ["policy", "Bildirim politikaları"], ["templates", "Bildirim şablonları"], ["announce", "Duyuru gönder"],
     ["releases", "Sürümler"], ["errors", "Uygulama hataları"], ["deletion", "Hesap silme"], ["providers", "Push ayarları"]];
   const say = (text, bad = false) => { note.hidden = !text; note.textContent = text || ""; note.classList.toggle("bad", bad); };
   const send = async (payload, done) => {
@@ -73,11 +73,13 @@ export async function mountApps(root, {fetch: api, scope, reauth, tr = s => s}) 
       data.categories.forEach(c => {
         const t = data.templates[c.key]; const card = h("form", "capp-card");
         const title = h("input", "", null, {value: t.title, maxLength: 80, required: true}); const text = h("input", "", null, {value: t.body, maxLength: 160});
-        card.append(h("strong", "", tr(c.label) + (c.private ? " 🔒" : "")), field(tr("Başlık"), title), field(c.private ? tr("Kilit ekranı metni (ayrıntı gizli)") : tr("Ön ek (isteğe bağlı)"), text), h("button", "capp-btn primary", tr("Kaydet"), {type: "submit"}));
-        card.addEventListener("submit", e => { e.preventDefault(); send({action: "template", category: c.key, title: title.value, body: text.value}); });
+        const message = h("textarea", "", null, {value: t.message || "", maxLength: 400, rows: 4});
+        card.append(h("strong", "", tr(c.label) + (c.private ? " 🔒" : "")), field(tr("Başlık"), title), field(tr("Hasta sahibine mesaj şablonu"), message), field(c.private ? tr("Kilit ekranı metni (ayrıntı gizli)") : tr("Ön ek (isteğe bağlı)"), text), h("button", "capp-btn primary", tr("Kaydet"), {type: "submit"}));
+        card.addEventListener("submit", e => { e.preventDefault(); send({action: "template", category: c.key, title: title.value, body: text.value, message: message.value}); });
         list.append(card);
       });
-      body.replaceChildren(h("p", "capp-muted", tr("Push bildiriminin kilit ekranında görünen metni. Hassas kategorilerde hasta, tutar veya mesaj içeriği yerine bu genel metin gösterilir; ayrıntı uygulama açılınca oturum doğrulanarak görünür.")), list);
+      body.replaceChildren(h("p", "capp-muted", tr("Mesaj şablonu, hasta sahibinin uygulamada ve bildirim merkezinde gördüğü metindir. Kullanılabilen alanlar: {sahip} hasta sahibinin adı, {hasta} hastanın adı, {konu} bildirimin konusu (ör. Kuduz aşısı, Yeni randevu), {tarih}, {saat}, {klinik} klinik adı, {telefon} klinik telefonu. Boş kalan alan metinden kendiliğinden çıkarılır.")),
+        h("p", "capp-muted", tr("Kilit ekranı metni: hassas kategorilerde (🔒) telefonun kilit ekranında hasta, tutar veya mesaj içeriği yerine bu genel metin görünür; ayrıntı uygulama açılınca oturum doğrulanarak gösterilir.")), list);
     },
     announce() {
       const f = h("form", "capp-card wide");

@@ -1,5 +1,5 @@
 import {waveChart} from './wave-chart.js';
-import {sitePalettes,darkPalette,loadAppearance} from './theme.js';
+import {sitePalettes,darkPalette,loadAppearance} from './theme.js?v=2';
 import {paginate} from './paged.js';
 let opsFeatureFields={};
 export async function opsFetch(path,body,scope){
@@ -65,21 +65,14 @@ export async function mountCenterSuite(ui,session){
   ['Ayarlar',[]]
  ];
  const assigned=groups.flatMap(([,keys])=>keys);
+ // Sol menü yalnız bölümleri gösterir; bölümün sayfaları üstte sekme olarak açılır (aynı bağlantılar iki yerde tekrarlanmaz).
+ const groupEntries=keys=>(keys.length?keys:tabs.map(([key])=>key).filter(key=>!assigned.includes(key))).filter(key=>tabs.some(entry=>entry[0]===key));
  for(const [label,keys] of groups){
-  const entries=keys.length?keys:tabs.map(([key])=>key).filter(key=>!assigned.includes(key));
-  if(!entries.some(key=>tabs.some(entry=>entry[0]===key)))continue;
-  const group=el('details','',{className:'center-nav-group',open:entries.includes(tab[0])});
-  group.append(el('summary',label));
-  for(const key of entries){
-   const match=tabs.find(entry=>entry[0]===key);
-   if(!match)continue;
-   const item=el('a',match[1],{href:url(key),className:'center-nav-item'});
-   if(key===tab[0]) {item.classList.add('active');item.setAttribute('aria-current','page');}
-   group.append(item);
-  }
-  if(label==='Satış sitesi ve yayınlar'&&department==='owner') group.append(
-    el('a','Web Sitesi Yönetimi',{href:'/yonetim/web-siteleri',className:'center-nav-item'}));
-  nav.append(group);
+  const entries=groupEntries(keys);
+  if(!entries.length)continue;
+  const item=el('a',label,{href:url(entries.includes(tab[0])?tab[0]:entries[0]),className:'center-nav-item center-nav-section'});
+  if(entries.includes(tab[0])){item.classList.add('active');item.setAttribute('aria-current','true');}
+  nav.append(item);
  }
  sidebar.append(menu,nav);
  const main=el('div','',{className:'center-main'}),top=el('header','',{className:'center-top'});
@@ -106,7 +99,8 @@ export async function mountCenterSuite(ui,session){
  const subtabs=el('nav','',{className:'center-subtabs'});
  subtabs.setAttribute('aria-label',currentGroup[0]);
  for(const key of groupKeys){const m=tabs.find(entry=>entry[0]===key);if(!m)continue;const a=el('a',m[1],{href:url(key)});if(key===tab[0])a.setAttribute('aria-current','page');subtabs.append(a);}
- main.append(top,...(groupKeys.length>1?[subtabs]:[]),content);
+ if(currentGroup[0]==='Satış sitesi ve yayınlar'&&department==='owner')subtabs.append(el('a','Web Sitesi Yönetimi',{href:'/yonetim/web-siteleri'}));
+ main.append(top,...(subtabs.children.length>1?[subtabs]:[]),content);
  // Bayi ödeme uyarıları (havale bildirimi, kartla ödeme): yalnız merkez yöneticisine ve bayi departmanına.
  if(department!=='support')fetch('/api/app/notifications?unread=1&category=payments',{credentials:'same-origin'}).then(r=>r.ok?r.json():null).then(d=>{
   const items=d?.items||[];if(!items.length)return;
@@ -138,7 +132,7 @@ export async function mountCenterSuite(ui,session){
   subscriptions:'Geçerli abonelik',applications:'Yeni başvuru',support:'Açık destek talebi',receipts:'Bugünkü klinik tahsilatı'};
  const roleLabels={dealer:'Bayi yöneticisi',branch:'Şube yöneticisi',staff:'Personel',customer:'Hasta sahibi'};
  async function nativeApps(){
-  const m=await import('./center-apps.js?v=2');
+  const m=await import('./center-apps.js?v=3');
   await m.mountApps(content,{fetch:opsFetch,scope:session.scopeId,reauth:session.reauthRequired,tr:uiLabel});
  }
  const statuses={active:'Etkin',pending:'Beklemede',revoked:'Kapalı'};
@@ -750,8 +744,8 @@ export async function mountCenterSuite(ui,session){
  }
  async function theme(){
   const [current,mail]=await Promise.all([call('appearance'),call('mail-settings')]);
-  const palette=selectField('palette','Varsayılan tema',[['default','Sistem teması'],...sitePalettes.map(([key,label])=>[key,label])]);
-  palette.querySelector('select').value=current.palette||'default';
+  const palette=selectField('palette','Varsayılan tema',sitePalettes.map(([key,label])=>[key,label]));
+  palette.querySelector('select').value=current.palette||'prizma';
   const lock=selectField('lock','Kullanıcı tema seçimi',[['open','Kullanıcı seçebilir'],['locked','Merkez teması zorunlu']]);
   lock.querySelector('select').value=current.locked?'locked':'open';
   content.replaceChildren(el('h2','Tema ayarları'),makeForm([palette,lock],'Kaydet',async values=>{

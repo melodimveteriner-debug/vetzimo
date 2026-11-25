@@ -253,5 +253,6 @@ main:has(.owner-dashboard){max-width:1050px}
 .center-package-actions button.danger{color:#c2253c;border-color:color-mix(in srgb,#c2253c 40%,transparent)}
 .center-package-actions button.danger:hover{background:color-mix(in srgb,#c2253c 10%,transparent)}
 
-/* Bilgisayarda: sol menü her zaman açık olduğundan "Menü" düğmesi ve sol menüyü tekrarlayan üst sekme şeridi gizli (telefonda görünür). */
-@media (min-width:851px){.center-menu-toggle{display:none!important}.center-subtabs{display:none!important}}
+/* Bilgisayarda sol menü hep açık: "Menü" düğmesi gizli. Sol menü bölümleri, üst şerit bölümün sayfalarını gösterir. */
+@media (min-width:851px){.center-menu-toggle{display:none!important}}
+.center-nav-item.center-nav-section{display:block;font-weight:700;padding:10px 12px;margin:2px 0;border-radius:10px}

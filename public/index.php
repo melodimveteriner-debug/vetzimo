@@ -171,8 +171,9 @@ try {
         $buyActor=(new SessionRepository($buyDb))->resolve($_COOKIE,time());
         $buyHash='#kredi-magazasi/paket-'.$buyPlan.'-'.$buyPeriod;
         if (($buyActor['role'] ?? '')==='dealer') { header('Location: /clinic'.$buyHash,true,302); exit; }
-        setcookie('vz_buy',$buyPlan.'-'.$buyPeriod,['expires'=>time()+1800,'path'=>'/','secure'=>true,'httponly'=>false,'samesite'=>'Lax']);
-        header('Location: /app?satin-al='.rawurlencode($buyPlan),true,302);
+        // Hesabı olmayan: telefon doğrulama + sözleşme + şifre ile hesap açılır; girişten sonra seçilen paketin ödeme adımı açılır.
+        setcookie('vz_buy',$buyPlan.'-'.$buyPeriod,['expires'=>time()+7*86400,'path'=>'/','secure'=>true,'httponly'=>true,'samesite'=>'Lax']);
+        header('Location: /platform/deneme?plan='.rawurlencode($buyPlan).'&donem='.$buyPeriod.'&satin-al=1',true,302);
         exit;
     }
     if (!$externalWeb && $method === 'GET' && ($path === '/' || $path === '/platform' || str_starts_with($path,'/platform/'))) {
@@ -241,7 +242,7 @@ try {
             // Satış sitesinden "Satın Alın" ile gelip giriş yapan bayi: seçtiği paketin ödeme adımına geçer.
             $buyIntent=(string)($_COOKIE['vz_buy'] ?? '');
             if ($buyIntent!=='') {
-                setcookie('vz_buy','',['expires'=>1,'path'=>'/','secure'=>true,'httponly'=>false,'samesite'=>'Lax']);
+                setcookie('vz_buy','',['expires'=>1,'path'=>'/','secure'=>true,'httponly'=>true,'samesite'=>'Lax']);
                 if (($actor['role'] ?? '')==='dealer' && preg_match('/\A[a-z0-9][a-z0-9-]{0,31}-(?:monthly|yearly)\z/',$buyIntent)) {
                     header('Location: /clinic#kredi-magazasi/paket-'.$buyIntent, true, 303);
                     exit;
@@ -1292,6 +1293,8 @@ try {
                     'thread'=>$inbox->thread($actor,(int)$str('id'),$now),
                     'cursor'=>['cursor'=>$inbox->cursor($actor)],
                     'channels'=>$inbox->channels($actor),
+                    // Genel bakış kartı ve menü rozeti: okunmamış sayısı, kanal başına açık konuşma ve son 4 konuşma
+                    'summary'=>(static function() use($inbox,$actor,$now){$l=$inbox->list($actor,['box'=>'open'],$now);return ['boxes'=>$l['boxes'],'channels'=>$l['channels'],'items'=>array_slice($l['items'],0,4)];})(),
                     'team'=>$inbox->team($actor)+['me'=>(string)($actor['membership_id'] ?? ''),'settings'=>$inbox->settings($actor['partner_id'])]+$inbox->quick($actor),
                     default=>throw new RuntimeException('İşlem geçersiz.',422),
                 });

@@ -933,3 +933,18 @@ th[aria-sort] .column-sort span{color:var(--brand)}
 /* Dar ekranda karşılama ve hava durumu kartı alt alta: başlık harf harf kırılmasın (Android 412 px). */
 @media (max-width:560px){.kv-welcome{grid-template-columns:minmax(0,1fr)}.kv-welcome .clinic-weather{justify-self:stretch;max-width:100%}}
 .kv-welcome-copy{min-width:min(100%,200px)}
+/* Genel Bakış: çok kanallı gelen kutusu kartı ve menü rozeti */
+.vz-inbox-card{display:grid;gap:12px;margin:0 0 16px;padding:18px 20px;border:1px solid var(--line);border-radius:18px;background:linear-gradient(135deg,color-mix(in srgb,var(--accent,#6a3df0) 9%,var(--panel,var(--surface,#fff))),var(--panel,var(--surface,#fff)));color:var(--ink);min-width:0}
+.vz-ib-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}.vz-ib-title{display:grid;gap:2px;min-width:0}.vz-ib-title h2{margin:0;font-size:1.25rem}
+.vz-ib-eyebrow{font-size:.72rem;letter-spacing:.06em;font-weight:700;color:var(--muted);overflow-wrap:anywhere}
+.vz-ib-pill{padding:5px 11px;border-radius:99px;font-weight:700;font-size:.85rem;border:1px solid var(--line);color:var(--muted);white-space:nowrap}.vz-ib-pill.on{background:var(--accent,#6a3df0);border-color:transparent;color:#fff}
+.vz-ib-chips{display:flex;flex-wrap:wrap;gap:6px}.vz-ib-chip{padding:4px 10px;border-radius:99px;font-size:.82rem;background:color-mix(in srgb,var(--ink) 6%,transparent)}.vz-ib-chip b{font-weight:700}
+.vz-ib-list{list-style:none;margin:0;padding:0;display:grid;gap:6px}.vz-ib-list a{display:grid;grid-template-columns:auto minmax(0,auto) minmax(0,1fr) auto;align-items:center;gap:10px;padding:9px 12px;border-radius:12px;border:1px solid var(--line);color:inherit;text-decoration:none;background:var(--panel,var(--surface,#fff))}
+.vz-ib-list a:hover,.vz-ib-list a:focus-visible{border-color:var(--accent,#6a3df0)}.vz-ib-list li.unread strong{font-weight:800}
+.vz-ib-ch{font-size:.72rem;font-weight:700;padding:2px 8px;border-radius:99px;color:#fff;background:#64748b}.vz-ib-whatsapp{background:#1f9d55}.vz-ib-instagram{background:#c13584}.vz-ib-messenger{background:#1877f2}.vz-ib-telegram{background:#229ed9}.vz-ib-sms{background:#7c3aed}.vz-ib-email{background:#b45309}.vz-ib-web{background:#0f766e}
+.vz-ib-chip.vz-ib-whatsapp,.vz-ib-chip.vz-ib-instagram,.vz-ib-chip.vz-ib-messenger,.vz-ib-chip.vz-ib-telegram,.vz-ib-chip.vz-ib-sms,.vz-ib-chip.vz-ib-email,.vz-ib-chip.vz-ib-web{color:#fff}
+.vz-ib-list strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.vz-ib-prev{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.vz-ib-count,.vz-ib-badge{min-width:22px;height:22px;padding:0 6px;border-radius:99px;background:#dc2626;color:#fff;font-size:.75rem;font-weight:800;display:inline-grid;place-items:center}.vz-ib-badge{margin-left:auto}
+.vz-ib-empty{margin:0;color:var(--muted)}.vz-ib-go{justify-self:start}
+.vz-ib-count{justify-self:end}
+@media (max-width:560px){.vz-inbox-card{padding:14px}.vz-ib-list a{grid-template-columns:auto minmax(0,1fr) auto}.vz-ib-prev{grid-column:1/-1;order:5}}
