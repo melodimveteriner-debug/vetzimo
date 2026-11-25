@@ -1,6 +1,7 @@
 import {waveChart} from './wave-chart.js';
 import {sitePalettes,darkPalette,loadAppearance} from './theme.js';
 import {paginate} from './paged.js';
+let opsFeatureFields={};
 export async function opsFetch(path,body,scope){
  const response=await fetch(path,body?{method:'POST',headers:{'Content-Type':'application/json',...(scope?{'X-VeTNet-Scope':scope}:{})},body:JSON.stringify(body)}:{});
  const data=await response.json();if(!response.ok)throw Error(data.error||'İşlem tamamlanamadı.');return data;
@@ -14,7 +15,7 @@ export async function mountCenterSuite(ui,session){
   ['basvurular','Demo İstek-Değerlendirme',crm],['paketler','Yazılım Paketleri',plans],
   ['abonelikler','Bayi Abonelikleri',subscriptions],['destek','Destek Talepleri',support],
   ['tema','Ayarlar ve Tema',theme],['bildirimler','Bildirim Merkezi',notifications],['guvenlik','Güvenlik',security],['kayitlar','İşlem Günlüğü',audit],
-  ['odemeler','Ödeme Onayları',()=>manage('payments')],['odeme-kanallari','Ödeme Kanalları',paymentChannels],['krediler','Kredi Siparişleri',creditOrders],['kredi-paketleri','Kredi Paketleri',()=>manage('credit_package')],['magaza-banka','Mağaza Havale Ayarları',()=>manage('shop_bank')],['site','Satış Sitesi Yönetimi',marketEditor],['yasal','Yasal Metinler',legalDocs],
+  ['odemeler','Ödeme Onayları',()=>manage('payments')],['odeme-kanallari','Ödeme Kanalları',paymentChannels],['magaza-banka','Mağaza Havale Ayarları',()=>manage('shop_bank')],['site','Satış Sitesi Yönetimi',marketEditor],['yasal','Yasal Metinler',legalDocs],
   ['duyurular','Duyurular',()=>manage('announcements')],['reklam','Reklam Yönetimi',()=>manage('ads')],
   ['degisiklikler','Son Değişiklikler',()=>manage('releases')],
   ['yedekleme','Yedekleme',()=>backup(false)],['aktarim','Klinik Verisi İçe Aktar',()=>backup(true)],
@@ -50,7 +51,7 @@ export async function mountCenterSuite(ui,session){
  nav.append(el('p','VetZimo Yönetim',{className:'center-kicker'}),el('small','Merkez paneli · R20'));
  const groups=[
   ['Çalışma alanı',['genel','bayiler','paketler','abonelikler','basvurular']],
-  ['Finans',['muhasebe','satislar','tahsilatlar','raporlar','odemeler','odeme-kanallari','krediler','kredi-paketleri','magaza-banka']],
+  ['Finans',['muhasebe','satislar','tahsilatlar','raporlar','odemeler','odeme-kanallari','magaza-banka']],
   ['Satış sitesi ve yayınlar',['site','yasal','duyurular','reklam','degisiklikler','evde-hizmet']],
   ['Ayarlar ve destek',[]]
  ];
@@ -168,7 +169,7 @@ export async function mountCenterSuite(ui,session){
   ]));
  }
  async function plans(){
-  const {plans:catalog,termFields}=await call('plans');
+  const {plans:catalog,termFields,featureFields}=await call('plans');opsFeatureFields=featureFields||{};
   content.replaceChildren(button('Yeni paket',()=>editPackage({name:'',description:'',vat:'included',published:false,modules:{}},termFields)),el('p','Paket fiyatlarını, satış sitesindeki özellikleri ve bayi erişimini buradan yönetin.'),el('a','Satış sitesindeki paketleri aç',{href:'/platform/paketler'}),table(['Paket','İçerik','Aylık','Yıllık','İşlemler'],catalog.map(plan=>[
    plan.name,plan.description,plan.monthly==null?'Teklif ile':currency(plan.monthly),plan.yearly==null?'Teklif ile':currency(plan.yearly),packageActions(plan,termFields,async()=>{
     const {partners}=await call('partners');
@@ -195,7 +196,7 @@ export async function mountCenterSuite(ui,session){
   actions.append(button('Düzenle',()=>editPackage(plan,termFields)),button('Bayilere bağla',assign));
   return actions;
  }
- function editPackage(plan,termFields){
+ function editPackage(plan,termFields,featureFields=opsFeatureFields){
   const create=!plan.id;
   const terms=el('fieldset','',{className:'center-package-permissions'});
   terms.append(el('legend','Paket kapsamı'));
@@ -220,8 +221,16 @@ export async function mountCenterSuite(ui,session){
    choice.querySelector('select').value=plan.modules?.[key]||(!plan.modules?'write':'none');
    permissions.append(choice);
   }
+  const caps=el('fieldset','',{className:'center-package-permissions center-package-caps'});
+  caps.append(el('legend','Pakette açık özellikler'),el('p','İşaretlenmeyen özellik bu paketteki bayilerin menüsünde görünmez ve sunucu tarafından reddedilir. Bayi yöneticisi açık özellikleri şube yöneticisi ve personeline ayrıca verebilir.',{className:'muted'}));
+  const capKeys=Object.keys(featureFields||{});
+  const capTools=el('div','',{className:'actions'});
+  const capAll=on=>()=>caps.querySelectorAll('input[type=checkbox]').forEach(x=>{x.checked=on});
+  capTools.append(button('Tümünü aç',capAll(true)),button('Tümünü kapat',capAll(false)));
+  caps.append(capTools);
+  for(const key of capKeys){const row=el('label',featureFields[key],{className:'center-cap'});row.prepend(el('input','',{type:'checkbox',name:'cap_'+key,checked:plan.capabilities?plan.capabilities[key]!==false:true}));caps.append(row)}
   const price=key=>field(key,(key==='monthly'?'Aylık':'Yıllık')+' fiyat (₺, boşsa teklif)',{type:'number',min:0,max:9999999.99,step:'0.01',required:false,value:plan[key]==null?'':plan[key]/100});
-  const form=makeForm([...(create?[field('id','Paket kodu',{pattern:'[a-z0-9][a-z0-9-]{0,31}',maxLength:32})]:[]),field('name','Paket adı',{value:plan.name,maxLength:120}),description,features,price('monthly'),price('yearly'),vat,published,terms,permissions],
+  const form=makeForm([...(create?[field('id','Paket kodu',{pattern:'[a-z0-9][a-z0-9-]{0,31}',maxLength:32})]:[]),field('name','Paket adı',{value:plan.name,maxLength:120}),description,features,price('monthly'),price('yearly'),vat,published,terms,caps,permissions],
    'Paketi kaydet',async values=>{
     const scope=Object.fromEntries(Object.entries(termFields).map(([key,[label,max]])=>{
      const value=values['term_'+key].trim();
@@ -234,7 +243,7 @@ export async function mountCenterSuite(ui,session){
      published:values.published==='on',vat:values.vat,
      monthly:values.monthly===''?null:Math.round(Number(values.monthly)*100),
      yearly:values.yearly===''?null:Math.round(Number(values.yearly)*100),
-     modules:Object.fromEntries(options.map(key=>[key,values['module_'+key]]))});
+     modules:Object.fromEntries(options.map(key=>[key,values['module_'+key]])),capabilities:Object.fromEntries(capKeys.map(key=>[key,values['cap_'+key]==='on']))});
     await plans();
     status.textContent='Paket kaydedildi.';
    });
@@ -264,28 +273,7 @@ export async function mountCenterSuite(ui,session){
    'Telefonunuzdaki doğrulama uygulamasının yeni altı haneli kodunu kullanın. Girişte bir kod kullandıysanız uygulamada sonraki kodu bekleyin.'),form,
    el('a','Önceki bölüme dön',{href:url(target[0])}));
  }
- async function creditOrders(){
-  const [{rows},{partners}]=await Promise.all([call('credit-orders'),call('partners')]);
-  const names=new Map(partners.map(row=>[row.id,row.name]));
-  const statusNames={pending:'Ödeme bekliyor',review:'İnceleme bekliyor',approved:'Onaylandı',rejected:'Reddedildi'};
-  const review=row=>makeForm([
-   field('verifiedAmount','Bankada görünen tutar (TL)',{inputMode:'decimal'}),
-   field('verified','Banka kaydını doğruladım',{type:'checkbox',required:true})
-  ],'Onayla ve krediyi yükle',async values=>{
-   await call('credit-orders',{id:row.id,action:'approved',verifiedAmount:values.verifiedAmount,verified:values.verified==='on'});
-   await creditOrders();
-  });
-  content.replaceChildren(paginate(rows,page=>table(['Bayi','Paket','Tutar','Referans','Durum','İşlem'],page.map(row=>{
-   const actions=el('div');
-   if(row.status==='review')actions.append(review(row),button('Reddet',async()=>{
-    if(!confirm('Ödeme bildirimi reddedilsin mi?'))return;
-    await call('credit-orders',{id:row.id,action:'rejected'});await creditOrders();
-   }));
-   return [names.get(row.partner),row.name,currency(row.price),row.reference,statusNames[row.status],actions];
-  }))));
- }
  const managementFields={
-  credit_package:[['name','Paket adı'],['channel','Kanal'],['units','Kredi miktarı'],['price','Fiyat (TL)']],
   shop_bank:[['enabled','Havale ile satış'],['beneficiary','Alıcı adı'],['iban','Türkiye IBAN']],
   payments:[['partner','Bayi'],['reference','Dekont / işlem referansı'],['amount','Tutar (₺)'],['note','Not'],['plan','Abonelik paketi'],['starts_on','Başlangıç'],['ends_on','Bitiş']],
   market:[['path','Satış sayfası yolu'],['title','Başlık'],['description','Arama sonucu açıklaması'],['section_title','Ek bölüm başlığı'],['section_text','Ek bölüm metni'],['section_url','Ek bölüm HTTPS bağlantısı']],

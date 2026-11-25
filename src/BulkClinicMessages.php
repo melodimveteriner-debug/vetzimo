@@ -132,7 +132,7 @@ final class BulkClinicMessages
                     if ($status=$existing->fetchColumn()) {
                         $result['status']=$status;
                     } elseif ($units>$balance) {
-                        $result['reason']='Yeterli gönderim kredisi yok.';
+                        $result['reason']='Paketinizin aylık gönderim sınırı doldu.';
                     } else {
                         $job=['channel'=>$channel,'phone'=>$phone,'message'=>$filled,'parameters'=>$variables,
                             'iys'=>$iys,'waTemplate'=>$provider['bulkTemplate']??'', 'approvedBodyHash'=>hash('sha256',$body),'via'=>$viaPhone?'phone':'provider'];
@@ -192,32 +192,26 @@ final class BulkClinicMessages
             $balance=max(0,$this->balance($partner,$channel));
             $dayUsed=(int)($usage[$channel]['day_used']??0);
             $monthUsed=(int)($usage[$channel]['month_used']??0);
-            // Ayrı bir kota yok; üst sınır kalan kredi kadardır.
-            $limits[]=['channel'=>$channel,'balance'=>$balance,'day_used'=>$dayUsed,'day_cap'=>$dayUsed+$balance,
-                'month_used'=>$monthUsed,'month_cap'=>$monthUsed+$balance,'enabled'=>$session[$channel]?1:0];
+            // Üst sınır paketteki aylık gönderim sınırıdır (boşsa sınırsız).
+            $limits[]=['channel'=>$channel,'unlimited'=>$balance>=1000000000,'balance'=>$balance>=1000000000?null:$balance,'day_used'=>$dayUsed,'day_cap'=>$balance>=1000000000?null:$dayUsed+$balance,
+                'month_used'=>$monthUsed,'month_cap'=>$balance>=1000000000?null:$monthUsed+$balance,'enabled'=>$session[$channel]?1:0];
         }
-        $ledger=$this->db->prepare("SELECT g.channel,g.units AS delta,m.updated_at AS created_at,
-                COALESCE(JSON_UNQUOTE(JSON_EXTRACT(m.payload,'$.name')),'Kredi paketi') AS reason
-            FROM clinic_credit_grant g LEFT JOIN center_management m ON m.id=g.order_id AND m.kind='credit_order'
-            WHERE g.partner_id=? ORDER BY m.updated_at DESC LIMIT 50");
-        $ledger->execute([$partner]);
-        $rows=array_map(static function(array $row): array {
-            $row['delta']=(int)$row['delta'];
-            $row['created_at']=$row['created_at']?str_replace(' ','T',$row['created_at']).'Z':null;
-            return $row;
-        },$ledger->fetchAll(PDO::FETCH_ASSOC));
+        $rows=[];
         $counts=$this->db->prepare('SELECT channel,status,COUNT(*) AS count FROM clinic_bulk_message WHERE partner_id=? GROUP BY channel,status ORDER BY channel,status');
         $counts->execute([$partner]);
         return ['account'=>$account,'limits'=>$limits,'ledger'=>$rows,
             'counts'=>array_map(static fn($row)=>[...$row,'count'=>(int)$row['count']],$counts->fetchAll(PDO::FETCH_ASSOC))];
     }
 
+    /** Kalan aylık gönderim hakkı: paketteki aylık sınır − bu ay telefon hattı ve sağlayıcıyla gönderilenler. Sınır yoksa sınırsız. */
     private function balance(string $partner,string $channel): int
     {
-        $q=$this->db->prepare("SELECT COALESCE((SELECT SUM(units) FROM clinic_credit_grant WHERE partner_id=? AND channel=?),0)
-            - COALESCE((SELECT SUM(units) FROM clinic_bulk_message WHERE partner_id=? AND channel=? AND status<>'rejected'),0)");
-        $q->execute([$partner,$channel,$partner,$channel]);
-        return (int)$q->fetchColumn();
+        $usage=(new PhoneGateway($this->db))->monthlyUsage($partner,time())[$channel];
+        if ($usage['limit']===null) return 1000000000;
+        $start=(new \DateTimeImmutable('first day of this month 00:00',new \DateTimeZone('Europe/Istanbul')))->format('Y-m-d H:i:s');
+        $q=$this->db->prepare("SELECT COALESCE(SUM(units),0) FROM clinic_bulk_message WHERE partner_id=? AND channel=? AND status<>'rejected' AND created_at>=?");
+        $q->execute([$partner,$channel,$start]);
+        return max(0,$usage['limit']-$usage['used']-(int)$q->fetchColumn());
     }
 
     private function providerRequest(array $provider,array $job,string $id): ?array

@@ -67,17 +67,6 @@ CREATE TABLE `clinic_contact` (
   PRIMARY KEY (`membership_id`),
   CONSTRAINT `clinic_contact_ibfk_1` FOREIGN KEY (`membership_id`) REFERENCES `identity_membership` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-CREATE TABLE `clinic_credit_grant` (
-  `order_id` char(32) NOT NULL,
-  `partner_id` varchar(80) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
-  `channel` varchar(16) NOT NULL,
-  `units` int(10) unsigned NOT NULL,
-  `bank_reference` varchar(100) NOT NULL,
-  PRIMARY KEY (`order_id`),
-  UNIQUE KEY `bank_reference` (`bank_reference`),
-  KEY `credit_grant_partner` (`partner_id`,`channel`),
-  CONSTRAINT `clinic_credit_grant_ibfk_1` FOREIGN KEY (`partner_id`) REFERENCES `partner_account` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 CREATE TABLE `clinic_delivery_notice` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `partner_id` varchar(80) NOT NULL,

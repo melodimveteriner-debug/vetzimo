@@ -16,7 +16,7 @@ final class Commerce
 
     public const TERMS=[
         'users'=>['Kullanıcı',100000],'branches'=>['Şube',100000],'patients'=>['Hasta kaydı',10000000],
-        'storage'=>['Depolama (GB)',100000],'sms'=>['SMS kredisi',10000000],'whatsapp'=>['WhatsApp mesajı',10000000],
+        'storage'=>['Depolama (GB)',100000],'sms'=>['Aylık SMS gönderim sınırı',10000000],'whatsapp'=>['Aylık WhatsApp gönderim sınırı',10000000],
         'okc'=>['ÖKC hakkı',100000],'edoc'=>['E-dönüşüm hakkı',100000],
         'support'=>['Destek kapsamı',null],'trial'=>['Deneme süresi (gün)',365],'discount'=>['Yıllık indirim (%)',100],
     ];
@@ -65,6 +65,10 @@ final class Commerce
             if (!in_array($grant,['none','read','write'],true)) throw new RuntimeException('Modül yetkisi geçersiz.',422);
             $settings['modules'][$key]=$grant;
         }
+        // Özellikler: işaretlenmeyen özellik bu paketteki bayilerde kapalıdır (menüde görünmez, sunucu da reddeder).
+        $caps=$body->capabilities ?? null;
+        $settings['capabilities']=[];
+        foreach (array_keys(ClinicAccess::FEATURES) as $key) $settings['capabilities'][$key]=!is_object($caps) || ($caps->$key ?? false)===true;
         $this->db->prepare('INSERT INTO clinic_package_settings(plan_id,settings) VALUES (?,?)'.($create?'':' ON DUPLICATE KEY UPDATE settings=VALUES(settings)'))
             ->execute([$id,json_encode($settings,JSON_THROW_ON_ERROR)]);
     }
@@ -77,6 +81,9 @@ final class Commerce
         $q->execute([$actor['partner_id'],$day,$day]);
         $settings=json_decode((string)$q->fetchColumn(),true);
         if (isset($settings['modules'])) $actor['packageModules']=$settings['modules'];
+        if (isset($settings['capabilities']) && is_array($settings['capabilities'])) $actor['packageFeatures']=array_map(static fn($v)=>$v===true,$settings['capabilities']);
+        $terms=(array)($settings['terms'] ?? []);
+        $actor['packageLimits']=['sms'=>is_int($terms['sms'] ?? null)?$terms['sms']:null,'whatsapp'=>is_int($terms['whatsapp'] ?? null)?$terms['whatsapp']:null];
         return $actor;
     }
 

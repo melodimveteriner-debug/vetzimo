@@ -6,6 +6,12 @@ const roles={branch:"Şube yöneticisi",staff:"Personel",customer:"Hasta sahibi"
 const outcomes={active:"Personel hesabı etkin. Telefon ve belirlediğiniz şifre ile giriş yapılabilir.",email_sent:"Tek kullanımlık şifre belirleme bağlantısı e-posta ile gönderildi.",sent:"SMS sağlayıcısı gönderimi kabul etti.",delivery_unknown:"SMS sonucu henüz doğrulanamadı.",provider_pending:"Üyelik beklemede. SMS sağlayıcısı kullanılabilir olduğunda tekrar deneyin.",credit_pending:"Üyelik beklemede. Bayi bakiyesi ve gönderim limitlerini kontrol edin.",quota_pending:"Üyelik beklemede. Gönderim kotası doldu.",wait:"Bir aktivasyon zaten beklemede. Beş dakika sonra yeniden deneyebilirsiniz."};
 const memberStatus={pending:"Aktivasyon bekliyor",active:"Aktif",revoked:"Kapatıldı"};
 const rolePresets={reception:{appointments:"write",clients:"write",patients:"read",followups:"read"},clinical:{appointments:"read",clients:"read",patients:"write",followups:"write"},inventory:{products:"write",reports:"read"}};
+// Yeni özellikler (sunucu ClinicAccess::FEATURES): paket açıksa varsayılan olarak verilir, buradan kapatılabilir.
+const featureNames={inbox:"Gelen kutusu (tüm kanallar)",phoneGateway:"Telefon bağlantısı (kendi hattından SMS/WhatsApp)",reminders:"Otomatik hatırlatmalar",bulkMessages:"Toplu mesaj",
+  permits:"Müşteri onay formu (KVKK ve ileti izni)",consents:"Dijital onam ve imza",edocs:"e-Fatura / e-Arşiv / e-SMM",bridge:"Bakanlık köprüsü (e-Reçete ve aşı)",
+  icu:"Yoğun bakım panosu",surgery:"Ameliyat modülü",homeCare:"Evden takip",homeVisit:"Eve hizmet",webSite:"Web sitesi ve web mesajları",onlineBooking:"Web randevu",
+  vebot:"VeBot asistan",voice:"Sesli komut",xray:"Röntgen yapay zekâ yorumu",dicom:"DICOM görüntüleyici",labAi:"Laboratuvar yorum desteği",calculators:"Klinik hesaplayıcılar",
+  taskBoard:"İş takibi panosu",commission:"Prim raporu",debtReminders:"Borç hatırlatma",bulkPrice:"Toplu fiyat ve Excel",invoiceImport:"Faturadan stok",okc:"Yazar kasa (ÖKC)"};
 const moduleNames={esmm:"e-SMM portal erişimi",appointments:"Randevu görüntüleme ve düzenleme",clients:"Müşteriler ve belgeler",patients:"Hastalar ve muayeneler",followups:"Aşı ve takip",sales:"Satışlar",products:"Ürünler ve stok",expenses:"Kasa ve muhasebe görüntüleme ve düzenleme",reports:"Raporları görüntüleme",messages:"Mesajlar",support:"Destek",overviewClients:"Genel Bakış · Tüm Kayıtlı Müşteriler",overviewPatients:"Genel Bakış · Tüm Kayıtlı Hastalar"};
 
 
@@ -36,10 +42,11 @@ export async function mountClinicAccounts(ui,params) {
     return details;
   }
 
-  const customerSections={vaccines:"Aşı takvimi",appointments:"Randevular",shares:"Bildirimler",exam:"Muayene özetleri",lab:"Laboratuvar fotoğrafları",xray:"Röntgen fotoğrafları"};
+  const customerSections={vaccines:"Aşı takvimi",appointments:"Randevular",shares:"Bildirimler",exam:"Muayene özetleri",lab:"Laboratuvar fotoğrafları",xray:"Röntgen fotoğrafları",homeCare:"Evden takip (gözlem gönderme)",balance:"Borç / bakiye bilgisi",documents:"İmzalı onam ve izin belgeleri"};
+  const customerDefaults={homeCare:"read",balance:"read",documents:"read"};
 
   function moduleFields(current={},customer=false) {
-    return permissionMatrix({el,selectField,modules:customer?customerSections:{...moduleNames,...actionNames},current,
+    return permissionMatrix({el,selectField,modules:customer?customerSections:{...moduleNames,...actionNames,...featureNames},current:customer?{...customerDefaults,...current}:{...Object.fromEntries(Object.keys(featureNames).map(k=>[k,"write"])),...current},
       readOnly:customer,initial:customer?"read":"none",title:customer?"Hasta sahibi portalı":"Modül erişim tablosu",
       presets:customer?{}:{
         reception:{label:"Resepsiyon",values:rolePresets.reception},

@@ -10,7 +10,6 @@ use RuntimeException;
 final class CenterManagement
 {
     public const FIELDS = [
-        'credit_package'=>['name'=>120,'channel'=>16,'units'=>7,'price'=>16],
         'shop_bank'=>['enabled'=>3,'beneficiary'=>160,'iban'=>34],
         'payments'=>['partner'=>32,'reference'=>120,'amount'=>16,'note'=>500,'plan'=>32,'starts_on'=>10,'ends_on'=>10],
         'market'=>['path'=>150,'title'=>160,'description'=>350,'section_title'=>160,'section_text'=>1500,'section_url'=>500],
@@ -176,9 +175,6 @@ final class CenterManagement
                     }
                     $data['active']=($input->active ?? false)===true;
                 }
-                if ($kind==='credit_package' && (!in_array($data['channel'],['sms','whatsapp'],true) ||
-                    !preg_match('/\A[1-9][0-9]{0,6}\z/',$data['units']) || (int)$data['units']>1000000 ||
-                    Finance::money(str_replace(',','.',$data['price']))<=0)) throw new RuntimeException('Kredi paketi bilgileri geçersiz.',422);
                 if ($kind==='shop_bank') {
                     $data['iban']=strtoupper(str_replace(' ','',$data['iban']));
                     if (!in_array($data['enabled'],['yes','no'],true) || !preg_match('/\ATR[0-9]{24}\z/',$data['iban'])) {

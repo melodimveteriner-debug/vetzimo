@@ -14,6 +14,32 @@ final class ClinicAccess
         'messages'=>['messages','templates'],'support'=>[],'esmm'=>[],
         'overviewClients'=>[],'overviewPatients'=>[],
     ];
+    /** Paketle açılıp kapatılan ve bayi yöneticisinin rol bazında verebildiği özellikler (anahtar => etiket). */
+    public const FEATURES = [
+        'inbox'=>'Gelen kutusu (WhatsApp, Instagram, Facebook, Telegram, SMS, e-posta)','phoneGateway'=>'Telefon bağlantısı (kendi hattından SMS ve WhatsApp)',
+        'reminders'=>'Otomatik hatırlatmalar','bulkMessages'=>'Toplu mesaj','permits'=>'Müşteri onay formu (KVKK ve ileti izni)',
+        'consents'=>'Dijital onam ve imza','edocs'=>'e-Fatura / e-Arşiv / e-SMM','bridge'=>'Bakanlık köprüsü (e-Reçete ve aşı)',
+        'icu'=>'Yoğun bakım panosu','surgery'=>'Ameliyat modülü','homeCare'=>'Evden takip','homeVisit'=>'Eve hizmet',
+        'webSite'=>'Web sitesi oluşturucu','onlineBooking'=>'Web randevu','vebot'=>'VeBot asistan','voice'=>'Sesli komut',
+        'xray'=>'Röntgen yapay zekâ yorumu','dicom'=>'DICOM görüntüleyici','labAi'=>'Laboratuvar yorum desteği','calculators'=>'Klinik hesaplayıcılar',
+        'taskBoard'=>'İş takibi panosu','commission'=>'Prim raporu','debtReminders'=>'Borç hatırlatma','bulkPrice'=>'Toplu fiyat ve Excel',
+        'invoiceImport'=>'Faturadan stok','okc'=>'Yazar kasa (ÖKC)',
+    ];
+    /** Hasta sahibi portalında gösterilebilecek bölümler. Yeni bölümler (evden takip, borç, belgeler) varsayılan olarak açıktır. */
+    public const CUSTOMER_SECTIONS = ['vaccines','appointments','shares','exam','lab','xray','homeCare','balance','documents'];
+    public const CUSTOMER_DEFAULT_ON = ['homeCare','balance','documents'];
+
+    /** Özellik erişimi: paket kapatmışsa kimse kullanamaz; bayi yöneticisi pakete kadar, şube/personel kendi izni kadar (izin yoksa açık). */
+    public static function feature(array $actor,string $key,bool $write=false): bool
+    {
+        if (!isset(self::FEATURES[$key]) || ($actor['packageFeatures'][$key] ?? true)===false) return false;
+        if (($actor['role'] ?? '')==='dealer') return true;
+        if (!in_array($actor['role'] ?? '',['branch','staff'],true)) return false;
+        $grants=json_decode($actor['modules'] ?? '{}',true) ?: [];
+        $value=$grants[$key] ?? 'write';
+        return $write ? $value==='write' : in_array($value,['read','write'],true);
+    }
+
     public const DELETE_GRANTS = [
         'patients'=>'deletePatients','clients'=>'deleteClients','appointments'=>'deleteAppointments',
         'products'=>'deleteProducts','sales'=>'deleteSales','collections'=>'deleteCollections','initialPayments'=>'deleteCollections',
@@ -66,6 +92,13 @@ final class ClinicAccess
         foreach ($actor['packageModules'] ?? [] as $key=>$cap) {
             if ($actor['role']==='dealer' || $cap==='none') $modules->$key=$cap;
             elseif ($cap==='read' && ($modules->$key ?? '')==='write') $modules->$key='read';
+        }
+        if (in_array($actor['role'] ?? '',['dealer','branch','staff'],true)) {
+            foreach (array_keys(self::FEATURES) as $key) {
+                $modules->$key=self::feature($actor,$key,true)?'write':(self::feature($actor,$key)?'read':'none');
+            }
+        } elseif (($actor['role'] ?? '')==='customer') {
+            foreach (self::CUSTOMER_DEFAULT_ON as $key) if (!isset($modules->$key)) $modules->$key='read';
         }
         return $modules;
     }

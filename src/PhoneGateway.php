@@ -128,11 +128,35 @@ final class PhoneGateway
         $body = trim($body);
         if ($body === '' || mb_strlen($body) > 4000) throw new RuntimeException('Mesaj 1-4000 karakter olmalı.', 422);
         if (!in_array($channel, ['sms', 'whatsapp'], true) || !in_array($source, ['reminder', 'bulk', 'inbox', 'test', 'manual'], true)) throw new RuntimeException('Kuyruk isteği geçersiz.', 422);
+        $this->checkMonthlyLimit($partner, $channel, $source, $ref, $now);
         $this->db->prepare('INSERT IGNORE INTO phone_outbox (partner_id,channel,phone,body,source,source_ref,priority,expires_at,created_by,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)')
             ->execute([$partner, $channel, $phone, $body, $source, mb_substr($ref, 0, 190), $priority, $expires, mb_substr($by, 0, 120), $now]);
         $q = $this->db->prepare('SELECT id FROM phone_outbox WHERE source=? AND source_ref=?');
         $q->execute([$source, mb_substr($ref, 0, 190)]);
         return (int)$q->fetchColumn();
+    }
+
+    /** Paketteki aylık SMS/WhatsApp sınırı (boş = sınırsız). Aynı kaynak kaydının yeniden kuyruğa alınması sayılmaz. */
+    public function monthlyUsage(string $partner, int $now): array
+    {
+        $limits = (new Commerce($this->db))->packageActor(['partner_id' => $partner])['packageLimits'] ?? ['sms' => null, 'whatsapp' => null];
+        $start = (new \DateTimeImmutable('@'.$now))->setTimezone(new \DateTimeZone('Europe/Istanbul'))->modify('first day of this month')->setTime(0, 0)->getTimestamp();
+        $q = $this->db->prepare("SELECT channel,COUNT(*) FROM phone_outbox WHERE partner_id=? AND created_at>=? AND status NOT IN ('failed','cancelled','expired') AND source<>'test' GROUP BY channel");
+        $q->execute([$partner, $start]);
+        $used = $q->fetchAll(PDO::FETCH_KEY_PAIR);
+        return ['sms' => ['used' => (int)($used['sms'] ?? 0), 'limit' => $limits['sms'] ?? null], 'whatsapp' => ['used' => (int)($used['whatsapp'] ?? 0), 'limit' => $limits['whatsapp'] ?? null]];
+    }
+
+    private function checkMonthlyLimit(string $partner, string $channel, string $source, string $ref, int $now): void
+    {
+        if ($source === 'test') return;
+        $q = $this->db->prepare('SELECT 1 FROM phone_outbox WHERE source=? AND source_ref=?');
+        $q->execute([$source, mb_substr($ref, 0, 190)]);
+        if ($q->fetchColumn()) return;
+        $usage = $this->monthlyUsage($partner, $now)[$channel];
+        if ($usage['limit'] !== null && $usage['used'] >= $usage['limit']) {
+            throw new RuntimeException('Paketinizin aylık '.($channel === 'sms' ? 'SMS' : 'WhatsApp').' gönderim sınırına ulaşıldı ('.$usage['limit'].'). Sınırı yönetici panelinden paket ayarlarında artırabilirsiniz.', 429);
+        }
     }
 
     /** Günlük gönderim penceresi dışında mı? (Türkiye saati; başlangıç + süre, gece yarısını aşabilir.) */

@@ -12,7 +12,7 @@ use VetNet\Cpanel\SessionRepository;
 
 require_once dirname(__DIR__).'/src/StaffPlan.php';
 
-foreach (['NativeApp','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','CreditShop','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','TeamTotp','WebInbox','MinistryBridge','SiteLegal','OmniInbox','PhoneGateway','ClientPermit','PrintTemplates','Support','Commerce','Appearance'] as $class) {
+foreach (['NativeApp','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','TeamTotp','WebInbox','MinistryBridge','SiteLegal','OmniInbox','PhoneGateway','ClientPermit','PrintTemplates','Support','Commerce','Appearance'] as $class) {
     require dirname(__DIR__) . '/src/' . $class . '.php';
 }
 
@@ -23,6 +23,12 @@ function reply(array $body, int $status = 200): never {
     exit;
 }
 
+/** Paket veya rol bu özelliği kapatmışsa isteği reddeder. */
+function requireFeature(array $actor,string $key,bool $write=false): void {
+    if (in_array($actor['role'] ?? '',['dealer','branch','staff'],true) && !VetNet\Cpanel\ClinicAccess::feature($actor,$key,$write)) {
+        throw new RuntimeException('Bu özellik paketinizde veya kullanıcı yetkinizde kapalı.',403);
+    }
+}
 function input(int $limit): object {
     if (!preg_match('~\Aapplication/json(?:\s*;|\z)~i', $_SERVER['CONTENT_TYPE'] ?? '')) {
         throw new RuntimeException('JSON içerik bekleniyor.', 415);
@@ -351,23 +357,15 @@ try {
         $actor=$workspaces->actor($_COOKIE,$now);
         reply(['items'=>(new VetNet\Cpanel\CenterManagement($db,new Center($db,$config)))->published($actor['partner_id'])]);
     }
-    if (in_array($path,['/api/ops/shop','/api/ops/shop/order','/api/ops/shop/reference','/api/saas/store'],true)) {
+    if ($path==='/api/saas/store') {
+        // Abonelik mağazası (SMS/WhatsApp kredi satışı kaldırıldı; mesajlar kliniğin kendi hattından gider).
         $actor=$workspaces->actor($_COOKIE,$now);
         if ($actor['role']!=='dealer') throw new RuntimeException('Bayi yöneticisi yetkisi gerekli.',403);
-        $shop=new VetNet\Cpanel\CreditShop($db,new VetNet\Cpanel\CenterManagement($db,new Center($db,$config)));
-        if ($method==='GET' && $path==='/api/ops/shop') reply($shop->catalog($actor));
-        if ($method==='GET' && $path==='/api/saas/store') reply([
+        if ($method==='GET') reply([
             'scopeId'=>$actor['membership_id'],'bank'=>false,'orders'=>[],
             'subscription'=>(new VetNet\Cpanel\Commerce($db))->subscription($actor['partner_id']),
             'plans'=>array_map(static fn($plan)=>$plan+['card'=>false,'purchasable'=>false],array_values((new VetNet\Cpanel\Commerce($db))->publishedCatalog())),
         ]);
-        if ($method==='POST' && in_array($path,['/api/ops/shop/order','/api/ops/shop/reference'],true)) {
-            if (!hash_equals($actor['membership_id'],$_SERVER['HTTP_X_VETNET_SCOPE'] ?? '')) throw new RuntimeException('Çalışma alanı oturumu değişti.',409);
-            $body=input(4096);
-            if ($path==='/api/ops/shop/order') reply($shop->order($actor,$body));
-            $shop->reference($actor,$body);
-            reply(['ok'=>true]);
-        }
         throw new RuntimeException('Mağaza işlemi desteklenmiyor.',405);
     }
     if ($method==='POST' && $path==='/api/ops/cache') {
@@ -495,7 +493,6 @@ try {
                 reply(['added'=>$management->import($partner,input(VetNet\Cpanel\WorkspaceRepository::WRITE_REQUEST_BYTES),$actor)]);
             }
         }
-        if ($method==='GET' && $action==='credit-orders') reply(['rows'=>$management->rows('credit_order')]);
         if ($method==='GET' && $action==='branch-directory') {
             $q=$db->query("SELECT user_id,request_branches FROM clinic_workspace WHERE user_id LIKE 'partner:%'");
             $locations=[];
@@ -516,7 +513,7 @@ try {
             if (!is_string($month)) throw new RuntimeException('Geçerli bir ay seçin.',422);
             reply($center->finance($month));
         }
-        if ($method==='GET' && $action==='plans') reply(['plans'=>array_values($commerce->catalog()),'termFields'=>VetNet\Cpanel\Commerce::TERMS]);
+        if ($method==='GET' && $action==='plans') reply(['plans'=>array_values($commerce->catalog()),'termFields'=>VetNet\Cpanel\Commerce::TERMS,'featureFields'=>ClinicAccess::FEATURES]);
         if ($method==='GET' && $action==='subscriptions') reply(['terms'=>$db->query(
             'SELECT p.name,s.partner_id,s.plan_name,s.kind,s.starts_on,s.ends_on FROM clinic_subscription s JOIN partner_account p ON p.id=s.partner_id ORDER BY s.ends_on DESC,s.id DESC LIMIT 300'
         )->fetchAll()]);
@@ -555,10 +552,6 @@ try {
             }
             if ($action==='reauth') {
                 $center->reauthenticate($actor,$_COOKIE,$body,$_SERVER['REMOTE_ADDR'] ?? '',$now);
-                reply(['ok'=>true]);
-            }
-            if ($action==='credit-orders') {
-                (new VetNet\Cpanel\CreditShop($db,$management))->review($body);
                 reply(['ok'=>true]);
             }
             if ($action==='notifications') reply($notifications->save($body));
@@ -719,6 +712,7 @@ try {
         if ($method==='POST' && $actor['role']==='customer') {
             (new DealerLogin($db,$config['rateSecret']))->throttle('homecare:'.$actor['account_id'],$now);
         }
+        requireFeature($actor,'homeCare',$method==='POST');
         $homeCare=new VetNet\Cpanel\HomeCare($db);
         $patient=$_GET['patient'] ?? '';
         $branch=$_GET['branch'] ?? '';
@@ -859,6 +853,7 @@ try {
     if ($path==='/api/permit' && in_array($method,['GET','POST'],true)) {
         // Klinik: müşteri KVKK ve iletişim izni onay formları.
         $actor=(new VetNet\Cpanel\Commerce($db))->packageActor($identity->actor($_COOKIE,$now));
+        requireFeature($actor,'permits',$method==='POST');
         $permits=new VetNet\Cpanel\ClientPermit($db,$origin);
         try {
             if ($method==='GET') {
@@ -876,6 +871,7 @@ try {
     if ($path==='/api/phone' && in_array($method,['GET','POST'],true)) {
         // Klinik: Telefon Bağlantısı durumu, ayarlar, cihaz eşleştirme, gönderim kuyruğu.
         $actor=(new VetNet\Cpanel\Commerce($db))->packageActor($identity->actor($_COOKIE,$now));
+        requireFeature($actor,'phoneGateway',$method==='POST');
         $gateway=new VetNet\Cpanel\PhoneGateway($db);
         try {
             if ($method==='GET') reply($gateway->status($actor,$now)+['server'=>$origin]);
@@ -918,6 +914,7 @@ try {
     if ($path==='/api/bridge' && in_array($method,['GET','POST'],true)) {
         // Klinik: köprü durumu, ajan eşleştirme, Bakanlığa gönderim kuyruğu ve kararlar.
         $actor=(new VetNet\Cpanel\Commerce($db))->packageActor($identity->actor($_COOKIE,$now));
+        if (!VetNet\Cpanel\ClinicAccess::feature($actor,'bridge') && !VetNet\Cpanel\ClinicAccess::feature($actor,'edocs')) requireFeature($actor,'bridge');
         $bridge=new VetNet\Cpanel\MinistryBridge($db);
         try {
             if ($method==='GET') reply($bridge->status($actor,$now));
@@ -928,7 +925,7 @@ try {
                 'pair'=>$bridge->pair($actor,$now),
                 'revoke'=>$bridge->revoke($actor,$now),
                 'check-session','login'=>$bridge->command($actor,is_string($body->portal??null)&&in_array($body->portal,['gib','efatura','esmm'],true)&&$op==='login'?'login:'.$body->portal:$op),
-                'enqueue'=>$bridge->enqueue($actor,$body,$now),
+                'enqueue'=>(function() use ($actor,$body,$now,$bridge){requireFeature($actor,in_array($body->kind ?? '',['earsiv','efatura','esmm'],true)?'edocs':'bridge',true);return $bridge->enqueue($actor,$body,$now);})(),
                 'cancel','link','resend'=>$bridge->resolve($actor,$body,$now),
                 default=>throw new RuntimeException('İşlem geçersiz.',422),
             });
@@ -940,6 +937,7 @@ try {
     if ($path==='/api/inbox' && in_array($method,['GET','POST'],true)) {
         // Klinik: çok kanallı gelen kutusu (WhatsApp, Facebook, Instagram, Telegram, SMS, e-posta, web formu).
         $actor=(new VetNet\Cpanel\Commerce($db))->packageActor($identity->actor($_COOKIE,$now));
+        requireFeature($actor,'inbox',$method==='POST');
         $inbox=new VetNet\Cpanel\OmniInbox($db,(string)($config['encryptionKey'] ?? ''),$origin,$config['inboxEndpoints'] ?? []);
         try {
             if ($method==='GET') {
@@ -991,6 +989,7 @@ try {
     if ($path==='/api/web-inbox' && in_array($method,['GET','POST'],true)) {
         // Web sitesi iletişim mesajları: liste, işlendi işareti, müşteri kartı bağlantısı.
         $actor=(new VetNet\Cpanel\Commerce($db))->packageActor($identity->actor($_COOKIE,$now));
+        requireFeature($actor,'webSite');
         $inbox=new VetNet\Cpanel\WebInbox($db);
         try {
             if ($method==='GET') reply($inbox->list($actor,is_string($_GET['durum']??null)?$_GET['durum']:'open'));
@@ -1009,6 +1008,7 @@ try {
         }
         if ($actor['role']!=='customer') $actor=(new VetNet\Cpanel\Commerce($db))->packageActor($actor);
         else if ($method==='POST') (new DealerLogin($db,$config['rateSecret']))->throttle('consent:'.$actor['account_id'],$now);
+        requireFeature($actor,'consents',$method==='POST');
         $consents=new VetNet\Cpanel\ClinicConsent($db);
         try {
             if ($method==='GET') {

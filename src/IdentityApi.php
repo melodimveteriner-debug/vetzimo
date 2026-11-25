@@ -105,10 +105,10 @@ final class IdentityApi
     }
     public static function grants(string $role,object $input): string
     {
-        $keys=$role==='customer'?['vaccines','appointments','shares','exam','lab','xray']:[...array_keys(ClinicAccess::MODULES),...array_unique(array_values(ClinicAccess::ACTION_GRANTS))];
+        $keys=$role==='customer'?ClinicAccess::CUSTOMER_SECTIONS:[...array_keys(ClinicAccess::MODULES),...array_unique(array_values(ClinicAccess::ACTION_GRANTS)),...array_keys(ClinicAccess::FEATURES)];
         $result=[];
         foreach($keys as $key) {
-            $value=$input->$key ?? 'none';
+            $value=$input->$key ?? (isset(ClinicAccess::FEATURES[$key]) || ($role==='customer' && in_array($key,ClinicAccess::CUSTOMER_DEFAULT_ON,true)) ? ($role==='customer'?'read':'write') : 'none');
             if(!in_array($value,$role==='customer'?['none','read']:['none','read','write'],true)) throw new RuntimeException('İzin değeri geçersiz.',422);
             $result[$key]=$value;
         }
@@ -545,7 +545,10 @@ final class IdentityApi
             $pets[]=array_intersect_key((array)$pet,array_flip(['id','name','species','breed','birth','photo'])); $ids[]=$pet->id;
         }
         $modules=ClinicAccess::modules($actor);
-        $sections=[]; foreach(['vaccines','appointments','shares','exam','lab','xray'] as $key) $sections[$key]=($modules->$key ?? 'none')==='read';
+        $sections=[]; foreach(ClinicAccess::CUSTOMER_SECTIONS as $key) $sections[$key]=($modules->$key ?? 'none')==='read';
+        $package=(new Commerce($this->db))->packageActor($actor)['packageFeatures'] ?? [];
+        if (($package['homeCare'] ?? true)===false) $sections['homeCare']=false;
+        if (($package['consents'] ?? true)===false && ($package['permits'] ?? true)===false) $sections['documents']=false;
         $vaccines=[]; $appointments=[];
         $today=(new \DateTimeImmutable('now',new \DateTimeZone('Europe/Istanbul')))->format('Y-m-d');
         $soon=(new \DateTimeImmutable($today))->modify('+7 days')->format('Y-m-d');
@@ -602,6 +605,6 @@ final class IdentityApi
                 }
             }
         }
-        return ['homeCare'=>true,'exams'=>array_values($exams),'balanceCents'=>$balanceCents,'name'=>$actor['name'],'clinic'=>['partner'=>$partner['name'],'branch'=>$branch->name,'phone'=>$branch->phone ?? $partner['phone']], 'pets'=>$pets,'vaccines'=>$vaccines,'appointments'=>$appointments,'shared'=>$shared,'sections'=>$sections];
+        return ['homeCare'=>$sections['homeCare'],'exams'=>array_values($exams),'balanceCents'=>$sections['balance']?$balanceCents:null,'name'=>$actor['name'],'clinic'=>['partner'=>$partner['name'],'branch'=>$branch->name,'phone'=>$branch->phone ?? $partner['phone']], 'pets'=>$pets,'vaccines'=>$vaccines,'appointments'=>$appointments,'shared'=>$shared,'sections'=>$sections];
     }
 }
