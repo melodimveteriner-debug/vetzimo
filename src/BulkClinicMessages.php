@@ -22,10 +22,16 @@ final class BulkClinicMessages
         $params=[$actor['partner_id'],$channel];
         $scope='';
         if ($actor['role']!=='dealer') { $scope=' AND branch_id=?'; $params[]=$actor['branch_id']; }
-        $q=$this->db->prepare('SELECT id,masked_phone,status,units,created_at FROM clinic_bulk_message
-            WHERE partner_id=? AND channel=?'.$scope.' ORDER BY created_at DESC,id DESC LIMIT 200');
+        $q=$this->db->prepare("SELECT id,masked_phone,status,units,created_at,'bulk' AS kind,'' AS `by` FROM clinic_bulk_message
+            WHERE partner_id=? AND channel=?".$scope.' ORDER BY created_at DESC,id DESC LIMIT 200');
         $q->execute($params);
-        return ['items'=>$q->fetchAll()];
+        $items=$q->fetchAll(PDO::FETCH_ASSOC);
+        // Telefon hattından giden tekil mesajlar (hatırlatma, davet, gelen kutusu yanıtı, deneme) şubeye bağlı değildir; bayi yöneticisi görür.
+        if ($actor['role']==='dealer') {
+            $items=[...$items,...(new PhoneGateway($this->db))->history($actor['partner_id'],$channel)];
+            usort($items,static fn($a,$b)=>strcmp($b['created_at'],$a['created_at']));
+        }
+        return ['items'=>array_slice($items,0,300)];
     }
 
     public function bulk(array $actor,object $input,bool $preview): array
@@ -178,20 +184,14 @@ final class BulkClinicMessages
         $session=$this->session($actor)['provider'];
         // Gün ve ay sınırları Türkiye saatine göre hesaplanır.
         $local=new \DateTimeImmutable('now',new \DateTimeZone('Europe/Istanbul'));
-        $utc=new \DateTimeZone('UTC');
-        $day=$local->setTime(0,0)->setTimezone($utc)->format('Y-m-d H:i:s');
-        $month=$local->modify('first day of this month')->setTime(0,0)->setTimezone($utc)->format('Y-m-d H:i:s');
-        $used=$this->db->prepare("SELECT channel,
-                COALESCE(SUM(CASE WHEN created_at>=? THEN units END),0) AS day_used,
-                COALESCE(SUM(CASE WHEN created_at>=? THEN units END),0) AS month_used
-            FROM clinic_bulk_message WHERE partner_id=? AND status<>'rejected' AND created_at>=? GROUP BY channel");
-        $used->execute([$day,$month,$partner,min($day,$month)]);
-        $usage=array_column($used->fetchAll(PDO::FETCH_ASSOC),null,'channel');
+        $gateway=new PhoneGateway($this->db);
+        $dayUsage=$gateway->usedSince($partner,$local->setTime(0,0)->getTimestamp());
+        $monthUsage=$gateway->usedSince($partner,$local->modify('first day of this month')->setTime(0,0)->getTimestamp());
         $limits=[];
         foreach (['sms','whatsapp'] as $channel) {
             $balance=max(0,$this->balance($partner,$channel));
-            $dayUsed=(int)($usage[$channel]['day_used']??0);
-            $monthUsed=(int)($usage[$channel]['month_used']??0);
+            $dayUsed=$dayUsage[$channel];
+            $monthUsed=$monthUsage[$channel];
             // Üst sınır paketteki aylık gönderim sınırıdır (boşsa sınırsız).
             $limits[]=['channel'=>$channel,'unlimited'=>$balance>=1000000000,'balance'=>$balance>=1000000000?null:$balance,'day_used'=>$dayUsed,'day_cap'=>$balance>=1000000000?null:$dayUsed+$balance,
                 'month_used'=>$monthUsed,'month_cap'=>$balance>=1000000000?null:$monthUsed+$balance,'enabled'=>$session[$channel]?1:0];
@@ -199,8 +199,13 @@ final class BulkClinicMessages
         $rows=[];
         $counts=$this->db->prepare('SELECT channel,status,COUNT(*) AS count FROM clinic_bulk_message WHERE partner_id=? GROUP BY channel,status ORDER BY channel,status');
         $counts->execute([$partner]);
-        return ['account'=>$account,'limits'=>$limits,'ledger'=>$rows,
-            'counts'=>array_map(static fn($row)=>[...$row,'count'=>(int)$row['count']],$counts->fetchAll(PDO::FETCH_ASSOC))];
+        $all=array_map(static fn($row)=>[...$row,'count'=>(int)$row['count']],$counts->fetchAll(PDO::FETCH_ASSOC));
+        // Telefon hattından giden tekil mesajlar da özete girer.
+        $phone=$this->db->prepare("SELECT channel,CASE status WHEN 'claimed' THEN 'sending' ELSE status END AS status,COUNT(*) AS count FROM phone_outbox
+            WHERE partner_id=? AND channel IN ('sms','whatsapp') AND source NOT IN ('center','bulk') GROUP BY 1,2 ORDER BY 1,2");
+        $phone->execute([$partner]);
+        foreach ($phone->fetchAll(PDO::FETCH_ASSOC) as $row) $all[]=[...$row,'count'=>(int)$row['count']];
+        return ['account'=>$account,'limits'=>$limits,'ledger'=>$rows,'counts'=>$all];
     }
 
     /** Kalan aylık gönderim hakkı: paketteki aylık sınır − bu ay telefon hattı ve sağlayıcıyla gönderilenler. Sınır yoksa sınırsız. */
@@ -208,10 +213,7 @@ final class BulkClinicMessages
     {
         $usage=(new PhoneGateway($this->db))->monthlyUsage($partner,time())[$channel];
         if ($usage['limit']===null) return 1000000000;
-        $start=(new \DateTimeImmutable('first day of this month 00:00',new \DateTimeZone('Europe/Istanbul')))->format('Y-m-d H:i:s');
-        $q=$this->db->prepare("SELECT COALESCE(SUM(units),0) FROM clinic_bulk_message WHERE partner_id=? AND channel=? AND status<>'rejected' AND created_at>=?");
-        $q->execute([$partner,$channel,$start]);
-        return max(0,$usage['limit']-$usage['used']-(int)$q->fetchColumn());
+        return max(0,$usage['limit']-$usage['used']);
     }
 
     private function providerRequest(array $provider,array $job,string $id): ?array

@@ -49,7 +49,12 @@ $gw->enqueue($partner,'sms','05551112233','Mesaj 2','manual','limit-2',0,$now); 
 try { $gw->enqueue($partner,'sms','05551112233','Mesaj 3','manual','limit-3',0,$now); throw new LogicException('Aylık SMS sınırı aşıldı'); }
 catch (RuntimeException $e) { ok($e->getCode()===429 && str_contains($e->getMessage(),'aylık SMS'),'Sınır hatası yanlış: '.$e->getMessage()); }
 $gw->enqueue($partner,'whatsapp','05551112233','WA','manual','limit-wa',0,$now);
-$gw->enqueue($partner,'sms','05551112233','Test','test','limit-test',0,$now); // test mesajı sınırdan muaf
+$gw->enqueue($partner,'sms','05551112233','Test','test','limit-test',0,$now); // deneme mesajı engellenmez ama sayılır
 $u=$gw->monthlyUsage($partner,$now);
-ok($u['sms']['used']===2 && $u['sms']['limit']===2 && $u['whatsapp']['limit']===null,'Aylık kullanım yanlış: '.json_encode($u));
+ok($u['sms']['used']===3 && $u['sms']['limit']===2 && $u['whatsapp']['used']===1 && $u['whatsapp']['limit']===null,'Aylık kullanım yanlış: '.json_encode($u));
+// Gönderim geçmişi telefon hattından gidenleri gösterir (alıcı maskeli, içerik yok)
+$h=$gw->history($partner,'sms');
+ok(count($h)===3 && $h[0]['masked_phone']==='+90 ••• ••• •• 33' && !isset($h[0]['body']) && in_array('test',array_column($h,'kind'),true),'Telefon gönderim geçmişi yanlış: '.json_encode($h));
+$today=$gw->usedSince($partner,$now-60);
+ok($today['sms']===3 && $today['whatsapp']===1,'Günlük kullanım yanlış');
 echo "PASS paket özellikleri: paket/rol/varsayılan izinleri, hasta sahibi bölümleri, aylık SMS/WhatsApp sınırı\n";

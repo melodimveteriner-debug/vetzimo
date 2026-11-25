@@ -142,20 +142,36 @@ final class PhoneGateway
         return (int)$q->fetchColumn();
     }
 
-    /** Paketteki aylık SMS/WhatsApp sınırı (boş = sınırsız). Aynı kaynak kaydının yeniden kuyruğa alınması sayılmaz. */
+    /** Paketteki aylık SMS/WhatsApp sınırı (boş = sınırsız) ve bu ayki kullanım. Aynı kaynak kaydının yeniden kuyruğa alınması sayılmaz. */
     public function monthlyUsage(string $partner, int $now): array
     {
         $limits = (new Commerce($this->db))->packageActor(['partner_id' => $partner])['packageLimits'] ?? ['sms' => null, 'whatsapp' => null];
         $start = (new \DateTimeImmutable('@'.$now))->setTimezone(new \DateTimeZone('Europe/Istanbul'))->modify('first day of this month')->setTime(0, 0)->getTimestamp();
-        $q = $this->db->prepare("SELECT channel,COUNT(*) FROM phone_outbox WHERE partner_id=? AND created_at>=? AND status NOT IN ('failed','cancelled','expired') AND source NOT IN ('test','center') GROUP BY channel");
-        $q->execute([$partner, $start]);
+        $used = $this->usedSince($partner, $start);
+        return ['sms' => ['used' => $used['sms'], 'limit' => $limits['sms'] ?? null], 'whatsapp' => ['used' => $used['whatsapp'], 'limit' => $limits['whatsapp'] ?? null]];
+    }
+
+    /**
+     * Verilen andan bu yana gönderilen SMS/WhatsApp sayısı: telefon hattından giden tüm mesajlar (hatırlatma, davet,
+     * gelen kutusu yanıtı, deneme) + toplu gönderimler. Toplu gönderimler kendi tablosundan bir kez sayılır;
+     * VetZimo merkez hattının mesajları kliniğin hakkından düşmez.
+     */
+    public function usedSince(string $partner, int $since): array
+    {
+        $q = $this->db->prepare("SELECT channel,COUNT(*) FROM phone_outbox WHERE partner_id=? AND created_at>=? AND channel IN ('sms','whatsapp')
+            AND status NOT IN ('failed','cancelled','expired') AND source NOT IN ('center','bulk') GROUP BY channel");
+        $q->execute([$partner, $since]);
         $used = $q->fetchAll(PDO::FETCH_KEY_PAIR);
-        return ['sms' => ['used' => (int)($used['sms'] ?? 0), 'limit' => $limits['sms'] ?? null], 'whatsapp' => ['used' => (int)($used['whatsapp'] ?? 0), 'limit' => $limits['whatsapp'] ?? null]];
+        $b = $this->db->prepare("SELECT channel,COALESCE(SUM(units),0) FROM clinic_bulk_message WHERE partner_id=? AND status<>'rejected' AND created_at>=? GROUP BY channel");
+        $b->execute([$partner, gmdate('Y-m-d H:i:s', $since)]);
+        foreach ($b->fetchAll(PDO::FETCH_KEY_PAIR) as $channel => $units) $used[$channel] = (int)($used[$channel] ?? 0) + (int)$units;
+        return ['sms' => (int)($used['sms'] ?? 0), 'whatsapp' => (int)($used['whatsapp'] ?? 0)];
     }
 
     private function checkMonthlyLimit(string $partner, string $channel, string $source, string $ref, int $now): void
     {
-        if ($source === 'test' || $source === 'center' || $channel === 'app') return; // merkez mesajları (VetZimo hattı) bayinin paket sınırına sayılmaz
+        // Merkez mesajları (VetZimo hattı) sınıra sayılmaz; toplu gönderimin hakkı gönderim başlatılırken ayrılır; deneme mesajı sayılır ama engellenmez.
+        if (in_array($source, ['test', 'center', 'bulk'], true) || $channel === 'app') return;
         $q = $this->db->prepare('SELECT 1 FROM phone_outbox WHERE source=? AND source_ref=?');
         $q->execute([$source, mb_substr($ref, 0, 190)]);
         if ($q->fetchColumn()) return;
@@ -163,6 +179,23 @@ final class PhoneGateway
         if ($usage['limit'] !== null && $usage['used'] >= $usage['limit']) {
             throw new RuntimeException('Paketinizin aylık '.($channel === 'sms' ? 'SMS' : 'WhatsApp').' gönderim sınırına ulaşıldı ('.$usage['limit'].'). Sınırı yönetici panelinden paket ayarlarında artırabilirsiniz.', 429);
         }
+    }
+
+    /** Gönderim geçmişi: telefon hattından giden mesajlar (alıcı maskeli, içerik gösterilmez). */
+    public function history(string $partner, string $channel, int $limit = 200): array
+    {
+        $q = $this->db->prepare("SELECT id,phone,status,source,source_ref,error,created_by,created_at FROM phone_outbox
+            WHERE partner_id=? AND channel=? AND source NOT IN ('center','bulk') ORDER BY created_at DESC,id DESC LIMIT ".max(1, min(500, $limit)));
+        $q->execute([$partner, $channel]);
+        $map = ['queued' => 'queued', 'claimed' => 'sending', 'sent' => 'sent', 'unknown' => 'unknown', 'failed' => 'failed', 'expired' => 'expired', 'cancelled' => 'cancelled'];
+        $out = [];
+        foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $r) {
+            $kind = $r['source'] === 'manual' ? explode(':', $r['source_ref'])[0] : $r['source'];
+            $out[] = ['id' => 'gw'.$r['id'], 'masked_phone' => '+90 ••• ••• •• '.substr(preg_replace('/\D+/', '', $r['phone']), -2),
+                'status' => $map[$r['status']] ?? 'unknown', 'units' => in_array($r['status'], ['failed', 'cancelled', 'expired'], true) ? 0 : 1,
+                'kind' => $kind, 'by' => $r['created_by'], 'created_at' => gmdate('Y-m-d H:i:s', (int)$r['created_at'])];
+        }
+        return $out;
     }
 
     /** Günlük gönderim penceresi dışında mı? (Türkiye saati; başlangıç + süre, gece yarısını aşabilir.) */

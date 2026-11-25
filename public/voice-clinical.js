@@ -298,7 +298,10 @@ export function markBrowserSttBroken() { browserBroken = true; }
  */
 export function listen({lang = "tr-TR", interim, done}) {
   const rec = new SR();
-  rec.lang = lang; rec.interimResults = true; rec.continuous = true; rec.maxAlternatives = 1;
+  // Android Chrome'da sürekli (continuous) mod kesin sonuçları tekrarlar ve sessizce kapanır: orada tek cümlelik oturumlar
+  // art arda açılır (onend içinde yeniden başlatılır), metin birikir.
+  const android = /Android/i.test(navigator.userAgent || "");
+  rec.lang = lang; rec.interimResults = true; rec.continuous = !android; rec.maxAlternatives = 1;
   let acc = "", finalText = "", lastInterim = "", finished = false, error = "";
   const handle = {state: "recording", onstop: null, stop() { if (handle.state !== "recording") return; handle.state = "stopping"; try { rec.stop(); } catch { finish(); } }};
   const all = () => (acc + " " + finalText).replace(/\s+/g, " ").trim();
@@ -314,9 +317,9 @@ export function listen({lang = "tr-TR", interim, done}) {
     finalText = fin.trim(); lastInterim = tmp.trim();
     interim?.((all() + " " + lastInterim).trim());
   };
-  rec.onerror = e => { error = e.error || "error"; };
+  rec.onerror = e => { error = e.error || "error"; if (error === "no-speech" && (all() || lastInterim)) error = ""; if (!error) handle.state = "stopping"; };
   // Chrome sessizlikte oturumu kapatabilir: basılı tutulduğu sürece kaldığı yerden devam eder.
-  rec.onend = () => { if (handle.state === "recording" && !error) { acc = all(); finalText = ""; try { rec.start(); return; } catch {} } if (!all() && lastInterim) finalText = lastInterim; finish(); };
+  rec.onend = () => { if (handle.state === "recording" && !error) { acc = (all() + " " + (finalText ? "" : lastInterim)).trim(); finalText = ""; lastInterim = ""; try { rec.start(); return; } catch {} } if (!all() && lastInterim) finalText = lastInterim; finish(); };
   try { rec.start(); } catch { error = "start"; setTimeout(finish, 0); }
   return handle;
 }

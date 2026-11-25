@@ -728,9 +728,11 @@ export function mountVeBot(ctx) {
   const voiceSupported = !!SR || !!(navigator.mediaDevices?.getUserMedia && window.MediaRecorder && window.AudioContext && window.OfflineAudioContext && window.WebAssembly && window.Worker);
   const SR_LANG = {tr:"tr-TR", en:"en-US", de:"de-DE", es:"es-ES", fr:"fr-FR", it:"it-IT", nl:"nl-NL", pt:"pt-BR", ru:"ru-RU", ja:"ja-JP", ko:"ko-KR", zh:"zh-CN", id:"id-ID", fa:"fa-IR"};
   const micOff = () => { mic.setAttribute("aria-pressed", "false"); mic.classList.remove("is-recording"); };
+  // Modül önceden yüklenir: telefonda (özellikle iOS Safari) tanıyıcı, dokunuşla aynı anda başlatılmazsa izin vermez.
+  let vcModule = null;
+  const vcReady = import("./voice-clinical.js?v=2").then(m => (vcModule = m)).catch(() => null);
   async function quickListen() {
-    let vc = null;
-    try { vc = await import("./voice-clinical.js?v=1"); } catch {}
+    const vc = vcModule || await vcReady;
     if (!vc?.browserSttAvailable()) return false;
     const lang = SR_LANG[(document.documentElement.lang || "tr").slice(0, 2)] || "tr-TR";
     const finish = () => { clearTimeout(quiet); live?.stop(); };
@@ -739,7 +741,7 @@ export function mountVeBot(ctx) {
       done: (text, error) => {
         clearTimeout(quiet); live = null; micOff();
         if (text) { say(""); ask(text); return; }
-        say(error && !vc.browserSttAvailable() ? "Tarayıcının ses tanıyıcısı kullanılamadı. Mikrofona tekrar basın veya sorunuzu yazın." : "Anlaşılır ses algılanmadı. Tekrar konuşabilirsiniz.");
+        say(error === "not-allowed" || error === "service-not-allowed" ? "Mikrofon izni verilmedi. Tarayıcı ayarlarından bu siteye mikrofon izni verin." : error && !vc.browserSttAvailable() ? "Tarayıcının ses tanıyıcısı kullanılamadı. Mikrofona tekrar dokunun veya sorunuzu yazın." : "Anlaşılır ses algılanmadı. Tekrar konuşabilirsiniz.");
       }});
     mic.setAttribute("aria-pressed", "true");
     mic.classList.add("is-recording");
