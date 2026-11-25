@@ -716,9 +716,32 @@ export function mountVeBot(ctx) {
   close.addEventListener("click", () => setOpen(false));
   document.addEventListener("keydown", event => { if (event.key === "Escape" && !panel.hidden && panel.contains(document.activeElement)) setOpen(false); });
 
-  // ---- Sesle sorma: yerel Whisper modeli, ses cihazdan çıkmaz ----
-  let worker = null, recorder = null, chunks = [], stream = null, busy = false;
-  const voiceSupported = !!(navigator.mediaDevices?.getUserMedia && window.MediaRecorder && window.AudioContext && window.OfflineAudioContext && window.WebAssembly && window.Worker);
+  // ---- Sesle sorma: önce Bas Konuş ile aynı yerleşik tanıyıcı (saniyeler içinde); yoksa yerel Whisper (küçük model) ----
+  let worker = null, recorder = null, chunks = [], stream = null, busy = false, live = null, quiet = 0;
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const voiceSupported = !!SR || !!(navigator.mediaDevices?.getUserMedia && window.MediaRecorder && window.AudioContext && window.OfflineAudioContext && window.WebAssembly && window.Worker);
+  const SR_LANG = {tr:"tr-TR", en:"en-US", de:"de-DE", es:"es-ES", fr:"fr-FR", it:"it-IT", nl:"nl-NL", pt:"pt-BR", ru:"ru-RU", ja:"ja-JP", ko:"ko-KR", zh:"zh-CN", id:"id-ID", fa:"fa-IR"};
+  const micOff = () => { mic.setAttribute("aria-pressed", "false"); mic.classList.remove("is-recording"); };
+  async function quickListen() {
+    let vc = null;
+    try { vc = await import("./voice-clinical.js?v=1"); } catch {}
+    if (!vc?.browserSttAvailable()) return false;
+    const lang = SR_LANG[(document.documentElement.lang || "tr").slice(0, 2)] || "tr-TR";
+    const finish = () => { clearTimeout(quiet); live?.stop(); };
+    live = vc.listen({lang,
+      interim: text => { if (text) say("“" + text + "”"); clearTimeout(quiet); quiet = setTimeout(finish, 1600); },
+      done: (text, error) => {
+        clearTimeout(quiet); live = null; micOff();
+        if (text) { say(""); ask(text); return; }
+        say(error && !vc.browserSttAvailable() ? "Tarayıcının ses tanıyıcısı kullanılamadı. Mikrofona tekrar basın veya sorunuzu yazın." : "Anlaşılır ses algılanmadı. Tekrar konuşabilirsiniz.");
+      }});
+    mic.setAttribute("aria-pressed", "true");
+    mic.classList.add("is-recording");
+    say("Dinliyorum…");
+    quiet = setTimeout(finish, 8000);
+    setTimeout(() => { if (live) finish(); }, 29000);
+    return true;
+  }
   mic.hidden = !voiceSupported;
   const say = text => { status.textContent = text; };
 
@@ -755,13 +778,15 @@ export function mountVeBot(ctx) {
         resolve(data.text || "");
       };
       worker.onerror = () => { worker?.terminate(); worker = null; reject(new Error("model")); };
-      worker.postMessage({samples, profile:"base"}, [samples.buffer]);
+      worker.postMessage({samples, profile:"tiny"}, [samples.buffer]);
     });
   }
 
   mic.addEventListener("click", async () => {
     if (busy) return;
+    if (live) { clearTimeout(quiet); live.stop(); return; }
     if (recorder && recorder.state === "recording") { stopRecording(false); return; }
+    if (SR && await quickListen()) return;
     try {
       stream = await navigator.mediaDevices.getUserMedia({audio:{channelCount:1, echoCancellation:true, noiseSuppression:true}});
     } catch { say("Mikrofon açılamadı. Site iznini kontrol edin veya sorunuzu yazın."); return; }
