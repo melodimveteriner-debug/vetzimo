@@ -7,7 +7,7 @@
 # Kullanım:  python vetzimo-telefon.py eslestir KOD [SUNUCU]   ·   python vetzimo-telefon.py   ·   python vetzimo-telefon.py durum
 import hashlib, json, os, random, shutil, subprocess, sys, time, urllib.error, urllib.request
 
-VERSION = "1.2.0"
+VERSION = "1.3.0"
 HOME = os.environ.get("VZ_PHONE_HOME") or os.path.join(os.path.expanduser("~"), ".vetzimo-telefon")
 CONFIG = os.path.join(HOME, "config.json")
 STATE = os.path.join(HOME, "durum.json")
@@ -128,6 +128,26 @@ def read_apps():
     return result
 
 
+def sent_confirmed(phone, body):
+    """SMS'in telefonun Gönderilenler kutusuna düşüp düşmediğine bakar (birkaç saniye bekleyerek)."""
+    digits = "".join(ch for ch in phone if ch.isdigit())[-10:]
+    head = " ".join(body.split())[:20]
+    for wait in (4, 6, 10):
+        time.sleep(wait)
+        for box in ("sent", "outbox"):
+            try:
+                items = json.loads(termux("termux-sms-list", "-t", box, "-l", "15", timeout=30) or "[]")
+            except Exception:
+                return True  # Gönderilenler okunamıyorsa (izin) doğrulama yapılamaz; gönderildi kabul edilir.
+            for item in items if isinstance(items, list) else []:
+                num = "".join(ch for ch in str(item.get("number", "")) if ch.isdigit())[-10:]
+                if num == digits and " ".join(str(item.get("body", "")).split())[:20] == head:
+                    if box == "sent":
+                        return True
+                    break
+    return False
+
+
 def battery():
     try:
         return int(json.loads(termux("termux-battery-status", timeout=20)).get("percentage"))
@@ -239,8 +259,15 @@ def run():
                 args += ["-s", slot]
             try:
                 termux("termux-sms-send", *args, job["body"], timeout=90)
-                results.append({"id": job["id"], "status": "sent"})
-                log("SMS gönderildi → " + job["phone"][:-4] + "••••")
+                # Android hata vermese de SMS çıkmayabilir (SMS izni kısıtlı, SIM seçilmemiş, bakiye yok): Gönderilenler'de doğrula.
+                if sent_confirmed(job["phone"], job["body"]):
+                    results.append({"id": job["id"], "status": "sent"})
+                    log("SMS gönderildi → " + job["phone"][:-4] + "••••")
+                else:
+                    msg = ("Telefon SMS'i göndermedi (Gönderilenler'de yok). Telefonda Ayarlar › Uygulamalar › Termux:API › İzinler › SMS iznini açın "
+                           "(Android 13+: önce ⋮ › Kısıtlanmış ayarlara izin ver); çift SIM'de VetZimo'da SIM 1/SIM 2 seçin; hattın SMS hakkını kontrol edin.")
+                    results.append({"id": job["id"], "status": "failed", "error": msg})
+                    log("SMS doğrulanamadı → " + job["phone"][:-4] + "•••• · " + msg)
             except Exception as e:
                 results.append({"id": job["id"], "status": "failed", "error": str(e)[:300]})
                 log("SMS gönderilemedi: " + str(e))
