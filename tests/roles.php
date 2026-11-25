@@ -20,6 +20,16 @@ $invite=function(string $phone,string $role,string $customer,object $modules)use
  $result=$identity->invite($actor,$scope,(object)['phone'=>$phone,'name'=>'Role User','role'=>$role,'branchId'=>'merkez','customerId'=>$customer,'method'=>'in-person','verifiedInPerson'=>true,'modules'=>$modules],$now);
  return explode('/',$result['link'])[2];
 };
+// Tüm hesap türlerinde aynı aktivasyon yöntemleri (SMS, e-posta, bu cihazda, yüz yüze; ekip hesabında şifre belirleme).
+$base=['name'=>'Yöntem Testi','branchId'=>'merkez','modules'=>(object)[]];
+$r=$identity->invite($actor,$scope,(object)($base+['phone'=>'05551000091','role'=>'branch','method'=>'device']),$now,['origin'=>'https://klinik.example']);
+ok($r['status']==='device' && str_starts_with($r['link'],'https://klinik.example/app#aktivasyon/'),'Şube yöneticisi için "bu cihazda aç" çalışmadı');
+$r=$identity->invite($actor,$scope,(object)($base+['phone'=>'05551000092','role'=>'staff','method'=>'sms']),$now,['origin'=>'https://klinik.example']);
+ok($r['status']==='sms_unavailable' && str_contains($r['share'],$r['link']),'SMS hattı yokken bağlantı paylaşım için dönmedi');
+rejected(422,fn()=>$identity->invite($actor,$scope,(object)($base+['phone'=>'05551000093','role'=>'staff','method'=>'email','email'=>'gecersiz']),$now));
+rejected(422,fn()=>$identity->invite($actor,$scope,(object)(['phone'=>'05551000008','role'=>'customer','branchId'=>'merkez','customerId'=>'owner2','method'=>'password','password'=>'Uzun-sifre-12345','modules'=>(object)[]]),$now));
+rejected(422,fn()=>$identity->invite($actor,$scope,(object)($base+['phone'=>'05551000094','role'=>'staff','method'=>'in-person']),$now));
+rejected(403,fn()=>$identity->invite(['reauth_at'=>$now-1000]+$actor,$scope,(object)($base+['phone'=>'05551000095','role'=>'staff','method'=>'device']),$now));
 $token=$invite('05551000007','customer','owner1',(object)['vaccines'=>'read','appointments'=>'read','shares'=>'none']);
 rejected(422,fn()=>$identity->redeem((object)['token'=>$token,'password'=>'Owner-secret-42'],$now+901));
 $identity->redeem((object)['token'=>$token,'password'=>'Owner-secret-42'],$now);

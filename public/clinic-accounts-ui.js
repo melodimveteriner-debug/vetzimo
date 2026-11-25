@@ -71,7 +71,7 @@ export async function mountClinicAccounts(ui,params) {
     const name=field("name","Ad ve soyad",{maxLength:160,required:false});
     const method=selectField("method","Aktivasyon yöntemi",[["sms","SMS bağlantısı"],["in-person","Yüz yüze kimlik doğrulaması"]]);
     const mode=method.querySelector("select");
-    const email=field("email","Personel e-postası",{type:"email",maxLength:254});
+    const email=field("email","E-posta adresi",{type:"email",maxLength:254});
     const password=field("password","Personel şifresi · en az 12 karakter",{type:"password",minLength:12,maxLength:128,autocomplete:"new-password"});
     const generate=el("button","Güçlü şifre oluştur",{type:"button",className:"button"});
     generate.addEventListener("click",()=>{
@@ -87,13 +87,35 @@ export async function mountClinicAccounts(ui,params) {
     const modules=moduleFields(), portalModules=moduleFields({},true);
     const reopen=field("reopen","Kapalı üyeliği yeniden aç ve aktivasyon gönder",{type:"checkbox",required:false});
     const summary=quota?.userCap?el("p",quota.users+" / "+(quota.unlimitedUsers?"SINIRSIZ":quota.userCap)+" ekip hesabı. "+(quotaFull?"Kota dolu. Yalnızca mevcut ekip hesaplarına yeni üyelik verilebilir.":"Bekleyen davetler kotaya dahildir."),{className:"muted"}):null;
+    // Yetkili işlem kimlik doğrulaması isterse formun altında şifre sorulur; doğrulanınca işlem kendiliğinden sürer.
+    const askReauth=form=>new Promise((resolve,reject)=>{
+      form.querySelector(".ca-reauth")?.remove();
+      const box=el("div","",{className:"ca-reauth"}),pass=field("reauthPassword","Güvenlik için mevcut şifreniz",{type:"password",autocomplete:"current-password",required:false});
+      const ok=el("button","Doğrula ve devam et",{type:"button",className:"button primary"}),cancel=el("button","Vazgeç",{type:"button",className:"button"}),msg=el("p","",{className:"muted",role:"status"});
+      box.append(el("p","Bu işlem için kimliğinizi yeniden doğrulayın (15 dakika geçerli).",{className:"muted"}),pass,ok,cancel,msg);
+      form.querySelector('button[type="submit"]').after(box);pass.querySelector("input").focus();
+      ok.addEventListener("click",async()=>{ok.disabled=true;try{await api("reauth",{password:pass.querySelector("input").value});box.remove();resolve();}catch(e){msg.textContent=e.message;ok.disabled=false;}});
+      cancel.addEventListener("click",()=>{box.remove();reject(Error("Kimlik doğrulaması yapılmadı."));});
+    });
     const form=makeForm([...(summary?[summary]:[]),role,branch,customer,name,phone,method,email,password,generate,approval,reopen,visitHint,modules,portalModules],"Üyelik aç ve aktivasyonu başlat",async input=>{
-      const result=await api("invite",{...input,partnerId:data.partnerId,verifiedInPerson:input.verifiedInPerson==="on",reopen:input.reopen==="on",modules:readModules(input)});
+      const send=()=>api("invite",{...input,partnerId:data.partnerId,verifiedInPerson:input.verifiedInPerson==="on",reopen:input.reopen==="on",modules:readModules(input)});
+      let result;
+      try{result=await send();}catch(e){if(!/yeniden doğrula/i.test(e.message))throw e;await askReauth(form);result=await send();}
       await management();
-      if (result.link) {
-        status.replaceChildren(result.status==="email_failed"?"E-posta gönderilemedi. Personel üyeliği oluşturuldu. ":"",
-          link("Tek kullanımlık aktivasyon bağlantısı",result.link));
-      } else status.textContent=outcomes[result.status]||"İşlem kaydedildi.";
+      const who=roles[input.role]||"Hesap";
+      const l=result.link?link("Tek kullanımlık aktivasyon bağlantısı",result.link):null;
+      if (result.status==="device") {
+        // Bu cihazda: bağlantı yeni sekmede açılır; kişi cihazı alıp şifresini belirler ve onaylar.
+        const w=window.open(result.link,"_blank");if(w)try{w.opener=null}catch{}
+        status.replaceChildren(who+" üyeliği oluşturuldu. Aktivasyon ekranı "+(w?"yeni sekmede açıldı":"açılamadı, bağlantıya dokunun")+"; cihazı kişiye verin, şifresini belirleyip onaylasın (15 dakika geçerli). ",l);
+      } else if (result.status==="sms_queued") status.replaceChildren(who+" üyeliği oluşturuldu; aktivasyon bağlantısı kliniğin telefon hattından SMS olarak gönderiliyor (24 saat geçerli). ",l);
+      else if (result.status==="sms_unavailable") {
+        const phoneDigits=(input.phone||"").replace(/\D/g,"").replace(/^0/,"90");
+        const wa=link("WhatsApp ile gönder","https://wa.me/"+phoneDigits+"?text="+encodeURIComponent(result.share||result.link));wa.target="_blank";wa.rel="noopener";
+        status.replaceChildren(who+" üyeliği oluşturuldu. Telefon Bağlantısı'nda SMS hattı açık olmadığı için SMS gönderilemedi; bağlantıyı WhatsApp ile ya da kopyalayıp iletin: ",wa," · ",l);
+      } else if (result.status==="email_failed") status.replaceChildren(who+" üyeliği oluşturuldu ama e-posta gönderilemedi (Bildirim e-postası/SMTP ayarını kontrol edin). Bağlantıyı elle iletin: ",l);
+      else if (result.link) status.replaceChildren(who+" üyeliği oluşturuldu. Kimliği doğrulanan kişiye bu cihazda açtırın: ",l);
+      else status.textContent=outcomes[result.status]||"İşlem kaydedildi.";
     });
     const roleSelect=role.querySelector("select"), branchSelect=branch.querySelector("select"), customerSelect=customer.querySelector("select");
     const phoneInput=phone.querySelector("input");
@@ -114,22 +136,24 @@ export async function mountClinicAccounts(ui,params) {
       modules.hidden=!["branch","staff"].includes(selected);modules.disabled=modules.hidden;
       portalModules.hidden=selected!=="customer";portalModules.disabled=portalModules.hidden;
       const staffSetup=data.staffSetup&&selected==="staff";
-      const available=staffSetup?[["staff-password","Şifre belirle ve hesabı aç"],["staff-email","Tek kullanımlık e-posta bağlantısı"],["in-person","Yüz yüze aktivasyon"]]:
-        [["sms","SMS bağlantısı"],["in-person","Yüz yüze kimlik doğrulaması"]];
+      // Tüm hesap türlerinde aynı aktivasyon yöntemleri; şifreyi yöneticinin belirlemesi yalnız ekip hesaplarında.
+      const available=[["sms","SMS bağlantısı (kliniğin hattından)"],["email","E-posta bağlantısı"],["device","Bu cihazda aç · kişi şifresini belirleyip onaylar"],["in-person","Yüz yüze kimlik doğrulaması"],
+        ...(selected==="customer"?[]:[["password","Şifreyi ben belirleyeyim ve hesabı açayım"]])];
       const selectedMode=mode.value;
       mode.replaceChildren(...available.map(([value,label])=>el("option",label,{value})));
-      mode.value=available.some(([value])=>value===selectedMode)&&!(staffSetup&&selectedMode==="sms")?selectedMode:available[0][0];
+      mode.value=available.some(([value])=>value===selectedMode)?selectedMode:available[0][0];
       approval.hidden=mode.value!=="in-person";
       visitHint.hidden=!staffSetup;
-      email.hidden=mode.value!=="staff-email";
-      password.hidden=generate.hidden=mode.value!=="staff-password";
+      email.hidden=mode.value!=="email";
+      password.hidden=generate.hidden=mode.value!=="password";
       for (const wrapper of [email,password]) {
         const input=wrapper.querySelector("input");
         input.disabled=wrapper.hidden;input.required=!wrapper.hidden;
       }
-      form.querySelector('button[type="submit"]').textContent=staffSetup?"Personel oluştur":"Üyelik aç ve aktivasyonu başlat";
+      form.querySelector('button[type="submit"]').textContent={branch:"Şube yöneticisi oluştur",staff:"Personel oluştur",customer:"Hasta sahibi hesabı aç"}[selected]||"Üyelik aç ve aktivasyonu başlat";
     }
-    const syncPhone=()=>{if (roleSelect.value==="customer") phoneInput.value=data.clients.find(row=>row.id===customerSelect.value)?.phone||"";};
+    const emailInput=email.querySelector("input");
+    const syncPhone=()=>{if (roleSelect.value==="customer") {const c=data.clients.find(row=>row.id===customerSelect.value);phoneInput.value=c?.phone||"";if(!emailInput.value&&c?.email)emailInput.value=c.email;}};
     roleSelect.addEventListener("change",()=>{sync();syncPhone();});
     branchSelect.addEventListener("change",()=>{customerOptions();syncPhone();});
     customerSelect.addEventListener("change",syncPhone);

@@ -100,7 +100,7 @@ final class IdentityApi
     private function sensitive(array $actor,string $scope,int $now): void
     {
         if($actor['role']!=='dealer' || !hash_equals($actor['membership_id'],$scope)) throw new RuntimeException('Bayi yöneticisi yetkisi gerekli.',403);
-        if($now-(int)$actor['reauth_at']>300) throw new RuntimeException('Kimliğinizi yeniden doğrulayın.',403);
+        if($now-(int)$actor['reauth_at']>900) throw new RuntimeException('Kimliğinizi yeniden doğrulayın.',403);
     }
     public static function grants(string $role,object $input): string
     {
@@ -115,22 +115,22 @@ final class IdentityApi
     }
     public function invite(array $actor,string $scope,object $input,int $now,array $config=[]): array
     {
+        // Şube yöneticisi, personel ve hasta sahibi için aynı aktivasyon yöntemleri:
+        // sms (kliniğin hattından bağlantı), email (bağlantı), device (bu cihazda açılır, kişi şifresini belirleyip onaylar),
+        // in-person (kimlik yüz yüze doğrulandı), password (ekip hesabına şifreyi yönetici belirler; hasta sahibinde yok).
         $role=$input->role ?? '';
-        $method=$input->method ?? '';
-        $staffSetup=$role==='staff'&&in_array($method,['staff-password','staff-email'],true);
-        if ($staffSetup) {
-            if ($actor['role']!=='dealer'||!hash_equals($actor['membership_id'],$scope)) throw new RuntimeException('Bayi yöneticisi yetkisi gerekli.',403);
-        } else {
-            $this->sensitive($actor,$scope,$now);
-            if ($method!=='in-person'||($input->verifiedInPerson??false)!==true) throw new RuntimeException('Yüz yüze aktivasyonu ve kimlik onayını seçin.',422);
-        }
+        $method=['staff-password'=>'password','staff-email'=>'email'][$input->method ?? ''] ?? ($input->method ?? '');
+        $this->sensitive($actor,$scope,$now);
         if (!in_array($role,['branch','staff','customer'],true)) throw new RuntimeException('Hesap türü geçersiz.',422);
+        if (!in_array($method,['sms','email','device','in-person','password'],true) || ($method==='password'&&$role==='customer')) throw new RuntimeException('Aktivasyon yöntemini seçin.',422);
+        if ($method==='in-person'&&($input->verifiedInPerson??false)!==true) throw new RuntimeException('Yüz yüze aktivasyonda kimliği doğruladığınızı işaretleyin.',422);
+        $staffSetup=in_array($method,['sms','email'],true); // uzaktan bağlantılar 24 saat geçerli
         $email=$input->email??'';
-        if ($staffSetup&&$method==='staff-email'&&(!is_string($email)||strlen($email)>254||!filter_var($email,FILTER_VALIDATE_EMAIL))) {
-            throw new RuntimeException('Geçerli bir personel e-postası girin.',422);
+        if ($method==='email'&&(!is_string($email)||strlen($email)>254||!filter_var($email,FILTER_VALIDATE_EMAIL))) {
+            throw new RuntimeException('Geçerli bir e-posta adresi girin.',422);
         }
         $password=$input->password??'';
-        $direct=$staffSetup&&$method==='staff-password';
+        $direct=$method==='password';
         if ($direct&&(!is_string($password)||strlen($password)<12||strlen($password)>128)) throw new RuntimeException('En az 12 karakterli bir şifre girin.',422);
         $branchId=$input->branchId ?? '';
         if(!is_string($branchId) || !is_string($input->phone ?? null)) throw new RuntimeException('Hesap bilgileri geçersiz.',422);
@@ -186,11 +186,24 @@ final class IdentityApi
             $this->db->commit();
         } catch(\Throwable $e) { $this->db->rollBack(); throw $e; }
         if ($direct) return ['status'=>'active'];
-        $link='/app#aktivasyon/'.$token;
-        if (!$staffSetup) return ['status'=>'pending','link'=>$link];
+        $link=rtrim((string)($config['origin'] ?? ''),'/').'/app#aktivasyon/'.$token;
+        if ($method==='in-person'||$method==='device') return ['status'=>$method==='device'?'device':'pending','link'=>$link];
+        if ($method==='sms') {
+            // Kliniğin kendi hattından (Telefon Bağlantısı); hat yoksa bağlantı ekranda gösterilir, elle/WhatsApp ile paylaşılır.
+            $clinic=(string)($this->db->query('SELECT name FROM partner_account WHERE id='.$this->db->quote($actor['partner_id']))->fetchColumn() ?: 'Kliniğiniz');
+            $text=$clinic.' sizi VetZimo\'ya davet etti. Hesabınızı açmak için (24 saat geçerli): '.$link;
+            try {
+                $gw=new PhoneGateway($this->db);
+                if ($gw->route($actor['partner_id'],'sms')) {
+                    $gw->enqueue($actor['partner_id'],'sms',$phone,$text,'manual','invite:'.$id,0,$now,$now+86400,(string)($actor['name'] ?? ''));
+                    return ['status'=>'sms_queued','link'=>$link];
+                }
+            } catch (\Throwable) {}
+            return ['status'=>'sms_unavailable','link'=>$link,'share'=>$text];
+        }
         try {
-            (new Notifications($this->db,$config['encryptionKey']??''))->send('smtp',$email,'VetZimo · Personel hesabınızı açın',
-                "Klinik yöneticiniz VetZimo personel üyeliğinizi oluşturdu. Şifrenizi belirlemek veya mevcut hesabınızla üyeliği etkinleştirmek için 24 saat içinde bu bağlantıyı açın.\n\n".rtrim($config['origin'],'/').$link);
+            (new Notifications($this->db,$config['encryptionKey']??''))->send('smtp',$email,'VetZimo · Hesabınızı açın',
+                "Kliniğiniz VetZimo üyeliğinizi oluşturdu. Şifrenizi belirlemek veya mevcut hesabınızla üyeliği etkinleştirmek için 24 saat içinde bu bağlantıyı açın.\n\n".$link);
             return ['status'=>'email_sent'];
         } catch (\Throwable $error) {
             return ['status'=>'email_failed','link'=>$link];
