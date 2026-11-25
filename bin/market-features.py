@@ -109,8 +109,8 @@ FEATURES = [
   'Geçmiş satışlardan tek tıkla e-Arşiv, e-Fatura ve serbest meslek makbuzu. API sözleşmesi gerekmez; kendi GİB, Uyumsoft veya Ödeal hesabınız kullanılır.',
   'API’siz e-belge', ['Belge, kliniğin kendi portal hesabında doldurulur; belge numarası satışa kendiliğinden işlenir.', 'KDV, iskonto ve stopaj satış toplamıyla kuruşu kuruşuna aynı hesaplanır.', 'Bağlantı koparsa işlem tekrar denenmez; çift fatura yerine “kontrol gerekli” uyarısı düşer.']),
  ('/platform/ozellikler/bakanlik-koprusu', 'bridge', 'Uyum', 'ATS ve İTS · Bakanlık kayıtları',
-  'e-Reçete ve aşı kayıtları Bakanlık sistemine (HBS · ATS) kendi e-Devlet oturumunuzla, kayıtları yeniden yazmadan gider; satılan ilaç stoğunuzdan düşer.',
-  'Çift girişe son', ['İlaç ve aşılar Bakanlık listesindeki karşılıklarıyla bir kez eşleştirilir, sonra hatırlanır.', 'Mikroçip, parti numarası ve sahip bilgisi eksikse göndermeden önce uyarır; gönderim kuyruğu ve belge numaraları tek ekranda.', 'İTS karekod okutarak ilaç düşümü: yakında.']),
+  'Aşılar Aşı Takip Sistemine (ATS), reçeteli ilaçlar İlaç Takip Sistemine (İTS) kendi e-Devlet oturumunuzla, kayıtları yeniden yazmadan gider.',
+  'Çift girişe son', ['İlaç ve aşılar Bakanlık listesindeki karşılıklarıyla bir kez eşleştirilir, sonra hatırlanır.', 'Mikroçip, parti numarası ve sahip bilgisi eksikse göndermeden önce uyarır; gönderim kuyruğu ve belge numaraları tek ekranda.', 'Satılan ve reçetelenen ilaç stoğunuzdan kendiliğinden düşer.']),
  ('/platform/ozellikler/sesli-komut', 'voice', 'Klinik', 'Bas Konuş · sesli komut ve dikte',
   '“Pamuk için yeni muayene aç, kilo 4, ateş 41,3, kusma öksürük” deyin; form açılır ve değerler doğru alanlara yazılır.',
   'Elleriniz serbest', ['Sesle sayfa açın, hasta ve hasta sahibini bulun; aynı adlı hastalar listelenir, seçtiğinizin dosyası açılır.', 'Kilo, ateş, nabız, solunum, semptom, bulgu, tanı, plan ve kontrol tarihi ilgili alanlara yazılır; “ıı, şey” gibi dolgu sözcükleri eklenmez.', 'Hızlı mod anlıktır; cihaz içi mod internetsiz çalışır. Ücretsiz ve sınırsız.']),
@@ -311,7 +311,7 @@ def shots_pass():
         paths.update(re.findall(r'href="(/platform/ozellikler/[a-z0-9-]+)"', open(os.path.join(PAGES, name), encoding='utf-8').read()))
     for name in os.listdir(PAGES):
         p = os.path.join(PAGES, name); t = open(p, encoding='utf-8').read(); o = t
-        t = t.replace('href="/saas.css"', 'href="/saas.css?v=2"').replace('saas.js?v=3"', 'saas.js?v=4"')
+        t = t.replace('href="/saas.css"', 'href="/saas.css?v=2"').replace('saas.js?v=3"', 'saas.js?v=5"').replace('saas.js?v=4"', 'saas.js?v=5"')
         m = re.search(r'<link rel="canonical" href="https?://[^/"]+(/platform/ozellikler/[a-z0-9-]+)"', t) or re.search(r'data-page-path="(/platform/ozellikler/[a-z0-9-]+)"', t)
         path = m.group(1) if m else next((f for f in paths if key(f) == p), None)
         if path:

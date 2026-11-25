@@ -118,7 +118,7 @@ const featureDialog=document.querySelector("#feature-dialog");
 const featureBody=featureDialog.querySelector(".feature-dialog-body");
 let featureRequest;
 featureDialog.querySelector("[data-feature-close]").addEventListener("click",()=>featureDialog.close());
-featureDialog.addEventListener("close",()=>featureRequest?.abort());
+featureDialog.addEventListener("close",()=>{if(!featureDialog.open)featureRequest?.abort();});
 featureDialog.addEventListener("click",event=>{if(event.target===featureDialog) featureDialog.close();});
 document.addEventListener("click",async event=>{
   const link=event.target.closest("a[data-feature-open]");

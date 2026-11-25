@@ -20,8 +20,8 @@ $sign=static function(): string { $im=imagecreatetruecolor(900,300); imagefill($
   for($i=0;$i<40;$i++) imageline($im,50+$i*18,150+(int)(60*sin($i/2)),68+$i*18,150+(int)(60*sin(($i+1)/2)),$k); ob_start(); imagepng($im); return 'data:image/png;base64,'.base64_encode((string)ob_get_clean()); };
 
 $r=$permits->create($actor,(object)['client'=>'c1','method'=>'link'],$now);
-$token=substr($r['url'],strlen('klinik.example/o/'));
-ok(str_starts_with($r['url'],'klinik.example/o/') && strlen($token)===10 && $r['permit']['status']==='pending','Bağlantı oluşmadı');
+$token=substr($r['url'],strlen('https://klinik.example/o/'));
+ok(str_starts_with($r['url'],'https://klinik.example/o/') && $r['short']==='klinik.example/o/'.$token && strlen($token)===10 && $r['permit']['status']==='pending','Bağlantı oluşmadı');
 ok(!str_contains((string)$db->query("SELECT token_hash FROM clinic_client_permit")->fetchColumn(),$token),'Bağlantı anahtarı düz saklandı');
 $open=$permits->open($token,$now);
 ok(str_contains($open['doc']['notice'],'Pati Veteriner Kliniği') && str_contains($open['doc']['notice'],'Odunpazarı') && !preg_match('/\{(klinik|adres|telefon|eposta)\}/',$open['doc']['notice']),'Aydınlatma metni klinik bilgisiyle doldurulmadı');
@@ -58,7 +58,7 @@ $gw->saveSettings($actor,(object)['sms'=>true,'whatsapp'=>'assist','smsInterval'
 $gw->agentPair($gw->pair($actor,$now)['code'],'Tel','1','',$now);
 $a=$permits->create($actor,(object)['client'=>'c1','method'=>'sms'],$now);
 $job=$db->query("SELECT * FROM phone_outbox WHERE source='manual'")->fetch(PDO::FETCH_ASSOC);
-ok($a['sent']==='queued' && (int)$job['priority']===0 && str_contains($job['body'],$a['url']) && $job['phone']==='+905321112233','Onay bağlantısı SMS kuyruğuna girmedi');
+ok($a['sent']==='queued' && (int)$job['priority']===0 && str_contains($job['body'],$a['short']) && $job['phone']==='+905321112233','Onay bağlantısı SMS kuyruğuna girmedi');
 $b=$permits->create($actor,(object)['client'=>'c1','method'=>'link'],$now);
 $tokA=substr($a['url'],-10);
 try { $permits->open($tokA,$now); $accepted=true; } catch (RuntimeException) { $accepted=false; }

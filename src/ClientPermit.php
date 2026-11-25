@@ -214,7 +214,8 @@ TXT;
         }
         $q = $this->db->prepare('SELECT * FROM clinic_client_permit WHERE id=?');
         $q->execute([$id]);
-        return ['permit' => self::out($q->fetch(PDO::FETCH_ASSOC)), 'url' => $url, 'sent' => $sent,
+        // Arayüz bağlantıyı açar/kopyalar: tam https adresi. SMS metninde kısa hali (https:// olmadan) kullanılır.
+        return ['permit' => self::out($q->fetch(PDO::FETCH_ASSOC)), 'url' => rtrim($this->origin, '/').'/o/'.$token, 'short' => $url, 'sent' => $sent,
             'whatsappLink' => $phone !== '' ? PhoneGateway::waLink($phone, $doc['clinic']['klinik'].': Onay formunuz: '.$url) : null];
     }
 

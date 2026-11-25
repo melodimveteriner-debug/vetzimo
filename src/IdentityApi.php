@@ -366,7 +366,7 @@ final class IdentityApi
             $permitUrl='';
             if (class_exists(ClientPermit::class)) {
                 try {
-                    $permitUrl=(new ClientPermit($this->db,rtrim((string)($config['origin'] ?? ''),'/')))->create($actor,(object)['client'=>$id,'method'=>'sms','silent'=>true],$now)['url'];
+                    $permitUrl=(new ClientPermit($this->db,rtrim((string)($config['origin'] ?? ''),'/')))->create($actor,(object)['client'=>$id,'method'=>'sms','silent'=>true],$now)['short'];
                     $message.="\nKVKK/izin onayı: ".$permitUrl;
                 } catch (\Throwable) { /* onay formu oluşturulamazsa hoş geldin SMS'i yine gider */ }
             }
