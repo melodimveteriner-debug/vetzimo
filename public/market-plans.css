@@ -40,3 +40,7 @@
 @keyframes pk-draw{to{stroke-dashoffset:0}}
 @keyframes pk-shine{to{background-position:200% 0}}
 @media (prefers-reduced-motion:reduce){.pk-card,.pk-table tbody tr,.pk-badge{animation:none}.pk-yes path{animation:none;stroke-dashoffset:0}}
+
+/* Satın Alın altındaki ikincil bağlantı */
+.pk-card .pk-secondary{display:block;margin-top:10px;text-align:center;font-size:.88rem;color:inherit;opacity:.75;text-decoration:underline;text-underline-offset:3px}
+.pk-card .pk-secondary:hover{opacity:1}

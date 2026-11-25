@@ -90,6 +90,17 @@ export async function mountCreditShop(ui,{section=""}={}) {
   }
   drawToggle();drawCatalog();
   view.append(catalog,detail);
+  // Satış sitesindeki "Satın Alın" düğmesinden gelindiyse (#kredi-magazasi/paket-<kod>-<dönem>) seçilen paketin ödeme adımı doğrudan açılır.
+  const wanted=/^paket-([a-z0-9][a-z0-9-]*?)-(monthly|yearly)$/.exec(section||"");
+  if (wanted) {
+    const row=data.plans.find(p=>p.id===wanted[1]);
+    if (row) {
+      if (row.amounts?.[wanted[2]]==null&&row.amounts?.[wanted[2]==="monthly"?"yearly":"monthly"]!=null) period=wanted[2]==="monthly"?"yearly":"monthly"; else period=wanted[2];
+      drawToggle();drawCatalog();
+      if (row.purchasable&&row.amounts?.[period]!=null&&methodsFor().length) checkout(row);
+      else status.textContent=row.name+" paketinin fiyatı henüz tanımlanmadı. Paket için destek talebi oluşturabilirsiniz.";
+    }
+  }
 
   const orders=el("section","",{className:"panel suite-panel store-orders"});
   orders.append(el("h2","Siparişlerim"));

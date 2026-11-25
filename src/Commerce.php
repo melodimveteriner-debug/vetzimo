@@ -35,9 +35,34 @@ final class Commerce
         $plans=self::plans();
         foreach ($this->db->query('SELECT plan_id,settings FROM clinic_package_settings') as $row) {
             $id=$row['plan_id'];
-            $plans[$id]=array_replace($plans[$id] ?? ['id'=>$id,'terms'=>(object)[]],json_decode($row['settings'],true,32,JSON_THROW_ON_ERROR));
+            $settings=json_decode($row['settings'],true,32,JSON_THROW_ON_ERROR);
+            // Merkezden silinen paket hiçbir listede ve satış sitesinde görünmez.
+            if (($settings['deleted'] ?? false)===true) { unset($plans[$id]); continue; }
+            $plans[$id]=array_replace($plans[$id] ?? ['id'=>$id,'terms'=>(object)[]],$settings);
         }
         return $plans;
+    }
+
+    /** Paketi siler. Süren/ileri tarihli aboneliği veya bekleyen ödemesi olan paket silinemez; geçmiş kayıtlar korunur. */
+    public function deletePackage(object $body): string
+    {
+        $id=$this->field($body,'id',32,true);
+        $catalog=$this->catalog();
+        if (!isset($catalog[$id])) throw new RuntimeException('Paket bulunamadı.',404);
+        $today=(new \DateTimeImmutable('now',new \DateTimeZone('Europe/Istanbul')))->format('Y-m-d');
+        $q=$this->db->prepare('SELECT COUNT(DISTINCT partner_id) FROM clinic_subscription WHERE plan_id=? AND ends_on>=?');
+        $q->execute([$id,$today]);
+        if (($n=(int)$q->fetchColumn())>0) throw new RuntimeException($n.' bayinin bu pakette süren aboneliği var. Önce bayileri başka pakete geçirin; abonelikler bitince paket silinebilir.',409);
+        try {
+            $q=$this->db->prepare("SELECT COUNT(*) FROM saas_order WHERE plan_id=? AND status NOT IN ('paid','failed','rejected','cancelled','expired')");
+            $q->execute([$id]);
+            if ((int)$q->fetchColumn()>0) throw new RuntimeException('Bu paket için bekleyen ödeme var. Önce Ödeme Onayları ekranında sonuçlandırın.',409);
+        } catch (\PDOException $e) { if ($e->getCode()!=='42S02') throw $e; }
+        $published=array_filter($catalog,static fn(array $p): bool=>($p['published'] ?? true)!==false && $p['id']!==$id);
+        if (($catalog[$id]['published'] ?? true)!==false && !$published) throw new RuntimeException('Satış sitesinde en az bir yayında paket kalmalıdır.',409);
+        $this->db->prepare('INSERT INTO clinic_package_settings(plan_id,settings) VALUES (?,?) ON DUPLICATE KEY UPDATE settings=VALUES(settings)')
+            ->execute([$id,json_encode(['deleted'=>true,'published'=>false,'name'=>(string)($catalog[$id]['name'] ?? $id)],JSON_THROW_ON_ERROR)]);
+        return (string)($catalog[$id]['name'] ?? $id);
     }
 
     public function savePackage(object $body): void
@@ -67,8 +92,11 @@ final class Commerce
             if ($value===null || $value==='') continue;
             if ($max===null) {
                 if (!is_string($value) || !preg_match('/\A.{1,160}\z/u',$value)) throw new RuntimeException($label.' geçersiz.',422);
-            } elseif ($value!=='unlimited' || in_array($key,['trial','discount'],true)) {
-                if (!is_int($value) || $value<0 || $value>$max) throw new RuntimeException($label.' geçersiz.',422);
+            } elseif (!in_array($key,['trial','discount'],true) && ($value==='unlimited' || (is_int($value) && $value>=self::UNLIMITED))) {
+                // 999999 ve üzeri her sınır alanında (kullanıcı, şube, depolama, ÖKC dahil) "sınırsız" demektir.
+                $value='unlimited';
+            } elseif (!is_int($value) || $value<0 || $value>$max) {
+                throw new RuntimeException($label.' geçersiz.',422);
             }
             $settings['terms'][$key]=$value;
         }
@@ -83,7 +111,9 @@ final class Commerce
         $caps=$body->capabilities ?? null;
         $settings['capabilities']=[];
         foreach (array_keys(ClinicAccess::FEATURES) as $key) $settings['capabilities'][$key]=!is_object($caps) || ($caps->$key ?? false)===true;
-        $this->db->prepare('INSERT INTO clinic_package_settings(plan_id,settings) VALUES (?,?)'.($create?'':' ON DUPLICATE KEY UPDATE settings=VALUES(settings)'))
+        // Silinmiş bir paket kodu yeniden kullanılırsa eski (silindi) kaydının yerine yazılır.
+        $reuse=$create && $this->db->query('SELECT 1 FROM clinic_package_settings WHERE plan_id='.$this->db->quote($id))->fetchColumn();
+        $this->db->prepare('INSERT INTO clinic_package_settings(plan_id,settings) VALUES (?,?)'.($create && !$reuse?'':' ON DUPLICATE KEY UPDATE settings=VALUES(settings)'))
             ->execute([$id,json_encode($settings,JSON_THROW_ON_ERROR)]);
     }
 
@@ -145,7 +175,15 @@ final class Commerce
                 $cards.='<div class="pk-price" data-price="'.$key.'"'.($key==='yearly'?' hidden':'').'><strong>'.$amount.'</strong><small>'.$note.'</small></div>';
             }
             if (!empty($plan['features'])) $cards.='<ul class="pk-points"><li>'.implode('</li><li>',array_map($e,$plan['features'])).'</li></ul>';
-            $cards.='<a class="button '.($featured?'primary':'outline').'" data-plan-link href="/platform/deneme?plan='.rawurlencode($plan['id']).'&amp;donem=monthly">'.(($plan['id'] ?? '')==='ucretsiz'?'Ücretsiz başlayın':(($plan['id'] ?? '')==='ozel'?'Teklif isteyin':'Demo ile deneyin')).'</a></article>';
+            $pid=(string)($plan['id'] ?? '');
+            $buyable=$pid!=='ucretsiz' && $pid!=='ozel';
+            if ($buyable) {
+                // Pro, Plus ve fiyatı girilmiş diğer paketler: doğrudan ödeme ekranı (kart / havale)
+                $cards.='<a class="button '.($featured?'primary':'outline').'" data-plan-link href="/platform/satin-al?plan='.rawurlencode($pid).'&amp;donem=monthly">Satın Alın</a>'
+                    .'<a class="pk-secondary" data-plan-link href="/platform/deneme?plan='.rawurlencode($pid).'&amp;donem=monthly">Hesabınız yok mu? 14 gün ücretsiz deneyin</a></article>';
+            } else {
+                $cards.='<a class="button '.($featured?'primary':'outline').'" data-plan-link href="/platform/deneme?plan='.rawurlencode($pid).'&amp;donem=monthly">'.($pid==='ucretsiz'?'Ücretsiz başlayın':($pid==='ozel'?'Teklif isteyin':'Bilgi alın')).'</a></article>';
+            }
         }
         $head='<thead><tr><th scope="col">Özellik</th>';
         foreach ($plans as $plan) $head.='<th scope="col">'.$e($plan['name']).'</th>';
@@ -171,7 +209,7 @@ final class Commerce
             $body.='</tr>';
         }
         $legend='<p class="pk-legend">'.$tick.' Pakette var '.$cross.' Pakette yok · Sınırlar aylık gönderim ve toplam kayıt sayısıdır.</p>';
-        return '<link rel="stylesheet" href="/market-plans.css?v=1"><div class="pk-cards">'.$cards.'</div>'
+        return '<link rel="stylesheet" href="/market-plans.css?v=2"><div class="pk-cards">'.$cards.'</div>'
             .'<section class="pk-compare"><h2 class="sub-title">Paketleri karşılaştırın</h2>'.$legend
             .'<div class="table-scroll pk-table" tabindex="0" role="region" aria-label="Paket karşılaştırması"><table>'.$head.'<tbody>'.$body.'</tbody></table></div></section>';
     }

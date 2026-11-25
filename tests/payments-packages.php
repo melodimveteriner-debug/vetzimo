@@ -93,4 +93,10 @@ $after=$repo->load('partner:'.$p)['state'];
 $col=array_values(array_filter($after->collections,fn($c)=>($c->sale ?? '')==='s900'));
 ok(count($col)===1 && $col[0]->amount==='250.00' && $col[0]->method==='Havale/EFT','Tahsilat işlenmedi: '.json_encode($col));
 ok($op->owner($cust)['debt']===0,'Borç sıfırlanmadı');
+// 6) Paket silme: aboneliği olmayan eski paket silinir, süren aboneliği olan silinemez; 999999 her sınırda "sınırsız"
+ok($commerce->deletePackage((object)['id'=>'baslangic'])==='Başlangıç' && !isset($commerce->catalog()['baslangic']),'Eski paket silinmedi');
+try { $commerce->deletePackage((object)['id'=>'plus']); ok(false,'Süren aboneliği olan paket silindi'); } catch (RuntimeException $e) { ok($e->getCode()===409,'Beklenmeyen silme hatası: '.$e->getMessage()); }
+$commerce->savePackage((object)['id'=>'baslangic','create'=>true,'name'=>'Yeni Başlangıç','description'=>'Test','terms'=>(object)['users'=>999999,'branches'=>999999,'storage'=>999999,'patients'=>500]]);
+$re=$commerce->catalog()['baslangic'];
+ok($re['name']==='Yeni Başlangıç' && $re['terms']['users']==='unlimited' && $re['terms']['branches']==='unlimited' && $re['terms']['patients']===500,'Silinen kod yeniden kullanılamadı ya da 999999 sınırsız olmadı: '.json_encode($re['terms']));
 echo "Paket, ödeme ve merkez testleri geçti\n";

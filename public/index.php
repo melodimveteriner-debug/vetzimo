@@ -63,10 +63,27 @@ header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: no-referrer');
 
 try {
-    if (($_SERVER['HTTPS'] ?? '') !== 'on' && ($_SERVER['HTTPS'] ?? '') !== '1') {
+    $configPath = getenv('VETNET_CPANEL_CONFIG') ?: dirname(__DIR__) . '/config.php';
+    $secure = in_array($_SERVER['HTTPS'] ?? '', ['on','1'], true);
+    // Adres çubuğuna yalnız "vetzimo.com" yazıldığında (iPhone/iPad Safari http ile açar) ya da www ile gelindiğinde
+    // boş hata yerine kalıcı olarak güvenli ana adrese yönlendir. Gövde gönderen istekler yönlendirilmez.
+    $requestHost = strtolower((string)($_SERVER['HTTP_HOST'] ?? ''));
+    if (in_array($_SERVER['REQUEST_METHOD'] ?? 'GET', ['GET','HEAD'], true) && preg_match('/\A[a-z0-9.-]{1,253}(?::\d{1,5})?\z/', $requestHost)) {
+        $mainOrigin = is_file($configPath) ? (string)((require $configPath)['origin'] ?? '') : '';
+        $mainHost = strtolower((string)parse_url($mainOrigin, PHP_URL_HOST));
+        $bareHost = preg_replace('/:\d+\z/', '', $requestHost);
+        $target = null;
+        if ($mainHost !== '' && $bareHost === 'www.'.$mainHost) $target = rtrim($mainOrigin, '/');
+        elseif (!$secure) $target = ($mainHost !== '' && $bareHost === $mainHost) ? rtrim($mainOrigin, '/') : 'https://'.$bareHost;
+        if ($target !== null) {
+            $uri = (string)($_SERVER['REQUEST_URI'] ?? '/');
+            header('Location: '.$target.(str_starts_with($uri, '/') && !str_starts_with($uri, '//') ? $uri : '/'), true, 301);
+            exit;
+        }
+    }
+    if (!$secure) {
         throw new RuntimeException('HTTPS bağlantısı gerekli.', 400);
     }
-    $configPath = getenv('VETNET_CPANEL_CONFIG') ?: dirname(__DIR__) . '/config.php';
     if (!is_file($configPath)) throw new RuntimeException('PHP yapılandırması eksik.', 503);
     $config = require $configPath;
     $origin = $config['origin'];
@@ -144,6 +161,20 @@ try {
         }
         throw new RuntimeException('İstek kaynağı doğrulanamadı.', 403);
     }
+    // Satış sitesi "Satın Alın": giriş yapmış bayi doğrudan ödeme ekranına (seçilen paket ve dönemle) gider;
+    // giriş yapılmamışsa seçim 30 dakikalık çerezde tutulur, girişten sonra ödeme ekranı açılır.
+    if (!$externalWeb && $method === 'GET' && rtrim($path,'/') === '/platform/satin-al') {
+        $buyPlan=(string)($_GET['plan'] ?? '');
+        $buyPeriod=($_GET['donem'] ?? '')==='monthly' ? 'monthly' : 'yearly';
+        if (!preg_match('/\A[a-z0-9][a-z0-9-]{0,31}\z/',$buyPlan)) { header('Location: /platform/paketler',true,302); exit; }
+        $buyDb=Database::connect($config['dsn'],$config['username'],$config['password']);
+        $buyActor=(new SessionRepository($buyDb))->resolve($_COOKIE,time());
+        $buyHash='#kredi-magazasi/paket-'.$buyPlan.'-'.$buyPeriod;
+        if (($buyActor['role'] ?? '')==='dealer') { header('Location: /clinic'.$buyHash,true,302); exit; }
+        setcookie('vz_buy',$buyPlan.'-'.$buyPeriod,['expires'=>time()+1800,'path'=>'/','secure'=>true,'httponly'=>false,'samesite'=>'Lax']);
+        header('Location: /app?satin-al='.rawurlencode($buyPlan),true,302);
+        exit;
+    }
     if (!$externalWeb && $method === 'GET' && ($path === '/' || $path === '/platform' || str_starts_with($path,'/platform/'))) {
         $marketPath=$path==='/' ? '/platform' : rtrim($path,'/');
         if (preg_match('~\A/platform/yasal(?:/([a-z-]+))?\z~',$marketPath,$legalMatch)) {
@@ -206,6 +237,15 @@ try {
             if (!in_array($actor['role'] ?? '',['dealer','branch','staff'],true)) {
                 header('Location: /app', true, 303);
                 exit;
+            }
+            // Satış sitesinden "Satın Alın" ile gelip giriş yapan bayi: seçtiği paketin ödeme adımına geçer.
+            $buyIntent=(string)($_COOKIE['vz_buy'] ?? '');
+            if ($buyIntent!=='') {
+                setcookie('vz_buy','',['expires'=>1,'path'=>'/','secure'=>true,'httponly'=>false,'samesite'=>'Lax']);
+                if (($actor['role'] ?? '')==='dealer' && preg_match('/\A[a-z0-9][a-z0-9-]{0,31}-(?:monthly|yearly)\z/',$buyIntent)) {
+                    header('Location: /clinic#kredi-magazasi/paket-'.$buyIntent, true, 303);
+                    exit;
+                }
             }
         }
         $file = rtrim($config['assets'], '/') . (match ($path) {
@@ -802,6 +842,11 @@ try {
                 if ($action==='paytr') reply($saas->saveSettings($body));
                 $saas->review($body,$now);
                 reply(['ok'=>true]);
+            }
+            if ($action==='plans' && ($body->delete ?? false)===true) {
+                $name=$commerce->deletePackage($body);
+                $center->audit($actor['account_id'],'package.deleted',(string)$body->id);
+                reply(['ok'=>true,'deleted'=>$name]);
             }
             if ($action==='plans') {
                 $commerce->savePackage($body);

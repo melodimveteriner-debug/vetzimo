@@ -248,3 +248,10 @@ main:has(.owner-dashboard){max-width:1050px}
 .center-alerts a{color:inherit;font-size:.9rem;text-decoration:none;padding:4px 0;border-top:1px solid color-mix(in srgb,currentColor 10%,transparent)}
 .center-alerts a:hover{text-decoration:underline}
 .center-alerts button{justify-self:start}
+
+/* Paket silme düğmesi */
+.center-package-actions button.danger{color:#c2253c;border-color:color-mix(in srgb,#c2253c 40%,transparent)}
+.center-package-actions button.danger:hover{background:color-mix(in srgb,#c2253c 10%,transparent)}
+
+/* Bilgisayarda: sol menü her zaman açık olduğundan "Menü" düğmesi ve sol menüyü tekrarlayan üst sekme şeridi gizli (telefonda görünür). */
+@media (min-width:851px){.center-menu-toggle{display:none!important}.center-subtabs{display:none!important}}

@@ -96,7 +96,7 @@ export async function mountAnalytics(content, {call, el, status, openPartner}) {
     const refresh = el("button", "Verileri yenile", {type: "button", className: "secondary"});
     refresh.addEventListener("click", async () => { refresh.disabled = true; refresh.textContent = "Hesaplanıyor…"; try { await load(true); } catch (e) { status.textContent = e.message; refresh.disabled = false; } });
     head.append(el("div", ""), refresh);
-    head.firstChild.append(el("h3", "Gelişmiş panel"), el("p", "Son güncelleme: " + new Date(d.generatedAt * 1000).toLocaleString("tr-TR") + " · veriler 10 dakikada bir yenilenir", {className: "muted"}));
+    head.firstChild.append(el("p", "Son güncelleme: " + new Date(d.generatedAt * 1000).toLocaleString("tr-TR") + " · veriler 10 dakikada bir yenilenir", {className: "muted"}));
     const tile = (label, value, sub, tone = "") => { const b = el("div", "", {className: "ca-tile " + tone}); b.append(el("span", label), el("strong", value)); if (sub) b.append(el("small", sub)); return b; };
     const tiles = el("div", "", {className: "ca-tiles"});
     tiles.append(

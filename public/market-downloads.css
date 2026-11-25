@@ -25,7 +25,7 @@
 .dl-chips{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 16px}
 .dl-chips span{padding:5px 11px;border-radius:999px;font-size:.84rem;font-weight:600;background:color-mix(in srgb,var(--brand-bg,#713fa9) 12%,transparent)}
 .dl-chips span.on{color:#fff;background:var(--brand-bg,#713fa9)}
-.dl-band{margin-top:24px;margin-bottom:24px}
+.dl-band{margin:24px auto}
 @media (max-width:720px){
   .dl-hero,.dl-band{grid-template-columns:1fr;padding:20px}
   .dl-hero .dl-qr,.dl-band .dl-qr{justify-self:center}

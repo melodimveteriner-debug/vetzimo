@@ -54,13 +54,14 @@ export async function mountCenterSuite(ui,session){
  setMenu(!mobile.matches);
  menu.addEventListener('click',()=>setMenu(nav.hidden));
  mobile.addEventListener('change',()=>setMenu(!mobile.matches));
- nav.append(el('p','VetZimo Yönetim',{className:'center-kicker'}),el('small',department==='support'?'Destek departmanı':department==='dealer'?'Bayi departmanı':'Merkez paneli · R21'));
+ nav.append(el('p','VetZimo Yönetim',{className:'center-kicker'}),...(department==='support'||department==='dealer'?[el('small',department==='support'?'Destek departmanı':'Bayi departmanı')]:[]));
  const groups=[
-  ['Çalışma alanı',['genel','analiz','bayiler','paketler','abonelikler','basvurular']],
-  ['Finans',['muhasebe','satislar','tahsilatlar','raporlar','odemeler']],
-  ['Satış sitesi ve yayınlar',['site','yasal','duyurular','reklam','degisiklikler','evde-hizmet']],
-  ['Uygulamalar ve destek',['uygulamalar','destek','bildirimler']],
-  ['Merkez ve ekip',['merkez-iletisim','ekip','odeme-kanallari']],
+  // Sıra: önce günlük iş (başvuru, bayi, ödeme onayı), sonra raporlar ve ayarlar.
+  ['Çalışma alanı',['genel','analiz','basvurular','bayiler','abonelikler','paketler']],
+  ['Finans',['odemeler','tahsilatlar','satislar','muhasebe','raporlar']],
+  ['Satış sitesi ve yayınlar',['site','evde-hizmet','duyurular','reklam','yasal','degisiklikler']],
+  ['Uygulamalar ve destek',['destek','bildirimler','uygulamalar']],
+  ['Merkez ve ekip',['merkez-iletisim','odeme-kanallari','magaza-banka','ekip']],
   ['Ayarlar',[]]
  ];
  const assigned=groups.flatMap(([,keys])=>keys);
@@ -196,7 +197,7 @@ export async function mountCenterSuite(ui,session){
    ['Tarih','Bayi','Hareket türü','Tutar'],rows.map(row=>[row.entry_date,row.name,financeLabels[row.source_type],currency(row.amount_cents)]))));
  }
  async function analytics(){
-  const m=await import('./center-analytics.js?v=2');
+  const m=await import('./center-analytics.js?v=3');
   await m.mountAnalytics(content,{call,el,status,openPartner:id=>detail(id)});
  }
  async function paymentChannels(){
@@ -257,7 +258,13 @@ export async function mountCenterSuite(ui,session){
  }
  function packageActions(plan,termFields,assign){
   const actions=el('div','',{className:'center-package-actions'});
-  actions.append(button('Düzenle',()=>editPackage(plan,termFields)),button('Bayilere bağla',assign));
+  const remove=button('Sil',async()=>{
+   if(!confirm('“'+plan.name+'” paketi silinsin mi? Satış sitesinden ve paket listelerinden kalkar. Süren aboneliği olan paket silinemez.'))return;
+   const result=await call('plans',{id:plan.id,delete:true});
+   await plans();status.textContent='“'+(result.deleted||plan.name)+'” paketi silindi.';
+  });
+  remove.classList.add('danger');
+  actions.append(button('Düzenle',()=>editPackage(plan,termFields)),button('Bayilere bağla',assign),remove);
   return actions;
  }
  function editPackage(plan,termFields,featureFields=opsFeatureFields){
@@ -301,8 +308,10 @@ export async function mountCenterSuite(ui,session){
     const scope=Object.fromEntries(Object.entries(termFields).map(([key,[label,max]])=>{
      const value=values['term_'+key].trim();
      if(!value||max===null)return [key,value];
-     if(value.toLocaleLowerCase('tr')==='sınırsız'&&!['trial','discount'].includes(key))return [key,'unlimited'];
-     if(!/^\d+$/.test(value)||Number(value)>max)throw Error(label+' için geçerli bir sayı girin.');
+     const limitless=!['trial','discount'].includes(key);
+     if(limitless&&value.toLocaleLowerCase('tr')==='sınırsız')return [key,'unlimited'];
+     if(limitless&&/^\d+$/.test(value)&&Number(value)>=999999)return [key,'unlimited'];
+     if(!/^\d+$/.test(value)||Number(value)>max)throw Error(label+' için '+(limitless?'0 ile '+max.toLocaleString('tr-TR')+' arasında bir sayı girin; sınırsız için 999999 yazın.':'geçerli bir sayı girin.'));
      return [key,Number(value)];
     }));
     await call('plans',{id:plan.id||values.id,create,terms:scope,name:values.name,description:values.description,features:values.features,

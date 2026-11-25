@@ -18,12 +18,12 @@ final class ClinicAccess
     public const FEATURES = [
         'inbox'=>'Gelen kutusu (WhatsApp, Instagram, Facebook, Telegram, SMS, e-posta)','phoneGateway'=>'Telefon bağlantısı (kendi hattından SMS ve WhatsApp)',
         'reminders'=>'Otomatik hatırlatmalar','bulkMessages'=>'Toplu mesaj','permits'=>'Müşteri onay formu (KVKK ve ileti izni)',
-        'consents'=>'Dijital onam ve imza','edocs'=>'e-Fatura / e-Arşiv / e-SMM','bridge'=>'Bakanlık köprüsü (e-Reçete ve aşı)',
+        'consents'=>'Dijital onam ve imza','edocs'=>'e-Fatura / e-Arşiv / e-SMM','bridge'=>'ATS ve İTS · Bakanlık kayıtları (e-Reçete ve aşı)',
         'icu'=>'Yoğun bakım panosu','surgery'=>'Ameliyat modülü','homeCare'=>'Evden takip','homeVisit'=>'Eve hizmet',
         'webSite'=>'Web sitesi oluşturucu','onlineBooking'=>'Web randevu','vebot'=>'VeBot asistan','voice'=>'Sesli komut',
         'xray'=>'Röntgen yapay zekâ yorumu','dicom'=>'DICOM görüntüleyici','labAi'=>'Laboratuvar yorum desteği','calculators'=>'Klinik hesaplayıcılar',
         'taskBoard'=>'İş takibi panosu','commission'=>'Prim raporu','debtReminders'=>'Borç hatırlatma','bulkPrice'=>'Toplu fiyat ve Excel',
-        'invoiceImport'=>'Faturadan stok','okc'=>'Yazar kasa (ÖKC)','devices'=>'Cihaz entegrasyonu (laboratuvar ve görüntüleme)',
+        'invoiceImport'=>'Faturadan stok','okc'=>'Yazar kasa (ÖKC)','devices'=>'Laboratuvar ve görüntüleme cihazları (hemogram, biyokimya, kan gazı, idrar, röntgen, ultrason, MR)',
     ];
     /** Hasta sahibi portalında gösterilebilecek bölümler. Yeni bölümler (evden takip, borç, belgeler) varsayılan olarak açıktır. */
     public const CUSTOMER_SECTIONS = ['vaccines','appointments','shares','exam','lab','xray','homeCare','balance','documents'];

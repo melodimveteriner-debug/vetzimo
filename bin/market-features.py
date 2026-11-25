@@ -108,9 +108,9 @@ FEATURES = [
  ('/platform/ozellikler/e-donusum', 'edoc', 'İşletme', 'e-Fatura, e-Arşiv ve e-SMM',
   'Geçmiş satışlardan tek tıkla e-Arşiv, e-Fatura ve serbest meslek makbuzu. API sözleşmesi gerekmez; kendi GİB, Uyumsoft veya Ödeal hesabınız kullanılır.',
   'API’siz e-belge', ['Ajan, ekranı bir kez öğrendikten sonra kliniğin kendi portal oturumunda belgeyi doldurur ve numarasını getirir.', 'KDV, iskonto ve stopaj satış toplamıyla kuruşu kuruşuna aynı hesaplanır.', 'Bağlantı koparsa işlem tekrar denenmez; çift fatura yerine “kontrol gerekli” uyarısı düşer.']),
- ('/platform/ozellikler/bakanlik-koprusu', 'bridge', 'Uyum', 'Bakanlık köprüsü',
-  'e-Reçete ve aşı kayıtlarını Bakanlık sistemine kendi e-Devlet oturumunuzla, kayıtları yeniden yazmadan gönderin.',
-  'Çift girişe son', ['İlaç ve aşılar Bakanlık listesindeki karşılıklarıyla bir kez eşleştirilir, sonra hatırlanır.', 'Mikroçip, parti numarası ve sahip bilgisi eksikse göndermeden önce uyarır.', 'Gönderim kuyruğu, belge numaraları ve sorunlu işler tek ekranda.']),
+ ('/platform/ozellikler/bakanlik-koprusu', 'bridge', 'Uyum', 'ATS ve İTS · Bakanlık kayıtları',
+  'e-Reçete ve aşı kayıtları Bakanlık sistemine (HBS · ATS) kendi e-Devlet oturumunuzla, kayıtları yeniden yazmadan gider; satılan ilaç stoğunuzdan düşer.',
+  'Çift girişe son', ['İlaç ve aşılar Bakanlık listesindeki karşılıklarıyla bir kez eşleştirilir, sonra hatırlanır.', 'Mikroçip, parti numarası ve sahip bilgisi eksikse göndermeden önce uyarır; gönderim kuyruğu ve belge numaraları tek ekranda.', 'İTS karekod okutarak ilaç düşümü: yakında.']),
  ('/platform/ozellikler/sesli-komut', 'voice', 'Klinik', 'Bas Konuş · sesli komut ve dikte',
   '“Pamuk için yeni muayene aç, kilo 4, ateş 41,3, kusma öksürük” deyin; form açılır ve değerler doğru alanlara yazılır.',
   'Elleriniz serbest', ['Sesle sayfa açın, hasta ve hasta sahibini bulun; aynı adlı hastalar listelenir, seçtiğinizin dosyası açılır.', 'Kilo, ateş, nabız, solunum, semptom, bulgu, tanı, plan ve kontrol tarihi ilgili alanlara yazılır; “ıı, şey” gibi dolgu sözcükleri eklenmez.', 'Hızlı mod anlıktır; cihaz içi mod internetsiz çalışır. Ücretsiz ve sınırsız.']),
@@ -120,9 +120,9 @@ FEATURES = [
  ('/platform/ozellikler/vebot-asistan', 'vebot', 'Yapay zekâ', 'VeBot hekim asistanı',
   'İlaç dozu, aşı takvimi, normal değerler, zehirlenmeler ve ayırıcı tanı sorularını yanıtlar; hasta adını söyleyince kilo ve türü kayıttan alır.',
   'Ücretsiz ve internetsiz bilgi', ['60’tan fazla ilaçta köpek ve kedi doz aralıkları, türe özgü uyarılar ve ürün başına mL/tablet hesabı.', 'Çikolata ve ksilitol zehirlenme hesabı, sıvı ve enerji ihtiyacı, gebelik tarihi, KPR özeti.', 'Ciro, stok, randevu ve hasta özeti gibi klinik verisi soruları; veriler cihazdan çıkmaz.']),
- ('/platform/ozellikler/cihaz-entegrasyonu', 'devices', 'Klinik', 'Cihaz entegrasyonu',
-  'Hemogram, biyokimya, kan gazı, idrar, röntgen, ultrason, MR ve BT sonuçları cihazdan doğrudan gelir; doğru hasta ve sahibiyle eşleşip muayeneye eklenir.',
-  'Sonuç kendiliğinden dosyada', ['HL7, ASTM, CSV/XML ve DICOM desteklenir; klinik ajanı klasör, ağ (TCP), seri port veya DICOM C-STORE ile cihazı dinler.', 'Mikroçip, protokol numarası veya hasta ve sahip adıyla otomatik eşleşme; emin olunamayan sonuç tek tıkla doğru hastaya atanır.', 'Değerler tablo olarak muayeneye işlenir, görüntüler DICOM görüntüleyicide açılır, hekime “Tetkik sonucu hazır” bildirimi düşer.']),
+ ('/platform/ozellikler/cihaz-entegrasyonu', 'devices', 'Klinik', 'Laboratuvar ve görüntüleme cihazları',
+  'Hemogram, biyokimya, kan gazı, idrar analizi, elektrolit, koagülasyon ve hormon cihazlarının sonuçları ile röntgen, ultrason, MR ve BT görüntüleri doğrudan hastanın dosyasına gelir.',
+  'Sonuç kendiliğinden dosyada', ['HL7, ASTM, CSV/XML ve DICOM çıkışı olan cihazlar bağlanır: ağ (TCP), seri port, paylaşılan klasör veya DICOM C-STORE.', 'Mikroçip, protokol numarası veya hasta ve sahip adıyla otomatik eşleşme; emin olunamayan sonuç tek tıkla doğru hastaya atanır.', 'Değerler tablo ve trend grafiği olarak muayeneye işlenir, görüntüler DICOM görüntüleyicide açılır, hekime “Tetkik sonucu hazır” bildirimi düşer.']),
  ('/platform/ozellikler/evde-hizmet-canli-rota', 'route', 'Evde hizmet', 'Canlı rota ve Google yorumu',
   'Personel yola çıkınca sıradaki hasta sahibine klinik adı, personel adı ve tahmini varış süresi gider; yaklaşınca yeniden haber verilir.',
   'Hasta sahibi kapıda beklemez', ['Yola çıktı, yaklaşıyor ve tamamlandı bildirimleri uygulama, SMS veya WhatsApp ile kliniğin kendi hattından gider.', 'Hasta sahibi canlı takip sayfasında personelin konumunu ve kalan süreyi görür; ziyaret bitince konum paylaşımı kendiliğinden kapanır.', 'Ziyaret sonrası isteğe bağlı Google yorum bağlantısı gönderilir; her bayi kendi Google işletme bağlantısını ekler.']),
@@ -153,13 +153,13 @@ def detail(base, path, art, eyebrow, title, lead, h2, bullets):
             f'<section class="callout" data-edit-area="Sayfa sonu çağrısı"><div><span class="eyebrow">{e(eyebrow)}</span><h2>Kendi kliniğinizde deneyin</h2></div><a href="/platform/demo" class="button primary">Demo talep edin</a></section></main>')
     return head + body + tail
 
-def showcase():
-    cards = ''.join(f'<a class="ms-card" href="{p}"><span class="ms-badge">YENİ · {e(eb)}</span>{ART[a]}<h3>{e(t)}</h3><p>{e(l)}</p></a>' for p, a, eb, t, l, *_ in FEATURES)
+def showcase(skip=()):
+    cards = ''.join(f'<a class="ms-card" href="{p}"><span class="ms-badge">YENİ · {e(eb)}</span>{ART[a]}<h3>{e(t)}</h3><p>{e(l)}</p></a>' for p, a, eb, t, l, *_ in FEATURES if p not in skip)
     return f'<section class="ms-section" data-ms-showcase><h2 class="sub-title">Yeni özellikler</h2><div class="ms-grid">{cards}</div></section>'
 
 # ───────────────────────── Uygulama indir sayfası ─────────────────────────
 DL_PATH = '/platform/uygulama-indir'
-DL_ASSETS = '<link rel="stylesheet" href="/market-downloads.css?v=3"><script src="/market-downloads.js?v=2" type="module"></script>'
+DL_ASSETS = '<link rel="stylesheet" href="/market-downloads.css?v=4"><script src="/market-downloads.js?v=2" type="module"></script>'
 NAV_LINK = '<a href="/platform/uygulama-indir" class="" data-dl-nav>Uygulama indir</a>'
 FOOT_LINK = '<a href="/platform/uygulama-indir" data-dl-nav>Uygulama indir</a>'
 
@@ -246,7 +246,7 @@ def site_links():
     for name in os.listdir(PAGES):
         p = os.path.join(PAGES, name); t = open(p, encoding='utf-8').read(); o = t
         t = t.replace('market-showcase.css?v=1"', 'market-showcase.css?v=3"')
-        t = t.replace('market-downloads.css?v=2"', 'market-downloads.css?v=3"').replace('market-downloads.js?v=1"', 'market-downloads.js?v=2"')
+        t = t.replace('market-downloads.css?v=2"', 'market-downloads.css?v=4"').replace('market-downloads.css?v=3"', 'market-downloads.css?v=4"').replace('market-downloads.js?v=1"', 'market-downloads.js?v=2"')
         if 'id="main-nav"' in t and 'data-dl-nav' not in t:
             t = re.sub(r'(<nav id="main-nav"[^>]*>.*?)(</nav>)', lambda m: m.group(1) + NAV_LINK + m.group(2), t, count=1, flags=re.S)
             t = re.sub(r'(<nav aria-label="Alt menü">.*?)(</nav>)', lambda m: m.group(1) + FOOT_LINK + m.group(2), t, count=1, flags=re.S)
@@ -270,14 +270,26 @@ def main():
     hp = key('/platform')
     if os.path.exists(hp):
         h = open(hp, encoding='utf-8').read()
-        h = re.sub(r'<section class="ms-section" data-ms-showcase>.*?</section>', '', h, flags=re.S)
+        # Ana sayfadaki vitrin "ms-home wrap" sınıflıdır; önceki tüm kopyalar silinir (aksi halde her çalıştırmada bir kopya daha eklenir).
+        h = re.sub(r'<section class="ms-section(?: ms-home wrap)?" data-ms-showcase>.*?</section>', '', h, flags=re.S)
         if 'market-showcase.css' not in h: h = h.replace('</head>', CSS + '</head>', 1)
         marker = '<section class="lp-block" data-edit-area="Cihazlar ve temalar">'
-        if marker in h: h = h.replace(marker, showcase().replace('<section class="ms-section"', '<section class="ms-section ms-home wrap"') + marker, 1)
+        if marker in h: h = h.replace(marker, showcase(skip=('/platform/ozellikler/vebot-asistan',)).replace('<section class="ms-section"', '<section class="ms-section ms-home wrap"') + marker, 1)
         h = re.sub(r'<section class="ms-section dl-band wrap" data-dl-band>.*?</section>', '', h, flags=re.S)
         if marker in h: h = h.replace(marker, dl_band() + marker, 1)
         if 'market-downloads.css' not in h: h = h.replace('</head>', DL_ASSETS + '</head>', 1)
         open(hp, 'w', encoding='utf-8').write(h)
+    # Entegrasyonlar sayfası: laboratuvar/görüntüleme cihazları ile ATS/İTS kartları en başta (metinleri FEATURES'tan gelir)
+    ip = key('/platform/entegrasyonlar')
+    if os.path.exists(ip):
+        g = open(ip, encoding='utf-8').read()
+        add = ''
+        order = ('/platform/ozellikler/cihaz-entegrasyonu', '/platform/ozellikler/bakanlik-koprusu')
+        for path, art, eyebrow, title, lead, *_ in sorted((f for f in FEATURES if f[0] in order), key=lambda f: order.index(f[0])):
+            if f'href="{path}"' not in g:
+                add += f'<a class="card" href="{path}" data-feature-open><span class="eyebrow">{e(eyebrow)}</span><h3>{e(title)}</h3><p>{e(lead)}</p><span class="arrow" aria-hidden="true">↗</span></a>'
+        if add: g = g.replace('<div class="cards">', '<div class="cards">' + add, 1)
+        open(ip, 'w', encoding='utf-8').write(g)
     with open(key(DL_PATH), 'w', encoding='utf-8') as f: f.write(downloads_page(base))
     site_links()
     # Tüm sayfalardaki eski kart metinleri (entegrasyonlar vb.) ve kaldırılan temaya bağlı statik varsayılan
