@@ -89,3 +89,4 @@
 .mk-state.ok{background:color-mix(in srgb,var(--mk-ok) 14%,transparent)}.mk-state.warn{background:color-mix(in srgb,var(--mk-warn) 14%,transparent)}
 @media (max-width:1100px){.mk-split{grid-template-columns:1fr}.mk-frame{position:static;height:70vh}}
 @media (max-width:760px){.mk-studio{grid-template-columns:1fr}.mk-nav{position:static;max-height:none}}
+.mk-free{margin:0;padding:10px 12px;border-radius:12px;border-inline-start:4px solid #22c55e;background:color-mix(in srgb,#22c55e 9%,transparent);line-height:1.5}

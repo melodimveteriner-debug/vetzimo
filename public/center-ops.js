@@ -222,10 +222,10 @@ export async function mountCenterSuite(ui,session){
    el('h3','Abonelik siparişleri'),list);
  }
  async function centerContact(){
-  const m=await import('./center-team.js?v=1');await m.mountCenterContact(content,{call,el});
+  const m=await import('./center-team.js?v=2');await m.mountCenterContact(content,{call,el});
  }
  async function centerTeam(){
-  const m=await import('./center-team.js?v=1');await m.mountCenterTeam(content,{call,el});
+  const m=await import('./center-team.js?v=2');await m.mountCenterTeam(content,{call,el});
  }
  async function plans(){
   const {plans:catalog,termFields,featureFields}=await call('plans');opsFeatureFields=featureFields||{};
@@ -699,7 +699,7 @@ export async function mountCenterSuite(ui,session){
  }
  async function marketEditor(){
   // Satış Sitesi Stüdyosu: sayfalar (canlı önizleme, SEO, ek bölüm), uygulama indirmeleri ve QR, otomatik demo.
-  const module=await import('./center-market.js?v=1');
+  const module=await import('./center-market.js?v=2');
   await module.mountMarketStudio(content,{call,url,params});
  }
  async function notifications(){
@@ -722,8 +722,14 @@ export async function mountCenterSuite(ui,session){
    entry('password',settings.hasPassword?'SMTP parolası · boş bırakılırsa korunur':'SMTP parolası',{type:'password',value:'',autocomplete:'new-password'}),
    check('clearPassword','Kayıtlı SMTP parolasını kaldır')
   ]);
-  card('WhatsApp Business',[
-   check('waEnabled','Yeni demo başvurularını WhatsApp’a bildir'),
+  const free=el('section','',{className:'center-card center-free'});
+  free.append(el('h2','SMS ve WhatsApp · ücretsiz'),
+   el('p','Yeni demo başvuruları, bayi ödemeleri ve abonelik hatırlatmaları VetZimo’nun kendi Android telefon hattından SMS ve WhatsApp olarak size gider. Netgsm, Meta API veya başka ücretli hizmet gerekmez.'),
+   el('a','Numaramı ve gönderen telefon hattını ayarla',{href:url('merkez-iletisim'),className:'button'}));
+  groups.prepend(free);
+  card('İsteğe bağlı · WhatsApp Cloud API (ücretli olabilir)',[
+   el('p','Yalnız kendi Meta geliştirici hesabınız varsa doldurun; telefon hattı varken gerekmez.',{className:'muted'}),
+   check('waEnabled','Yeni demo başvurularını WhatsApp Cloud API ile de bildir'),
    entry('recipient','Alıcı numara (ülke koduyla, ör. 905…)'),
    entry('phoneId','Gönderen Phone Number ID'),entry('apiVersion','Graph API sürümü'),
    entry('template','Onaylı, parametresiz şablon adı'),entry('language','Şablon dil kodu'),
@@ -740,7 +746,7 @@ export async function mountCenterSuite(ui,session){
    await call('notification-test',{channel});
    status.textContent='Test isteğini sağlayıcı kabul etti. Alıcıda teslimi kontrol edin.';
   });
-  content.replaceChildren(form,test('SMTP test e-postası gönder','smtp'),test('WhatsApp test şablonu gönder','whatsapp'));
+  content.replaceChildren(form,test('SMTP test e-postası gönder','smtp'),test('WhatsApp Cloud API test şablonu gönder','whatsapp'));
  }
  async function theme(){
   const [current,mail]=await Promise.all([call('appearance'),call('mail-settings')]);

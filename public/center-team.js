@@ -2,7 +2,7 @@
 // (Destek departmanı, Bayi departmanı hesapları; her biri kendi şifresi ve doğrulama uygulaması koduyla girer).
 import {qrSvg} from "./qr.js?v=1";
 
-const STYLE = "/center-market.css?v=1";
+const STYLE = "/center-market.css?v=2";
 const h = (tag, cls, text, props = {}) => { const n = Object.assign(document.createElement(tag), props); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
 const css = () => { if (!document.querySelector(`link[href="${STYLE}"]`)) document.head.append(Object.assign(document.createElement("link"), {rel: "stylesheet", href: STYLE})); };
 const when = t => t ? new Date(typeof t === "number" ? t * 1000 : t.replace(" ", "T") + "Z").toLocaleString("tr-TR", {day: "numeric", month: "short", hour: "2-digit", minute: "2-digit"}) : "—";
@@ -26,6 +26,7 @@ export async function mountCenterContact(root, {call}) {
     const test = h("button", "mk-btn", "Deneme bildirimi gönder", {type: "button"});
     const actions = h("div", "mk-row"); actions.append(msg, test, save);
     form.append(h("h3", "", "Bana gelecek bildirimler"),
+      h("p", "mk-free", "SMS ve WhatsApp ücretsizdir: mesajlar VetZimo’ya ait Android telefondan, Telefon Bağlantısı ile gider. Netgsm veya Meta API gerekmez."),
       h("p", "mk-muted", "Bayilerin havale bildirimleri ve kartla ödemeleri yalnız merkez paneline uyarı olarak düşer ve aşağıdaki numara ile e-postaya gönderilir. Bu bildirimler hiçbir bayiye gitmez."),
       lab("Cep telefonum (SMS ve WhatsApp)", phone), lab("E-posta adresim", email, "Boş bırakılırsa Bildirim Merkezi’ndeki yönetici e-postası kullanılır."),
       h("strong", "", "Kanallar"), row,
@@ -40,7 +41,7 @@ export async function mountCenterContact(root, {call}) {
     const info = h("section", "mk-card");
     info.append(h("h3", "", "Neler gönderilir?"));
     const ul = h("ul", "mk-list");
-    for (const t of ["Bayi havale ile ödediğini bildirdiğinde: panel uyarısı + size SMS, WhatsApp ve e-posta.", "Bayi kartla (PayTR) ödediğinde: abonelik otomatik yenilenir, size bilgi gider.",
+    for (const t of ["Satış sitesinden yeni demo başvurusu veya iletişim mesajı geldiğinde: size SMS ve WhatsApp.", "Bayi havale ile ödediğini bildirdiğinde: panel uyarısı + size SMS, WhatsApp ve e-posta.", "Bayi kartla (PayTR) ödediğinde: abonelik otomatik yenilenir, size bilgi gider.",
       "Bayilere abonelik bitimine 3 ay, 1 ay ve son 48 saat kala e-posta, SMS ve WhatsApp hatırlatması (yenilenmemişse). Demo veya paket almamış bayiye son 48 saatte verilerinin silineceği bildirilir.",
       "Otomatik demo doğrulama kodları (Satış Sitesi Stüdyosu › Otomatik demo)."]) ul.append(h("li", "", t));
     info.append(ul);

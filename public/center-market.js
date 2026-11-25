@@ -2,7 +2,7 @@
 // önizlemede tıklayarak düzenleme, cihaz genişliği), uygulama bazlı indirme istatistikleri ve QR kodları, otomatik demo ayarları.
 import {qrSvg} from "./qr.js?v=1";
 
-const STYLE = "/center-market.css?v=1";
+const STYLE = "/center-market.css?v=2";
 const h = (tag, cls, text, props = {}) => { const n = Object.assign(document.createElement(tag), props); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
 const fmt = n => Number(n || 0).toLocaleString("tr-TR");
 const day = d => d ? new Date(d + "T12:00:00").toLocaleDateString("tr-TR", {day: "numeric", month: "short"}) : "—";

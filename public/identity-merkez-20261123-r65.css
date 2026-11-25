@@ -256,3 +256,4 @@ main:has(.owner-dashboard){max-width:1050px}
 /* Bilgisayarda sol menü hep açık: "Menü" düğmesi gizli. Sol menü bölümleri, üst şerit bölümün sayfalarını gösterir. */
 @media (min-width:851px){.center-menu-toggle{display:none!important}}
 .center-nav-item.center-nav-section{display:block;font-weight:700;padding:10px 12px;margin:2px 0;border-radius:10px}
+.center-free{border-inline-start:4px solid #22c55e}.center-free p{line-height:1.5}.center-free .button{display:inline-block;text-decoration:none}

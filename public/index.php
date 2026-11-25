@@ -468,6 +468,16 @@ try {
     if ($path === '/api/saas/applications' && $method === 'POST') {
         (new DealerLogin($db,$config['rateSecret']))->throttle('sales:'.($_SERVER['REMOTE_ADDR'] ?? ''),$now);
         $application=(new VetNet\Cpanel\Commerce($db))->submit(input(16000),$config['rateSecret'],new VetNet\Cpanel\Notifications($db,$config['encryptionKey'] ?? ''));
+        // Yöneticiye ücretsiz SMS/WhatsApp: merkez telefon hattından (Merkez Bildirimleri); aynı başvuru ikinci kez gönderilmez.
+        try {
+            $contact=new VetNet\Cpanel\CenterContact($db,(string)($config['encryptionKey'] ?? ''));
+            $cs=$contact->settings();
+            $lead=$db->prepare('SELECT kind,name,clinic,phone FROM clinic_lead WHERE id=?');$lead->execute([$application['reference']]);
+            if (($l=$lead->fetch(PDO::FETCH_ASSOC)) && $cs['phone']!=='') {
+                $channels=array_values(array_filter(['sms','whatsapp'],static fn($c)=>$cs[$c]));
+                if ($channels) $contact->send($cs['phone'],'VetZimo · Yeni '.($l['kind']==='contact'?'iletişim mesajı':'demo başvurusu')."\n".$l['clinic'].' · '.$l['name'].($l['phone']!==''?' · '.$l['phone']:''),'lead:'.$application['reference'],$now,$channels);
+            }
+        } catch (\Throwable $error) { error_log('VetZimo lead alert: '.get_class($error)); }
         // Otomatik demo: telefona kod gider; kod + telefondan imzalanan sözleşme ile demo kendiliğinden açılır.
         try { $application+=(new VetNet\Cpanel\DemoAuto($db,(string)$config['rateSecret']))->start($application['reference'],new VetNet\Cpanel\PhoneGateway($db),$now); }
         catch (\Throwable $error) { error_log('VetZimo demo auto start: '.get_class($error).' '.$error->getMessage()); $application['verify']=false; }
