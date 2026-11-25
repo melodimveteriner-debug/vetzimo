@@ -3,18 +3,19 @@ import {sitePalettes,darkPalette,loadAppearance} from './theme.js';
 import {paginate} from './paged.js';
 let opsFeatureFields={};
 export async function opsFetch(path,body,scope){
- const response=await fetch(path,body?{method:'POST',headers:{'Content-Type':'application/json',...(scope?{'X-VeTNet-Scope':scope}:{})},body:JSON.stringify(body)}:{});
+ const headers=scope?{'X-VeTNet-Scope':scope}:{};
+ const response=await fetch(path,body?{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify(body)}:{headers});
  const data=await response.json();if(!response.ok)throw Error(data.error||'İşlem tamamlanamadı.');return data;
 }
 export async function mountCenterSuite(ui,session){
  const {uiText,uiLabel,mountLanguageSelect,view,el,heading,field,makeForm,status,logoutButton}=ui;
  const tabs=[
-  ['genel','Genel Bakış',overview],['bayiler','Bayiler ve Yetkiler',list],
+  ['genel','Genel Bakış',overview],['analiz','Gelişmiş Panel',analytics],['bayiler','Bayiler ve Yetkiler',list],
   ['muhasebe','Muhasebe',()=>finance('all')],['satislar','Satışlardan Alınan Ödemeler',()=>finance('sales')],
   ['tahsilatlar','Ek Tahsilatlar',()=>finance('collections')],['raporlar','Mali Raporlar',()=>finance('summary')],
   ['basvurular','Demo İstek-Değerlendirme',crm],['paketler','Yazılım Paketleri',plans],
   ['abonelikler','Bayi Abonelikleri',subscriptions],['destek','Destek Talepleri',support],
-  ['tema','Ayarlar ve Tema',theme],['bildirimler','Bildirim Merkezi',notifications],['guvenlik','Güvenlik',security],['kayitlar','İşlem Günlüğü',audit],
+  ['uygulamalar','Uygulama Yönetimi',nativeApps],['tema','Ayarlar ve Tema',theme],['bildirimler','Bildirim Merkezi',notifications],['guvenlik','Güvenlik',security],['kayitlar','İşlem Günlüğü',audit],
   ['odemeler','Ödeme Onayları',()=>manage('payments')],['odeme-kanallari','Ödeme Kanalları',paymentChannels],['magaza-banka','Mağaza Havale Ayarları',()=>manage('shop_bank')],['site','Satış Sitesi Yönetimi',marketEditor],['yasal','Yasal Metinler',legalDocs],
   ['duyurular','Duyurular',()=>manage('announcements')],['reklam','Reklam Yönetimi',()=>manage('ads')],
   ['degisiklikler','Son Değişiklikler',()=>manage('releases')],
@@ -50,7 +51,7 @@ export async function mountCenterSuite(ui,session){
  mobile.addEventListener('change',()=>setMenu(!mobile.matches));
  nav.append(el('p','VetZimo Yönetim',{className:'center-kicker'}),el('small','Merkez paneli · R20'));
  const groups=[
-  ['Çalışma alanı',['genel','bayiler','paketler','abonelikler','basvurular']],
+  ['Çalışma alanı',['genel','analiz','bayiler','paketler','abonelikler','basvurular']],
   ['Finans',['muhasebe','satislar','tahsilatlar','raporlar','odemeler','odeme-kanallari','magaza-banka']],
   ['Satış sitesi ve yayınlar',['site','yasal','duyurular','reklam','degisiklikler','evde-hizmet']],
   ['Ayarlar ve destek',[]]
@@ -106,6 +107,34 @@ export async function mountCenterSuite(ui,session){
  const labels={partners:'Toplam bayi',active:'Etkin bayi',team:'Etkin ekip üyeliği',
   subscriptions:'Geçerli abonelik',applications:'Yeni başvuru',support:'Açık destek talebi',receipts:'Bugünkü klinik tahsilatı'};
  const roleLabels={dealer:'Bayi yöneticisi',branch:'Şube yöneticisi',staff:'Personel',customer:'Hasta sahibi'};
+ async function nativeApps(){
+  const endpoint='/api/app/v1/management';
+  const data=await opsFetch(endpoint,null,session.scopeId);
+  const categoryLabels={appointments:'Randevular',vaccines:'Aşı ve takip',stock:'Stok',homecare:'Evden Takip',shared:'Paylaşılan kayıtlar',homeVisits:'Evde Hizmet'};
+  const outcomes={sent:'Sağlayıcıya teslim edildi',retry:'Teslimat yeniden denenecek',rejected:'Yetki veya tercih nedeniyle atlandı'};
+  content.replaceChildren(el('h3','Son 60 günde kayıtlı cihazlar'),
+   table(['Platform','Sürüm','Cihaz'],data.devices.map(row=>[row.platform,row.build,row.total])),
+   el('h3','Push gönderimleri'),
+   table(['Durum','Adet'],data.push.map(row=>[outcomes[row.outcome]||row.outcome,row.total])),
+   el('h3','Rol ve kategori izinleri'),
+   el('p','Bildirim alıcısının kayıt yetkisi ve cihazda seçtiği tercihler gönderim sırasında ayrıca kontrol edilir.'),
+   table(['Kategori',...Object.values(roleLabels)],Object.entries(categoryLabels).map(([category,label])=>[
+    label,...Object.entries(roleLabels).map(([role,roleLabel])=>{
+     const policy=data.policies.find(item=>item.category===category&&item.role===role);
+     const enabled=!policy||Number(policy.enabled)===1;
+     if(session.reauthRequired) return enabled?'Etkin':'Kapalı';
+     const toggle=button(enabled?'Etkin':'Kapalı',async()=>{
+      await opsFetch(endpoint,{category,role,enabled:!enabled},session.scopeId);
+      await nativeApps();
+     });
+     toggle.setAttribute('aria-label',label+' · '+roleLabel+' · '+(enabled?'kapat':'etkinleştir'));
+     toggle.setAttribute('aria-pressed',String(enabled));
+     return toggle;
+    })])),
+   el('h3','Hesap silme talepleri'),
+   table(['Hesap kimliği','Talep tarihi'],data.deletionRequests.map(row=>[
+    row.account_id,new Date(Number(row.requested_at)*1000).toLocaleString()]))); 
+ }
  const statuses={active:'Etkin',pending:'Beklemede',revoked:'Kapalı'};
  const moduleLabels={appointments:'Randevular',clients:'Müşteriler',patients:'Hastalar ve klinik kayıtlar',
   followups:'Aşı ve takip',sales:'Satışlar',products:'Ürünler ve stok',expenses:'Muhasebe',
@@ -160,6 +189,10 @@ export async function mountCenterSuite(ui,session){
    .map(row=>[financeLabels[row.source_type],row.quantity,currency(row.cents)])));
   if(mode!=='summary')content.append(el('h3','Son hareketler'),paginate(entries.filter(visible),rows=>table(
    ['Tarih','Bayi','Hareket türü','Tutar'],rows.map(row=>[row.entry_date,row.name,financeLabels[row.source_type],currency(row.amount_cents)]))));
+ }
+ async function analytics(){
+  const m=await import('./center-analytics.js?v=2');
+  await m.mountAnalytics(content,{call,el,status,openPartner:id=>detail(id)});
  }
  async function paymentChannels(){
   // Abonelik satışı: kart (PayTR iFrame) ve havale. Kart ödemesi PayTR bildirimiyle otomatik onaylanır.

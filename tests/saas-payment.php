@@ -53,5 +53,7 @@ try {
   $pay->review((object)['id'=>$b['id'],'action'=>'approved','verified'=>true],$now);
   $last=$db->query("SELECT starts_on,ends_on FROM clinic_subscription WHERE partner_id=".$db->quote($partner)." ORDER BY starts_on DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC);
   ok($last['starts_on']==='2027-12-01' && $last['ends_on']==='2027-12-31','Yenileme sırası yanlış: '.json_encode($last));
+  $an=(new VetNet\Cpanel\CenterAnalytics($db))->get(true,$now);
+  ok($an['totals']['partners']===1 && $an['totals']['saasRevenue']===1200000+120000 && count($an['months'])===12 && $an['partners'][0]['plan']==='Pro','Panel verisi yanlış: '.json_encode($an['totals']));
   echo "PASS abonelik mağazası: PayTR jetonu ve imzalı bildirim, deneme→paket geçişi, yenileme sırası, havale onayı, şifreli anahtar\n";
 } finally { proc_terminate($srv); }
