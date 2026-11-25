@@ -243,3 +243,8 @@ main:has(.owner-dashboard){max-width:1050px}
 .center-subtabs a{flex:0 0 auto;padding:7px 14px;border-radius:999px;border:1px solid var(--admin-line,#e5e7eb);background:var(--admin-card,#fff);color:var(--admin-ink,inherit);text-decoration:none;font-size:.88rem;font-weight:600;transition:transform .2s}
 .center-subtabs a:hover{transform:translateY(-1px)}
 .center-suite .center-subtabs a[aria-current=page],.center-subtabs a[aria-current=page]{background:linear-gradient(115deg,var(--theme-primary,var(--admin-brand,#6a3df0)),var(--theme-secondary,#c4306e));border-color:transparent;color:#fff!important}
+/* Merkez · bayi ödeme uyarıları şeridi */
+.center-alerts{display:grid;gap:6px;margin:0 0 12px;padding:12px 14px;border-radius:14px;border:1px solid color-mix(in srgb,#d97706 45%,transparent);background:color-mix(in srgb,#d97706 12%,var(--admin-card,#fff))}
+.center-alerts a{color:inherit;font-size:.9rem;text-decoration:none;padding:4px 0;border-top:1px solid color-mix(in srgb,currentColor 10%,transparent)}
+.center-alerts a:hover{text-decoration:underline}
+.center-alerts button{justify-self:start}

@@ -41,6 +41,70 @@ final class Center
             $this->db->commit();return ['token'=>$token,'device'=>$device,'age'=>3600,'destination'=>'/yonetim'];
         } catch(\Throwable $e){if($this->db->inTransaction())$this->db->rollBack();throw $e;}
     }
+    /** Merkez departmanları: owner (tam yetki), support (yalnız destek), dealer (bayi departmanı: havale onayı, abonelik geçişi). */
+    public const DEPARTMENTS=['support'=>'Destek departmanı','dealer'=>'Bayi departmanı'];
+
+    /** Merkez hesabı (sahip veya departman). $departments boşsa yalnız sahip. Departman boş ve sahip değilse reddedilir. */
+    public function requireCenter(array $cookies,int $now,bool $write=false,array $departments=[]): array
+    {
+        $actor=(new SessionRepository($this->db))->resolve($cookies,$now);
+        if(!$actor||$actor['kind']!=='center') throw new RuntimeException('Merkez yöneticisi yetkisi gerekli.',403);
+        $dep=(int)$actor['is_owner']?'owner':(string)($actor['department'] ?? '');
+        if($dep!=='owner'&&!in_array($dep,$departments,true)) throw new RuntimeException('Bu bölüm departmanınızın yetkisi dışında.',403);
+        if($write&&$now-(int)$actor['reauth_at']>300) throw new RuntimeException('Bu işlem için yeni doğrulama koduyla tekrar giriş yapın.',403);
+        return $actor+['department'=>$dep];
+    }
+
+    /** Merkez ekibi (yalnız sahip yönetir): departman hesapları, kendi şifresi ve doğrulama uygulamasıyla girer. */
+    public function team(): array
+    {
+        return $this->db->query("SELECT a.id,a.identifier,a.blocked,c.department,c.is_owner,(SELECT MAX(created_at) FROM center_audit WHERE account_id=a.id AND action='center.login') last_login
+            FROM identity_account a JOIN identity_center c ON c.account_id=a.id WHERE a.kind='center' ORDER BY c.is_owner DESC,a.identifier")->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function teamAction(array $actor,object $b,int $now): array
+    {
+        $op=(string)($b->op ?? '');
+        if($op==='create'){
+            $email=is_string($b->email ?? null)?strtolower(trim($b->email)):'';
+            $dep=(string)($b->department ?? '');
+            if(!filter_var($email,FILTER_VALIDATE_EMAIL)||strlen($email)>254) throw new RuntimeException('Geçerli bir e-posta girin.',422);
+            if(!isset(self::DEPARTMENTS[$dep])) throw new RuntimeException('Departman seçin.',422);
+            $q=$this->db->prepare("SELECT 1 FROM identity_account WHERE kind='center' AND identifier=?");$q->execute([$email]);
+            if($q->fetchColumn()) throw new RuntimeException('Bu e-posta ile bir merkez hesabı zaten var.',409);
+            $password=rtrim(strtr(base64_encode(random_bytes(12)),'+/','Kx'),'=');
+            $secret=Totp::secret();
+            $id=bin2hex(random_bytes(16));
+            $this->db->beginTransaction();
+            try{
+                $this->db->prepare("INSERT INTO identity_account(id,kind,identifier,password_hash,verified_at,totp_seed,totp_step) VALUES (?,'center',?,?,?,?,0)")
+                    ->execute([$id,$email,password_hash($password,PASSWORD_ARGON2ID),$now,Totp::encrypt($secret,$this->config['encryptionKey'] ?? '')]);
+                $ws=$this->db->query('SELECT workspace_id FROM identity_center WHERE is_owner=1 LIMIT 1')->fetchColumn() ?: 'center';
+                $this->db->prepare('INSERT INTO identity_center(account_id,workspace_id,is_owner,department) VALUES (?,?,0,?)')->execute([$id,$ws,$dep]);
+                $this->audit($actor['account_id'],'center.team.created',$id);
+                $this->db->commit();
+            }catch(\Throwable $e){$this->db->rollBack();throw $e;}
+            // Şifre ve doğrulama anahtarı yalnız bu yanıtta bir kez gösterilir.
+            return ['created'=>['email'=>$email,'department'=>$dep,'password'=>$password,'secret'=>$secret,'uri'=>'otpauth://totp/VetZimo%20Merkez:'.rawurlencode($email).'?secret='.$secret.'&issuer=VetZimo%20Merkez'],'team'=>$this->team()];
+        }
+        $id=(string)($b->id ?? '');
+        $q=$this->db->prepare("SELECT c.is_owner FROM identity_center c JOIN identity_account a ON a.id=c.account_id WHERE a.id=? AND a.kind='center'");$q->execute([$id]);
+        $owner=$q->fetchColumn();
+        if($owner===false) throw new RuntimeException('Hesap bulunamadı.',404);
+        if((int)$owner) throw new RuntimeException('Sahip hesabı buradan değiştirilemez.',422);
+        if($op==='block'||$op==='unblock'){
+            $this->db->prepare('UPDATE identity_account SET blocked=?,version=version+1 WHERE id=?')->execute([$op==='block'?1:0,$id]);
+            if($op==='block') $this->db->prepare('DELETE FROM identity_session WHERE account_id=?')->execute([$id]);
+        } elseif($op==='department'){
+            $dep=(string)($b->department ?? '');
+            if(!isset(self::DEPARTMENTS[$dep])) throw new RuntimeException('Departman seçin.',422);
+            $this->db->prepare('UPDATE identity_center SET department=? WHERE account_id=?')->execute([$dep,$id]);
+            $this->db->prepare('DELETE FROM identity_session WHERE account_id=?')->execute([$id]);
+        } else throw new RuntimeException('İşlem geçersiz.',422);
+        $this->audit($actor['account_id'],'center.team.'.$op,$id);
+        return ['team'=>$this->team()];
+    }
+
     public function requireOwner(array $cookies,int $now,bool $write=false): array
     {
         $actor=(new SessionRepository($this->db))->resolve($cookies,$now);

@@ -14,8 +14,17 @@ final class Commerce
         return array_column(json_decode(file_get_contents(dirname(__DIR__).'/sales-plans.json'),true,32,JSON_THROW_ON_ERROR),null,'id');
     }
 
+    /** Bu sayı ve üzeri "Sınırsız" demektir (paket sınırlarında rakam yerine sınırsız yazmak için). */
+    public const UNLIMITED=999999;
+
+    /** Paket sınırı: null = sınırsız. */
+    public static function limit(mixed $value): ?int
+    {
+        return is_int($value) && $value < self::UNLIMITED ? $value : null;
+    }
+
     public const TERMS=[
-        'users'=>['Kullanıcı',100000],'branches'=>['Şube',100000],'patients'=>['Hasta kaydı',10000000],
+        'users'=>['Kullanıcı',100000],'branches'=>['Şube',100000],'patients'=>['Hasta kaydı',10000000],'clients'=>['Hasta sahibi kaydı',10000000],
         'storage'=>['Depolama (GB)',100000],'sms'=>['Aylık SMS gönderim sınırı',10000000],'whatsapp'=>['Aylık WhatsApp gönderim sınırı',10000000],
         'okc'=>['ÖKC hakkı',100000],'edoc'=>['E-dönüşüm hakkı',100000],
         'support'=>['Destek kapsamı',null],'trial'=>['Deneme süresi (gün)',365],'discount'=>['Yıllık indirim (%)',100],
@@ -40,6 +49,11 @@ final class Commerce
         $settings=['name'=>$this->field($body,'name',120,true),'description'=>$this->field($body,'description',800,true),
             'published'=>($body->published ?? false)===true,'features'=>array_values(array_filter(array_map('trim',preg_split('/\R/u',$this->field($body,'features',2500))))),
             'vat'=>($body->vat ?? '')==='excluded'?'excluded':'included'];
+        $rank=$body->rank ?? ($this->catalog()[$id]['rank'] ?? null);
+        if ($rank!==null) {
+            if (!is_int($rank) || $rank<0 || $rank>99) throw new RuntimeException('Paket seviyesi 0–99 olmalıdır.',422);
+            $settings['rank']=$rank;
+        }
         foreach (['monthly','yearly'] as $key) {
             $price=$body->$key ?? null;
             if ($price!==null && (!is_int($price) || $price<0 || $price>999999999)) throw new RuntimeException('Paket fiyatı geçersiz.',422);
@@ -83,7 +97,9 @@ final class Commerce
         if (isset($settings['modules'])) $actor['packageModules']=$settings['modules'];
         if (isset($settings['capabilities']) && is_array($settings['capabilities'])) $actor['packageFeatures']=array_map(static fn($v)=>$v===true,$settings['capabilities']);
         $terms=(array)($settings['terms'] ?? []);
-        $actor['packageLimits']=['sms'=>is_int($terms['sms'] ?? null)?$terms['sms']:null,'whatsapp'=>is_int($terms['whatsapp'] ?? null)?$terms['whatsapp']:null];
+        $actor['packageLimits']=['sms'=>self::limit($terms['sms'] ?? null),'whatsapp'=>self::limit($terms['whatsapp'] ?? null),
+            'patients'=>self::limit($terms['patients'] ?? null),'clients'=>self::limit($terms['clients'] ?? null),
+            'users'=>self::limit($terms['users'] ?? null),'branches'=>self::limit($terms['branches'] ?? null)];
         return $actor;
     }
 
@@ -92,36 +108,68 @@ final class Commerce
         return array_filter($this->catalog(),static fn(array $plan): bool=>($plan['published'] ?? true)!==false);
     }
 
+    /** Satış sitesi karşılaştırmasında modül satırları (paketin modül iznine göre ✓ / ✗). */
+    private const MODULE_ROWS=[
+        'clients'=>'Hasta sahibi kartları, belgeler ve ziyaretçiler','patients'=>'Hasta kartı, muayene, tetkik, reçete ve tedavi',
+        'appointments'=>'Randevu takvimi','followups'=>'Aşı takvimi ve takip','sales'=>'Satış ve tahsilat','products'=>'Ürün, stok ve alış',
+        'expenses'=>'Kasa ve muhasebe','reports'=>'Raporlar','messages'=>'SMS ve WhatsApp şablonları','support'=>'VetZimo destek talepleri','esmm'=>'e-SMM portal erişimi',
+    ];
+
+    /** Paket karşılaştırması: kartlar + tüm özelliklerin satır satır ✓ / ✗ tablosu + sınırlar (999999 ve üzeri = Sınırsız). */
     public function marketPackages(): string
     {
-        $escape=static fn(string $text)=>htmlspecialchars($text,ENT_QUOTES,'UTF-8');
+        $e=static fn(string $text)=>htmlspecialchars($text,ENT_QUOTES,'UTF-8');
+        $plans=array_values($this->publishedCatalog());
+        usort($plans,static fn($a,$b)=>[(int)($a['rank'] ?? 50),(int)($a['yearly'] ?? 0)]<=>[(int)($b['rank'] ?? 50),(int)($b['yearly'] ?? 0)]);
+        if (!$plans) return '<p>Şu anda yayında paket yok.</p>';
+        $tick='<span class="pk-yes" aria-label="Var"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11"/><path d="M7 12.5l3.2 3.2L17 9"/></svg></span>';
+        $cross='<span class="pk-no" aria-label="Yok"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11"/><path d="M8.5 8.5l7 7M15.5 8.5l-7 7"/></svg></span>';
+        $limit=static function(mixed $v) use($e,$cross): string {
+            if ($v==='unlimited' || (is_int($v) && $v>=self::UNLIMITED)) return '<span class="pk-limit unlimited">Sınırsız</span>';
+            if ($v===0) return $cross;
+            if (is_int($v)) return '<span class="pk-limit"><small>Sınırlı</small> '.number_format($v,0,',','.').'</span>';
+            return '<span class="pk-limit muted">'.($v===null||$v===''?'—':$e((string)$v)).'</span>';
+        };
         $cards='';
-        $plans=$this->publishedCatalog();
-        foreach ($plans as $plan) {
-            $cards.='<article class="card"><h2>'.$escape($plan['name']).'</h2><p>'.$escape($plan['description']).'</p>';
-            if (!empty($plan['features'])) $cards.='<ul><li>'.implode('</li><li>',array_map($escape,$plan['features'])).'</li></ul>';
+        foreach ($plans as $n=>$plan) {
+            $featured=($plan['id'] ?? '')==='plus' ? ' featured' : '';
+            $cards.='<article class="pk-card'.$featured.'" style="--i:'.$n.'">'.($featured?'<span class="pk-badge">En çok tercih edilen</span>':'').'<h2>'.$e($plan['name']).'</h2><p>'.$e($plan['description']).'</p>';
             foreach (['monthly'=>'Aylık','yearly'=>'Yıllık'] as $key=>$label) {
                 $price=$plan[$key];
-                $amount=$price===null?'Teklif isteyin':number_format($price/100,2,',','.').' ₺';
-                $cards.='<div data-price="'.$key.'"'.($key==='yearly'?' hidden':'').'><strong>'.$amount.'</strong><small>'.$label.
-                    ($price===null?'':($plan['vat']==='included'?' · KDV dahil':' · KDV hariç')).'</small></div>';
+                $free=(int)($plan['rank'] ?? -1)===0 && $price===null && ($plan['id'] ?? '')==='ucretsiz';
+                $amount=$free?'Ücretsiz':($price===null?'Teklif isteyin':number_format($price/100,2,',','.').' ₺');
+                $cards.='<div class="pk-price" data-price="'.$key.'"'.($key==='yearly'?' hidden':'').'><strong>'.$amount.'</strong><small>'.($free?'Süresiz':$label.($price===null?'':($plan['vat']==='included'?' · KDV dahil':' · KDV hariç'))).'</small></div>';
             }
-            $cards.='<a class="button outline" data-plan-link href="/platform/deneme?plan='.rawurlencode($plan['id']).'&amp;donem=monthly">Bilgi isteyin</a></article>';
+            if (!empty($plan['features'])) $cards.='<ul class="pk-points"><li>'.implode('</li><li>',array_map($e,$plan['features'])).'</li></ul>';
+            $cards.='<a class="button '.($featured?'primary':'outline').'" data-plan-link href="/platform/deneme?plan='.rawurlencode($plan['id']).'&amp;donem=monthly">'.(($plan['id'] ?? '')==='ucretsiz'?'Ücretsiz başlayın':(($plan['id'] ?? '')==='ozel'?'Teklif isteyin':'Demo ile deneyin')).'</a></article>';
         }
-        if ($cards==='') return '<p>Şu anda yayında paket yok.</p>';
-        $table='<h2>Paket karşılaştırması</h2><div class="table-scroll" tabindex="0" role="region" aria-label="Paket karşılaştırması"><table><thead><tr><th scope="col">Kapsam</th>';
-        foreach ($plans as $plan) $table.='<th scope="col">'.$escape($plan['name']).'</th>';
-        $table.='</tr></thead><tbody>';
-        foreach (self::TERMS as $key=>[$label]) {
-            $table.='<tr><th scope="row">'.$escape($label).'</th>';
-            foreach ($plans as $plan) {
-                $terms=(array)($plan['terms'] ?? []);
-                $value=$terms[$key] ?? 'Görüşmede';
-                $table.='<td>'.$escape($value==='unlimited'?'Sınırsız':(string)$value).'</td>';
-            }
-            $table.='</tr>';
+        $head='<thead><tr><th scope="col">Özellik</th>';
+        foreach ($plans as $plan) $head.='<th scope="col">'.$e($plan['name']).'</th>';
+        $head.='</tr></thead>';
+        $row=0;
+        $section=static function(string $title) use(&$row,$plans): string { $row++; return '<tr class="pk-section" style="--r:'.$row.'"><th colspan="'.(count($plans)+1).'" scope="colgroup">'.htmlspecialchars($title,ENT_QUOTES,'UTF-8').'</th></tr>'; };
+        $body=$section('Kullanım sınırları');
+        foreach (['patients'=>'Hasta kaydı','clients'=>'Hasta sahibi kaydı','sms'=>'Aylık SMS (kendi hattınızdan)','whatsapp'=>'Aylık WhatsApp','users'=>'Kullanıcı','branches'=>'Şube','support'=>'Destek'] as $k=>$label) {
+            $row++; $body.='<tr style="--r:'.$row.'"><th scope="row">'.$e($label).'</th>';
+            foreach ($plans as $plan) $body.='<td>'.$limit(((array)($plan['terms'] ?? []))[$k] ?? null).'</td>';
+            $body.='</tr>';
         }
-        return '<div class="cards plans">'.$cards.'</div>'.$table.'</tbody></table></div>';
+        $body.=$section('Temel modüller');
+        foreach (self::MODULE_ROWS as $k=>$label) {
+            $row++; $body.='<tr style="--r:'.$row.'"><th scope="row">'.$e($label).'</th>';
+            foreach ($plans as $plan) { $g=$plan['modules'][$k] ?? (isset($plan['modules'])?'none':'write'); $body.='<td>'.($g==='none'?$cross:$tick).'</td>'; }
+            $body.='</tr>';
+        }
+        $body.=$section('Özellikler');
+        foreach (ClinicAccess::FEATURES as $k=>$label) {
+            $row++; $body.='<tr style="--r:'.$row.'"><th scope="row">'.$e($label).'</th>';
+            foreach ($plans as $plan) $body.='<td>'.((($plan['capabilities'][$k] ?? true)!==false)?$tick:$cross).'</td>';
+            $body.='</tr>';
+        }
+        $legend='<p class="pk-legend">'.$tick.' Pakette var '.$cross.' Pakette yok · Sınırlar aylık gönderim ve toplam kayıt sayısıdır.</p>';
+        return '<link rel="stylesheet" href="/market-plans.css?v=1"><div class="pk-cards">'.$cards.'</div>'
+            .'<section class="pk-compare"><h2 class="sub-title">Paketleri karşılaştırın</h2>'.$legend
+            .'<div class="table-scroll pk-table" tabindex="0" role="region" aria-label="Paket karşılaştırması"><table>'.$head.'<tbody>'.$body.'</tbody></table></div></section>';
     }
 
     public function submit(object $body, string $key, ?Notifications $notifications=null): array

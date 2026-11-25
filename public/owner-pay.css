@@ -1,0 +1,24 @@
+/* Hasta sahibi borç ödemesi ve klinik ödeme ayarları (tüm temalarda okunur, telefonda tek sütun). */
+.op-card{display:grid;gap:10px;padding:18px;border-radius:18px;border:1px solid color-mix(in srgb,currentColor 12%,transparent);background:color-mix(in srgb,currentColor 2%,transparent);min-width:0}
+.op-card h2,.op-card h3{margin:0}.op-card p{margin:0;line-height:1.5}
+.op-amount{font-size:1.8rem;font-variant-numeric:tabular-nums}
+.op-label{display:grid;gap:5px;font-size:.88rem;max-width:420px}
+.op-input{font:inherit;padding:10px 12px;border-radius:10px;border:1px solid color-mix(in srgb,currentColor 22%,transparent);background:transparent;color:inherit;width:100%;box-sizing:border-box}
+.op-check{display:flex;gap:8px;align-items:center;font-weight:600}
+.op-actions{display:flex;flex-wrap:wrap;gap:8px}
+.op-msg{font-weight:600;min-height:1.2em}
+.op-muted{opacity:.75;font-size:.88rem}
+.op-muted code{overflow-wrap:anywhere}
+.op-list{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.op-list li{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center;font-size:.9rem}
+.op-st{padding:2px 9px;border-radius:999px;font-size:.76rem;font-weight:700;background:color-mix(in srgb,currentColor 10%,transparent)}
+.op-st.paid{color:#118a5e;background:color-mix(in srgb,#1baf7a 16%,transparent)}
+.op-st.review,.op-st.pending{color:#a15c00;background:color-mix(in srgb,#d97706 16%,transparent)}
+.op-st.rejected,.op-st.failed{color:#b42318;background:color-mix(in srgb,#dc2626 13%,transparent)}
+.op-copy{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;padding:8px 0;border-top:1px solid color-mix(in srgb,currentColor 10%,transparent)}
+.op-copy span{min-width:140px;opacity:.75}.op-copy b{overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.op-admin{display:grid;gap:14px}
+.op-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:6px 12px;align-items:center;padding:10px 0;border-top:1px solid color-mix(in srgb,currentColor 10%,transparent)}
+.op-row>div:first-child{display:grid;gap:2px;min-width:0}.op-row small{opacity:.7}
+.op-row .op-actions{grid-column:1/-1}
+@media (max-width:560px){.op-row{grid-template-columns:1fr auto}.op-row .op-st{grid-column:1/-1;justify-self:start}}

@@ -31,7 +31,7 @@ final class SessionRepository
         $deviceHash = base64_encode(hash('sha256', $device, true));
         $query = $this->database->prepare(
             "SELECT s.account_id,s.membership_id,s.expires,s.touched,s.reauth_at,a.kind,
-                    a.identifier,c.workspace_id,c.is_owner,m.partner_id,m.role,m.branch_id,
+                    a.identifier,c.workspace_id,c.is_owner,c.department,m.partner_id,m.role,m.branch_id,
                     m.customer_id,m.modules,m.name,p.name AS partner_name
              FROM identity_session s
              JOIN identity_account a ON a.id=s.account_id

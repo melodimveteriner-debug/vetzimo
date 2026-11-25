@@ -67,3 +67,21 @@ Mevcut kurulumda veritabanı yedeği aldıktan sonra `database/011-esmm-portal.s
 ### Tema ve kurulum kontrolü
 
 `config.php` içindeki `encryptionKey`, Base64 kodlanmış 32 rastgele bayt olmalıdır. Kurulum ekranı anahtarı tablo oluşturmadan önce kontrol eder. Yeni kurulum tema tablosunu otomatik oluşturur. Mevcut PHP test kurulumunda yedek aldıktan sonra `database/012-appearance.sql` dosyasını uygulayın. Yönetici **Tema** ekranından ortak paleti belirler. Klinik hesaplarının kişisel tema tercihleri hesap bazında saklanır. Ortak tema kilidi etkin olduğunda klinik ve satış sitesi ortak paleti kullanır.
+
+## Paketler, ödemeler ve merkez ekibi (R21)
+
+**Zamanlanmış görev (cPanel › Cron Jobs):**
+
+```
+17 10 * * * php /home/KULLANICI/public_html/bin/subscription-reminders.php
+```
+
+Bayilere abonelik bitimine 3 ay, 1 ay ve son 48 saat kala (yenilenmemişse) e-posta, SMS ve WhatsApp gider; demo veya hiç paket almamış bayiye son 48 saatte verilerinin silineceği bildirilir. Önce `--dry` ile kime ne gideceğini görebilirsiniz.
+
+**Merkez › Merkez ve ekip › Merkez Bildirimleri:** kendi cep telefonunuzu ve e-postanızı girin, mesajları gönderecek telefon hattını seçin (Telefon Bağlantısı'nda Android telefonu bağlı, VetZimo'ya ait bir bayi hesabı). Bayilerin havale bildirimleri ve kartla ödemeleri yalnız merkez paneline uyarı olarak düşer ve size SMS, WhatsApp ve e-posta ile gelir; hiçbir bayiye gitmez.
+
+**Merkez Ekibi:** Destek departmanı (yalnız destek talepleri) ve Bayi departmanı (havale onayları, abonelik geçişleri) hesapları. Her hesap /yonetim adresinden e-posta, şifre ve Google Authenticator koduyla girer; sunucu departman dışındaki her işlemi reddeder.
+
+**Paketler:** Ücretsiz, Pro, Plus, Özel (Yazılım Paketleri'nde fiyat, özellik ve sınırlar düzenlenir). Sınırsız için 999999 yazılır. Kapatılan özellik bayinin menüsünden kalkar ve sunucu da reddeder; hasta / hasta sahibi / şube sınırına ulaşan bayi yeni kayıt ekleyemez, mevcut kayıtlar korunur. Kartla (PayTR) ödenen paket otomatik yenilenir; üst pakete geçişte eski paketin kalan günleri bedel oranında yeni pakete eklenir. Havaleler Bayi departmanı / yönetici onayını bekler.
+
+**Hasta sahibi borç ödemesi:** bayi yöneticisi Ayarlar › Klinik › Hasta sahibi ödemeleri bölümünde kendi PayTR mağazasını ve/veya IBAN'ını girer. Borcu olan hasta sahibi, hasta sahibi girişinden kartla öder (otomatik kasaya işlenir) veya havale yapar (klinik onaylayınca işlenir). PayTR Bildirim URL: `https://ALANADINIZ/api/owner-pay/paytr`.

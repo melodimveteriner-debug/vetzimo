@@ -20,8 +20,13 @@ export async function mountCenterSuite(ui,session){
   ['duyurular','Duyurular',()=>manage('announcements')],['reklam','Reklam Yönetimi',()=>manage('ads')],
   ['degisiklikler','Son Değişiklikler',()=>manage('releases')],
   ['yedekleme','Yedekleme',()=>backup(false)],['aktarim','Klinik Verisi İçe Aktar',()=>backup(true)],
-  ['okc','Entegrasyonlar · ÖKC',()=>manage('okc')],['evde-hizmet','Evde Hizmet Paketleri',visitPackages]
+  ['okc','Entegrasyonlar · ÖKC',()=>manage('okc')],['evde-hizmet','Evde Hizmet Paketleri',visitPackages],
+  ['merkez-iletisim','Merkez Bildirimleri',centerContact],['ekip','Merkez Ekibi',centerTeam]
  ];
+ // Departman hesapları yalnız kendi bölümlerini görür (sunucu da aynı kuralı uygular).
+ const department=session.department||'owner';
+ const DEPARTMENT_TABS={support:['destek'],dealer:['odeme-kanallari','abonelikler']};
+ if(DEPARTMENT_TABS[department]){const keep=tabs.filter(([k])=>DEPARTMENT_TABS[department].includes(k));tabs.splice(0,tabs.length,...keep);}
  const localizedTabs={genel:'overview',muhasebe:'accounting',raporlar:'reports',paketler:'pricing',basvurular:'demo',tema:'settings'};
  for (const item of tabs) item[1]=localizedTabs[item[0]] ? uiText(localizedTabs[item[0]],item[1]) : uiLabel(item[1]);
  const params=new URLSearchParams(location.search);
@@ -49,17 +54,19 @@ export async function mountCenterSuite(ui,session){
  setMenu(!mobile.matches);
  menu.addEventListener('click',()=>setMenu(nav.hidden));
  mobile.addEventListener('change',()=>setMenu(!mobile.matches));
- nav.append(el('p','VetZimo Yönetim',{className:'center-kicker'}),el('small','Merkez paneli · R20'));
+ nav.append(el('p','VetZimo Yönetim',{className:'center-kicker'}),el('small',department==='support'?'Destek departmanı':department==='dealer'?'Bayi departmanı':'Merkez paneli · R21'));
  const groups=[
   ['Çalışma alanı',['genel','analiz','bayiler','paketler','abonelikler','basvurular']],
   ['Finans',['muhasebe','satislar','tahsilatlar','raporlar','odemeler']],
   ['Satış sitesi ve yayınlar',['site','yasal','duyurular','reklam','degisiklikler','evde-hizmet']],
   ['Uygulamalar ve destek',['uygulamalar','destek','bildirimler']],
+  ['Merkez ve ekip',['merkez-iletisim','ekip','odeme-kanallari']],
   ['Ayarlar',[]]
  ];
  const assigned=groups.flatMap(([,keys])=>keys);
  for(const [label,keys] of groups){
   const entries=keys.length?keys:tabs.map(([key])=>key).filter(key=>!assigned.includes(key));
+  if(!entries.some(key=>tabs.some(entry=>entry[0]===key)))continue;
   const group=el('details','',{className:'center-nav-group',open:entries.includes(tab[0])});
   group.append(el('summary',label));
   for(const key of entries){
@@ -69,7 +76,7 @@ export async function mountCenterSuite(ui,session){
    if(key===tab[0]) {item.classList.add('active');item.setAttribute('aria-current','page');}
    group.append(item);
   }
-  if(label==='Satış sitesi ve yayınlar') group.append(
+  if(label==='Satış sitesi ve yayınlar'&&department==='owner') group.append(
     el('a','Web Sitesi Yönetimi',{href:'/yonetim/web-siteleri',className:'center-nav-item'}));
   nav.append(group);
  }
@@ -99,6 +106,21 @@ export async function mountCenterSuite(ui,session){
  subtabs.setAttribute('aria-label',currentGroup[0]);
  for(const key of groupKeys){const m=tabs.find(entry=>entry[0]===key);if(!m)continue;const a=el('a',m[1],{href:url(key)});if(key===tab[0])a.setAttribute('aria-current','page');subtabs.append(a);}
  main.append(top,...(groupKeys.length>1?[subtabs]:[]),content);
+ // Bayi ödeme uyarıları (havale bildirimi, kartla ödeme): yalnız merkez yöneticisine ve bayi departmanına.
+ if(department!=='support')fetch('/api/app/notifications?unread=1&category=payments',{credentials:'same-origin'}).then(r=>r.ok?r.json():null).then(d=>{
+  const items=d?.items||[];if(!items.length)return;
+  const strip=el('div','',{className:'center-alerts',role:'status'});
+  strip.append(el('strong','🔔 '+items.length+' ödeme uyarısı'));
+  for(const i of items.slice(0,6)){
+   const a=el('a',i.title+' · '+i.body,{href:i.href||'/yonetim?tab=odeme-kanallari'});
+   a.addEventListener('click',()=>{fetch('/api/app/notifications',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-VeTNet-Scope':session.scopeId||''},body:JSON.stringify({action:'read',ids:[i.id]})}).catch(()=>{});});
+   strip.append(a);
+  }
+  const done=el('button','Tümünü okundu say',{type:'button',className:'secondary'});
+  done.addEventListener('click',async()=>{await fetch('/api/app/notifications',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-VeTNet-Scope':session.scopeId||''},body:JSON.stringify({action:'readAll',category:'payments'})}).catch(()=>{});strip.remove();});
+  strip.append(done);
+  main.insertBefore(strip,content);
+ }).catch(()=>{});
  shell.append(sidebar,main);
  view.append(shell,status);
  function visitPackages(){
@@ -199,9 +221,16 @@ export async function mountCenterSuite(ui,session){
     if(r.reference)box.append(el('small','Ref: '+r.reference));
     box.append(button('Tutarı doğruladım · onayla',async()=>{await call('saas-orders',{id:r.id,action:'approved',verified:true});await paymentChannels()}),
      button('Reddet',async()=>{await call('saas-orders',{id:r.id,action:'rejected'});await paymentChannels()}));return box})():'']));
+  if(department==='dealer'){content.replaceChildren(el('h3','Havale ve kart siparişleri'),el('p','Havale ile ödenen siparişlerde tutarı bankada doğrulayıp onaylayın; onayla birlikte bayinin paket dönemi açılır. Kartla ödemeler otomatik onaylanır.',{className:'muted'}),list);return;}
   content.replaceChildren(el('h3','Kartla ödeme · PayTR'),guide,callback,form,
    el('p','Havale ile satış için "Mağaza Havale Ayarları" sekmesinden IBAN girin ve açın.',{className:'muted'}),
    el('h3','Abonelik siparişleri'),list);
+ }
+ async function centerContact(){
+  const m=await import('./center-team.js?v=1');await m.mountCenterContact(content,{call,el});
+ }
+ async function centerTeam(){
+  const m=await import('./center-team.js?v=1');await m.mountCenterTeam(content,{call,el});
  }
  async function plans(){
   const {plans:catalog,termFields,featureFields}=await call('plans');opsFeatureFields=featureFields||{};
@@ -237,7 +266,7 @@ export async function mountCenterSuite(ui,session){
   terms.append(el('legend','Paket kapsamı'));
   for(const [key,[label,max]] of Object.entries(termFields)){
    terms.append(field('term_'+key,label,{required:false,maxLength:max===null?160:12,
-    placeholder:max===null?'Destek açıklaması':['trial','discount'].includes(key)?'Sayı':'Sayı veya sınırsız',
+    placeholder:max===null?'Destek açıklaması':['trial','discount'].includes(key)?'Sayı':'Sayı · sınırsız için 999999',
     value:plan.terms?.[key]==='unlimited'?'sınırsız':plan.terms?.[key]??''}));
   }
   const description=el('label','Satış sitesi açıklaması');
@@ -256,6 +285,8 @@ export async function mountCenterSuite(ui,session){
    choice.querySelector('select').value=plan.modules?.[key]||(!plan.modules?'write':'none');
    permissions.append(choice);
   }
+  terms.append(el('p','Sınırlı paketlerde rakam yazın (ör. 300 hasta). Sınırsız için 999999 yazın; satış sitesinde ve bayi panelinde “Sınırsız” görünür. Sınır sunucuda uygulanır: sınıra ulaşan bayi yeni kayıt ekleyemez, mevcut kayıtları korunur.',{className:'muted'}));
+  const rank=field('rank','Paket seviyesi (0 = en alt). Üst seviyeye kartla geçen bayinin kalan günleri yeni pakete aktarılır.',{type:'number',min:0,max:99,step:1,required:false,value:plan.rank??''});
   const caps=el('fieldset','',{className:'center-package-permissions center-package-caps'});
   caps.append(el('legend','Pakette açık özellikler'),el('p','İşaretlenmeyen özellik bu paketteki bayilerin menüsünde görünmez ve sunucu tarafından reddedilir. Bayi yöneticisi açık özellikleri şube yöneticisi ve personeline ayrıca verebilir.',{className:'muted'}));
   const capKeys=Object.keys(featureFields||{});
@@ -265,7 +296,7 @@ export async function mountCenterSuite(ui,session){
   caps.append(capTools);
   for(const key of capKeys){const row=el('label',featureFields[key],{className:'center-cap'});row.prepend(el('input','',{type:'checkbox',name:'cap_'+key,checked:plan.capabilities?plan.capabilities[key]!==false:true}));caps.append(row)}
   const price=key=>field(key,(key==='monthly'?'Aylık':'Yıllık')+' fiyat (₺, boşsa teklif)',{type:'number',min:0,max:9999999.99,step:'0.01',required:false,value:plan[key]==null?'':plan[key]/100});
-  const form=makeForm([...(create?[field('id','Paket kodu',{pattern:'[a-z0-9][a-z0-9-]{0,31}',maxLength:32})]:[]),field('name','Paket adı',{value:plan.name,maxLength:120}),description,features,price('monthly'),price('yearly'),vat,published,terms,caps,permissions],
+  const form=makeForm([...(create?[field('id','Paket kodu',{pattern:'[a-z0-9][a-z0-9-]{0,31}',maxLength:32})]:[]),field('name','Paket adı',{value:plan.name,maxLength:120}),description,features,price('monthly'),price('yearly'),vat,published,rank,terms,caps,permissions],
    'Paketi kaydet',async values=>{
     const scope=Object.fromEntries(Object.entries(termFields).map(([key,[label,max]])=>{
      const value=values['term_'+key].trim();
@@ -275,7 +306,7 @@ export async function mountCenterSuite(ui,session){
      return [key,Number(value)];
     }));
     await call('plans',{id:plan.id||values.id,create,terms:scope,name:values.name,description:values.description,features:values.features,
-     published:values.published==='on',vat:values.vat,
+     published:values.published==='on',vat:values.vat,rank:values.rank===''?null:Number(values.rank),
      monthly:values.monthly===''?null:Math.round(Number(values.monthly)*100),
      yearly:values.yearly===''?null:Math.round(Number(values.yearly)*100),
      modules:Object.fromEntries(options.map(key=>[key,values['module_'+key]])),capabilities:Object.fromEntries(capKeys.map(key=>[key,values['cap_'+key]==='on']))});

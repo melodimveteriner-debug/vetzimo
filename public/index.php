@@ -12,7 +12,7 @@ use VetNet\Cpanel\SessionRepository;
 
 require_once dirname(__DIR__).'/src/StaffPlan.php';
 
-foreach (['AppHub','AppDownloads','DemoAuto','AppPush','DeviceHub','VisitTracker','ReviewLink','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','SaasPayment','DealerAgreement','CenterAnalytics','ClinicAlerts','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','TeamTotp','WebInbox','MinistryBridge','SiteLegal','OmniInbox','PhoneGateway','ClientPermit','PrintTemplates','Support','Commerce','Appearance'] as $class) {
+foreach (['AppHub','AppDownloads','DemoAuto','CenterContact','SubscriptionReminders','OwnerPayment','ClinicRecords','AppPush','DeviceHub','VisitTracker','ReviewLink','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','SaasPayment','DealerAgreement','CenterAnalytics','ClinicAlerts','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','TeamTotp','WebInbox','MinistryBridge','SiteLegal','OmniInbox','PhoneGateway','ClientPermit','PrintTemplates','Support','Commerce','Appearance'] as $class) {
     require_once dirname(__DIR__) . '/src/' . $class . '.php';
 }
 
@@ -134,7 +134,7 @@ try {
         exit;
     }
     // Bakanlık köprüsü ajanı tarayıcı değildir (Origin göndermez) ve çerezle değil kendi anahtarıyla doğrulanır.
-    $bridgeAgent=!$externalWeb && (str_starts_with($path,'/api/bridge/agent/') || str_starts_with($path,'/api/phone/agent/') || $path==='/api/saas/paytr/callback') && !isset($_SERVER['HTTP_ORIGIN']);
+    $bridgeAgent=!$externalWeb && (str_starts_with($path,'/api/bridge/agent/') || str_starts_with($path,'/api/phone/agent/') || $path==='/api/saas/paytr/callback' || $path==='/api/owner-pay/paytr') && !isset($_SERVER['HTTP_ORIGIN']);
     if ($method !== 'GET' && !$bridgeAgent && !hash_equals($externalWeb ? 'https://'.$host : $origin, $_SERVER['HTTP_ORIGIN'] ?? '')) {
         if (!$externalWeb && $path==='/clinic/evde-hizmet' && ($_GET['gorunum']??'')==='ayarlar') {
             VetNet\Cpanel\HomeVisitPages::settingsError('İstek kaynağı doğrulanamadı. Ayarları VetZimo üzerinden yeniden açıp kaydetmeyi deneyin.',403);
@@ -481,6 +481,32 @@ try {
         $actor=$workspaces->actor($_COOKIE,$now);
         reply(['items'=>(new VetNet\Cpanel\CenterManagement($db,new Center($db,$config)))->published($actor['partner_id'])]);
     }
+    if ($path==='/api/owner-pay/paytr' && $method==='POST') {
+        // Hasta sahibi kart ödemesi: bayinin kendi PayTR mağazasının bildirimi (imza o bayinin anahtarıyla doğrulanır).
+        $result=(new VetNet\Cpanel\OwnerPayment($db,(string)($config['encryptionKey'] ?? ''),$config))->callback($_POST,$now);
+        header('Content-Type: text/plain; charset=utf-8');
+        echo $result;
+        exit;
+    }
+    if ($path==='/api/owner-pay' && in_array($method,['GET','POST'],true)) {
+        $ownerActor=(new IdentityApi($db))->actor($_COOKIE,$now);
+        $pay=new VetNet\Cpanel\OwnerPayment($db,(string)($config['encryptionKey'] ?? ''),$config);
+        if ($method==='GET') reply($pay->owner($ownerActor));
+        if (!hash_equals((string)($ownerActor['membership_id'] ?? ''),$_SERVER['HTTP_X_VETNET_SCOPE'] ?? '')) throw new RuntimeException('Oturum değişti. Sayfayı yenileyin.',409);
+        (new DealerLogin($db,$config['rateSecret']))->throttle('owner-pay:'.$ownerActor['membership_id'],$now);
+        $body=input(4096);
+        if (($body->op ?? '')==='notify') reply($pay->notifyBank($ownerActor,$body));
+        reply($pay->start($ownerActor,$body,(string)($_SERVER['REMOTE_ADDR'] ?? ''),$origin,$now));
+    }
+    if ($path==='/api/clinic/owner-payments' && in_array($method,['GET','POST'],true)) {
+        $clinicActor=$workspaces->actor($_COOKIE,$now,$method==='POST');
+        $pay=new VetNet\Cpanel\OwnerPayment($db,(string)($config['encryptionKey'] ?? ''),$config);
+        if ($method==='GET') reply($pay->dealer($clinicActor)+['callback'=>$origin.'/api/owner-pay/paytr']);
+        if (!hash_equals((string)($clinicActor['membership_id'] ?? ''),$_SERVER['HTTP_X_VETNET_SCOPE'] ?? '')) throw new RuntimeException('Çalışma alanı oturumu değişti.',409);
+        $body=input(4096);
+        if (($body->op ?? '')==='settings') reply($pay->saveSettings($clinicActor,$body)+['callback'=>$origin.'/api/owner-pay/paytr']);
+        reply($pay->decide($clinicActor,$body,$now)+['callback'=>$origin.'/api/owner-pay/paytr']);
+    }
     if ($path==='/api/saas/paytr/callback' && $method==='POST') {
         // PayTR sunucu bildirimi: imza doğrulanır, ödeme başarılıysa abonelik açılır. PayTR "OK" yanıtı bekler.
         $result=(new VetNet\Cpanel\SaasPayment($db,(string)($config['encryptionKey'] ?? ''),$config))->callback($_POST,$now);
@@ -565,7 +591,14 @@ try {
     }
     if (str_starts_with($path,'/api/cpanel-center/')) {
         $action=substr($path,strlen('/api/cpanel-center/'));
-        $center=new Center($db,$config);$actor=$center->requireOwner($_COOKIE,$now,$method==='POST' && $action!=='reauth');
+        $center=new Center($db,$config);
+        // Departmanlar yalnız kendi işlemlerini yapar (sunucuda zorunlu); diğer her şey merkez sahibine aittir.
+        $departmentActions=[
+            'dealer'=>['GET'=>['saas-orders','paytr','subscriptions','plans','partners','partner','appearance'],'POST'=>['saas-orders','subscription','reauth']],
+            'support'=>['GET'=>['appearance'],'POST'=>['reauth']],
+        ];
+        $allowedDepartments=array_keys(array_filter($departmentActions,static fn(array $m): bool=>in_array($action,$m[$method] ?? [],true)));
+        $actor=$center->requireCenter($_COOKIE,$now,$method==='POST' && $action!=='reauth',$allowedDepartments);
         $commerce = new VetNet\Cpanel\Commerce($db);
         $management=new VetNet\Cpanel\CenterManagement($db,$center);
         if ($action==='legal' || $action==='legal-save' || $action==='legal-company' || $action==='legal-revision') {
@@ -669,6 +702,8 @@ try {
             $days=filter_var($_GET['days'] ?? 30,FILTER_VALIDATE_INT,['options'=>['min_range'=>7,'max_range'=>365]]) ?: 30;
             reply((new VetNet\Cpanel\AppDownloads($db,dirname(__DIR__),(string)$config['rateSecret']))->stats($days,$now)+['origin'=>$origin]);
         }
+        if ($method==='GET' && $action==='center-contact') reply((new VetNet\Cpanel\CenterContact($db,(string)($config['encryptionKey'] ?? '')))->overview());
+        if ($method==='GET' && $action==='team') reply(['team'=>$center->team(),'departments'=>Center::DEPARTMENTS]);
         if ($method==='GET' && $action==='market-status') reply(['pages'=>$management->marketStatus()]);
         if ($method==='GET' && $action==='demo-auto') reply((new VetNet\Cpanel\DemoAuto($db,(string)$config['rateSecret']))->overview()+['plans'=>array_values(array_map(static fn($p)=>['id'=>$p['id'],'name'=>$p['name']],$commerce->catalog()))]);
         $notifications=new VetNet\Cpanel\Notifications($db,$config['encryptionKey'] ?? '');
@@ -720,6 +755,17 @@ try {
                 reply(['ok'=>true]);
             }
             if ($action==='appearance') reply($appearance->save('global',$body));
+            if ($action==='center-contact') {
+                $result=(new VetNet\Cpanel\CenterContact($db,(string)($config['encryptionKey'] ?? '')))->save($body);
+                $center->audit($actor['account_id'],'center.contact.updated');
+                reply($result);
+            }
+            if ($action==='center-contact-test') {
+                (new DealerLogin($db,$config['rateSecret']))->throttle('center-contact-test:'.$actor['account_id'],$now);
+                (new VetNet\Cpanel\CenterContact($db,(string)($config['encryptionKey'] ?? '')))->alert('Deneme bildirimi','Merkez bildirim ayarları çalışıyor.','/yonetim','test:'.$now,$now,[]);
+                reply(['ok'=>true]);
+            }
+            if ($action==='team') reply($center->teamAction($actor,$body,$now)+['departments'=>Center::DEPARTMENTS]);
             if ($action==='demo-auto') {
                 $result=(new VetNet\Cpanel\DemoAuto($db,(string)$config['rateSecret']))->saveSettings($body,$commerce);
                 $center->audit($actor['account_id'],'demo.auto.updated');
@@ -786,7 +832,7 @@ try {
         $post = $method === 'POST';
         $owner = ((new SessionRepository($db))->resolve($_COOKIE,$now)['kind'] ?? '') === 'center';
         if ($post) $db->beginTransaction();
-        $actor = $owner ? (new Center($db,$config))->requireOwner($_COOKIE,$now,$post) : $workspaces->actor($_COOKIE,$now,$post);
+        $actor = $owner ? (new Center($db,$config))->requireCenter($_COOKIE,$now,$post,['support']) : $workspaces->actor($_COOKIE,$now,$post);
         $scope = $owner ? $actor['account_id'] : $actor['membership_id'];
         if (($post || isset($_SERVER['HTTP_X_VETNET_SCOPE'])) && ($_SERVER['HTTP_X_VETNET_SCOPE'] ?? '') !== $scope) {
             throw new RuntimeException('Destek oturumu değişti.',409);
@@ -866,7 +912,7 @@ try {
     }
     if(in_array($path,['/api/identity/session','/api/identity/profile'],true)&&$method==='GET') {
         $actor=$sessions->resolve($_COOKIE,$now);
-        if(($actor['kind'] ?? '')==='center') reply(['kind'=>'center','name'=>$actor['identifier'],'identifier'=>$actor['identifier'],'scopeId'=>$actor['account_id'],'members'=>[],'active'=>null,'reauthRequired'=>$now-(int)$actor['reauth_at']>300]);
+        if(($actor['kind'] ?? '')==='center') reply(['kind'=>'center','name'=>$actor['identifier'],'identifier'=>$actor['identifier'],'scopeId'=>$actor['account_id'],'members'=>[],'active'=>null,'reauthRequired'=>$now-(int)$actor['reauth_at']>300,'department'=>(int)$actor['is_owner']?'owner':(string)($actor['department'] ?? '')]);
     }
     $identity=new IdentityApi($db);
     if ($path==='/api/identity/notifications' && in_array($method,['GET','POST'],true)) {
@@ -1427,6 +1473,7 @@ try {
         }
         if ($method==='POST' && $path!=='/api/dealer/messages/history') {
             if (($actor['membership_id']??'')!==($_SERVER['HTTP_X_VETNET_SCOPE']??'')) throw new RuntimeException('Gönderim oturumu değişti.',409);
+            if (!ClinicAccess::feature($actor,'bulkMessages',true)) throw new RuntimeException('Toplu mesaj paketinizde kapalı.',403);
             reply($bulk->bulk($actor,input(30000),$path==='/api/dealer/messages/bulk-preview'));
         }
         throw new RuntimeException('İşlem geçersiz.',405);

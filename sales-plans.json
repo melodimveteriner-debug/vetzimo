@@ -1,5 +1,9 @@
 [
- {"id":"baslangic","name":"Başlangıç","description":"Hasta takibi, randevu ve klinik kayıtları için.","monthly":null,"yearly":null,"vat":"included","terms":{}},
- {"id":"profesyonel","name":"Profesyonel","description":"Satış, stok ve klinik ekip süreçlerini birlikte yöneten işletmeler için.","monthly":null,"yearly":null,"vat":"included","terms":{}},
- {"id":"kurumsal","name":"Kurumsal","description":"Birden fazla şubesi olan işletmeler için teklif alın.","monthly":null,"yearly":null,"vat":"included","terms":{}}
+ {"id": "ucretsiz", "name": "Ücretsiz", "description": "Muayenehaneye başlamak için: hasta, hasta sahibi, randevu ve aşı takibi ücretsiz.", "monthly": null, "yearly": null, "vat": "excluded", "terms": {}},
+ {"id": "pro", "name": "Pro", "description": "Tek şubeli klinikler için: hatırlatmalar, kendi hattınızdan SMS/WhatsApp, web sitesi ve online randevu.", "monthly": null, "yearly": null, "vat": "excluded", "terms": {}},
+ {"id": "plus", "name": "Plus", "description": "Büyüyen klinikler için: tüm özellikler, iki şube, e-belge, Bakanlık köprüsü ve cihaz entegrasyonu.", "monthly": null, "yearly": null, "vat": "excluded", "terms": {}},
+ {"id": "ozel", "name": "Özel", "description": "Hastane, zincir ve çok şubeli işletmeler için size özel kapsam ve fiyat.", "monthly": null, "yearly": null, "vat": "excluded", "terms": {}},
+ {"id": "baslangic", "name": "Başlangıç", "description": "Önceki paket (satışta değil; mevcut abonelikler için korunur).", "monthly": null, "yearly": null, "vat": "included", "terms": {}, "published": false},
+ {"id": "profesyonel", "name": "Profesyonel", "description": "Önceki paket (satışta değil; mevcut abonelikler için korunur).", "monthly": null, "yearly": null, "vat": "included", "terms": {}, "published": false},
+ {"id": "kurumsal", "name": "Kurumsal", "description": "Önceki paket (satışta değil; mevcut abonelikler için korunur).", "monthly": null, "yearly": null, "vat": "included", "terms": {}, "published": false}
 ]

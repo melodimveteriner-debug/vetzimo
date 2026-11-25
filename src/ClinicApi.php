@@ -55,9 +55,18 @@ final class ClinicApi
             throw new RuntimeException('Kayıt biçimi geçersiz.', 422);
         }
         $submitted = $this->workspaces->merge($original,$state,$actor);
+        // Paket sınırları: hasta ve hasta sahibi kaydı sayısı (999999 ve üzeri = sınırsız). Var olan kayıtlar korunur,
+        // yalnız sınırı aşan yeni kayıt reddedilir.
+        foreach (['clients'=>'hasta sahibi','patients'=>'hasta'] as $kind=>$label) {
+            $limit=$actor['packageLimits'][$kind] ?? null;
+            if ($limit===null) continue;
+            $after=count((array)($submitted->$kind ?? [])); $before=count((array)($original->$kind ?? []));
+            if ($after>$before && $after>$limit) throw new RuntimeException('Paketinizin '.$label.' kaydı sınırına ulaşıldı ('.$limit.'). Daha fazla kayıt için paketinizi yükseltin.',422);
+        }
         if($actor['role']==='dealer') {
             $rows=$submitted->branches ?? null;
-            if(!is_array($rows)||count($rows)<1||count($rows)>2) throw new RuntimeException('En fazla 2 şube tanımlayabilirsiniz.',422);
+            $branchLimit=max(1,$actor['packageLimits']['branches'] ?? 2);
+            if(!is_array($rows)||count($rows)<1||(count($rows)>$branchLimit&&count($rows)>count($original->branches ?? []))) throw new RuntimeException('Paketiniz en fazla '.$branchLimit.' şube tanımlamanıza izin veriyor.',422);
             $ids=[];
             foreach($rows as $row) {
                 if(!is_object($row)||!is_string($row->id ?? null)||!preg_match(self::ID,$row->id)||isset($ids[$row->id])||!is_string($row->name ?? null)||trim($row->name)==='') throw new RuntimeException('Şube bilgisi geçersiz.',422);
@@ -145,6 +154,10 @@ final class ClinicApi
                 if ($key === 'stays' && ($previous[$id] ?? null) != $row) {
                     $row = $rows[$position] = clone $row;
                     StayCarePlan::seal($row, $previous[$id] ?? null, $actor, $now);
+                    foreach (['icuVitals','icuInfusions'] as $icuField) {
+                        if (($row->$icuField ?? null) != (($previous[$id] ?? null)->$icuField ?? null) && !ClinicAccess::feature($actor,'icu',true))
+                            throw new RuntimeException('Yoğun bakım panosu paketinizde kapalı.',403);
+                    }
                     StayIcu::seal($row, $previous[$id] ?? null, $actor, $now);
                     if (isset($row->careOrders) || isset($row->icuVitals) || isset($row->icuInfusions)) $sealedStays[] = $row;
                 }

@@ -9,6 +9,7 @@ export const GROUPS = [
     ["services", "Hizmetler", "Hizmet listesi ve fiyatlar"],
     ["cikti-sablonlari", "Çıktı şablonları", "Reçete, fatura, onam ve rapor çıktıları"],
     ["google-yorum", "Google yorum bağlantısı", "Evde hizmet sonrası hasta sahibine gidecek değerlendirme bağlantısı"],
+    ["hasta-sahibi-odemeleri", "Hasta sahibi ödemeleri", "Borcu olan hasta sahipleri kartla (PayTR) veya havale ile öder; havale onayları"],
   ]],
   ["ekip", "Ekip ve yetkiler", [
     ["users", "Kullanıcı ve ekip", "Personel hesapları ve roller"],
@@ -55,7 +56,7 @@ export const GROUPS = [
     ["son-degisiklikler", "Son değişiklikler", "VetZimo sürüm notları"],
   ]],
 ];
-const INLINE = new Set(["bildirimler", "cihazlarim", "tema", "bas-konus", "google-yorum", "ajanlar"]);
+const INLINE = new Set(["bildirimler", "cihazlarim", "tema", "bas-konus", "google-yorum", "ajanlar", "hasta-sahibi-odemeleri"]);
 const ROUTE_GROUP = Object.fromEntries(GROUPS.flatMap(([g, , items]) => items.map(([r]) => [r, g])));
 const h = (tag, cls, text, props = {}) => { const n = Object.assign(document.createElement(tag), props); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
 const css = () => { if (!document.querySelector(`link[href="${STYLE}"]`)) document.head.append(Object.assign(document.createElement("link"), {rel: "stylesheet", href: STYLE})); };
@@ -97,6 +98,7 @@ export function mountSettingsHub(root, ctx) {
     if (route === "bildirimler") notificationPrefs(area, ctx);
     else if (route === "cihazlarim") devicesAndAccount(area, ctx);
     else if (route === "ajanlar") import("./agent-access.js?v=1").then(m => m.mountAgentDownloads(area, {tr}));
+    else if (route === "hasta-sahibi-odemeleri") import("./owner-pay.js?v=1").then(m => m.mountOwnerPayAdmin(area, {api: ctx.api, scope: ctx.scope, tr}));
     else ctx.inline?.[route]?.(area);
   }
   function draw() {

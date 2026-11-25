@@ -127,7 +127,7 @@ final class PhoneGateway
         if ($phone === '') throw new RuntimeException('Telefon numarası geçersiz (Türkiye cep numarası gerekli).', 422);
         $body = trim($body);
         if ($body === '' || mb_strlen($body) > 4000) throw new RuntimeException('Mesaj 1-4000 karakter olmalı.', 422);
-        if (!in_array($channel, ['sms', 'whatsapp'], true) || !in_array($source, ['reminder', 'bulk', 'inbox', 'test', 'manual'], true)) throw new RuntimeException('Kuyruk isteği geçersiz.', 422);
+        if (!in_array($channel, ['sms', 'whatsapp'], true) || !in_array($source, ['reminder', 'bulk', 'inbox', 'test', 'manual', 'center'], true)) throw new RuntimeException('Kuyruk isteği geçersiz.', 422);
         $this->checkMonthlyLimit($partner, $channel, $source, $ref, $now);
         $this->db->prepare('INSERT IGNORE INTO phone_outbox (partner_id,channel,phone,body,source,source_ref,priority,expires_at,created_by,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)')
             ->execute([$partner, $channel, $phone, $body, $source, mb_substr($ref, 0, 190), $priority, $expires, mb_substr($by, 0, 120), $now]);
@@ -141,7 +141,7 @@ final class PhoneGateway
     {
         $limits = (new Commerce($this->db))->packageActor(['partner_id' => $partner])['packageLimits'] ?? ['sms' => null, 'whatsapp' => null];
         $start = (new \DateTimeImmutable('@'.$now))->setTimezone(new \DateTimeZone('Europe/Istanbul'))->modify('first day of this month')->setTime(0, 0)->getTimestamp();
-        $q = $this->db->prepare("SELECT channel,COUNT(*) FROM phone_outbox WHERE partner_id=? AND created_at>=? AND status NOT IN ('failed','cancelled','expired') AND source<>'test' GROUP BY channel");
+        $q = $this->db->prepare("SELECT channel,COUNT(*) FROM phone_outbox WHERE partner_id=? AND created_at>=? AND status NOT IN ('failed','cancelled','expired') AND source NOT IN ('test','center') GROUP BY channel");
         $q->execute([$partner, $start]);
         $used = $q->fetchAll(PDO::FETCH_KEY_PAIR);
         return ['sms' => ['used' => (int)($used['sms'] ?? 0), 'limit' => $limits['sms'] ?? null], 'whatsapp' => ['used' => (int)($used['whatsapp'] ?? 0), 'limit' => $limits['whatsapp'] ?? null]];
@@ -149,7 +149,7 @@ final class PhoneGateway
 
     private function checkMonthlyLimit(string $partner, string $channel, string $source, string $ref, int $now): void
     {
-        if ($source === 'test') return;
+        if ($source === 'test' || $source === 'center') return; // merkez mesajları (VetZimo hattı) bayinin paket sınırına sayılmaz
         $q = $this->db->prepare('SELECT 1 FROM phone_outbox WHERE source=? AND source_ref=?');
         $q->execute([$source, mb_substr($ref, 0, 190)]);
         if ($q->fetchColumn()) return;
@@ -455,12 +455,12 @@ final class PhoneGateway
         $g->execute([$partner]);
         $wa = $g->fetch(PDO::FETCH_ASSOC) ?: ['wa_state' => '', 'wa_seen' => null, 'wa_error' => ''];
         $waOnline = $wa['wa_seen'] !== null && $now - (int)$wa['wa_seen'] < 120;
-        $list = $this->db->prepare('SELECT id,channel,phone,body,source,status,error,created_at,done_at,created_by FROM phone_outbox WHERE partner_id=? ORDER BY id DESC LIMIT 80');
+        $list = $this->db->prepare('SELECT id,channel,phone,body,source,status,error,created_at,done_at,created_by FROM phone_outbox WHERE partner_id=? AND source<>"center" ORDER BY id DESC LIMIT 80');
         $list->execute([$partner]);
         $outbox = array_map(static fn($r) => ['id' => (int)$r['id'], 'channel' => $r['channel'], 'phone' => $r['phone'], 'body' => $r['body'], 'source' => $r['source'], 'status' => $r['status'],
             'error' => $r['error'], 'at' => (int)$r['created_at'], 'doneAt' => $r['done_at'] === null ? null : (int)$r['done_at'], 'by' => $r['created_by'],
             'link' => $r['channel'] === 'whatsapp' && $r['status'] === 'queued' ? self::waLink($r['phone'], $r['body']) : null], $list->fetchAll(PDO::FETCH_ASSOC));
-        $c = $this->db->prepare("SELECT channel,SUM(status='queued') q,SUM(status='sent' AND done_at>=?) s,SUM(status IN ('failed','unknown','expired') AND created_at>=?) f FROM phone_outbox WHERE partner_id=? GROUP BY channel");
+        $c = $this->db->prepare("SELECT channel,SUM(status='queued') q,SUM(status='sent' AND done_at>=?) s,SUM(status IN ('failed','unknown','expired') AND created_at>=?) f FROM phone_outbox WHERE partner_id=? AND source<>'center' GROUP BY channel");
         $day = self::dayStart($now);
         $c->execute([$day, $day, $partner]);
         $counts = [];

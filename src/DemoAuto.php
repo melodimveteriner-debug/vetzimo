@@ -26,7 +26,14 @@ final class DemoAuto
         $q->execute([self::SETTINGS_ID]);
         $s = json_decode((string)$q->fetchColumn(), true) ?: [];
         return ['enabled' => ($s['enabled'] ?? true) === true, 'days' => (int)($s['days'] ?? 14), 'plan' => (string)($s['plan'] ?? ''),
-            'linePartner' => (string)($s['linePartner'] ?? '')];
+            'linePartner' => (string)($s['linePartner'] ?? '') ?: $this->centerLine()];
+    }
+
+    /** Otomatik demo için ayrı hat seçilmemişse merkez mesaj hattı (Merkez iletişim) kullanılır. */
+    private function centerLine(): string
+    {
+        $raw = $this->db->query("SELECT payload FROM center_management WHERE id='00000000000000000000000000000008' AND kind='center_contact'")->fetchColumn();
+        return (string)((json_decode((string)$raw, true) ?: [])['linePartner'] ?? '');
     }
 
     public function saveSettings(object $body, Commerce $commerce): array
@@ -97,7 +104,7 @@ final class DemoAuto
             ON DUPLICATE KEY UPDATE code_hash=VALUES(code_hash),expires=VALUES(expires),attempts=0,sends=sends+1,sent_at=VALUES(sent_at)')
             ->execute([$leadId, $phone, $this->code($leadId, $code), $now + self::TTL, $now]);
         $gateway->enqueue($s['linePartner'], 'sms', $phone, 'VetZimo demo doğrulama kodunuz: '.$code.' (15 dakika geçerlidir). Bu kodu kimseyle paylaşmayın.',
-            'manual', 'demo:'.$leadId.':'.$now, 1, $now, $now + self::TTL, 'Otomatik demo');
+            'center', 'demo:'.$leadId.':'.$now, 0, $now, $now + self::TTL, 'Otomatik demo');
         return ['verify' => true, 'phone' => self::mask($phone), 'expires' => $now + self::TTL];
     }
 

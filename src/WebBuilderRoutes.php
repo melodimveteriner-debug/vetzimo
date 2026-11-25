@@ -344,6 +344,8 @@ final class WebBuilderRoutes
                 if (($_POST['website']??'')!=='') throw new RuntimeException('Form doğrulanamadı.',422);
                 (new DealerLogin($db,$config['rateSecret']))->throttle('web-form:'.$route.':'.$row['partner_id'].':'.$source,$now);
                 if ($route==='randevu') {
+                    if ((((new Commerce($db))->packageActor(['partner_id'=>$row['partner_id'],'role'=>'dealer']))['packageFeatures']['onlineBooking'] ?? true)===false)
+                        throw new RuntimeException('Bu klinik şu anda web üzerinden randevu almıyor. Lütfen kliniği telefonla arayın.',403);
                     WebBooking::verifyMath($row['partner_id'],$config['rateSecret'],$now,$_POST);
                     $action=$_POST['action']??'';
                     if ($action==='move' || $action==='cancel') {

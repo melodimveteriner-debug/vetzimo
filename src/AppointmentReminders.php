@@ -93,6 +93,8 @@ final class AppointmentReminders
                 $read->execute([$partner]);
                 $row = $read->fetch();
                 if (!$row) continue;
+                // Paket "Otomatik hatırlatmalar" özelliğini kapatmışsa bu bayiye hatırlatma gönderilmez.
+                if ((((new Commerce($this->db))->packageActor(['partner_id'=>$partner,'role'=>'dealer']))['packageFeatures']['reminders'] ?? true) === false) continue;
                 $state = $workspaces->load('partner:'.$partner)['state'];
                 if (!$state) continue;
                 // İmzalı müşteri onay formu varsa SMS/WhatsApp/e-posta izni olarak o esas alınır.
