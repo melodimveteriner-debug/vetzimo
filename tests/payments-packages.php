@@ -15,7 +15,7 @@ $commerce=new Commerce($db);
 
 // 1) Dört paket ve sınırlar
 $cat=$commerce->publishedCatalog();
-ok(isset($cat['ucretsiz'],$cat['pro'],$cat['plus'],$cat['ozel']) && !isset($cat['profesyonel']),'Dört paket yayında değil: '.implode(',',array_keys($cat)));
+ok(isset($cat['ucretsiz'],$cat['pro'],$cat['plus'],$cat['ozel']) && $cat['ozel']['name']==='Kurumsal' && !isset($cat['profesyonel']),'Dört paket yayında değil: '.implode(',',array_keys($cat)));
 ok(Commerce::limit(300)===300 && Commerce::limit(999999)===null && Commerce::limit('unlimited')===null,'Sınır çevirisi yanlış');
 $db->beginTransaction();$commerce->assign((object)['partnerId'=>$p,'plan'=>'ucretsiz','kind'=>'assigned','starts_on'=>'2020-01-01','ends_on'=>'2020-01-02']);$db->commit();
 $free=$commerce->packageActor(['partner_id'=>$p,'role'=>'dealer']);

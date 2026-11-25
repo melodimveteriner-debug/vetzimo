@@ -137,8 +137,12 @@ final class Commerce
             foreach (['monthly'=>'Aylık','yearly'=>'Yıllık'] as $key=>$label) {
                 $price=$plan[$key];
                 $free=(int)($plan['rank'] ?? -1)===0 && $price===null && ($plan['id'] ?? '')==='ucretsiz';
-                $amount=$free?'Ücretsiz':($price===null?'Teklif isteyin':number_format($price/100,2,',','.').' ₺');
-                $cards.='<div class="pk-price" data-price="'.$key.'"'.($key==='yearly'?' hidden':'').'><strong>'.$amount.'</strong><small>'.($free?'Süresiz':$label.($price===null?'':($plan['vat']==='included'?' · KDV dahil':' · KDV hariç'))).'</small></div>';
+                // Kurumsal (en üst seviye) teklifle satılır; diğer ücretli paketlerde fiyat girilmemişse "Fiyat eklenecek" yazar.
+                $quote=($plan['id'] ?? '')==='ozel';
+                $amount=$free?'Ücretsiz':($price===null?($quote?'Teklif isteyin':'Fiyat eklenecek'):number_format($price/100,2,',','.').' ₺');
+                $vat=$plan['vat']==='included'?'KDV dahil':'+ KDV';
+                $note=$free?'Süresiz':($price===null?($quote?$label:$label.' · '.$vat):$label.' · '.$vat);
+                $cards.='<div class="pk-price" data-price="'.$key.'"'.($key==='yearly'?' hidden':'').'><strong>'.$amount.'</strong><small>'.$note.'</small></div>';
             }
             if (!empty($plan['features'])) $cards.='<ul class="pk-points"><li>'.implode('</li><li>',array_map($e,$plan['features'])).'</li></ul>';
             $cards.='<a class="button '.($featured?'primary':'outline').'" data-plan-link href="/platform/deneme?plan='.rawurlencode($plan['id']).'&amp;donem=monthly">'.(($plan['id'] ?? '')==='ucretsiz'?'Ücretsiz başlayın':(($plan['id'] ?? '')==='ozel'?'Teklif isteyin':'Demo ile deneyin')).'</a></article>';
