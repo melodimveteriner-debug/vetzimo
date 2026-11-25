@@ -80,7 +80,7 @@ $t=$inbox->act($actor,(object)['action'=>'reply','id'=>$conv[0]['id'],'text'=>'E
 $out=array_values(array_filter($t['messages'],static fn($m)=>$m['direction']==='out'));
 ok(count($out)===1 && $out[0]['status']==='queued' && !isset($t['warning']),'Gelen kutusu yanıtı telefona kuyruklanmadı');
 $r=$gw->sync($device,(object)[],$now+200,$inbox);
-ok(count($r['jobs'])>=1 && $r['jobs'][0]['body']==='Elbette, 10:00 uygun.','Gelen kutusu yanıtı öncelikli verilmedi');
+ok(count($r['jobs'])>=1 && str_starts_with($r['jobs'][0]['body'],"Elbette, 10:00 uygun.\n— "),'Gelen kutusu yanıtı öncelikli verilmedi veya personel imzası eklenmedi');
 $gw->sync($device,(object)['results'=>[(object)['id'=>$r['jobs'][0]['id'],'status'=>'sent']]],$now+201,$inbox);
 $t=$inbox->thread($actor,$conv[0]['id'],$now);
 ok(array_values(array_filter($t['messages'],static fn($m)=>$m['direction']==='out'))[0]['status']==='sent','Gelen kutusundaki mesaj durumu güncellenmedi');

@@ -41,6 +41,7 @@ fresh test_edoc empty;     run edoc.php env VETNET_TEST_DSN='mysql:host=127.0.0.
 fresh test_pkg empty;      run package-features.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_pkg' php tests/package-features.php
 fresh test_saas empty;     run saas-payment.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_saas' php tests/saas-payment.php
 fresh test_agree empty;    run dealer-agreement.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_agree' php tests/dealer-agreement.php
+fresh test_alert empty;    run clinic-alerts.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_alert' php tests/clinic-alerts.php
 fresh test_center empty;   run center.php  env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_center' php tests/center.php
 if command -v node >/dev/null; then
   fx=$(mktemp); node tests/finance-fixtures.mjs "$fx" >/dev/null 2>&1 && run finance.php php tests/finance.php "$fx"; rm -f "$fx"

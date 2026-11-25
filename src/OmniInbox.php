@@ -701,7 +701,7 @@ final class OmniInbox
         $q = $this->db->prepare('SELECT data FROM inbox_setting WHERE partner_id=?');
         $q->execute([$partner]);
         $data = json_decode((string)$q->fetchColumn(), true) ?: [];
-        return ['signature' => (bool)($data['signature'] ?? false), 'autoReply' => (string)($data['autoReply'] ?? ''), 'autoReplyEnabled' => (bool)($data['autoReplyEnabled'] ?? false)];
+        return ['signature' => (bool)($data['signature'] ?? true), 'autoReply' => (string)($data['autoReply'] ?? ''), 'autoReplyEnabled' => (bool)($data['autoReplyEnabled'] ?? false)];
     }
 
     /** İşlem: reply, note, assign, status, link, read, tag, settings, quick-save, quick-delete */

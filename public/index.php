@@ -12,7 +12,7 @@ use VetNet\Cpanel\SessionRepository;
 
 require_once dirname(__DIR__).'/src/StaffPlan.php';
 
-foreach (['NativeApp','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','SaasPayment','DealerAgreement','CenterAnalytics','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','TeamTotp','WebInbox','MinistryBridge','SiteLegal','OmniInbox','PhoneGateway','ClientPermit','PrintTemplates','Support','Commerce','Appearance'] as $class) {
+foreach (['NativeApp','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','SaasPayment','DealerAgreement','CenterAnalytics','ClinicAlerts','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','TeamTotp','WebInbox','MinistryBridge','SiteLegal','OmniInbox','PhoneGateway','ClientPermit','PrintTemplates','Support','Commerce','Appearance'] as $class) {
     require dirname(__DIR__) . '/src/' . $class . '.php';
 }
 
@@ -767,6 +767,16 @@ try {
             if ($error->getCode()==='42S02') throw new RuntimeException('Evde bakım tabloları henüz kurulmadı.',503);
             throw $error;
         }
+    }
+    if ($path==='/api/clinic/alerts' && in_array($method,['GET','POST'],true)) {
+        // Sağ üst bildirimler ve zil paneli: mesajlar, onaylar, sorunlu işler; tamamlananlar kişi bazında gizlenir.
+        $actor=(new VetNet\Cpanel\Commerce($db))->packageActor($identity->actor($_COOKIE,$now));
+        if (!in_array($actor['role'],['dealer','branch','staff'],true)) throw new RuntimeException('Klinik hesabı gerekli.',403);
+        $alerts=new VetNet\Cpanel\ClinicAlerts($db);
+        if ($method==='GET') reply($alerts->list($actor,$now));
+        if (!hash_equals($actor['membership_id'],$_SERVER['HTTP_X_VETNET_SCOPE'] ?? '')) throw new RuntimeException('Çalışma alanı oturumu değişti.',409);
+        $alerts->ack($actor,input(20000)->keys ?? [],$now);
+        reply($alerts->list($actor,$now));
     }
     if ($path==='/api/agreement' && in_array($method,['GET','POST'],true)) {
         // VetZimo Kullanım Sözleşmesi: mevcut bayiler ilk girişte imzalar; imza kayıtları bayi yöneticisine gösterilir.
