@@ -22,6 +22,25 @@ final class Appearance
         return ['palette'=>$palette, 'locked'=>(bool)($row['locked'] ?? false)];
     }
 
+    private const BLUR_ID = '00000000000000000000000000000009';
+
+    /** Genel bakış grafiklerinin bulanıklığı cihaz türüne göre (true = bulanık, "Grafiği göster" ile açılır). Varsayılan: telefonda açık, tablet ve bilgisayarda bulanık. */
+    public function chartBlur(): array
+    {
+        $q = $this->db->prepare("SELECT payload FROM center_management WHERE id=? AND kind='chart_blur'");
+        $q->execute([self::BLUR_ID]);
+        $s = json_decode((string)$q->fetchColumn(), true) ?: [];
+        return ['mobile' => ($s['mobile'] ?? false) === true, 'tablet' => ($s['tablet'] ?? true) === true, 'desktop' => ($s['desktop'] ?? true) === true];
+    }
+
+    public function saveChartBlur(object $b): array
+    {
+        $v = ['mobile' => ($b->mobile ?? false) === true, 'tablet' => ($b->tablet ?? false) === true, 'desktop' => ($b->desktop ?? false) === true];
+        $this->db->prepare("INSERT INTO center_management(id,kind,payload) VALUES (?,'chart_blur',?) ON DUPLICATE KEY UPDATE payload=VALUES(payload)")
+            ->execute([self::BLUR_ID, json_encode($v, JSON_THROW_ON_ERROR)]);
+        return $v;
+    }
+
     public function save(string $key, object $body): array
     {
         $palette = $body->palette ?? null;

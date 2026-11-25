@@ -415,7 +415,7 @@ try {
         VetNet\Cpanel\WebBuilderRoutes::handle($db,$config,$workspaces,$sessions,$path,$method,$host,$externalWeb,$now);
     }
     $appearance = new VetNet\Cpanel\Appearance($db);
-    if ($path === '/api/saas/appearance' && $method === 'GET') reply($appearance->read());
+    if ($path === '/api/saas/appearance' && $method === 'GET') reply($appearance->read()+['chartBlur'=>$appearance->chartBlur()]);
     if ($path === '/api/identity/appearance' && $method === 'POST') {
         $actor = $workspaces->actor($_COOKIE,$now);
         if (($_SERVER['HTTP_X_VETNET_SCOPE'] ?? '') !== $actor['membership_id']) throw new RuntimeException('Klinik oturumu değişti.',409);
@@ -702,6 +702,7 @@ try {
             $days=filter_var($_GET['days'] ?? 30,FILTER_VALIDATE_INT,['options'=>['min_range'=>7,'max_range'=>365]]) ?: 30;
             reply((new VetNet\Cpanel\AppDownloads($db,dirname(__DIR__),(string)$config['rateSecret']))->stats($days,$now)+['origin'=>$origin]);
         }
+        if ($method==='GET' && $action==='chart-blur') reply((new VetNet\Cpanel\Appearance($db))->chartBlur());
         if ($method==='GET' && $action==='center-contact') reply((new VetNet\Cpanel\CenterContact($db,(string)($config['encryptionKey'] ?? '')))->overview());
         if ($method==='GET' && $action==='team') reply(['team'=>$center->team(),'departments'=>Center::DEPARTMENTS]);
         if ($method==='GET' && $action==='market-status') reply(['pages'=>$management->marketStatus()]);
@@ -755,6 +756,11 @@ try {
                 reply(['ok'=>true]);
             }
             if ($action==='appearance') reply($appearance->save('global',$body));
+            if ($action==='chart-blur') {
+                $result=(new VetNet\Cpanel\Appearance($db))->saveChartBlur($body);
+                $center->audit($actor['account_id'],'chart.blur.updated');
+                reply($result);
+            }
             if ($action==='center-contact') {
                 $result=(new VetNet\Cpanel\CenterContact($db,(string)($config['encryptionKey'] ?? '')))->save($body);
                 $center->audit($actor['account_id'],'center.contact.updated');

@@ -1516,3 +1516,7 @@ button.dr-tile{cursor:pointer}button.dr-tile[aria-pressed=true]{outline:2px soli
 .xr-diffs li[data-urgent]{color:color-mix(in srgb,#dc2626 85%,var(--ink))}
 .xr-row{display:flex;gap:8px;flex-wrap:wrap}
 @media (max-width:900px){.xr-body{grid-template-columns:1fr;grid-template-rows:minmax(300px,55vh) auto;overflow:auto}.xr-side{border-inline-start:0;border-top:1px solid var(--line);overflow:visible}}
+
+/* Merkezden cihaz türüne göre grafik bulanıklaştırma kapalıysa grafikler doğrudan görünür (app.js html.vz-chart-open ekler). */
+html.vz-chart-open .metric-private-data{filter:none;user-select:auto;pointer-events:auto}
+html.vz-chart-open .metric-reveal{display:none}

@@ -760,6 +760,15 @@ export async function mountCenterSuite(ui,session){
    await call('mail-settings',values);
    status.textContent='E-posta ayarları kaydedildi.';
   });
+  // Genel bakış grafikleri: cihaz türüne göre bulanık (Grafiği göster ile açılır) ya da doğrudan açık.
+  const blur=await call('chart-blur');
+  const blurBox=(key,label)=>field('blur_'+key,label,{type:'checkbox',required:false,checked:blur[key]});
+  const blurForm=makeForm([blurBox('mobile','Telefonda bulanık (iOS ve Android uygulaması dahil)'),blurBox('tablet','Tablette bulanık (iPad ve Android tablet uygulaması dahil)'),blurBox('desktop','Bilgisayarda bulanık (tarayıcı, Windows, Mac ve Linux uygulaması)')],'Grafik ayarını kaydet',async values=>{
+   await call('chart-blur',{mobile:values.blur_mobile==='on',tablet:values.blur_tablet==='on',desktop:values.blur_desktop==='on'});
+   status.textContent='Grafik bulanıklaştırma ayarı kaydedildi. Klinik ekranları bir sonraki açılışta yeni ayarı kullanır.';
+  });
+  content.append(el('h2','Genel bakış grafiklerinde bulanıklaştırma'),
+   el('p','İşaretli cihazlarda müşteri, hasta ve satış grafikleri bulanık gelir; “Grafiği göster” ile açılır. İşareti kaldırılan cihazlarda grafikler doğrudan görünür. Telefon: 768 pikselden dar, tablet: 768–1199, bilgisayar: 1200 ve üzeri ekran.',{className:'muted'}),blurForm);
   content.append(el('h2','Demo e-posta imzası'),mailForm,
    el('a','SMTP ve WhatsApp ayarlarını aç',{href:url('bildirimler')}));
   let compact=false;
