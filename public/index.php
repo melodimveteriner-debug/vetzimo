@@ -789,7 +789,7 @@ try {
             $agent=$bridge->agentAuth($auth);
             reply(match($op){
                 'heartbeat'=>$bridge->heartbeat($agent,$body,$now),
-                'claim'=>$bridge->claim($agent,$now),
+                'claim'=>$bridge->claim($agent,$now,is_array($body->portals??null)?array_values(array_filter($body->portals,static fn($p)=>in_array($p,['ministry','gib','efatura','esmm'],true))):null),
                 'progress'=>$bridge->progress($agent,$body,$now),
                 'result'=>$bridge->result($agent,$body,$now),
                 'recipe'=>$bridge->saveRecipe($agent,$body,$now),
@@ -823,7 +823,8 @@ try {
             throw $error;
         }
     }
-    if (preg_match('~\A/onay/([A-Za-z0-9_-]{32})\z~',$path,$permitMatch) && in_array($method,['GET','POST'],true)) {
+    if (preg_match('~\A/(?:onay/([A-Za-z0-9_-]{32})|o/([A-Za-z0-9]{10}))\z~',$path,$permitMatch) && in_array($method,['GET','POST'],true)) {
+        $permitMatch[1]=($permitMatch[1] ?? '')!=='' ? $permitMatch[1] : $permitMatch[2];
         // Hayvan sahibinin tek kullanımlık onay bağlantısı (giriş gerekmez; bağlantı imzadan sonra geçersizleşir).
         $permits=new VetNet\Cpanel\ClientPermit($db,$origin);
         header('Cache-Control: no-store');
@@ -838,6 +839,8 @@ try {
             $open=$permits->open($permitMatch[1],$now);
             echo VetNet\Cpanel\UiLocale::page(VetNet\Cpanel\ClientPermit::html($open['doc'],$open['hash'],'sign'),$config);
         } catch (RuntimeException $error) {
+            // Kısa bağlantılar tahminle denenmesin: geçersiz denemeler IP başına sınırlanır.
+            (new DealerLogin($db,$config['rateSecret']))->throttle('permit-miss:'.($_SERVER['REMOTE_ADDR']??''),$now);
             http_response_code($error->getCode()===410?410:404);
             echo '<!doctype html><html lang="tr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Onay formu</title><link rel="stylesheet" href="/permit-sign.css?v=2"><main class="pm"><section class="pm-card"><h1>Bağlantı geçersiz</h1><p>'.htmlspecialchars($error->getMessage(),ENT_QUOTES,'UTF-8').'</p></section></main></html>';
         }
@@ -924,7 +927,7 @@ try {
             reply(match($op){
                 'pair'=>$bridge->pair($actor,$now),
                 'revoke'=>$bridge->revoke($actor,$now),
-                'check-session','login'=>$bridge->command($actor,$op),
+                'check-session','login'=>$bridge->command($actor,is_string($body->portal??null)&&in_array($body->portal,['gib','efatura','esmm'],true)&&$op==='login'?'login:'.$body->portal:$op),
                 'enqueue'=>$bridge->enqueue($actor,$body,$now),
                 'cancel','link','resend'=>$bridge->resolve($actor,$body,$now),
                 default=>throw new RuntimeException('İşlem geçersiz.',422),

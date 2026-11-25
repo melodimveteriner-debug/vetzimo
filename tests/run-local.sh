@@ -35,6 +35,7 @@ fresh test_legal empty;    run legal.php env VETNET_TEST_DSN='mysql:host=127.0.0
 fresh test_inbox empty;    run inbox.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_inbox' php tests/inbox.php
 fresh test_phone empty;    run phone-gateway.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_phone' php tests/phone-gateway.php
 fresh test_permit empty;   run client-permit.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_permit' php tests/client-permit.php
+fresh test_edoc empty;     run edoc.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_edoc' php tests/edoc.php
 fresh test_center empty;   run center.php  env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_center' php tests/center.php
 if command -v node >/dev/null; then
   fx=$(mktemp); node tests/finance-fixtures.mjs "$fx" >/dev/null 2>&1 && run finance.php php tests/finance.php "$fx"; rm -f "$fx"

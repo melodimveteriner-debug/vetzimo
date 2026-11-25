@@ -13,6 +13,18 @@ KURULUM (Windows 10/11)
 4. Panelde "e-Devlet ile Bakanlik girisi" deyin, acilan pencerede girisi siz yapin.
 5. "Oturumu ogret", "Receteyi ogret" ve "Asiyi ogret" adimlarini birer kez yapin.
 
+E-ARSIV / E-FATURA / E-SMM (API ve entegrator sozlesmesi gerekmez)
+6. Panelde "e-Arsiv · e-Fatura · e-SMM portallari" bolumune adresleri yazin:
+   GIB e-Arsiv Portali hazir gelir; e-Fatura icin Uyumsoft, Odeal vb. portal adresinizi,
+   e-SMM icin GIB / Is Bankasi / IsNet portal adresinizi yazip "Kaydet" deyin.
+7. Her portal icin "Giris yap" deyin ve acilan pencerede kendi kullanici kodu/sifrenizle girin.
+8. "e-Arsiv faturasini ogret": alici ve bir hizmet satirini doldurun, ONAYLA DUGMESINE BASMAYIN;
+   panelde "Kaydet dugmesini isaretle" deyip dugmeye tiklayin. Alanlari listeden esleyin,
+   kalem satirini isaretleyip "Tarifi kaydet" deyin. e-Fatura ve e-SMM icin ayni sekilde.
+9. VetZimo > Satislar > "e-Fatura / e-Arsiv / e-SMM" dugmesiyle gecmis satislardan belge kesin.
+   Numara VetZimo > e-Belgeler sayfasinda gorunur. GIB oturumu kisa surer; kapanirsa belge
+   sirada bekler, panelden yeniden giris yapmaniz yeter.
+
 Bilgisayar acikken calisir; kapaliyken isler kuyrukta bekler.
 Bir kayit Bakanlikta olusmus olabilir ama dogrulanamadiysa ajan ASLA tekrar denemez;
 VetZimoda "kontrol edin" karti cikar.

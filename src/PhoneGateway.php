@@ -16,7 +16,7 @@ final class PhoneGateway
     // Varsayılanlar araştırmaya dayanır: Android 30 dakikada 30'dan fazla SMS'te kullanıcı onayı ister (SMS arası ≥ 60 sn);
     // WhatsApp için resmi sınır yoktur, sabit değil rastgele aralık ve saatte 30'un altı önerilir (120 sn ±%20 ≈ saatte 30).
     public const DEFAULTS = ['sms' => false, 'simSlot' => '', 'smsInterval' => 75, 'smsPerDay' => 150,
-        'whatsapp' => 'off', 'waRiskAccepted' => false, 'waInterval' => 120, 'waPerDay' => 100, 'sendStart' => '10:00', 'sendHours' => 9, 'both' => false];
+        'whatsapp' => 'off', 'waRiskAccepted' => false, 'waInterval' => 120, 'waPerDay' => 100, 'sendStart' => '10:00', 'sendHours' => 9, 'both' => false, 'smsAscii' => true];
     private const STALE = 900; // sonuç bildirilmeyen işler 15 dakika sonra "belirsiz" olur, tekrar gönderilmez
     private const PAIR_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
@@ -92,6 +92,7 @@ final class PhoneGateway
         $s['sendStart'] = $start;
         $s['sendHours'] = $int($input->sendHours ?? $s['sendHours'], 1, 16, 'Gönderim süresi (saat)');
         $s['both'] = !empty($input->both);
+        $s['smsAscii'] = !empty($input->smsAscii);
         $this->db->prepare('INSERT INTO phone_gateway (partner_id,settings,updated_at) VALUES (?,?,?) ON DUPLICATE KEY UPDATE settings=VALUES(settings),updated_at=VALUES(updated_at)')
             ->execute([$actor['partner_id'], json_encode($s, JSON_UNESCAPED_UNICODE), $now]);
         if ($s['sms']) $this->channel($actor['partner_id'], 'sms', $now);
@@ -337,6 +338,8 @@ final class PhoneGateway
         $wait = 15;
         if ($s['sms']) {
             [$jobs, $wait] = $this->schedule($partner, 'sms', $device['id'], $s, $now);
+            if ($s['smsAscii']) foreach ($jobs as &$job) $job['body'] = self::gsm($job['body']);
+            unset($job);
         }
         $assist = [];
         if ($s['whatsapp'] === 'assist') {
@@ -345,6 +348,25 @@ final class PhoneGateway
             foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $r) $assist[] = ['id' => (int)$r['id'], 'phone' => $r['phone'], 'link' => self::waLink($r['phone'], $r['body']), 'preview' => mb_substr($r['body'], 0, 80, 'UTF-8')];
         }
         return ['jobs' => $jobs, 'assist' => $assist, 'simSlot' => $s['simSlot'], 'interval' => max(3, min(30, $wait)), 'received' => $inbound, 'mark' => (int)$this->db->query('SELECT inbound_mark FROM phone_device WHERE id='.$this->db->quote($device['id']))->fetchColumn()];
+    }
+
+    /**
+     * Türkçe karakterleri sadeleştirir: GSM-7 alfabesinde SMS 160 karakter (parçalıda 153), Türkçe karakterli (UCS-2) SMS 70 (67).
+     * Böylece hoş geldin mesajı gibi kısa metinler tek SMS'e sığar.
+     */
+    public static function gsm(string $text): string
+    {
+        return strtr($text, ['ç' => 'c', 'Ç' => 'C', 'ğ' => 'g', 'Ğ' => 'G', 'ı' => 'i', 'İ' => 'I', 'ö' => 'o', 'Ö' => 'O', 'ş' => 's', 'Ş' => 'S', 'ü' => 'u', 'Ü' => 'U',
+            'â' => 'a', 'Â' => 'A', 'î' => 'i', 'û' => 'u', '’' => "'", '‘' => "'", '“' => '"', '”' => '"', '–' => '-', '—' => '-', '…' => '...', '•' => '-', '₺' => 'TL']);
+    }
+
+    /** SMS parça sayısı (GSM-7 160/153, UCS-2 70/67). */
+    public static function segments(string $text): int
+    {
+        $ucs = preg_match('/[^\x0A\x0D\x20-\x7E£¥èéùìòÇØøÅåÆæßÉÄÖÑÜäöñüà§¿¡]/u', $text) === 1;
+        $len = mb_strlen($text, 'UTF-8');
+        if ($ucs) return $len <= 70 ? 1 : (int)ceil($len / 67);
+        return $len <= 160 ? 1 : (int)ceil($len / 153);
     }
 
     public static function waLink(string $phone, string $body): string

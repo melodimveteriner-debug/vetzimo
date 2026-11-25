@@ -20,8 +20,8 @@ $sign=static function(): string { $im=imagecreatetruecolor(900,300); imagefill($
   for($i=0;$i<40;$i++) imageline($im,50+$i*18,150+(int)(60*sin($i/2)),68+$i*18,150+(int)(60*sin(($i+1)/2)),$k); ob_start(); imagepng($im); return 'data:image/png;base64,'.base64_encode((string)ob_get_clean()); };
 
 $r=$permits->create($actor,(object)['client'=>'c1','method'=>'link'],$now);
-$token=substr($r['url'],strlen('https://klinik.example/onay/'));
-ok(strlen($token)===32 && $r['permit']['status']==='pending','Bağlantı oluşmadı');
+$token=substr($r['url'],strlen('klinik.example/o/'));
+ok(str_starts_with($r['url'],'klinik.example/o/') && strlen($token)===10 && $r['permit']['status']==='pending','Bağlantı oluşmadı');
 ok(!str_contains((string)$db->query("SELECT token_hash FROM clinic_client_permit")->fetchColumn(),$token),'Bağlantı anahtarı düz saklandı');
 $open=$permits->open($token,$now);
 ok(str_contains($open['doc']['notice'],'Pati Veteriner Kliniği') && str_contains($open['doc']['notice'],'Odunpazarı') && !preg_match('/\{(klinik|adres|telefon|eposta)\}/',$open['doc']['notice']),'Aydınlatma metni klinik bilgisiyle doldurulmadı');
@@ -60,14 +60,14 @@ $a=$permits->create($actor,(object)['client'=>'c1','method'=>'sms'],$now);
 $job=$db->query("SELECT * FROM phone_outbox WHERE source='manual'")->fetch(PDO::FETCH_ASSOC);
 ok($a['sent']==='queued' && (int)$job['priority']===0 && str_contains($job['body'],$a['url']) && $job['phone']==='+905321112233','Onay bağlantısı SMS kuyruğuna girmedi');
 $b=$permits->create($actor,(object)['client'=>'c1','method'=>'link'],$now);
-$tokA=substr($a['url'],-32);
+$tokA=substr($a['url'],-10);
 try { $permits->open($tokA,$now); $accepted=true; } catch (RuntimeException) { $accepted=false; }
 ok(!$accepted,'Yeni form oluşturulunca eski bağlantı geçerli kaldı');
 $db->exec("UPDATE clinic_client_permit SET expires_at=".($now-1)." WHERE id='".$b['permit']['id']."'");
-try { $permits->open(substr($b['url'],-32),$now); $accepted=true; } catch (RuntimeException $e) { $accepted=$e->getCode()!==410; }
+try { $permits->open(substr($b['url'],-10),$now); $accepted=true; } catch (RuntimeException $e) { $accepted=$e->getCode()!==410; }
 ok(!$accepted,'Süresi dolan bağlantı açıldı');
 $c=$permits->create($actor,(object)['client'=>'c1','method'=>'clinic'],$now);
-$tokC=substr($c['url'],-32);
+$tokC=substr($c['url'],-10);
 $permits->decide($tokC,(object)['decision'=>'decline','signerName'=>'Ayşe Yılmaz','hash'=>$permits->open($tokC,$now)['hash']],$now+100,[]);
 $clients=[(object)['id'=>'c1','sms'=>'Var','whatsapp'=>'Var']];
 $permits->overlay($actor['partner_id'],$clients);
@@ -79,9 +79,20 @@ try { $permits->saveNotice($staff,str_repeat('Metin ',60),$now); $accepted=true;
 ok(!$accepted,'Personel aydınlatma metnini değiştirdi');
 $permits->saveNotice($actor,"## Özel metin\n".str_repeat('Kliniğimiz {klinik} verilerinizi korur. ',10),$now);
 $d=$permits->create($actor,(object)['client'=>'c1','method'=>'link'],$now);
-ok(str_contains($permits->open(substr($d['url'],-32),$now)['doc']['notice'],'Kliniğimiz Pati Veteriner Kliniği'),'Özel aydınlatma metni kullanılmadı');
+ok(str_contains($permits->open(substr($d['url'],-10),$now)['doc']['notice'],'Kliniğimiz Pati Veteriner Kliniği'),'Özel aydınlatma metni kullanılmadı');
 ok(str_contains($permits->signedDocument($actor,$r['permit']['id'])['doc']['notice'],'Pati Veteriner Kliniği verilerinizi')===false,'İmzalı eski form yeni metinle değişti');
 $foreign=$actor; $foreign['partner_id']=str_repeat('f',32);
 try { $permits->signedDocument($foreign,$r['permit']['id']); $leak=true; } catch (RuntimeException) { $leak=false; }
 ok(!$leak,'Başka klinik imzalı formu gördü');
+// ── hoş geldin SMS'i: tek mesaj, telefon hattından, şifre ve silinemeyen kısa onay bağlantısıyla
+$db->exec("UPDATE phone_device SET revoked_at=NULL");
+$state2=$work->read($cookies,$now);
+$st=$state2['state']; $st->clients[]=(object)['id'=>'c9','branch'=>'merkez','name'=>'Yeni Müşteri','phone'=>'0544 999 88 77','sms'=>'Var'];
+$st->preferences->customerReminder_welcome_text='Sayın {musteri}, {klinik} ailesine hoş geldiniz.';
+$api->save($cookies,$actor['membership_id'],$now,(object)['revision'=>$state2['revision'],'state'=>$st]);
+$w=$identity->customerPassword($actor,'c9',(object)['welcomeSms'=>true],$now,['origin'=>'https://www.vetzimo.com','appointmentReminderConnections'=>[]]);
+$msg=(string)$db->query("SELECT body FROM phone_outbox WHERE source_ref LIKE 'welcome:c9:%'")->fetchColumn();
+ok($w['sms']==='queued' && $w['permit']===true,'Hoş geldin SMS i telefon hattına alınmadı: '.json_encode($w));
+ok(preg_match('~Şifre: [A-Za-z0-9]{8}\n~u',$msg)===1 && str_contains($msg,'Giriş: 5449998877') && preg_match('~KVKK/izin onayı: www\.vetzimo\.com/o/[A-Za-z0-9]{10}$~u',$msg)===1,'Hoş geldin SMS içeriği yanlış: '.$msg);
+ok(mb_strlen($msg)<=200,'Hoş geldin SMS i gereksiz uzun: '.mb_strlen($msg));
 echo "client permit ok\n";

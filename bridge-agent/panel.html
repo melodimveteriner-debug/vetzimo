@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>VetZimo Bakanlık Köprüsü</title>
+<title>VetZimo Köprü Ajanı</title>
 <style>
 :root{--bg:#f5f4fa;--card:#fff;--ink:#1d1b2a;--muted:#646078;--line:#e2dfef;--accent:#5b3fc4;--ok:#16794a;--warn:#a85c00;--bad:#c02626;color-scheme:light}
 @media (prefers-color-scheme:dark){:root{--bg:#14121c;--card:#1d1a28;--ink:#eceaf4;--muted:#a6a2bb;--line:#2e2a3e;--accent:#a68fff;--ok:#5fd39a;--warn:#f2b45c;--bad:#ff7a7a;color-scheme:dark}}
@@ -18,6 +18,7 @@ button.primary{background:var(--accent);border-color:var(--accent);color:#fff}bu
 .pill{display:inline-flex;gap:6px;align-items:center;padding:4px 12px;border-radius:999px;font-weight:700;font-size:.85rem;background:color-mix(in srgb,var(--muted) 15%,transparent)}
 .pill.ok{color:var(--ok);background:color-mix(in srgb,var(--ok) 15%,transparent)}.pill.warn{color:var(--warn);background:color-mix(in srgb,var(--warn) 15%,transparent)}.pill.bad{color:var(--bad);background:color-mix(in srgb,var(--bad) 15%,transparent)}
 .muted{color:var(--muted);font-size:.88rem}.err{color:var(--bad);font-weight:600}
+.portal-grid{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 12px;align-items:end}@media (max-width:640px){.portal-grid{grid-template-columns:1fr}}
 table{width:100%;border-collapse:collapse;font-size:.86rem}td,th{border-bottom:1px solid var(--line);padding:6px;text-align:left;vertical-align:top}
 td code{font-size:.78rem;word-break:break-all;color:var(--muted)}
 pre{white-space:pre-wrap;font-size:.78rem;max-height:260px;overflow:auto;background:color-mix(in srgb,var(--ink) 5%,transparent);padding:10px;border-radius:9px;margin:0}
@@ -49,6 +50,20 @@ ol{margin:0;padding-left:20px}
     <label>Bakanlık sistemi adresi<input id="ministryUrl"></label>
   </section>
 
+  <section class="card" id="docCard" hidden>
+    <h2>e-Arşiv · e-Fatura · e-SMM portalları</h2>
+    <p class="muted">Satışlardan fatura ve serbest meslek makbuzu bu portallarda <b>sizin oturumunuzla</b> düzenlenir. Kullanıcı kodu ve şifreniz ajana kaydedilmez; girişi açılan pencerede siz yaparsınız. Portal oturumları güvenlik nedeniyle kısa sürede kapanır; kapandığında burada "Giriş yap"a basmanız yeterlidir, bekleyen belgeler giriş sonrası kendiliğinden düzenlenir.</p>
+    <div class="portal-grid">
+      <label>GİB e-Arşiv Portalı<input id="pGib" placeholder="https://earsivportal.efatura.gov.tr/intragiris.html"></label>
+      <div class="row"><span class="pill" id="sGib"></span><button data-login="gib">Giriş yap</button><button data-check="gib">Kontrol et</button></div>
+      <label>e-Fatura portalı (Uyumsoft, Ödeal veya entegratörünüz)<input id="pEfatura" placeholder="Entegratörünüzün giriş adresi (https://...)"></label>
+      <div class="row"><span class="pill" id="sEfatura"></span><button data-login="efatura">Giriş yap</button><button data-check="efatura">Kontrol et</button></div>
+      <label>e-SMM portalı (GİB, İşNet / İş Bankası veya entegratörünüz)<input id="pEsmm" placeholder="e-SMM giriş adresi (https://...)"></label>
+      <div class="row"><span class="pill" id="sEsmm"></span><button data-login="esmm">Giriş yap</button><button data-check="esmm">Kontrol et</button></div>
+    </div>
+    <div class="row"><button class="primary" id="savePortals">Adresleri kaydet</button><span id="portalMsg" class="muted"></span></div>
+  </section>
+
   <section class="card" id="teachCard" hidden>
     <h2>Öğretme</h2>
     <p class="muted">Bakanlık ekranları değişebildiği için ajan işlemi sizden <b>bir kez</b> öğrenir. Açılan pencerede işlemi her zamanki gibi yapın; <b>Kaydet düğmesine basmayın</b>, sadece "Kaydet düğmesini işaretle" deyip düğmeye tıklayın. Böylece öğretirken Bakanlıkta kayıt oluşmaz.</p>
@@ -56,9 +71,13 @@ ol{margin:0;padding-left:20px}
       <li><b>Oturum</b>: Bakanlık ana sayfasında yalnız girişliyken görünen bir öğeyi (ör. adınız, Çıkış) işaretleyin.</li>
       <li><b>Reçete</b>: e-Reçete ekranını açıp hayvanı ve sahibini bulun, bir ilaç ekleyin, Kaydet'i işaretleyin.</li>
       <li><b>Aşı</b>: Aşı uygulama ekranında aynı şekilde aşı, parti ve dozu girin, Kaydet'i işaretleyin.</li>
+      <li><b>e-Arşiv / e-Fatura</b>: Portalda yeni fatura ekranını açın; alıcı (VKN/TCKN, ad, adres) ve bir mal/hizmet satırı girin, "Faturayı oluştur/Onayla" düğmesini <b>işaretleyin</b>. Kalem satırını "Kalem satırı" olarak işaretlemeyi unutmayın; her satış için kalemler tekrarlanır.</li>
+      <li><b>e-SMM</b>: Yeni makbuz ekranında alıcı, açıklama, brüt ücret, KDV ve stopaj alanlarını doldurun; "Makbuzu düzenle/Onayla" düğmesini işaretleyin.</li>
     </ol>
     <div class="row" id="teachStart">
       <button data-kind="session">Oturumu öğret</button><button data-kind="prescription" class="primary">Reçeteyi öğret</button><button data-kind="vaccine" class="primary">Aşıyı öğret</button>
+      <button data-kind="earsiv" class="primary">e-Arşiv faturasını öğret</button><button data-kind="efatura" class="primary">e-Faturayı öğret</button><button data-kind="esmm" class="primary">e-SMM makbuzunu öğret</button>
+      <button data-kind="session_gib">GİB oturumunu öğret</button><button data-kind="session_efatura">e-Fatura oturumunu öğret</button><button data-kind="session_esmm">e-SMM oturumunu öğret</button>
       <span id="known" class="muted"></span>
     </div>
     <div id="teachLive" hidden>
@@ -93,10 +112,26 @@ const VARS = [
   ["{item.dose}", "Doz"], ["{item.route}", "Uygulama yolu"], ["{item.frequency}", "Sıklık"], ["{item.duration}", "Süre"],
   ["{item.lot}", "Aşı parti (lot) no"], ["{item.date}", "Aşı tarihi"], ["{item.nextDate}", "Sonraki aşı tarihi"],
 ];
+// Fatura ve makbuz alanları (satıştan otomatik dolar).
+const DOC_VARS = [
+  ["", "— Sabit (yazdığınız değer) —"], ["{buyer.taxId}", "Alıcı VKN / TCKN"], ["{buyer.name}", "Alıcı adı / unvanı"], ["{buyer.firstName}", "Alıcı adı"], ["{buyer.lastName}", "Alıcı soyadı"],
+  ["{buyer.taxOffice}", "Alıcı vergi dairesi"], ["{buyer.address}", "Alıcı adresi"], ["{buyer.city}", "Alıcı ili"], ["{buyer.district}", "Alıcı ilçesi"], ["{buyer.country}", "Ülke"],
+  ["{buyer.email}", "Alıcı e-posta"], ["{buyer.phone}", "Alıcı telefon"], ["{invoice.date}", "Belge tarihi (gg.aa.yyyy)"], ["{invoice.time}", "Belge saati"], ["{invoice.currency}", "Para birimi"],
+  ["{invoice.type}", "Fatura tipi (SATIŞ)"], ["{invoice.note}", "Not / açıklama"], ["{item.name}", "Mal/hizmet adı"], ["{item.quantity}", "Miktar"], ["{item.unit}", "Birim"],
+  ["{item.unitPrice}", "Birim fiyat (KDV hariç)"], ["{item.vatRate}", "KDV oranı"], ["{item.discount}", "İskonto"], ["{item.lineTotal}", "Satır tutarı"], ["{item.vatAmount}", "Satır KDV"],
+  ["{total.net}", "Toplam (KDV hariç)"], ["{total.vat}", "Toplam KDV"], ["{total.gross}", "Ödenecek tutar"], ["{esmm.description}", "Makbuz açıklaması"], ["{esmm.gross}", "Brüt ücret"],
+  ["{esmm.vatRate}", "Makbuz KDV oranı"], ["{esmm.vat}", "Makbuz KDV tutarı"], ["{esmm.withholdingRate}", "Stopaj oranı"], ["{esmm.withholding}", "Stopaj tutarı"], ["{esmm.net}", "Net tahsil edilen"],
+];
+const DOC_GUESS = [[/vkn|tckn|vergi kimlik|kimlik no|t\.?\s?c/i, "{buyer.taxId}"], [/vergi daire/i, "{buyer.taxOffice}"], [/unvan|alıcı ad/i, "{buyer.name}"], [/soyad/i, "{buyer.lastName}"], [/\bad[ıi]\b/i, "{buyer.firstName}"],
+  [/adres/i, "{buyer.address}"], [/ilçe/i, "{buyer.district}"], [/\bil\b|şehir/i, "{buyer.city}"], [/ülke/i, "{buyer.country}"], [/e-?posta|mail/i, "{buyer.email}"], [/stopaj|gelir vergisi/i, "{esmm.withholding}"],
+  [/brüt/i, "{esmm.gross}"], [/açıklama|hizmet tanım/i, "{esmm.description}"], [/mal|hizmet|ürün/i, "{item.name}"], [/miktar|adet/i, "{item.quantity}"], [/birim fiyat|fiyat/i, "{item.unitPrice}"],
+  [/kdv oran/i, "{item.vatRate}"], [/iskonto|indirim/i, "{item.discount}"], [/tarih/i, "{invoice.date}"], [/not/i, "{invoice.note}"]];
+let teachKind = "";
+const isDoc = () => ["earsiv", "efatura", "esmm"].includes(teachKind);
 const GUESS = [[/çip|chip|mikro/i, "{patient.chip}"], [/pasaport/i, "{patient.passport}"], [/t\.?\s?c|kimlik/i, "{owner.nationalId}"], [/parti|lot|seri/i, "{item.lot}"],
   [/ilaç|ürün|aşı adı|müstahzar/i, "{item.ministryName}"], [/miktar|adet|kutu/i, "{item.quantity}"], [/doz/i, "{item.dose}"], [/tanı|teşhis/i, "{diagnosis}"], [/tarih/i, "{date}"]];
 let teachSteps = [], meta = new Map();
-function guess(step) { const text = (step.label || "") + " " + (step.selectors || []).join(" "); for (const [re, v] of GUESS) if (re.test(text)) return v; return ""; }
+function guess(step) { const text = (step.label || "") + " " + (step.selectors || []).join(" "); for (const [re, v] of (isDoc() ? DOC_GUESS : GUESS)) if (re.test(text)) return v; return ""; }
 function drawSteps(steps) {
   const tbody = $("steps");
   tbody.replaceChildren(...steps.map((s, i) => {
@@ -109,7 +144,7 @@ function drawSteps(steps) {
     const map = document.createElement("td");
     if (["fill", "select", "check"].includes(s.action)) {
       const sel = document.createElement("select");
-      for (const [v, l] of VARS) sel.append(new Option(l, v, false, m.var === v));
+      for (const [v, l] of (isDoc() ? DOC_VARS : VARS)) sel.append(new Option(l, v, false, m.var === v));
       sel.onchange = () => { m.var = sel.value; };
       map.append(sel);
     }
@@ -145,7 +180,15 @@ async function refresh() {
     const p = document.createElement("span"); p.className = "pill " + cls; p.textContent = text; $("pills").append(p);
   }
   $("current").textContent = s.current ? "Şu an: " + s.current.summary : (s.lastError ? "Son hata: " + s.lastError : "");
-  $("known").textContent = s.recipes.length ? "Öğretilmiş: " + s.recipes.map(k => ({session: "oturum", prescription: "reçete", vaccine: "aşı"}[k])).join(", ") : "Henüz öğretilmedi.";
+  $("known").textContent = s.recipes.length ? "Öğretilmiş: " + s.recipes.map(k => ({session: "Bakanlık oturumu", prescription: "reçete", vaccine: "aşı", earsiv: "e-Arşiv", efatura: "e-Fatura", esmm: "e-SMM", session_gib: "GİB oturumu", session_efatura: "e-Fatura oturumu", session_esmm: "e-SMM oturumu"}[k] || k)).join(", ") : "Henüz öğretilmedi.";
+  $("docCard").hidden = !s.paired;
+  const ps = s.portals || {}, label = {open: ["ok", "Oturum açık"], closed: ["bad", "Oturum kapalı"], waiting: ["warn", "Giriş bekleniyor"], unknown: ["", "Denetlenmedi"]};
+  for (const [p, id, inp] of [["gib", "sGib", "pGib"], ["efatura", "sEfatura", "pEfatura"], ["esmm", "sEsmm", "pEsmm"]]) {
+    const st = ps[p] || {}, [cls, text] = st.url ? (label[st.state] || ["", st.state]) : ["", "Adres girilmedi"];
+    $(id).className = "pill " + cls; $(id).textContent = text;
+    if (document.activeElement !== $(inp) && !$(inp).dataset.dirty) $(inp).value = st.url || "";
+  }
+  teachKind = s.teach?.kind || teachKind;
   $("teachStart").hidden = !!s.teach; $("teachLive").hidden = !s.teach;
   if (s.teach) {
     $("markLogged").hidden = s.teach.kind !== "session"; $("markSubmit").hidden = $("markRead").hidden = s.teach.kind === "session";
@@ -165,11 +208,16 @@ $("pair").onclick = () => post("/eslestir", {server: $("server").value, code: $(
 $("login").onclick = () => post("/giris").then(refresh);
 $("check").onclick = () => post("/kontrol").then(refresh);
 $("ministryUrl").onchange = () => post("/ayar", {ministryUrl: $("ministryUrl").value});
-document.querySelectorAll("[data-kind]").forEach(b => b.onclick = () => post("/ogret/baslat", {kind: b.dataset.kind}).then(refresh, e => alert(e.message)));
+document.querySelectorAll("[data-kind]").forEach(b => b.onclick = () => { teachKind = b.dataset.kind; meta = new Map(); post("/ogret/baslat", {kind: b.dataset.kind}).then(refresh, e => alert(e.message)); });
 $("markSubmit").onclick = () => post("/ogret/isaretle", {mode: "submit"});
 $("markRead").onclick = () => post("/ogret/isaretle", {mode: "read"});
 $("markLogged").onclick = () => post("/ogret/isaretle", {mode: "loggedIn"});
 $("saveRecipe").onclick = () => post("/ogret/kaydet", {steps: build()}).then(() => { $("teachMsg").textContent = ""; refresh(); }, e => { $("teachMsg").textContent = e.message; });
+["pGib", "pEfatura", "pEsmm"].forEach(id => $(id).addEventListener("input", () => { $(id).dataset.dirty = "1"; }));
+$("savePortals").onclick = () => post("/ayar", {portals: {gib: $("pGib").value.trim(), efatura: $("pEfatura").value.trim(), esmm: $("pEsmm").value.trim()}})
+  .then(() => { ["pGib", "pEfatura", "pEsmm"].forEach(id => delete $(id).dataset.dirty); $("portalMsg").textContent = "Kaydedildi."; refresh(); }, e => { $("portalMsg").textContent = e.message; });
+document.querySelectorAll("[data-login]").forEach(b => b.onclick = () => post("/giris", {portal: b.dataset.login}).then(refresh));
+document.querySelectorAll("[data-check]").forEach(b => b.onclick = () => post("/kontrol", {portal: b.dataset.check}).then(refresh));
 $("waLink").onclick = () => post("/whatsapp/bagla").then(refresh);
 $("waLogout").onclick = () => { if (confirm("WhatsApp oturumu bu bilgisayardan kaldırılsın mı?")) post("/whatsapp/kaldir").then(refresh); };
 $("cancelTeach").onclick = () => post("/ogret/vazgec").then(refresh);

@@ -12,7 +12,7 @@ import {fileURLToPath} from "node:url";
 import {chromium} from "playwright-core";
 import {createWhatsApp} from "./whatsapp.mjs";
 
-const VERSION = "1.1.0";
+const VERSION = "1.2.0";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const HOME = process.env.VZ_BRIDGE_HOME || path.join(process.env.APPDATA || path.join(os.homedir(), ".config"), "VetZimoKopru");
 const PORT = Number(process.env.VZ_BRIDGE_PORT || 5199);
@@ -21,7 +21,12 @@ const FILES = {config: path.join(HOME, "config.json"), session: path.join(HOME, 
 const DEFAULT_MINISTRY = "https://vetbis.tarimorman.gov.tr";
 
 // ---------------- Ayarlar ve günlük ----------------
-let config = {server: "", token: "", name: os.hostname(), ministryUrl: DEFAULT_MINISTRY};
+// Portallar: Bakanlık (e-Devlet ile), GİB e-Arşiv, e-Fatura entegratörü (Uyumsoft, Ödeal...), e-SMM (GİB, İşNet/banka).
+const DEFAULT_PORTALS = {gib: "https://earsivportal.efatura.gov.tr/intragiris.html", efatura: "", esmm: ""};
+const PORTALS = ["ministry", "gib", "efatura", "esmm"];
+const PORTAL_OF = {prescription: "ministry", vaccine: "ministry", session: "ministry", earsiv: "gib", session_gib: "gib", efatura: "efatura", session_efatura: "efatura", esmm: "esmm", session_esmm: "esmm"};
+const PORTAL_NAME = {ministry: "Bakanlık", gib: "GİB e-Arşiv", efatura: "e-Fatura portalı", esmm: "e-SMM portalı"};
+let config = {server: "", token: "", name: os.hostname(), ministryUrl: DEFAULT_MINISTRY, portals: {...DEFAULT_PORTALS}};
 // Paketle gelen config.json (VetZimo adresi) varsayılandır; eşleştirme sonrası ayarlar kullanıcı klasöründe tutulur.
 try { config = {...config, ...JSON.parse(fs.readFileSync(path.join(HERE, "config.json"), "utf8")), token: ""}; } catch {}
 try { config = {...config, ...JSON.parse(fs.readFileSync(FILES.config, "utf8"))}; } catch {}
@@ -33,7 +38,11 @@ function log(message) {
   try { fs.appendFileSync(FILES.log, line + "\n"); } catch {}
   console.log(line);
 }
-const state = {online: false, ministry: "unknown", busy: false, current: null, queued: 0, lastError: "", teach: null, lastBeat: 0};
+config.portals = {...DEFAULT_PORTALS, ...(config.portals || {})};
+const state = {online: false, ministry: "unknown", portals: {gib: "unknown", efatura: "unknown", esmm: "unknown"}, busy: false, current: null, queued: 0, lastError: "", teach: null, lastBeat: 0};
+const portalState = p => p === "ministry" ? state.ministry : state.portals[p];
+const setPortal = (p, v) => { if (p === "ministry") state.ministry = v; else state.portals[p] = v; };
+const portalUrl = p => p === "ministry" ? config.ministryUrl : (config.portals[p] || "");
 
 // ---------------- VetZimo sunucusu ----------------
 async function api(op, body = {}) {
@@ -66,8 +75,11 @@ async function launchPersistent(dir, visible) {
   }
   throw new Error("Microsoft Edge ya da Google Chrome bulunamadı.");
 }
-const allowedHost = url => { try { const u = new URL(url); return /(^|\.)gov\.tr$/i.test(u.hostname) || (["127.0.0.1", "localhost"].includes(u.hostname)); } catch { return false; } };
-const onLoginPage = url => /giris\.turkiye\.gov\.tr|turkiye\.gov\.tr\/giris|\/login|\/giris/i.test(url);
+// Veri yalnız kamu (gov.tr), bilinen e-belge entegratörleri ve panelde girilen portal adreslerindeki sayfalara yazılır.
+const INTEGRATORS = /(^|\.)(gov\.tr|uyumsoft\.com\.tr|uyum\.com\.tr|odeal\.com|isnet\.net\.tr|isbank\.com\.tr|efinans\.com\.tr|qnbefinans\.com|edmbilisim\.com\.tr|izibiz\.com\.tr|logo\.com\.tr|mysoft\.com\.tr|nesbilgi\.com\.tr|turkcell\.com\.tr|kolaysoft\.com\.tr|faturaport\.com\.tr)$/i;
+const allowedHost = url => { try { const u = new URL(url); if (INTEGRATORS.test(u.hostname) || ["127.0.0.1", "localhost"].includes(u.hostname)) return true;
+  return Object.values(config.portals || {}).some(p => { try { return p && new URL(p).hostname === u.hostname && u.protocol === "https:"; } catch { return false; } }); } catch { return false; } };
+const onLoginPage = url => /giris\.turkiye\.gov\.tr|turkiye\.gov\.tr\/giris|\/login|\/giris|intragiris|\/oturum|signin/i.test(url);
 
 async function sessionContext(browser) {
   let storageState;
@@ -83,44 +95,46 @@ let recipes = {};
 async function loadRecipes() {
   try { recipes = Object.fromEntries(Object.entries((await api("recipes")).recipes || {}).map(([k, v]) => [k, v.recipe])); } catch (e) { log("Tarifler alınamadı: " + e.message); }
 }
-function sessionRecipe() {
-  return recipes.session || {steps: [{action: "goto", url: config.ministryUrl}], loggedIn: null};
+function sessionRecipe(portal = "ministry") {
+  return recipes[portal === "ministry" ? "session" : "session_" + portal] || {steps: [{action: "goto", url: portalUrl(portal)}], loggedIn: null};
 }
 
 /** Bakanlık oturumunu dener: başsız tarayıcıda Bakanlık adresi açılır, giriş sayfasına yönleniyorsa oturum kapalıdır. */
-async function checkSession() {
+async function checkSession(portal = "ministry") {
+  if (!portalUrl(portal)) { setPortal(portal, "closed"); return; }
   const browser = await launch(true);
   try {
     const context = await sessionContext(browser);
     const page = await context.newPage();
-    const recipe = sessionRecipe();
-    const url = recipe.steps.find(s => s.action === "goto")?.url || config.ministryUrl;
+    const recipe = sessionRecipe(portal);
+    const url = recipe.steps.find(s => s.action === "goto")?.url || portalUrl(portal);
     await page.goto(url, {waitUntil: "domcontentloaded", timeout: 45000});
     await page.waitForTimeout(1500);
     let open = !onLoginPage(page.url());
     if (open && recipe.loggedIn) open = await find(page, recipe.loggedIn, 4000).then(() => true, () => false);
-    state.ministry = open ? "open" : "closed";
+    setPortal(portal, open ? "open" : "closed");
     if (open) await keepSession(context);
-    log("Bakanlık oturumu: " + (open ? "açık" : "kapalı"));
+    log(PORTAL_NAME[portal] + " oturumu: " + (open ? "açık" : "kapalı"));
   } catch (e) {
-    state.ministry = "unknown";
+    setPortal(portal, "unknown");
     log("Oturum kontrolü yapılamadı: " + e.message);
   } finally { await browser.close(); }
 }
 
 /** e-Devlet girişi: görünür bir pencere açılır, girişi veteriner kendisi yapar. Giriş bitince oturum saklanır. */
 let loginRunning = false;
-async function login() {
+async function login(portal = "ministry") {
   if (loginRunning) return;
+  if (!portalUrl(portal)) { log(PORTAL_NAME[portal] + " adresi girilmemiş. Panelde portal adresini yazın."); return; }
   loginRunning = true;
-  state.ministry = "waiting";
-  log("e-Devlet giriş penceresi açıldı. Girişi bu bilgisayardan siz yapın.");
+  setPortal(portal, "waiting");
+  log(PORTAL_NAME[portal] + " giriş penceresi açıldı. Girişi bu bilgisayardan siz yapın; şifreniz ajana kaydedilmez.");
   const browser = await launch(false);
   try {
     const context = await sessionContext(browser);
     const page = await context.newPage();
-    const recipe = sessionRecipe();
-    await page.goto(recipe.steps.find(s => s.action === "goto")?.url || config.ministryUrl, {waitUntil: "domcontentloaded"});
+    const recipe = sessionRecipe(portal);
+    await page.goto(recipe.steps.find(s => s.action === "goto")?.url || portalUrl(portal), {waitUntil: "domcontentloaded"});
     const deadline = Date.now() + 10 * 60 * 1000;
     let ok = false;
     while (Date.now() < deadline && !ok && browser.isConnected()) {
@@ -130,8 +144,8 @@ async function login() {
         ok = recipe.loggedIn ? await find(page, recipe.loggedIn, 1500).then(() => true, () => false) : !/turkiye\.gov\.tr/.test(new URL(url).hostname);
       }
     }
-    if (ok) { await page.waitForTimeout(1500); await keepSession(context); state.ministry = "open"; log("Bakanlık oturumu açıldı."); }
-    else { state.ministry = "closed"; log("Giriş tamamlanmadı."); }
+    if (ok) { await page.waitForTimeout(1500); await keepSession(context); setPortal(portal, "open"); log(PORTAL_NAME[portal] + " oturumu açıldı."); }
+    else { setPortal(portal, "closed"); log("Giriş tamamlanmadı."); }
   } catch (e) { log("Giriş penceresi: " + e.message); }
   finally { loginRunning = false; await browser.close().catch(() => {}); }
 }
@@ -159,16 +173,16 @@ async function find(page, selectors, timeout = 15000) {
 }
 async function runSteps(page, steps, data, job) {
   for (const step of steps) {
-    if (onLoginPage(page.url())) { const e = new Error("Bakanlık oturumu kapanmış."); e.session = true; throw e; }
+    if (onLoginPage(page.url())) { const e = new Error("Portal oturumu kapanmış; ajan panelinden yeniden giriş yapın."); e.session = true; throw e; }
     if (step.action === "repeat") {
       for (const [index, item] of (data[step.over || "items"] || []).entries()) await runSteps(page, step.steps || [], {...data, item, index: index + 1}, job);
       continue;
     }
-    if (step.action !== "goto" && !allowedHost(page.url())) throw new Error("Güvenlik: Bakanlık dışı bir sayfaya veri yazılmaz.");
+    if (step.action !== "goto" && !allowedHost(page.url())) throw new Error("Güvenlik: izin verilen portallar dışındaki bir sayfaya veri yazılmaz.");
     const v = value(step.value, data);
     switch (step.action) {
       case "goto":
-        if (!allowedHost(step.url)) throw new Error("Güvenlik: yalnızca gov.tr adreslerine gidilir.");
+        if (!allowedHost(step.url)) throw new Error("Güvenlik: yalnızca kamu ve tanınan e-belge portallarına gidilir.");
         await page.goto(step.url, {waitUntil: "domcontentloaded", timeout: 45000}); break;
       case "fill": { const el = await find(page, step.selectors); await el.fill(""); await el.fill(v); break; }
       case "pick": { // Otomatik tamamlamalı alan: yaz, listeden metni içeren seçeneği seç.
@@ -199,7 +213,7 @@ async function runSteps(page, steps, data, job) {
           if (el) {
             const text = ((await el.innerText().catch(() => "")) || (await el.inputValue().catch(() => ""))).trim();
             const m = text.match(new RegExp(step.pattern || "[A-Z0-9][A-Z0-9/-]{4,}"));
-            if (m) { job.documentNo = m[1] || m[0]; break; }
+            if (m) { job.documentNo = m[1] || m[2] || m[0]; break; }
           }
           await page.waitForTimeout(500);
         }
@@ -230,7 +244,7 @@ async function runJob(job, recipe) {
     await api("result", {id: job.id, outcome: "done", documentNo: run.documentNo});
     log("Tamamlandı: " + run.documentNo);
   } catch (e) {
-    if (e.session) state.ministry = "closed";
+    if (e.session) setPortal(PORTAL_OF[job.kind] || "ministry", "closed");
     log("Hata: " + e.message);
     // Kaydet'e basılmadıysa kayıt oluşmamıştır: oturum sorunu ise kuyruğa döner, diğerleri hata olur.
     // Basıldıysa yalnız Bakanlık açık bir ret gösterdiyse "hata"; aksi halde "belirsiz" (asla otomatik tekrar yok).
@@ -251,12 +265,19 @@ async function tick() {
     state.online = true; state.queued = beat.queued; state.lastBeat = Date.now(); state.lastError = "";
     if (beat.command === "check-session") await checkSession();
     if (beat.command === "login") login();
-    if (beat.queued > 0 && state.ministry !== "closed" && !loginRunning) {
-      if (state.ministry === "unknown") await checkSession();
-      if (state.ministry === "open") {
+    if (/^login:(gib|efatura|esmm)$/.test(beat.command || "")) login(beat.command.slice(6));
+    if (beat.queued > 0 && !loginRunning) {
+      // Yalnız oturumu kapalı olmayan portalların işleri istenir; bilinmeyen portal iş gelince denetlenir.
+      const portals = PORTALS.filter(p => portalUrl(p) && !["closed", "waiting"].includes(portalState(p)));
+      if (portals.length) {
         await loadRecipes();
-        const claim = await api("claim");
-        if (claim.job) await runJob(claim.job, claim.recipe);
+        const claim = await api("claim", {portals});
+        if (claim.job) {
+          const portal = PORTAL_OF[claim.job.kind] || "ministry";
+          if (portalState(portal) === "unknown") await checkSession(portal);
+          if (portalState(portal) === "open") await runJob(claim.job, claim.recipe);
+          else await api("result", {id: claim.job.id, outcome: "retry", error: PORTAL_NAME[portal] + " oturumu kapalı; ajan panelinden giriş yapın."});
+        }
       }
     }
   } catch (e) {
@@ -298,7 +319,10 @@ async function teachStart(kind, url) {
   });
   await context.addInitScript({path: path.join(HERE, "recorder.js")});
   const page = await context.newPage();
-  await page.goto(url || sessionRecipe().steps[0].url || config.ministryUrl, {waitUntil: "domcontentloaded"});
+  const portal = PORTAL_OF[kind] || "ministry";
+  const start = url || sessionRecipe(portal).steps[0]?.url || portalUrl(portal);
+  if (!start) throw new Error(PORTAL_NAME[portal] + " adresini panelde girin.");
+  await page.goto(start, {waitUntil: "domcontentloaded"});
   state.teach = {kind, browser, context, page, steps};
   browser.on("disconnected", () => { if (state.teach?.browser === browser) state.teach.closed = true; });
   log("Öğretme modu açıldı: " + kind);
@@ -313,12 +337,14 @@ async function teachSave(edited) {
   const t = state.teach;
   if (!t) throw new Error("Öğretme açık değil.");
   const steps = (edited || t.steps).filter(s => !s.removed).map(({removed, ...s}) => s);
-  if (t.kind !== "session" && !steps.some(s => s.action === "submit")) throw new Error("Kaydet düğmesini işaretleyin.");
-  // Belge numarası alanı işaretlenmediyse sayfa metninde "Reçete/Belge No" kalıbı aranır.
-  if (t.kind !== "session" && !steps.some(s => s.action === "read")) steps.push({action: "read", selectors: ["body"], pattern: "(?:Reçete|Belge|Aşı|Kayıt)\\s*(?:No|Numarası)\\s*[:：]?\\s*([A-Z0-9][A-Z0-9/-]{4,})"});
+  const isSession = t.kind.startsWith("session");
+  if (!isSession && !steps.some(s => s.action === "submit")) throw new Error("Kaydet düğmesini işaretleyin.");
+  // Belge numarası alanı işaretlenmediyse sayfa metninde numara kalıbı aranır (e-Arşiv: GIB2026000000001, ETTN, makbuz no).
+  if (!isSession && !steps.some(s => s.action === "read")) steps.push({action: "read", selectors: ["body"],
+    pattern: ["earsiv", "efatura", "esmm"].includes(t.kind) ? "(?:Fatura|Belge|Makbuz)\\s*(?:No|Numarası)\\s*[:：]?\\s*([A-Z0-9]{3}20[0-9]{2}[0-9]{9}|[A-Z0-9][A-Z0-9/-]{5,})|([A-Z]{3}20[0-9]{11})" : "(?:Reçete|Belge|Aşı|Kayıt)\\s*(?:No|Numarası)\\s*[:：]?\\s*([A-Z0-9][A-Z0-9/-]{4,})"});
   const recipe = {steps, taughtAt: new Date().toISOString(), loggedIn: t.loggedIn || null};
   await api("recipe", {kind: t.kind, recipe});
-  if (t.kind === "session") { await keepSession(t.context); state.ministry = "open"; }
+  if (isSession) { await keepSession(t.context); setPortal(PORTAL_OF[t.kind] || "ministry", "open"); }
   recipes[t.kind] = recipe;
   await t.browser.close().catch(() => {});
   state.teach = null;
@@ -339,7 +365,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "GET" && url.pathname === "/durum") {
       return send(res, 200, {version: VERSION, paired: !!config.token, server: config.server, name: config.name, ministryUrl: config.ministryUrl,
         online: state.online, ministry: state.ministry, queued: state.queued, current: state.current, lastError: state.lastError, login: loginRunning,
-        recipes: Object.keys(recipes), whatsapp: whatsapp.state(), teach: state.teach ? {kind: state.teach.kind, steps: state.teach.steps, closed: !!state.teach.closed} : null, logs: logs.slice(-60)});
+        recipes: Object.keys(recipes), whatsapp: whatsapp.state(), portals: Object.fromEntries(["gib", "efatura", "esmm"].map(p => [p, {url: config.portals[p] || "", state: state.portals[p]}])), teach: state.teach ? {kind: state.teach.kind, steps: state.teach.steps, closed: !!state.teach.closed} : null, logs: logs.slice(-60)});
     }
     if (req.method === "GET" && url.pathname === "/gunluk") return send(res, 200, logs.join("\n"), "text/plain");
     if (req.method !== "POST") return send(res, 404, {error: "Bulunamadı"});
@@ -356,11 +382,19 @@ const server = http.createServer(async (req, res) => {
         const r = await api("pair", {code: body.code, name: config.name, version: VERSION});
         config.token = r.token; saveConfig(); log("Eşleştirme tamamlandı."); setTimeout(tick, 500);
         return send(res, 200, {ok: true}); }
-      case "/ayar": if (body.ministryUrl && allowedHost(body.ministryUrl)) { config.ministryUrl = body.ministryUrl; saveConfig(); } return send(res, 200, {ok: true});
-      case "/giris": login(); return send(res, 200, {ok: true});
+      case "/ayar": {
+        if (body.ministryUrl && allowedHost(body.ministryUrl)) config.ministryUrl = body.ministryUrl;
+        for (const p of ["gib", "efatura", "esmm"]) {
+          const v = body.portals?.[p];
+          if (typeof v !== "string") continue;
+          if (v && !/^https:\/\/[a-z0-9.-]+(:\d+)?(\/[^\s]*)?$/i.test(v) && !/^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?(\/|$)/i.test(v)) throw new Error(PORTAL_NAME[p] + " adresi https:// ile başlamalı.");
+          if (config.portals[p] !== v) { config.portals[p] = v; state.portals[p] = "unknown"; }
+        }
+        saveConfig(); return send(res, 200, {ok: true}); }
+      case "/giris": login(PORTALS.includes(body.portal) ? body.portal : "ministry"); return send(res, 200, {ok: true});
       case "/whatsapp/bagla": whatsapp.link().catch(e => log("WhatsApp bağlanamadı: " + e.message)); return send(res, 200, {ok: true});
       case "/whatsapp/kaldir": await whatsapp.logout(); return send(res, 200, {ok: true});
-      case "/kontrol": await checkSession(); return send(res, 200, {ok: true, ministry: state.ministry});
+      case "/kontrol": { const p = PORTALS.includes(body.portal) ? body.portal : "ministry"; await checkSession(p); return send(res, 200, {ok: true, state: portalState(p)}); }
       case "/ogret/baslat": await teachStart(body.kind, body.url); return send(res, 200, {ok: true});
       case "/ogret/isaretle": await teachMark(body.mode); return send(res, 200, {ok: true});
       case "/ogret/kaydet": await teachSave(body.steps); return send(res, 200, {ok: true});

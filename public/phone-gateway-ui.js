@@ -62,7 +62,7 @@ export function mountPhoneGateway(root,api){
   const num=(v,min,max)=>h("input",{type:"number",min:String(min),max:String(max),value:String(v),disabled:dis});
   const f={sms:h("input",{type:"checkbox",checked:s.sms,disabled:dis}),simSlot:h("select",{disabled:dis},...[["","Varsayılan SIM"],["0","SIM 1"],["1","SIM 2"]].map(([v,l])=>h("option",{value:v,selected:s.simSlot===v,text:tr(l)}))),
    smsInterval:num(s.smsInterval,60,3600),smsPerDay:num(s.smsPerDay,1,1000),waInterval:num(s.waInterval,30,3600),waPerDay:num(s.waPerDay,1,400),
-   sendStart:h("input",{type:"time",value:s.sendStart,disabled:dis}),sendHours:num(s.sendHours,1,16),both:h("input",{type:"checkbox",checked:s.both,disabled:dis}),risk:h("input",{type:"checkbox",checked:s.waRiskAccepted,disabled:dis})};
+   sendStart:h("input",{type:"time",value:s.sendStart,disabled:dis}),sendHours:num(s.sendHours,1,16),both:h("input",{type:"checkbox",checked:s.both,disabled:dis}),ascii:h("input",{type:"checkbox",checked:s.smsAscii!==false,disabled:dis}),risk:h("input",{type:"checkbox",checked:s.waRiskAccepted,disabled:dis})};
   let mode=s.whatsapp;
   const plan=h("div",{class:"pg-plan"});
   const calc=()=>{
@@ -88,11 +88,11 @@ export function mountPhoneGateway(root,api){
   const field=(label,input,hint)=>h("label",{class:"pg-field"},h("span",{text:tr(label)}),input,hint?h("small",{class:"pg-muted",text:tr(hint)}):null);
   calc();
   return [h("form",{class:"pg-card pg-settings",onsubmit:e=>{e.preventDefault();act({action:"settings",sms:f.sms.checked,simSlot:f.simSlot.value,smsInterval:+f.smsInterval.value,smsPerDay:+f.smsPerDay.value,
-    whatsapp:mode,waRiskAccepted:f.risk.checked,waInterval:+f.waInterval.value,waPerDay:+f.waPerDay.value,sendStart:f.sendStart.value,sendHours:+f.sendHours.value,both:f.both.checked},tr("Ayarlar kaydedildi."))}},
+    whatsapp:mode,waRiskAccepted:f.risk.checked,waInterval:+f.waInterval.value,waPerDay:+f.waPerDay.value,sendStart:f.sendStart.value,sendHours:+f.sendHours.value,both:f.both.checked,smsAscii:f.ascii.checked},tr("Ayarlar kaydedildi."))}},
    h("h3",{text:tr("Gönderim zamanı")}),
    h("div",{class:"pg-grid"},field("Her gün başlangıç saati",f.sendStart),field("Kaç saat boyunca gönderilsin",f.sendHours,"Bitmeyen mesajlar ertesi gün aynı saatte devam eder.")),
    h("p",{class:"pg-muted",text:tr("Hatırlatma ve toplu mesajlar sıraya alınır ve bu pencerede tek tek, aralıklı gönderilir. Gelen kutusundan yazılan yanıtlar ve onay formu bağlantıları beklemeden gider. Randevu saati geçen hatırlatma gönderilmez.")}),
-   h("h3",{text:"SMS"}),h("label",{class:"pg-check"},f.sms,h("span",{text:tr("SMS'leri kliniğin telefonundan gönder (Netgsm gerekmez)")})),
+   h("h3",{text:"SMS"}),h("label",{class:"pg-check"},f.sms,h("span",{text:tr("SMS'leri kliniğin telefonundan gönder (Netgsm gerekmez)")})),h("label",{class:"pg-check"},f.ascii,h("span",{text:tr("Türkçe karakterleri sadeleştir (ş→s, ğ→g, ı→i): mesaj 160 karakterlik tek SMS'e sığar; Türkçe karakterli SMS 70 karakterde bölünür.")})),
    h("div",{class:"pg-grid"},field("SIM kartı",f.simSlot),field("Kaç saniyede bir (en az 60)",f.smsInterval,"Önerilen 75 sn: Android'in 30 dakikada 30 SMS sınırının altında kalır."),field("Günde en fazla",f.smsPerDay)),
    h("h3",{text:"WhatsApp"}),modes,riskBox,
    h("div",{class:"pg-grid"},field("Kaç saniyede bir (otomatik, en az 30)",f.waInterval,"Önerilen 120 sn (saatte yaklaşık 30 mesaj)."),field("Günde en fazla (otomatik)",f.waPerDay,"Yeni numarada ilk hafta 20-50 ile başlayın.")),

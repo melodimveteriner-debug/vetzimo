@@ -20,6 +20,12 @@ use RuntimeException;
 final class MinistryBridge
 {
     public const KINDS = ['prescription', 'vaccine'];
+    /** Mali belgeler: satıştan e-Arşiv / e-Fatura, satış veya tahsilattan e-SMM. Ajan kliniğin kendi portal oturumunda doldurur. */
+    public const DOC_KINDS = ['earsiv', 'efatura', 'esmm'];
+    /** İşin hangi portalda yapıldığı (ajan her portal için ayrı oturum tutar). */
+    public const PORTAL = ['prescription' => 'ministry', 'vaccine' => 'ministry', 'earsiv' => 'gib', 'efatura' => 'efatura', 'esmm' => 'esmm'];
+    /** Tariflerin gidebileceği adresler: kamu (gov.tr), yerel test ve bilinen e-belge entegratörleri. */
+    private const URL_RULE = '~\A(https://([a-z0-9-]+\.)*(gov\.tr|uyumsoft\.com\.tr|uyum\.com\.tr|odeal\.com|isnet\.net\.tr|isbank\.com\.tr|efinans\.com\.tr|qnbefinans\.com|edmbilisim\.com\.tr|izibiz\.com\.tr|logo\.com\.tr|mysoft\.com\.tr|nesbilgi\.com\.tr|turkcell\.com\.tr|kolaysoft\.com\.tr|faturaport\.com\.tr)|https?://(127\.0\.0\.1|localhost)(:\d+)?)(/|\z)~i';
     private const ONLINE_SECONDS = 90;
     private const STALE_SECONDS = 600;
 
@@ -40,7 +46,7 @@ final class MinistryBridge
     private function guard(array $actor, bool $write, ?string $kind = null): void
     {
         if (!in_array($actor['role'] ?? '', ['dealer', 'branch', 'staff'], true)) throw new RuntimeException('Bakanlık köprüsü klinik ekibi içindir.', 403);
-        $collection = $kind === 'vaccine' ? 'followups' : 'patients';
+        $collection = $kind === 'vaccine' ? 'followups' : (in_array($kind, self::DOC_KINDS, true) ? 'sales' : 'patients');
         if (!ClinicAccess::allowed($actor, $collection, $write)) throw new RuntimeException('Bu işlem için yetkiniz yok.', 403);
     }
 
@@ -119,7 +125,7 @@ final class MinistryBridge
     public function command(array $actor, string $command): array
     {
         $this->guard($actor, true);
-        if (!in_array($command, ['check-session', 'login'], true)) throw new RuntimeException('Komut geçersiz.', 422);
+        if (!in_array($command, ['check-session', 'login', 'login:gib', 'login:efatura', 'login:esmm'], true)) throw new RuntimeException('Komut geçersiz.', 422);
         $q = $this->db->prepare('UPDATE clinic_bridge_agent SET command=? WHERE partner_id=? AND revoked_at IS NULL AND token_hash IS NOT NULL');
         $q->execute([$command, $actor['partner_id']]);
         if (!$q->rowCount()) throw new RuntimeException('Bağlı ajan yok.', 409);
@@ -144,6 +150,7 @@ final class MinistryBridge
      */
     public function enqueue(array $actor, object $input, int $now): array
     {
+        if (in_array($input->kind ?? '', self::DOC_KINDS, true)) return $this->enqueueDocument($actor, $input, $now);
         $kind = $input->kind ?? '';
         if (!in_array($kind, self::KINDS, true)) throw new RuntimeException('İş türü geçersiz.', 422);
         $this->guard($actor, true, $kind);
@@ -236,6 +243,111 @@ final class MinistryBridge
         return ['id' => $id, 'status' => 'queued'];
     }
 
+    private static function money(mixed $v): float
+    {
+        $t = str_replace([' ', '₺', 'TL'], '', (string)$v);
+        if (preg_match('/^\d{1,3}(\.\d{3})+(,\d+)?$/', $t)) $t = str_replace(['.', ','], ['', '.'], $t);
+        else $t = str_replace(',', '.', $t);
+        return is_numeric($t) ? (float)$t : 0.0;
+    }
+    private static function tr2(float $v): string { return number_format(round($v, 2), 2, ',', ''); }
+
+    /**
+     * Mali belge işi: satıştan e-Arşiv / e-Fatura ya da e-SMM. Yük sunucuda satış ve müşteri kaydından kurulur;
+     * istemci yalnız alıcının vergi bilgisi (e-Fatura), stopaj tercihi (e-SMM) ve açıklamayı verebilir.
+     */
+    private function enqueueDocument(array $actor, object $input, int $now): array
+    {
+        $kind = $input->kind;
+        $this->guard($actor, true, $kind);
+        $saleId = $input->sale ?? '';
+        if (!is_string($saleId) || !preg_match('/\A[A-Za-z0-9_-]{1,80}\z/', $saleId)) throw new RuntimeException('Satış seçin.', 422);
+        $state = $this->records($actor, ['sales' => [$saleId]]);
+        $sale = null;
+        foreach ($state->sales ?? [] as $row) if (($row->id ?? '') === $saleId) { $sale = $row; break; }
+        if (!$sale) throw new RuntimeException('Satış bulunamadı.', 404);
+        $client = null;
+        if (($sale->client ?? '') !== '') {
+            $cs = $this->records($actor, ['clients' => [(string)$sale->client]]);
+            foreach ($cs->clients ?? [] as $c) if ($c->id === $sale->client) { $client = $c; break; }
+        }
+        $check = $this->db->prepare("SELECT kind,status FROM clinic_bridge_job WHERE partner_id=? AND record_key=? AND kind IN (".($kind === 'esmm' ? "'esmm'" : "'earsiv','efatura'").") AND status IN ('queued','claimed','uncertain','done') LIMIT 1");
+        $check->execute([$actor['partner_id'], $saleId]);
+        if ($existing = $check->fetch(PDO::FETCH_ASSOC)) throw new RuntimeException($existing['status'] === 'done' ? 'Bu satış için belge zaten düzenlendi.' : 'Bu satış için belge zaten kuyrukta.', 409);
+        if ($kind !== 'esmm' && trim((string)($sale->invoice ?? '')) !== '' && empty($input->force)) throw new RuntimeException('Satışta zaten fatura numarası var ('.self::text($sale->invoice, 40).').', 409);
+        // Kalemler: KDV dahil fiyatlar KDV hariç birim fiyata çevrilir. Kalem ve genel indirim, satış toplamıyla (Finance::saleTotal)
+        // aynı kuralla dağıtılır ve kalemde "iskonto" olarak gösterilir; böylece portaldaki toplam satışla kuruşu kuruşuna aynı olur.
+        $rows = json_decode((string)($sale->items ?? '[]'), true);
+        if (!is_array($rows) || !$rows) $rows = [['name' => (string)($sale->detail ?? 'Hizmet bedeli'), 'quantity' => '1', 'price' => (string)($sale->amount ?? '0'), 'vat' => '20', 'taxMode' => 'KDV Dahil']];
+        $lines = [];
+        foreach (array_slice($rows, 0, 100) as $r) {
+            $qty = max(0.0001, self::money($r['quantity'] ?? 1));
+            $rate = max(0.0, min(100.0, self::money($r['vat'] ?? 20)));
+            $raw = self::money($r['price'] ?? 0) * $qty;
+            $base = ($r['taxMode'] ?? 'KDV Dahil') === 'KDV Hariç' ? $raw : $raw / (1 + $rate / 100);
+            $gross = ($r['taxMode'] ?? 'KDV Dahil') === 'KDV Hariç' ? $base * (1 + $rate / 100) : $raw;
+            $after = max(0.0, $gross - self::money($r['discountAmount'] ?? 0));
+            $lines[] = ['r' => $r, 'qty' => $qty, 'rate' => $rate, 'base' => $base, 'after' => $after, 'net' => $after / (1 + $rate / 100)];
+        }
+        $mode = in_array($sale->discountType ?? '', ['Tutar', 'Yüzde'], true) ? $sale->discountType : 'GenelToplamTL';
+        $discount = self::money($sale->discount ?? 0);
+        $weights = array_column($lines, $mode === 'GenelToplamTL' ? 'after' : 'net');
+        if ($mode === 'Yüzde') $discount = array_sum($weights) * min(100.0, $discount) / 100;
+        $weightSum = array_sum($weights) ?: 1;
+        $items = []; $net = 0.0; $vat = 0.0; $totalDiscount = 0.0;
+        foreach ($lines as $i => $l) {
+            $share = $discount * $weights[$i] / $weightSum;
+            $lineNet = $mode === 'GenelToplamTL' ? ($l['after'] - $share) / (1 + $l['rate'] / 100) : $l['net'] - $share;
+            $lineNet = max(0.0, round($lineNet, 2));
+            $unit = $l['base'] / $l['qty'];
+            $off = max(0.0, round($unit * $l['qty'] - $lineNet, 2));
+            $lineVat = round($lineNet * $l['rate'] / 100, 2);
+            $net += $lineNet; $vat += $lineVat; $totalDiscount += $off;
+            $items[] = ['name' => self::text((string)($l['r']['name'] ?? 'Hizmet'), 200) ?: 'Hizmet', 'quantity' => rtrim(rtrim(number_format($l['qty'], 3, ',', ''), '0'), ','), 'unit' => 'Adet',
+                'unitPrice' => self::tr2($unit), 'vatRate' => (string)(int)round($l['rate']), 'discount' => self::tr2($off), 'lineTotal' => self::tr2($lineNet), 'vatAmount' => self::tr2($lineVat)];
+        }
+        $gross = $net + $vat;
+        $discount = $totalDiscount;
+        $taxId = preg_replace('/\D/', '', (string)($input->taxId ?? ($client->nationalId ?? ''))) ?? '';
+        $name = self::text((string)($input->buyerName ?? ($client->name ?? '')), 160);
+        if ($name === '') throw new RuntimeException('Satışa müşteri seçin veya alıcı adını girin.', 422);
+        if ($kind === 'efatura') {
+            if (!preg_match('/\A\d{10,11}\z/', $taxId)) throw new RuntimeException('e-Fatura için alıcının VKN (10 hane) veya TCKN (11 hane) numarasını girin.', 422);
+            if (self::text((string)($input->taxOffice ?? ''), 80) === '') throw new RuntimeException('e-Fatura için alıcının vergi dairesini girin.', 422);
+        }
+        if ($taxId === '') $taxId = '11111111111'; // GİB kuralı: kimliği bilinmeyen nihai tüketici
+        if (!preg_match('/\A\d{10,11}\z/', $taxId)) throw new RuntimeException('Vergi/T.C. kimlik numarası 10 veya 11 hane olmalı.', 422);
+        [$first, $last] = array_pad(preg_split('/\s+(?=\S+$)/u', $name) ?: [$name], 2, '');
+        $payload = [
+            'kind' => $kind,
+            'buyer' => ['name' => $name, 'firstName' => $first, 'lastName' => $last, 'taxId' => $taxId, 'isCompany' => strlen($taxId) === 10 ? '1' : '0',
+                'taxOffice' => self::text((string)($input->taxOffice ?? ''), 80), 'address' => self::text((string)($input->address ?? ($client->address ?? '')), 300) ?: '-',
+                'city' => self::text((string)($client->city ?? ''), 40) ?: '-', 'district' => self::text((string)($client->district ?? ''), 40) ?: '-', 'country' => 'Türkiye',
+                'email' => self::text((string)($client->email ?? ''), 160), 'phone' => self::text((string)($client->phone ?? ''), 20)],
+            'invoice' => ['date' => self::date($sale->date ?? '') ?: date('d.m.Y', $now + 3 * 3600), 'time' => '12:00', 'currency' => 'TRY', 'type' => 'SATIŞ',
+                'note' => self::text((string)($input->note ?? ($sale->publicNotes ?? '')), 300)],
+            'items' => $items,
+            'total' => ['net' => self::tr2($net), 'vat' => self::tr2($vat), 'discount' => self::tr2($discount), 'gross' => self::tr2($gross)],
+        ];
+        if ($kind === 'esmm') {
+            $rate = max(0.0, min(100.0, self::money($input->vatRate ?? 20)));
+            $withholding = !empty($input->withholding) && strlen($taxId) === 10 ? 20.0 : 0.0;
+            $base = $gross / (1 + $rate / 100);
+            $payload['esmm'] = ['description' => self::text((string)($input->description ?? ($sale->detail ?? '') ?: implode(', ', array_column($items, 'name'))), 300) ?: 'Veteriner hekimlik hizmeti',
+                'gross' => self::tr2($base), 'vatRate' => (string)(int)$rate, 'vat' => self::tr2($base * $rate / 100), 'withholdingRate' => (string)(int)$withholding,
+                'withholding' => self::tr2($base * $withholding / 100), 'net' => self::tr2($base + $base * $rate / 100 - $base * $withholding / 100)];
+        }
+        $payload['summary'] = ['earsiv' => 'e-Arşiv', 'efatura' => 'e-Fatura', 'esmm' => 'e-SMM'][$kind].': '.$name.' · '.self::tr2($gross).' TL';
+        $payload['search'] = $name;
+        $payload['sale'] = $saleId;
+        $id = self::id();
+        $this->db->prepare('INSERT INTO clinic_bridge_job(id,partner_id,branch_id,kind,record_key,patient_id,payload,status,created_by,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
+            ->execute([$id, $actor['partner_id'], (string)($sale->branch ?? ''), $kind, $saleId, '', json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), 'queued',
+                mb_substr((string)($actor['name'] ?? ''), 0, 120, 'UTF-8'), $now, $now]);
+        $this->audit($actor, 'bridge.document');
+        return ['id' => $id, 'status' => 'queued', 'payload' => $payload];
+    }
+
     private function job(string $partner, string $id, bool $lock = false): array
     {
         if (!preg_match('/\A[a-f0-9]{32}\z/', $id)) throw new RuntimeException('İş bulunamadı.', 404);
@@ -257,11 +369,11 @@ final class MinistryBridge
             $this->db->prepare("UPDATE clinic_bridge_job SET status='cancelled',updated_at=? WHERE id=?")->execute([$now, $job['id']]);
         } elseif ($action === 'link') {
             $number = self::text($input->documentNo ?? '', 64);
-            if (!in_array($job['status'], ['uncertain', 'error'], true) || $number === '') throw new RuntimeException('Bakanlıktaki belge numarasını girin.', 422);
+            if (!in_array($job['status'], ['uncertain', 'error'], true) || $number === '') throw new RuntimeException('Bakanlık / portaldaki belge numarasını girin.', 422);
             $this->db->prepare("UPDATE clinic_bridge_job SET status='done',document_no=?,error='',finished_at=?,updated_at=? WHERE id=?")->execute([$number, $now, $now, $job['id']]);
         } elseif ($action === 'resend') {
             if (!in_array($job['status'], ['uncertain', 'error'], true)) throw new RuntimeException('Bu iş yeniden gönderilemez.', 409);
-            if ($job['status'] === 'uncertain' && ($input->checked ?? false) !== true) throw new RuntimeException('Önce Bakanlıkta belge olmadığını kontrol edin.', 422);
+            if ($job['status'] === 'uncertain' && ($input->checked ?? false) !== true) throw new RuntimeException('Önce Bakanlık / portalda belge oluşmadığını kontrol edin.', 422);
             $this->db->prepare("UPDATE clinic_bridge_job SET status='queued',phase='',attempts=0,error='',agent_id=NULL,updated_at=? WHERE id=?")->execute([$now, $job['id']]);
         } else {
             throw new RuntimeException('İşlem geçersiz.', 422);
@@ -307,12 +419,15 @@ final class MinistryBridge
         return ['command' => $agent['command'], 'queued' => (int)$c->fetchColumn()];
     }
 
-    public function claim(array $agent, int $now): array
+    public function claim(array $agent, int $now, ?array $portals = null): array
     {
         $this->db->beginTransaction();
         try {
-            $q = $this->db->prepare("SELECT * FROM clinic_bridge_job WHERE partner_id=? AND status='queued' ORDER BY seq LIMIT 1 FOR UPDATE");
-            $q->execute([$agent['partner_id']]);
+            // Ajan yalnız oturumu açık (veya bilinmeyen) portallardaki işleri ister.
+            $kinds = array_keys(array_filter(self::PORTAL, static fn($p) => in_array($p, $portals ?? array_values(array_unique(self::PORTAL)), true)));
+            if (!$kinds) { $this->db->commit(); return ['job' => null]; }
+            $q = $this->db->prepare("SELECT * FROM clinic_bridge_job WHERE partner_id=? AND status='queued' AND kind IN (".implode(',', array_fill(0, count($kinds), '?')).") ORDER BY seq LIMIT 1 FOR UPDATE");
+            $q->execute([$agent['partner_id'], ...$kinds]);
             $job = $q->fetch(PDO::FETCH_ASSOC);
             if (!$job) { $this->db->commit(); return ['job' => null]; }
             $this->db->prepare("UPDATE clinic_bridge_job SET status='claimed',phase='',agent_id=?,claimed_at=?,heartbeat_at=?,attempts=attempts+1,updated_at=? WHERE id=?")
@@ -379,13 +494,13 @@ final class MinistryBridge
     public function saveRecipe(array $agent, object $input, int $now): array
     {
         $kind = $input->kind ?? '';
-        if (!in_array($kind, [...self::KINDS, 'session'], true)) throw new RuntimeException('Tarif türü geçersiz.', 422);
+        if (!in_array($kind, [...self::KINDS, ...self::DOC_KINDS, 'session', 'session_gib', 'session_efatura', 'session_esmm'], true)) throw new RuntimeException('Tarif türü geçersiz.', 422);
         $recipe = $input->recipe ?? null;
         if (!is_object($recipe) || !is_array($recipe->steps ?? null) || count($recipe->steps) < 1 || count($recipe->steps) > 200) throw new RuntimeException('Tarif geçersiz.', 422);
         $allowed = ['goto', 'fill', 'select', 'click', 'check', 'wait', 'submit', 'read', 'repeat', 'end', 'press', 'pick'];
         foreach ($recipe->steps as $step) {
             if (!is_object($step) || !in_array($step->action ?? '', $allowed, true)) throw new RuntimeException('Tarif adımı geçersiz.', 422);
-            if (isset($step->url) && (!is_string($step->url) || !preg_match('~\A(https://([a-z0-9-]+\.)+gov\.tr|https?://(127\.0\.0\.1|localhost)(:\d+)?)(/|\z)~i', $step->url))) throw new RuntimeException('Tarif yalnızca gov.tr adreslerine gidebilir.', 422);
+            if (isset($step->url) && (!is_string($step->url) || !preg_match(self::URL_RULE, $step->url))) throw new RuntimeException('Tarif yalnızca kamu (gov.tr) ve tanınan e-belge entegratörü adreslerine gidebilir.', 422);
         }
         $json = json_encode($recipe, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
         if (strlen($json) > 400000) throw new RuntimeException('Tarif çok büyük.', 422);

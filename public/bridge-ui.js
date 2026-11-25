@@ -23,7 +23,7 @@ export function mountBridge(root, api) {
     return data;
   }
   async function load(quiet) {
-    try { ui.data = await request(); ui.error = ""; } catch (e) { ui.error = e.message; }
+    try { ui.data = await request(); ui.data.jobs = (ui.data.jobs || []).filter(j => ["prescription", "vaccine"].includes(j.kind)); ui.error = ""; } /* e-belge işleri e-Belgeler sayfasında */ catch (e) { ui.error = e.message; }
     if (!quiet || !root.querySelector("dialog[open]")) draw();
   }
   async function act(body, message) {
@@ -101,7 +101,7 @@ export function mountBridge(root, api) {
       card.append(code);
     }
     const recipes = d?.recipes || [];
-    card.append(el("p", tr("Öğretilen ekranlar") + ": " + (recipes.length ? recipes.map(r => tr({session: "Oturum", prescription: "Reçete", vaccine: "Aşı"}[r.kind] || r.kind) + " (v" + r.version + ")").join(", ") : tr("henüz yok")), {className: "br-muted"}));
+    card.append(el("p", tr("Öğretilen ekranlar") + ": " + (recipes.length ? recipes.map(r => tr({session: "Oturum", prescription: "Reçete", vaccine: "Aşı", earsiv: "e-Arşiv", efatura: "e-Fatura", esmm: "e-SMM", session_gib: "GİB oturumu", session_efatura: "e-Fatura oturumu", session_esmm: "e-SMM oturumu"}[r.kind] || r.kind) + " (v" + r.version + ")").join(", ") : tr("henüz yok")), {className: "br-muted"}));
     return card;
   }
 

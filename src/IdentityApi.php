@@ -265,11 +265,19 @@ final class IdentityApi
     {
         $this->db->prepare('INSERT INTO clinic_audit(partner_id,account_id,action) VALUES (?,?,?)')->execute([$actor['partner_id'],$actor['account_id'],$action]);
     }
+    public static function shortPassword(): string
+    {
+        $alphabet='ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+        $out='';
+        for ($i=0;$i<8;$i++) $out.=$alphabet[random_int(0,strlen($alphabet)-1)];
+        return $out;
+    }
     public function customerPassword(array $actor,string $id,?object $input,int $now,array $config=[]): array
     {
         if ($actor['role']!=='dealer') throw new RuntimeException('Bayi yöneticisi yetkisi gerekli.',403);
         $sms=($input->welcomeSms ?? false)===true;
-        $password=$sms ? bin2hex(random_bytes(8)) : ($input->password ?? null);
+        // İlk şifre SMS'e sığsın diye kısa ama tahmin edilemez: 8 karakter, karışmayan harf ve rakamlar.
+        $password=$sms ? self::shortPassword() : ($input->password ?? null);
         $request=null;
         if ($input && (!is_string($password) || !preg_match('/\A.{6,128}\z/us',$password))) {
             throw new RuntimeException('Şifre 6 ile 128 karakter arasında olmalı.',422);
@@ -295,9 +303,9 @@ final class IdentityApi
                 $provider=$config['appointmentReminderConnections'][$actor['partner_id']]['sms'] ?? [];
                 $clinic=ClinicAccess::branch($state,$client->branch)->name;
                 $template=$state->preferences->customerReminder_welcome_text ?? 'Sayın {musteri}, {klinik} ailesine hoş geldiniz.';
-                $message=strtr($template,['{musteri}'=>$client->name,'{klinik}'=>$clinic]);
-                $message.="\nVetZimo giriş numaranız: ".$phone."\nİlk şifreniz: ".$password.
-                    "\n".rtrim($config['origin'],'/')."/app";
+                $message=trim(strtr($template,['{musteri}'=>$client->name,'{klinik}'=>$clinic]));
+                $site=preg_replace('~\Ahttps://~','',rtrim((string)$config['origin'],'/'));
+                $message.="\nGiriş: ".substr($phone,3)." Şifre: ".$password."\n".$site."/app";
                 // Telefon Bağlantısı açıksa ilk giriş SMS'i kliniğin kendi hattından gider; Netgsm gerekmez.
                 $viaPhone=class_exists(PhoneGateway::class) && (new PhoneGateway($this->db))->route($actor['partner_id'],'sms');
                 if (!$viaPhone) {
@@ -339,12 +347,21 @@ final class IdentityApi
             $this->audit($actor,'customer.password_set');
             $this->db->commit();
             if (!$sms) return ['configured'=>true];
+            // KVKK ve iletişim izni onay bağlantısı her hoş geldin SMS'ine otomatik eklenir; klinik metninden bağımsızdır, silinemez.
+            $permitUrl='';
+            if (class_exists(ClientPermit::class)) {
+                try {
+                    $permitUrl=(new ClientPermit($this->db,rtrim((string)($config['origin'] ?? ''),'/')))->create($actor,(object)['client'=>$id,'method'=>'sms','silent'=>true],$now)['url'];
+                    $message.="\nKVKK/izin onayı: ".$permitUrl;
+                } catch (\Throwable) { /* onay formu oluşturulamazsa hoş geldin SMS'i yine gider */ }
+            }
             if (!empty($viaPhone)) {
                 try {
                     (new PhoneGateway($this->db))->enqueue($actor['partner_id'],'sms',$phone,$message,'manual','welcome:'.$id.':'.$now,0,$now,$now+86400,(string)($actor['name'] ?? ''));
-                    return ['configured'=>true,'sms'=>'accepted'];
+                    return ['configured'=>true,'sms'=>'queued','permit'=>$permitUrl!==''];
                 } catch (\Throwable) { return ['configured'=>true,'sms'=>'unknown']; }
             }
+            if ($request!==null) $request[2]['messages'][0]['msg']=$message;
             try {
                 [$status]=AppointmentReminders::send($request,'sms');
             } catch (\Throwable) {

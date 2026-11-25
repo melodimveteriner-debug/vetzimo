@@ -23,6 +23,21 @@ final class ClientPermit
 
     private static function hash(string $v): string { return hash('sha256', $v); }
 
+    /** SMS karakter sınırı için kısa, tek kullanımlık anahtar: 10 karakter (62^10 olasılık; 72 saat geçerli, deneme sınırlı). */
+    public static function shortToken(): string
+    {
+        $alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+        $out = '';
+        for ($i = 0; $i < 10; $i++) $out .= $alphabet[random_int(0, strlen($alphabet) - 1)];
+        return $out;
+    }
+
+    /** SMS'te yer kaplamasın diye "https://" yazılmaz; telefonlar www.… adresini bağlantı olarak tanır. */
+    public static function shortUrl(string $origin, string $token): string
+    {
+        return preg_replace('~\Ahttps://~', '', rtrim($origin, '/')).'/o/'.$token;
+    }
+
     private static function guard(array $actor, bool $write): void
     {
         if (!in_array($actor['role'] ?? '', ['dealer', 'branch', 'staff'], true) || !ClinicAccess::allowed($actor, 'clients', $write)) {
@@ -179,14 +194,14 @@ TXT;
         $this->db->prepare("UPDATE clinic_client_permit SET status='cancelled',token_hash=NULL WHERE partner_id=? AND client_id=? AND status='pending'")->execute([$actor['partner_id'], $client->id]);
         $doc = $this->document($actor, $state, $client, $now);
         $json = json_encode($doc, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-        $token = rtrim(strtr(base64_encode(random_bytes(24)), '+/', '-_'), '=');
+        $token = self::shortToken();
         $id = bin2hex(random_bytes(16));
         $this->db->prepare('INSERT INTO clinic_client_permit (id,partner_id,branch_id,client_id,client_name,phone,token_hash,expires_at,status,method,doc,doc_hash,created_by,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
             ->execute([$id, $actor['partner_id'], $client->branch, $client->id, mb_substr((string)($client->name ?? ''), 0, 160), $phone, self::hash($token), $now + self::TTL, 'pending', $method, $json, self::hash($json),
                 mb_substr((string)($actor['name'] ?? ''), 0, 120), $now]);
-        $url = $this->origin.'/onay/'.$token;
+        $url = self::shortUrl($this->origin, $token);
         $sent = null;
-        if (in_array($method, ['sms', 'whatsapp'], true)) {
+        if (in_array($method, ['sms', 'whatsapp'], true) && empty($input->silent)) {
             $route = $this->channels($actor['partner_id'])[$method];
             $text = $doc['clinic']['klinik'].': Kişisel verileriniz ve iletişim izinleriniz için onay formunuz: '.$url.' (72 saat geçerlidir)';
             if ($route) {
@@ -243,7 +258,7 @@ TXT;
     // ───────────────────────────── hayvan sahibi tarafı (tek kullanımlık bağlantı) ─────────────────────────────
     private function byToken(string $token, bool $lock = false): array
     {
-        if (!preg_match('/\A[A-Za-z0-9_-]{32}\z/', $token)) throw new RuntimeException('Bağlantı geçersiz.', 404);
+        if (!preg_match('/\A(?:[A-Za-z0-9]{10}|[A-Za-z0-9_-]{32})\z/', $token)) throw new RuntimeException('Bağlantı geçersiz.', 404);
         $q = $this->db->prepare('SELECT * FROM clinic_client_permit WHERE token_hash=?'.($lock ? ' FOR UPDATE' : ''));
         $q->execute([self::hash($token)]);
         $row = $q->fetch(PDO::FETCH_ASSOC);
