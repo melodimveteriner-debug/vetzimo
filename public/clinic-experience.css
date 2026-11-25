@@ -930,3 +930,6 @@ th[aria-sort] .column-sort span{color:var(--brand)}
 .patient-profile-header{grid-template-columns:minmax(min(100%,260px),1fr) minmax(0,max-content)}
 .patient-profile-actions{flex-wrap:wrap;justify-content:flex-end;min-width:0}
 @media(max-width:1180px){.patient-profile-header{grid-template-columns:minmax(0,1fr)}.patient-profile-actions{justify-content:flex-start}}
+/* Dar ekranda karşılama ve hava durumu kartı alt alta: başlık harf harf kırılmasın (Android 412 px). */
+@media (max-width:560px){.kv-welcome{grid-template-columns:minmax(0,1fr)}.kv-welcome .clinic-weather{justify-self:stretch;max-width:100%}}
+.kv-welcome-copy{min-width:min(100%,200px)}

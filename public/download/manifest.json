@@ -1,5 +1,5 @@
 {
-    "generated": "2026-11-25T05:06:45+00:00",
+    "generated": "2026-11-25T06:06:01+00:00",
     "files": {
         "windows": {
             "file": "VetZimo-Kurulum-1.0.0.exe",
@@ -46,22 +46,22 @@
         "android": {
             "file": "VetZimo-1.0.0.apk",
             "version": "1.0.0",
-            "size": 8992793,
-            "sha256": "75e28200c344ca9033b7ac33556f3fc9bf1f366724ce667eeaa0d93edf5083dc",
+            "size": 9114277,
+            "sha256": "2f69c75bccba85e97b5c8ad488ea7b24c825c2a78c457e628d47d9917e9badab",
             "date": "2026-11-25"
         },
         "android-aab": {
             "file": "VetZimo-1.0.0.aab",
             "version": "1.0.0",
-            "size": 7846627,
-            "sha256": "35cc35d839b5430c655a3b7fcbde845d543e65f508c53e3dc2b4fbbe4578b3f4",
+            "size": 7961181,
+            "sha256": "1b70e6b26ec6d6237a97129edbb62a45b8935edf96cef0c8058335faf0183516",
             "date": "2026-11-25"
         },
         "ios": {
             "file": "VetZimo-iOS.mobileconfig",
             "version": "1.0.0",
-            "size": 102746,
-            "sha256": "1e98509bb20922c443a5eea67f449ad2732a6750b4149ae6517f5f5535e440e7",
+            "size": 151270,
+            "sha256": "c2cd89cde5f471ede414214d123f6ae7d90057de444651a438f6b24ff9773c2a",
             "date": "2026-11-25"
         },
         "agent": {
