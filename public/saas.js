@@ -8,8 +8,8 @@ for (const [key,label] of [["","Site varsayılanı"],...sitePalettes]) {
   theme.add(new Option(label,key));
 }
 function applyMarketTheme(value) {
-  const local=value==="light"?"classic":validPalette(value)?value:"";
-  const current=(!locked&&local)||sitePalette||"classic";
+  const local=value==="light"?"orchid":validPalette(value)?value:"";
+  const current=(!locked&&local)||(validPalette(sitePalette)?sitePalette:"")||"orchid";
   html.dataset.theme=current;
   theme.value=locked?current:local;
   theme.disabled=locked;

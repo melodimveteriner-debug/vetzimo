@@ -18,20 +18,13 @@ export function applyTheme(value) {
 }
 
 export const sitePalettes=[
-  ["classic","Okyanus · Zümrüt","#08786c"],
-  ["blue","Kobalt · İris","#1353b6"],
-  ["olive","Fesleğen · Kehribar","#446624"],
-  ["coral","Mercan · Mandalina","#a43654"],
   ["orchid","Orkide · Safir","#713fa9"],
-  ["aurora","Aurora · Mor-Turkuaz","#5b3fd6"],
   ["prizma","Prizma · Işıltı","#6a3df0"],
   ["nebula","Nebula · Neon Gece","#6d4bf5"],
-  ["dark","Gece · Kuzey Işığı","#115067"],
-  ["midnight","Mürdüm Gece · Gül","#513161"],
 ];
 export const validPalette=value=>sitePalettes.some(([key])=>key===value);
 export const paletteColor=value=>sitePalettes.find(([key])=>key===value)?.[2]||defaultTheme;
-export const darkPalette=value=>value==="dark"||value==="midnight"||value==="nebula";
+export const darkPalette=value=>value==="nebula";
 export const defaultAppearance={palette:"",locked:false};
 
 export async function loadAppearance(options) {

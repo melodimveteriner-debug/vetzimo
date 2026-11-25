@@ -164,14 +164,6 @@ a.clinic-ops-card:hover,a.clinic-ops-card:focus-visible{outline:2px solid var(--
 .demo-checkout-form .demo-confirm input{width:auto}
 .demo-checkout-form button{justify-self:start}
 
-[data-clinic-palette=blue]{--brand-workspace:#eef5ff;--brand-tint:#e2eeff;--brand-border:#cfdff3;--brand-link:#1a5494}
-[data-clinic-palette=olive]{--brand-workspace:#f1f4ea;--brand-tint:#e7eddc;--brand-border:#d6dfca;--brand-link:#405c32}
-[data-clinic-palette=dark]{color-scheme:dark;--brand-workspace:#152032;--brand-tint:#263957;--brand-border:#3c5270;--brand-link:#bddaff;--ink:#e9f1fd;--muted:#bacbe2;--paper:#1b2b43;--bg:var(--brand-workspace)}
-[data-clinic-palette=dark] :is(.panel,.metric,.button:not(.primary):not(.hero-primary),input,select,textarea,dialog,.dialog-head,.dialog-foot,.schedule,.date-range,.invoice-line,.form-card,.topbar .icon-button,.cash-actions>div){background:var(--paper);color:var(--ink);border-color:var(--line)}
-[data-clinic-palette=dark] :is(.nav-item,.nav-label,#sidebar .clinic select,.muted,thead th){color:var(--muted)}
-[data-clinic-palette=dark] :is(thead th,tbody tr:hover){background:var(--brand-tint)}
-@media print{[data-clinic-palette=dark]{color-scheme:light;background:white;color:black}}
-
 #nav .nav-label{margin:12px 0 5px;color:var(--muted);letter-spacing:.07em;text-transform:uppercase}
 #nav .nav-section:first-child .nav-label{margin-top:0}
 #nav .subnav .nav-shortcut{min-height:34px;border-radius:8px;padding:6px 8px}

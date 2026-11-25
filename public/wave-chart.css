@@ -1,5 +1,4 @@
 .wave-chart{--wave-blue:var(--theme-chart-a,#295cc6);--wave-teal:color-mix(in srgb,var(--theme-accent,#07816e) 66%,#07816e);--wave-coral:#b83255;--wave-purple:var(--theme-chart-b,#7b43b8);--wave-gold:#956016;--wave-bg:var(--theme-plot,#f5f8fd);--wave-grid:var(--theme-line,#d6e2ee);--wave-text:var(--theme-muted,#4c5a70);min-width:0;margin:0 10px 10px;padding:7px clamp(5px,1.5vw,14px) 9px;background:var(--wave-bg);border:1px solid var(--wave-grid);border-radius:12px}
-:is([data-theme=dark],[data-theme=midnight],[data-theme=nebula],[data-clinic-palette=dark],[data-clinic-palette=midnight],[data-clinic-palette=nebula],[data-center-palette=dark],[data-center-palette=midnight],[data-center-palette=nebula]) .wave-chart{--wave-teal:#67e6bb;--wave-coral:#ff9ab0;--wave-gold:#ffd58f}
 .wave-chart svg{display:block;width:100%;height:auto;overflow:visible}
 .wave-blue{color:var(--wave-blue)}.wave-teal{color:var(--wave-teal)}.wave-coral{color:var(--wave-coral)}.wave-purple{color:var(--wave-purple)}.wave-gold{color:var(--wave-gold)}
 .wave-chart .wave-grid{fill:none;stroke:var(--wave-grid);stroke-dasharray:3 5}

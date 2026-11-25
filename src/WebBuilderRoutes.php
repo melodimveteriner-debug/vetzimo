@@ -62,7 +62,7 @@ final class WebBuilderRoutes
         if (!$external && $path==='/yonetim/web-siteleri') {
             $center=new Center($db,$config);
             $owner=$center->requireOwner($_COOKIE,$now,$method==='POST');
-            WebBuilderAdmin::$palette=(new Appearance($db))->read()['palette']?:'classic';
+            WebBuilderAdmin::$palette=(new Appearance($db))->read()['palette']?:'orchid';
             $plans=(new Commerce($db))->catalog();
             $search=is_string($_GET['q']??null)&&preg_match('/\A.{0,120}\z/us',$_GET['q'])?trim($_GET['q']):'';
             $requestedPage=WebBuilderAdmin::pageNumber($_GET['sayfa']??1);
@@ -170,13 +170,13 @@ final class WebBuilderRoutes
                     $actor['partner_id']=$centerPath[2];
                     $path='/web-sitem'.substr($path,strlen($editor));
                     $admin=new WebBuilderAdmin($web,$editor);
-                    WebBuilderAdmin::$palette=(new Appearance($db))->read()['palette']?:'classic';
+                    WebBuilderAdmin::$palette=(new Appearance($db))->read()['palette']?:'orchid';
                 } else {
                     $actor=$workspaces->actor($_COOKIE,$now);
                     // Klinik paneliyle aynı tema: genel tema kilitli değilse kişisel tema.
                     $appearance=new Appearance($db);
                     $global=$appearance->read();
-                    WebBuilderAdmin::$palette=(!$global['locked']?$appearance->read('account:'.$actor['account_id'])['palette']:'')?:($global['palette']?:'classic');
+                    WebBuilderAdmin::$palette=(!$global['locked']?$appearance->read('account:'.$actor['account_id'])['palette']:'')?:($global['palette']?:'orchid');
                 }
             } catch (RuntimeException $error) {
                 if ($path==='/web-sitem' && in_array($error->getCode(),[401,403],true)) {

@@ -199,7 +199,7 @@ function layout({title,body,preview,site,collect}) {
   const appearance=site.appearance||{}, sections=site.sections||[];
   const content=marketEditableHTML(body,page.copy,collect?.page);
   const arranged=title==="Veteriner klinik yönetim platformu"?marketArrangeHome(content,page.layout,sections):content;
-  return `<!doctype html><html lang="tr" data-site-palette="${escape(appearance.palette)}" data-theme-lock="false" data-theme="${escape(appearance.palette||"classic")}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  return `<!doctype html><html lang="tr" data-site-palette="${escape(appearance.palette)}" data-theme-lock="false" data-theme="${escape(appearance.palette||"orchid")}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>${escape(pageTitle)}</title><meta name="description" content="${escape(desc)}">
   ${keywords?'<meta name="keywords" content="'+escape(keywords)+'">':""}
   ${preview?'<meta name="robots" content="noindex,nofollow">':""}<link rel="icon" href="/favicon.ico?v=51" type="image/x-icon"><link rel="stylesheet" href="/saas.css"><link rel="stylesheet" href="/wave-chart.css"><link rel="stylesheet" href="/themes.css"><script src="/saas.js" type="module"></script></head>

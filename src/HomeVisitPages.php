@@ -9,7 +9,7 @@ use PDO;
 final class HomeVisitPages
 {
     private static bool $clinicPanel=false;
-    private static string $clinicPalette='classic';
+    private static string $clinicPalette='orchid';
     /** Hasta sahibi Evde Hizmet sayfalarının teması (sitenin genel teması). */
     private static string $surfacePalette='';
     private const COOKIE='__Host-vetnet-visit';
@@ -304,7 +304,7 @@ final class HomeVisitPages
         $appearance=new Appearance($this->db);
         $global=$appearance->read();
         $personal=$appearance->read('account:'.$actor['account_id']);
-        return (!$global['locked']?$personal['palette']:'')?:($global['palette']?:'classic');
+        return (!$global['locked']?$personal['palette']:'')?:($global['palette']?:'orchid');
     }
 
     private function publicationPanel(string $partner,array $settings): string
@@ -418,7 +418,7 @@ final class HomeVisitPages
             if (!$actor) self::redirect('/app');
             if ($settingsPage && $actor['role']!=='dealer') self::settingsError('Evde Hizmet ayarlarını değiştirmek için bayi yöneticisi hesabıyla giriş yapın.',403);
             if ($owner!==($actor['role']==='customer')) throw new RuntimeException('Hesap yetkiniz yeterli değil.',403);
-            if ($owner) self::$surfacePalette=(new Appearance($this->db))->read()['palette']?:'classic';
+            if ($owner) self::$surfacePalette=(new Appearance($this->db))->read()['palette']?:'orchid';
             $state=$this->visits->accessState($actor['partner_id'],$actor);
             if (!ClinicAccess::valid($actor,$state)) {
                 if ($settingsPage) self::settingsError('Çalışma alanı doğrulanamadı. Hesabınızla yeniden giriş yapın.',403);
@@ -529,7 +529,7 @@ final class HomeVisitPages
         }
         if (($_GET['panel']??'')==='1') {
             self::$clinicPanel=true;
-            self::$clinicPalette=(new Appearance($this->db))->read()['palette']?:'classic';
+            self::$clinicPalette=(new Appearance($this->db))->read()['palette']?:'orchid';
         }
         $plans=['_default'=>'Varsayılan']+array_column((new Commerce($this->db))->catalog(),'name','id');
         $current=array_column($this->visits->web->query('SELECT plan_id,enabled FROM clinic_visit_package')->fetchAll(),'enabled','plan_id');
