@@ -926,3 +926,7 @@ th[aria-sort] .column-sort span{color:var(--brand)}
 .store-pay-frame{width:100%;min-height:720px;border:1px solid var(--line);border-radius:14px;background:#fff}
 .store-ok{border-left:4px solid #15803d}.store-bad{border-left:4px solid #b91c1c}
 .homecare-flag dd{color:#b91c1c;font-weight:700}
+/* Hasta başlığı: ad sütunu daralmaz, düğmeler sığmazsa alt satıra kayar; dar ekranda tek sütun */
+.patient-profile-header{grid-template-columns:minmax(min(100%,260px),1fr) minmax(0,max-content)}
+.patient-profile-actions{flex-wrap:wrap;justify-content:flex-end;min-width:0}
+@media(max-width:1180px){.patient-profile-header{grid-template-columns:minmax(0,1fr)}.patient-profile-actions{justify-content:flex-start}}
