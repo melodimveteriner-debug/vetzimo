@@ -812,7 +812,7 @@ m.openXrayAssist({src:img.src,species:pt?.species||"",patient:pt?.name||"",pixel
 
 // Çok kanallı gelen kutusu (omni-inbox.js): WhatsApp, Facebook, Instagram, Telegram, SMS, e-posta ve web formu; yanıt yazan konuşmayı üstlenir.
 var vzOmniStop=null;
-function vzOmni(root){if(!root)return;vzOmniStop?.();root.textContent=We("Yükleniyor…");import("./omni-inbox.js?v=6").then(({mountOmniInbox})=>{if(!root.isConnected)return;
+function vzOmni(root){if(!root)return;vzOmniStop?.();root.textContent=We("Yükleniyor…");import("./omni-inbox.js?v=7").then(({mountOmniInbox})=>{if(!root.isConnected)return;
 vzOmniStop=mountOmniInbox(root,{tr:We,fetch:Ye,toast:m=>be(m),canWrite:Ne!=="readonly"&&!S.subscriptionRestricted&&ne(S,Fe("clients"),!0),
 search(q){let k=De(q||""),d=String(q||"").replace(/\D/g,"");if(k.length<2&&d.length<4)return[];let out=[];for(let c of Y("clients")){if(De(c.name).includes(k)||d.length>=4&&String(c.phone||"").replace(/\D/g,"").includes(d)){out.push(c);if(out.length>=8)break}}return out}})}).catch(x=>{root.isConnected&&(root.textContent=x.message)})}
 
