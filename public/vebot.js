@@ -5,6 +5,7 @@
 // Metinler Türkçe kalıp anahtarlarıdır; ui-copy.js bunları seçili dile çevirir.
 
 import {interpretLabs} from "./lab-interpret.js?v=20261124-r2";
+import {vetAnswer, KNOWLEDGE_EXAMPLES} from "./vet-knowledge.js?v=1";
 
 const TZ = "Europe/Istanbul";
 const isoDay = new Intl.DateTimeFormat("en-CA", {timeZone:TZ, year:"numeric", month:"2-digit", day:"2-digit"});
@@ -459,7 +460,7 @@ export function createEngine(ctx) {
     return answer("Size şu konularda yardımcı olabilirim:", {
       items:[["“Bugünkü ciro ne kadar?” · “Bu ay en çok satılan ürün hangisi?”", ""], ["“Kritik stokta neler var?” · “SKT yaklaşan ürünler”", ""],
         ["“Yarınki randevular” · “Bugün kaç muayene yapıldı?”", ""], ["“Geciken aşılar” · “Açık bakiyesi olan müşteriler”", ""],
-        ["“Pamuk’un son hemogramını özetle” · “Pamuk’un son ilaçları”", ""], ["“Yeni randevu” · “Günün özeti”", ""]],
+        ["“Pamuk’un son hemogramını özetle” · “Pamuk’un son ilaçları”", ""], ["“Yeni randevu” · “Günün özeti”", ""], ["Hekim bilgisi: " + KNOWLEDGE_EXAMPLES.slice(0, 6).join(" · "), ""], [KNOWLEDGE_EXAMPLES.slice(6).join(" · "), ""]],
       note:"Yanıtlar yalnızca bu cihazda, görmeye yetkili olduğunuz kayıtlardan hazırlanır. Veriler dışarı gönderilmez.",
     });
   }
@@ -467,6 +468,13 @@ export function createEngine(ctx) {
   return function respond(text) {
     const t = norm(text);
     if (!t) return help();
+    // Hekim başvuru bilgisi (doz, aşı, referans, zehirlenme, ayırıcı tanı…); hasta adı geçiyorsa tür ve kilo kayıttan alınır.
+    if (!/^(yardim|help|merhaba|selam)\b/.test(t)) {
+      const named = findPatients(text);
+      const pet = named.length === 1 ? named[0] : null;
+      const known = vetAnswer(text, pet ? {species: /kedi/i.test(pet.species || "") ? "cat" : /k[öo]pek/i.test(pet.species || "") ? "dog" : /tav[şs]an/i.test(pet.species || "") ? "rabbit" : "", weight: pet.weight, name: pet.name} : {});
+      if (known) return answer(known.text, known);
+    }
     if (isUrgent(text)) {
       return answer("Acil olabilir", {urgent:true, note:"Anlatılan belirti acil müdahale gerektirebilir. Hayvanı bekletmeden hekime gösterin; kliniğe ulaşamıyorsanız en yakın 7/24 açık veteriner kliniğine başvurun. VeBot tanı koymaz."});
     }
@@ -589,7 +597,7 @@ export function mountVeBot(ctx) {
     try { result = respond(text); }
     catch (error) { console.error("VeBot", error); result = {text:"Bu soruyu şu anda yanıtlayamadım. Sayfayı yenileyip tekrar deneyin."}; }
     if (!result) {
-      result = {text:"Bu soruyu klinik verilerinden yanıtlayamadım.", note:"Ciro, tahsilat, gider, alacak, stok, SKT, randevu, muayene, aşı, mesaj ve hasta özeti sorularını yanıtlayabilirim. Örnek: “Bu hafta en çok satılan ürün”.", links:[]};
+      result = {text:"Bu soruyu yanıtlayamadım.", note:"Klinik verisi (ciro, tahsilat, stok, randevu, muayene, aşı, hasta özeti) ve hekim bilgisi (ilaç dozu, aşı takvimi, normal değerler, referans aralıkları, zehirlenmeler, ayırıcı tanı, sıvı/enerji, gebelik, KPR) sorularını yanıtlayabilirim. Örnek: “4 kg kedi meloksikam dozu”.", links:[]};
     }
     bubble("bot", renderAnswer(result));
   }
