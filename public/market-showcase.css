@@ -1,6 +1,6 @@
 /* Satış sitesi · yeni özellik vitrinleri: hafif, CSS ile hareketli SVG çizimler (hareket azaltma tercihine uyar). */
 .ms-grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));margin:8px 0 34px}
-.ms-card{position:relative;display:grid;gap:8px;align-content:start;padding:18px;border:1px solid color-mix(in srgb,currentColor 12%,transparent);border-radius:20px;background:color-mix(in srgb,var(--brand-bg,#713fa9) 5%,var(--surface,#fff));color:inherit;text-decoration:none;overflow:hidden;transition:transform .25s ease,box-shadow .25s ease}
+.ms-card{position:relative;display:grid;gap:8px;align-content:start;padding:18px;border:1px solid color-mix(in srgb,currentColor 12%,transparent);border-radius:20px;background:color-mix(in srgb,var(--brand-bg,#713fa9) 5%,var(--lp-card,var(--surface,#fff)));color:inherit;text-decoration:none;overflow:hidden;transition:transform .25s ease,box-shadow .25s ease}
 .ms-card:hover,.ms-card:focus-visible{transform:translateY(-4px);box-shadow:0 18px 40px color-mix(in srgb,var(--brand-bg,#713fa9) 22%,transparent)}
 .ms-card h3{margin:2px 0 0;font-size:1.06rem}.ms-card p{margin:0;font-size:.92rem;line-height:1.5;opacity:.82}
 .ms-badge{justify-self:start;padding:3px 9px;border-radius:999px;font-size:.72rem;font-weight:700;letter-spacing:.04em;background:color-mix(in srgb,var(--brand-bg,#713fa9) 16%,transparent)}
@@ -44,3 +44,6 @@
 .feature-illustration .ms-art{max-width:520px;margin-inline:auto}
 .ms-home{padding-block:20px;padding-inline:max(16px,env(safe-area-inset-left,0px));max-width:1200px;margin-inline:auto}.ms-home .sub-title{text-align:center}
 .ms-points{margin:10px 0 0;padding-left:20px;display:grid;gap:8px;line-height:1.55}
+/* Evde hizmet rota çizgisi ve ayar dişlisi */
+.ms-route{fill:none;stroke:#1baf7a;stroke-width:5;stroke-linecap:round;stroke-dasharray:10 8;animation:ms-route 1.6s linear infinite}@keyframes ms-route{to{stroke-dashoffset:-36}}
+.ms-spin{animation:ms-spin 6s linear infinite}@keyframes ms-spin{to{transform:rotate(360deg)}}

@@ -140,3 +140,18 @@ Her madde Android (en az bir Samsung ve bir Pixel), iPhone ve iPad'de denenmelid
 - [ ] Bayi, şube, personel ve hasta sahibi hesaplarında yalnız yetkili verinin göründüğü.
 - [ ] Hesap silme talebi ve merkez panelinden tamamlanması.
 - [ ] Sürüm yönetimi: zorunlu güncellemede uygulamanın güncelleme ekranına yönlendirmesi.
+
+## İndirme klasörü ve "Uygulama indir" sayfası
+
+- Tüm kurulum dosyaları `public/indir/` klasöründe toplanır; kaynakları `apps/` altında da kalır. Klasörü güncellemek için: `php bin/build-downloads.php` (dosyaları kopyalar, klinik ajanı zip'ini üretir, `manifest.json` içine boyut ve SHA-256 yazar).
+- Satış sitesinde sayfa: `/platform/uygulama-indir` (kısa adres `/indir`). Her dosya için QR kod, cihaza göre öneri ve SHA-256 değeri gösterilir.
+- Google Play, App Store ve Mac bağlantıları **Merkez › Uygulama Yönetimi › Sürümler** bölümünde yayımlanan sürümün adresinden otomatik alınır; yayımlanana kadar bekleme metni görünür.
+- Büyük kurulum dosyaları depoya girmez (`.gitignore`); kurulum paketine dahil edilir.
+
+## Windows kurucusu (Linux'ta da üretilebilir)
+
+`npm run dist:win-kurulum:linux` (Windows'ta `npm run dist:win-kurulum`): electron-builder ile uygulama klasörünü hazırlar, `build/brand-exe.mjs` simge ve sürüm bilgisini yazar, `build/installer.nsi` NSIS ile `VetZimo-Kurulum-<sürüm>.exe` üretir. Kullanıcı başına kurulum (yönetici izni gerekmez), Başlat menüsü ve masaüstü kısayolu, `vetzimo://` bağlantıları ve Program Ekle/Kaldır kaydı içerir. Kod imzalama sertifikası alınınca `signtool` ile imzalanmalıdır; imzasız kurucuda Windows SmartScreen uyarısı görülebilir.
+
+## Android yayın imzası
+
+Dağıtım anahtarı depo dışında tutulur (`apps/mobile/android/keystore.properties` ve `.jks` git'e girmez). Uygulama Yönetimi › Push sağlayıcıları bölümündeki "Android SHA-256" alanına bu anahtarın SHA-256 parmak izi girilmelidir (App Links doğrulaması için). Anahtar kaybolursa aynı paket adıyla güncelleme yayımlanamaz; yedeğini güvenli yerde saklayın.

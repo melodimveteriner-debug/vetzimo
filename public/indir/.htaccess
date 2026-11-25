@@ -1,0 +1,25 @@
+# İndirme klasörü: yalnız dosya sunar, betik çalıştırmaz, listeleme kapalı.
+Options -Indexes -ExecCGI
+<IfModule mod_php.c>
+    php_flag engine off
+</IfModule>
+RemoveHandler .php .phtml .php5 .php7 .php8 .phar
+<FilesMatch "(?i)\.(?:php\d?|phtml|phar)$">
+    Require all denied
+</FilesMatch>
+<IfModule mod_mime.c>
+    AddType application/vnd.android.package-archive .apk
+    AddType application/octet-stream .aab .AppImage .deb .dmg .exe
+    AddType application/zip .zip
+    AddType text/plain .sh .py
+    AddCharset utf-8 .sh .py .json
+</IfModule>
+<IfModule mod_headers.c>
+    <FilesMatch "(?i)\.(?:apk|aab|appimage|deb|dmg|exe|zip|sh|py)$">
+        Header set Content-Disposition "attachment"
+        Header set Cache-Control "public, max-age=3600"
+    </FilesMatch>
+    <Files "manifest.json">
+        Header set Cache-Control "no-cache"
+    </Files>
+</IfModule>

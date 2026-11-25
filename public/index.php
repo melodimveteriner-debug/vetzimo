@@ -1086,7 +1086,7 @@ try {
         $tmp=tempnam(sys_get_temp_dir(),'vzbridge');
         $zip=new ZipArchive();
         $zip->open($tmp,ZipArchive::OVERWRITE);
-        foreach (['agent.mjs','whatsapp.mjs','recorder.js','panel.html','package.json','kur.cmd','kur.ps1','baslat.vbs','baslat.sh','OKU-BENI.txt'] as $file) $zip->addFile($dir.'/'.$file,'VetZimoKopru/'.$file);
+        foreach (['agent.mjs','whatsapp.mjs','devices.mjs','device-parsers.mjs','recorder.js','panel.html','package.json','kur.cmd','kur.ps1','baslat.vbs','baslat.sh','OKU-BENI.txt'] as $file) $zip->addFile($dir.'/'.$file,'VetZimoKopru/'.$file);
         $zip->addFromString('VetZimoKopru/config.json',json_encode(['server'=>rtrim((string)$config['origin'],'/'),'token'=>'','ministryUrl'=>'https://vetbis.tarimorman.gov.tr'],JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES));
         $zip->close();
         header('Content-Type: application/zip');

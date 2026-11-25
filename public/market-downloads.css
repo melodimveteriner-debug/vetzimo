@@ -1,0 +1,33 @@
+/* Satış sitesi · Uygulama indir sayfası ve ana sayfa bandı (tüm temalarda okunur; telefon, tablet, masaüstü). */
+.dl-hero,.dl-band{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:28px;align-items:center;margin:8px 0 34px;padding:26px;border-radius:24px;border:1px solid color-mix(in srgb,currentColor 12%,transparent);background:linear-gradient(135deg,color-mix(in srgb,var(--brand-bg,#713fa9) 10%,var(--lp-card,var(--surface,#fff))),color-mix(in srgb,#1aa6b7 8%,var(--lp-card,var(--surface,#fff))))}
+.dl-hero>div,.dl-band>div{min-width:0}
+.dl-hero h2,.dl-band h2{margin:6px 0 8px;text-wrap:balance}.dl-hero p,.dl-band p{margin:0 0 12px;line-height:1.55;opacity:.85}
+.dl-qr{margin:0;display:grid;justify-items:center;gap:6px}
+.dl-qr>div{padding:8px;border-radius:14px;background:#fff;box-shadow:0 6px 18px rgba(20,24,40,.12);line-height:0}
+.dl-qr>div svg{display:block;max-width:100%;height:auto}
+.dl-qr figcaption{font-size:.78rem;font-weight:600;opacity:.75;text-align:center}
+.dl-grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(min(100%,330px),1fr));margin:8px 0 34px}
+.dl-card{position:relative;display:grid;gap:14px;align-content:start;padding:20px;border-radius:20px;border:1px solid color-mix(in srgb,currentColor 12%,transparent);background:color-mix(in srgb,var(--brand-bg,#713fa9) 4%,var(--lp-card,var(--surface,#fff)));min-width:0}
+.dl-card.is-recommended{border-color:var(--brand-bg,#713fa9);box-shadow:0 0 0 2px color-mix(in srgb,var(--brand-bg,#713fa9) 35%,transparent),0 18px 40px color-mix(in srgb,var(--brand-bg,#713fa9) 18%,transparent)}
+.dl-rec{justify-self:start;padding:3px 10px;border-radius:999px;font-size:.72rem;font-weight:700;letter-spacing:.04em;color:#fff;background:var(--brand-bg,#713fa9)}
+.dl-top{display:flex;gap:14px;align-items:flex-start}.dl-top>div{min-width:0}
+.dl-icon{flex:none;display:grid;place-items:center;width:48px;height:48px;border-radius:14px;font-size:1.6rem;background:color-mix(in srgb,var(--brand-bg,#713fa9) 14%,transparent)}
+.dl-card h3{margin:2px 0 4px;font-size:1.08rem}.dl-card p{margin:0;font-size:.92rem;line-height:1.5;opacity:.85}
+.dl-body{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:start}
+.dl-actions{display:grid;gap:8px;min-width:0}
+.dl-file{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:4px 10px;text-align:left}
+.dl-file small{font-weight:500;opacity:.8;font-size:.78rem}
+.dl-note,.dl-wait{font-size:.82rem!important;opacity:.78}
+.dl-wait a{font-weight:700}
+.dl-sum{font-size:.78rem}.dl-sum summary{cursor:pointer;font-weight:600;opacity:.8}
+.dl-sum ul{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:6px}
+.dl-sum li{display:grid;gap:2px;min-width:0}.dl-sum code{font-size:.72rem;overflow-wrap:anywhere;opacity:.8}
+.dl-chips{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 16px}
+.dl-chips span{padding:5px 11px;border-radius:999px;font-size:.84rem;font-weight:600;background:color-mix(in srgb,var(--brand-bg,#713fa9) 12%,transparent)}
+.dl-chips span.on{color:#fff;background:var(--brand-bg,#713fa9)}
+.dl-band{margin-top:24px;margin-bottom:24px}
+@media (max-width:720px){
+  .dl-hero,.dl-band{grid-template-columns:1fr;padding:20px}
+  .dl-hero .dl-qr,.dl-band .dl-qr{justify-self:center}
+}
+@media (max-width:420px){.dl-body{grid-template-columns:1fr}.dl-body .dl-qr{justify-self:start}}
