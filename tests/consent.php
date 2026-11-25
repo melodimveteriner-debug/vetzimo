@@ -53,4 +53,24 @@ ok($h['status']==='declined' && $h['note']==='Ücreti düşünmek istiyorum','Re
 $k=$c->create($actor,(object)['patient'=>'p1','title'=>'İptal edilecek','body'=>'X'],$now);
 ok($c->cancel($actor,$k['id'],$now)['status']==='cancelled' && count($c->ownerList($o1))===2,'İptal edilen form sahibe görünüyor');
 fails(fn()=>$c->get($o1,$k['id']),'İptal formu sahip açtı',404);
+// SMS bağlantısı (hat yok → bağlantı elle paylaşılır), hesapsız imza, tek kullanım; yüz yüze imza
+$c=new ClinicConsent($db,'https://klinik.example');
+$m=$c->create($actor,(object)['patient'=>'p2','recordType'=>'surgery','title'=>'Ameliyat onamı','body'=>'Riskler.','method'=>'sms'],$now);
+ok($m['delivery']['status']==='manual' && preg_match('~\Ahttps://klinik\.example/k/([A-Za-z0-9]{10})\z~',$m['delivery']['url'],$mm) && str_contains($m['delivery']['share'],'klinik.example/k/'),'SMS bağlantısı üretilmedi');
+$open=$c->openLink($mm[1],$now);
+ok($open['title']==='Ameliyat onamı' && $open['hash']===$m['hash'] && str_contains(ClinicConsent::linkPage($open),'pmForm'),'Bağlantı sayfası açılmadı');
+fails(fn()=>$c->decideLink($mm[1],(object)['decision'=>'sign','signerName'=>'Başka Sahip','read'=>false,'signature'=>$png,'hash'=>$m['hash']],$now,[]),'Okumadan imza kabul edildi',422);
+ok($c->decideLink($mm[1],(object)['decision'=>'sign','signerName'=>'Başka Sahip','read'=>true,'signature'=>$png,'hash'=>$m['hash']],$now,['REMOTE_ADDR'=>'192.0.2.9'])['status']==='signed','Bağlantıyla imza olmadı');
+ok($c->get($actor,$m['id'])['channel']==='sms','İmza kanalı yanlış');
+fails(fn()=>$c->openLink($mm[1],$now),'Kullanılmış bağlantı yeniden açıldı',404);
+fails(fn()=>$c->create($actor,(object)['patient'=>'p2','title'=>'E','body'=>'E','method'=>'email'],$now)['delivery'],'E-postasız sahibe e-posta gönderildi',422);
+$e=$c->create($actor,(object)['patient'=>'p2','title'=>'E-posta onamı','body'=>'Metin.'],$now);
+$sent=$c->sendLink($actor,$e['id'],'email',(object)['email'=>'sahip@example.test'],$now);
+ok(in_array($sent['status'],['email_sent','email_failed'],true),'E-posta yolu çalışmadı');
+$c->openLink(substr($sent['url'],-10),$now+5);
+fails(fn()=>$c->openLink(substr($sent['url'],-10),$now+ClinicConsent::LINK_TTL+1),'Süresi dolmuş bağlantı açıldı',410);
+$y=$c->create($actor,(object)['patient'=>'p2','title'=>'Yüz yüze','body'=>'Metin.','method'=>'in-person'],$now);
+fails(fn()=>$c->signInClinic($actor,$y['id'],(object)['decision'=>'sign','inPerson'=>true,'signerName'=>'Başka Sahip','agree'=>true,'signature'=>$png,'hash'=>$y['hash']],$now,[]),'Kimlik doğrulaması olmadan yüz yüze imza',422);
+$y=$c->signInClinic($actor,$y['id'],(object)['decision'=>'sign','inPerson'=>true,'verifiedInPerson'=>true,'signerName'=>'Başka Sahip','agree'=>true,'signature'=>$png,'hash'=>$y['hash']],$now,[]);
+ok($y['channel']==='in-person' && str_starts_with($y['note'],'Kimlik yüz yüze doğrulandı'),'Yüz yüze imza kaydı yanlış');
 echo "PASS Dijital onam: mühürlü metin, sahip yalıtımı, imza doğrulama, sürüm denetimi, değişmezlik, klinikte imza, red ve iptal\n";

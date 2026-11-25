@@ -95,7 +95,9 @@ final class IdentityApi
         $query->execute([$actor['partner_id']]);
         $shares=$query->fetchAll();
         return ['staffSetup'=>true,'partnerId'=>$actor['partner_id'],'branches'=>$state->branches,'clients'=>$state->clients,'members'=>$members,'sharedRecords'=>$records,'shares'=>$shares,
-            'quotas'=>['branchCap'=>2,'userCap'=>4,'users'=>(int)$count->fetchColumn()]];
+            'quotas'=>(function() use ($actor,$count){$lim=(new Commerce($this->db))->packageActor(['partner_id'=>$actor['partner_id']])['packageLimits']??[];
+                $u=$lim['users']??null;$br=$lim['branches']??null;
+                return ['branchCap'=>$br??999999,'userCap'=>$u??999999,'unlimitedUsers'=>$u===null,'users'=>(int)$count->fetchColumn()];})()];
     }
     private function sensitive(array $actor,string $scope,int $now): void
     {
@@ -166,14 +168,26 @@ final class IdentityApi
             if($role!=='customer') {
                 $q=$this->db->prepare("SELECT DISTINCT account_id FROM identity_membership WHERE partner_id=? AND role IN ('branch','staff') AND status<>'revoked'");
                 $q->execute([$actor['partner_id']]); $ids=$q->fetchAll(PDO::FETCH_COLUMN);
-                if(count($ids)>=4 && !in_array($account['id'],$ids,true)) throw new RuntimeException('En fazla 4 ekip hesabı oluşturabilirsiniz.',422);
+                $cap=(new Commerce($this->db))->packageActor(['partner_id'=>$actor['partner_id']])['packageLimits']['users']??null;
+                if($cap!==null && count($ids)>=$cap && !in_array($account['id'],$ids,true)) {
+                    throw new RuntimeException('Paketinizdeki kullanıcı sınırı ('.$cap.') doldu. Kullanılmayan üyelikleri kapatın veya paketinizi yükseltin.',422);
+                }
             }
-            $q=$this->db->prepare('SELECT id FROM identity_membership WHERE account_id=? AND partner_id=? AND role=? AND branch_id=? AND customer_id=?');
+            $q=$this->db->prepare('SELECT id,status FROM identity_membership WHERE account_id=? AND partner_id=? AND role=? AND branch_id=? AND customer_id=?');
             $q->execute([$account['id'],$actor['partner_id'],$role,$branchId,$customer]);
-            if($q->fetch()) throw new RuntimeException('Bu üyelik zaten var. Mevcut üyeliği yönetin.',409);
-            $id=bin2hex(random_bytes(16));
-            $this->db->prepare('INSERT INTO identity_membership(id,account_id,partner_id,role,branch_id,customer_id,name,modules,status) VALUES (?,?,?,?,?,?,?,?,?)')
-                ->execute([$id,$account['id'],$actor['partner_id'],$role,$branchId,$customer,$name,$modules,$direct?'active':'pending']);
+            $existing=$q->fetch();
+            if($existing) {
+                // Bekleyen davet yeniden gönderilir (eski bağlantılar geçersiz olur); kapalı üyelik istenirse yeniden açılır.
+                if($existing['status']==='active') throw new RuntimeException('Bu kişinin üyeliği zaten etkin. Şifre sıfırlama için üyelik kartını kullanın.',409);
+                if($existing['status']!=='pending' && ($input->reopen??false)!==true) throw new RuntimeException('Bu üyelik kapatılmış. Yeniden açmak için "Kapalı üyeliği yeniden aç" kutusunu işaretleyin.',409);
+                $id=$existing['id'];
+                $this->db->prepare('UPDATE identity_activation SET used=1 WHERE membership_id=?')->execute([$id]);
+                $this->db->prepare('UPDATE identity_membership SET name=?,modules=?,status=? WHERE id=?')->execute([$name,$modules,$direct?'active':'pending',$id]);
+            } else {
+                $id=bin2hex(random_bytes(16));
+                $this->db->prepare('INSERT INTO identity_membership(id,account_id,partner_id,role,branch_id,customer_id,name,modules,status) VALUES (?,?,?,?,?,?,?,?,?)')
+                    ->execute([$id,$account['id'],$actor['partner_id'],$role,$branchId,$customer,$name,$modules,$direct?'active':'pending']);
+            }
             if ($direct) {
                 $this->db->prepare('UPDATE identity_account SET password_hash=?,verified_at=?,version=version+1 WHERE id=?')
                     ->execute([password_hash($password,PASSWORD_ARGON2ID),$now,$account['id']]);
@@ -195,7 +209,7 @@ final class IdentityApi
             try {
                 $gw=new PhoneGateway($this->db);
                 if ($gw->route($actor['partner_id'],'sms')) {
-                    $gw->enqueue($actor['partner_id'],'sms',$phone,$text,'manual','invite:'.$id,0,$now,$now+86400,(string)($actor['name'] ?? ''));
+                    $gw->enqueue($actor['partner_id'],'sms',$phone,$text,'manual','invite:'.$id.':'.$now,0,$now,$now+86400,(string)($actor['name'] ?? ''));
                     return ['status'=>'sms_queued','link'=>$link];
                 }
             } catch (\Throwable) {}

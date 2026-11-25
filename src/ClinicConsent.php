@@ -17,7 +17,26 @@ final class ClinicConsent
     private const TYPES = ['surgery', 'stay', 'exam', 'general'];
     private const LIST_FIELDS = 'id,branch_id,customer_id,patient_id,record_type,record_id,title,body_hash,status,created_by,created_at,decided_at,signer_name,signer_channel,note';
 
-    public function __construct(private readonly PDO $db) {}
+    public const LINK_TTL = 259200; // SMS / e-posta ile gönderilen imza bağlantısı 72 saat geçerli
+    public const METHODS = ['portal', 'sms', 'whatsapp', 'email', 'clinic', 'in-person'];
+
+    public function __construct(private readonly PDO $db, private readonly string $origin = '', private readonly string $encryptionKey = '') {}
+
+    /** Tek kullanımlık imza bağlantıları tablosu (yoksa ilk kullanımda kurulur; ayrıca SQL çalıştırmak gerekmez). */
+    private function linkTable(): void
+    {
+        $this->db->exec("CREATE TABLE IF NOT EXISTS clinic_consent_link (
+            token_hash char(64) CHARACTER SET ascii NOT NULL,
+            consent_id char(32) CHARACTER SET ascii NOT NULL,
+            partner_id varchar(80) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+            method varchar(10) CHARACTER SET ascii NOT NULL,
+            target varchar(160) NOT NULL DEFAULT '',
+            expires_at int unsigned NOT NULL,
+            created_at int unsigned NOT NULL,
+            PRIMARY KEY (token_hash),
+            KEY clinic_consent_link_consent (consent_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    }
 
     private static function id(mixed $value, string $message = 'Kayıt bilgisi geçersiz.'): string
     {
@@ -150,6 +169,16 @@ final class ClinicConsent
         if (!$patient || ($branch !== null && $patient->branch !== $branch)) throw new RuntimeException('Hasta bulunamadı.', 404);
         $owner = (string)($patient->owner ?? '');
         if ($owner === '') throw new RuntimeException('Onam için hastanın sahibi kayıtlı olmalı.', 422);
+        $method = $input->method ?? 'portal';
+        if (in_array($method, ['sms', 'whatsapp', 'email'], true)) {
+            // Gönderim adresi yoksa form hiç oluşturulmadan uyarılır.
+            $client = null;
+            foreach ($this->state($actor, ['clients' => [$owner]])->clients ?? [] as $c) if (($c->id ?? '') === $owner) $client = $c;
+            if ($method === 'email' && !filter_var(is_string($input->email ?? null) && $input->email !== '' ? trim($input->email) : (string)($client->email ?? ''), FILTER_VALIDATE_EMAIL)) {
+                throw new RuntimeException('Hasta sahibinin geçerli bir e-posta adresi yok; adresi yazın.', 422);
+            }
+            if ($method !== 'email' && DealerLogin::normalizePhone((string)($client->phone ?? '')) === '') throw new RuntimeException('Hasta sahibinin geçerli bir cep telefonu yok.', 422);
+        }
         $id = bin2hex(random_bytes(16));
         $this->db->prepare('INSERT INTO clinic_consent(id,partner_id,branch_id,customer_id,patient_id,record_type,record_id,title,body,body_hash,status,created_by,created_at)
             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)')->execute([$id, $actor['partner_id'], $patient->branch, $owner, $patientId, $type, $recordId,
@@ -157,7 +186,118 @@ final class ClinicConsent
         (new DeliveryNotice($this->db))->add($actor['partner_id'], $patient->branch, $owner, 'shares', 'consent:' . $id,
             'İmzanızı bekleyen onam formu: ' . $title, '/hasta-sahibi?onam=' . $id);
         $this->audit($actor, 'consent.create', $id);
-        return self::out($this->row($actor['partner_id'], $id), true);
+        $out = self::out($this->row($actor['partner_id'], $id), true);
+        if (!is_string($method) || !in_array($method, self::METHODS, true)) $method = 'portal';
+        if (in_array($method, ['sms', 'whatsapp', 'email'], true)) $out['delivery'] = $this->sendLink($actor, $id, $method, $input, $now);
+        return $out;
+    }
+
+    /** Bekleyen forma SMS / WhatsApp / e-posta ile hesapsız imza bağlantısı gönderir (önceki bağlantılar geçersiz olur). */
+    public function sendLink(array $actor, string $id, string $method, object $input, int $now): array
+    {
+        $this->clinic($actor, true);
+        if (!in_array($method, ['sms', 'whatsapp', 'email'], true)) throw new RuntimeException('Gönderim yöntemi geçersiz.', 422);
+        $row = $this->visibleRow($actor, self::id($id));
+        if ($row['status'] !== 'pending') throw new RuntimeException('Yalnızca imza bekleyen form gönderilebilir.', 409);
+        $state = $this->state($actor, ['clients' => [$row['customer_id']]]);
+        $client = null;
+        foreach ($state->clients ?? [] as $c) if (($c->id ?? '') === $row['customer_id']) $client = $c;
+        if (!$client) throw new RuntimeException('Hasta sahibi bulunamadı.', 404);
+        $clinic = (string)($this->db->query('SELECT name FROM partner_account WHERE id=' . $this->db->quote($actor['partner_id']))->fetchColumn() ?: 'Kliniğiniz');
+        if ($method === 'email') {
+            $target = is_string($input->email ?? null) && $input->email !== '' ? trim($input->email) : (string)($client->email ?? '');
+            if (strlen($target) > 160 || !filter_var($target, FILTER_VALIDATE_EMAIL)) throw new RuntimeException('Hasta sahibinin geçerli bir e-posta adresi yok; adresi yazın.', 422);
+        } else {
+            $target = DealerLogin::normalizePhone((string)($client->phone ?? ''));
+            if ($target === '') throw new RuntimeException('Hasta sahibinin geçerli bir cep telefonu yok.', 422);
+        }
+        $token = ClientPermit::shortToken();
+        try { $this->storeLink($token, $row, $method, $target, $now); }
+        catch (\PDOException $e) { if ($e->getCode() !== '42S02') throw $e; $this->linkTable(); $this->storeLink($token, $row, $method, $target, $now); }
+        $full = rtrim($this->origin, '/') . '/k/' . $token;
+        $short = preg_replace('~\Ahttps://~', '', $full);
+        $text = $clinic . ': "' . $row['title'] . '" onam formunu okuyup imzalamanız için: ' . $short . ' (72 saat geçerli)';
+        $result = ['method' => $method, 'url' => $full, 'status' => 'manual', 'share' => $text];
+        if ($method === 'email') {
+            try {
+                (new Notifications($this->db, $this->encryptionKey))->send('smtp', $target, $clinic . ' · Onam formu imzanızı bekliyor',
+                    "Sayın " . ($client->name ?? 'hasta sahibimiz') . ",\n\n" . $row['title'] . " formunu okuyup imzalamak için bağlantıyı açın (72 saat geçerli):\n\n" . $full . "\n\n" . $clinic);
+                $result['status'] = 'email_sent';
+            } catch (\Throwable) { $result['status'] = 'email_failed'; }
+        } else {
+            $gateway = new PhoneGateway($this->db);
+            $route = $gateway->route($actor['partner_id'], $method);
+            if ($route) {
+                $gateway->enqueue($actor['partner_id'], $method, $target, $text, 'manual', 'consent:' . $row['id'] . ':' . $now, 0, $now, $now + self::LINK_TTL, (string)($actor['name'] ?? ''));
+                $result['status'] = $method === 'whatsapp' && $route === 'assist' ? 'assist' : 'queued';
+            }
+            $result['whatsappLink'] = PhoneGateway::waLink($target, $text);
+        }
+        $this->audit($actor, 'consent.send.' . $method, $row['id']);
+        return $result;
+    }
+
+    private function storeLink(string $token, array $row, string $method, string $target, int $now): void
+    {
+        $this->db->prepare('DELETE FROM clinic_consent_link WHERE consent_id=?')->execute([$row['id']]);
+        $this->db->prepare('INSERT INTO clinic_consent_link(token_hash,consent_id,partner_id,method,target,expires_at,created_at) VALUES (?,?,?,?,?,?,?)')
+            ->execute([hash('sha256', $token), $row['id'], $row['partner_id'], $method, mb_substr($target, 0, 160), $now + self::LINK_TTL, $now]);
+    }
+
+    // ---------------- Hesapsız imza bağlantısı (/k/…) ----------------
+
+    private function byToken(string $token, int $now, bool $lock = false): array
+    {
+        if (!preg_match('/\A[A-Za-z0-9]{10}\z/', $token)) throw new RuntimeException('Bağlantı geçersiz.', 404);
+        try {
+            $q = $this->db->prepare('SELECT * FROM clinic_consent_link WHERE token_hash=?' . ($lock ? ' FOR UPDATE' : ''));
+            $q->execute([hash('sha256', $token)]);
+            $link = $q->fetch(PDO::FETCH_ASSOC);
+        } catch (\PDOException) { $link = false; }
+        if (!$link) throw new RuntimeException('Bağlantı geçersiz veya kullanılmış.', 404);
+        if ((int)$link['expires_at'] < $now) throw new RuntimeException('Bağlantının süresi doldu. Kliniğinizden yeni bağlantı isteyin.', 410);
+        $row = $this->row($link['partner_id'], $link['consent_id'], $lock);
+        if ($row['status'] !== 'pending') throw new RuntimeException('Bu form zaten yanıtlanmış veya iptal edilmiş.', 410);
+        return ['link' => $link, 'row' => $row];
+    }
+
+    /** Bağlantıyla açılan sayfa için formun metni (yalnız bekleyen form). */
+    public function openLink(string $token, int $now): array
+    {
+        ['row' => $row] = $this->byToken($token, $now);
+        $clinic = (string)($this->db->query('SELECT name FROM partner_account WHERE id=' . $this->db->quote($row['partner_id']))->fetchColumn() ?: '');
+        return ['clinic' => $clinic, 'title' => $row['title'], 'body' => $row['body'], 'hash' => $row['body_hash']];
+    }
+
+    public function decideLink(string $token, object $input, int $now, array $server): array
+    {
+        ['link' => $link, 'row' => $first] = $this->byToken($token, $now);
+        $input->agree = ($input->read ?? $input->agree ?? false) === true;
+        $actor = ['partner_id' => $first['partner_id'], 'account_id' => '', 'name' => ''];
+        $out = $this->decide($actor, $first['id'], $input, $now, $server, $link['method'],
+            function (bool $lock) use ($token, $now) { return $this->byToken($token, $now, $lock)['row']; });
+        $this->db->prepare('DELETE FROM clinic_consent_link WHERE consent_id=?')->execute([$first['id']]);
+        return ['status' => $out['status']];
+    }
+
+    /** Hesapsız imza sayfası (permit-sign.js ve permit-sign.css ile aynı imza alanı). */
+    public static function linkPage(array $doc): string
+    {
+        $e = static fn(string $v): string => htmlspecialchars($v, ENT_QUOTES, 'UTF-8');
+        return '<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow">'
+            . '<title>' . $e($doc['title']) . '</title><link rel="stylesheet" href="/permit-sign.css?v=2"></head><body><main class="pm">'
+            . '<header class="pm-head"><span class="pm-badge">' . $e($doc['clinic']) . '</span><h1>' . $e($doc['title']) . '</h1>'
+            . '<p>Formu okuyup onaylıyorsanız adınızı yazın ve imza alanına imzanızı atın.</p></header>'
+            . '<section class="pm-card"><div class="pm-text" dir="auto" style="white-space:pre-wrap">' . $e($doc['body']) . '</div></section>'
+            . '<form class="pm-card pm-form" id="pmForm" data-hash="' . $e($doc['hash']) . '" data-kind="consent" novalidate>'
+            . '<label class="pm-choice pm-read"><input type="checkbox" name="read" required><span>Formu okudum, anladım. Bilgilendirildiğimi ve onay verdiğimi beyan ederim.</span></label>'
+            . '<label class="pm-field">Adınız ve soyadınız<input name="signerName" autocomplete="name" maxlength="120" required></label>'
+            . '<div class="pm-sign"><canvas id="pmPad" width="900" height="300" aria-label="İmza alanı"></canvas><button type="button" id="pmClear" class="pm-link">İmzayı temizle</button><span class="pm-hint">Parmağınızla veya kalemle imzanızı atın</span></div>'
+            . '<p class="pm-error" id="pmError" role="alert"></p>'
+            . '<div class="pm-actions"><button type="submit" class="pm-primary">Onayla ve imzala</button><button type="button" id="pmDecline" class="pm-secondary">Onay vermiyorum</button></div>'
+            . '<p class="pm-muted">Belge kimliği: <code>' . $e(substr($doc['hash'], 0, 16)) . '</code> · İmzaladığınızda tarih, saat ve cihaz bilgisi kayıt altına alınır.</p></form>'
+            . '<section class="pm-card pm-done" id="pmDone" hidden><h2>Teşekkürler</h2><p id="pmDoneText"></p></section>'
+            . '<script src="/permit-sign.js?v=2" type="module"></script></main></body></html>';
     }
 
     public function cancel(array $actor, string $id, int $now): array
@@ -182,7 +322,16 @@ final class ClinicConsent
     public function signInClinic(array $actor, string $id, object $input, int $now, array $server): array
     {
         $this->clinic($actor, true);
-        return $this->decide($actor, $id, $input, $now, $server, 'clinic', fn(bool $lock) => $this->visibleRow($actor, self::id($id), $lock));
+        // Yüz yüze: personel kimliği gördüğünü onaylar; kayıtta "yüz yüze" ve doğrulayan personel görünür.
+        $inPerson = ($input->inPerson ?? false) === true;
+        if ($inPerson && ($input->verifiedInPerson ?? false) !== true) throw new RuntimeException('Yüz yüze imzada kimliği doğruladığınızı işaretleyin.', 422);
+        if ($inPerson) $input->reason = $input->reason ?? '';
+        $out = $this->decide($actor, $id, $input, $now, $server, $inPerson ? 'in-person' : 'clinic', fn(bool $lock) => $this->visibleRow($actor, self::id($id), $lock));
+        if ($inPerson) {
+            $this->db->prepare('UPDATE clinic_consent SET note=? WHERE id=?')->execute([mb_substr('Kimlik yüz yüze doğrulandı: ' . ($actor['name'] ?? ''), 0, 500, 'UTF-8'), $out['id']]);
+            $out['note'] = 'Kimlik yüz yüze doğrulandı: ' . ($actor['name'] ?? '');
+        }
+        return $out;
     }
 
     // ---------------- Hasta sahibi tarafı ----------------

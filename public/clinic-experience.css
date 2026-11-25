@@ -953,3 +953,19 @@ th[aria-sort] .column-sort span{color:var(--brand)}
 .reminder-route p{margin:0;line-height:1.5}
 .reminder-route .button{justify-self:start;text-decoration:none}
 @media (max-width:600px){.reminder-route .button{justify-self:stretch;text-align:center}}
+/* Tablolar telefonda/tablette harf harf kırılmasın: hücre içeriği kelime bütünlüğünü korur, dar ekranda tablo kendi kabında yatay kayar. */
+td,th,td :is(button,a,span,strong,small,b,em),th :is(button,a,span,strong,small){overflow-wrap:break-word!important;word-break:normal!important;hyphens:manual}
+.table-wrap{-webkit-overflow-scrolling:touch}
+.table-wrap>table{min-width:max(600px,100%)}
+@media (max-width:900px){
+  td,th{min-width:4.5em}
+  td:first-child,th:first-child{min-width:2.5em}
+  td time,td .badge,td .dealer-status{white-space:nowrap}
+}
+/* Telefonda alt menü tek satır, yatay kaydırmalı (sayfanın yarısını kaplamasın); seçili sekme görünür tutulur. */
+@media (max-width:700px){
+  .module-nav{flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity}
+  .module-nav::-webkit-scrollbar{display:none}
+  .module-nav a{white-space:nowrap;flex:0 0 auto;scroll-snap-align:start}
+}
+td [class*=badge],td [class*=status],td [class*=pill],td [class*=chip]{white-space:nowrap}

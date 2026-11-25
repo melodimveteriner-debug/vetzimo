@@ -372,7 +372,7 @@ TXT;
                 .'<div class="pm-actions"><button type="submit" class="pm-primary">Onayla ve imzala</button><button type="button" id="pmDecline" class="pm-secondary">Onay vermiyorum</button></div>'
                 .'<p class="pm-muted">Belge kimliği: <code>'.$e(substr($hash, 0, 16)).'</code> · İmzaladığınızda tarih, saat ve cihaz bilgisi kayıt altına alınır.</p></form>'
                 .'<section class="pm-card pm-done" id="pmDone" hidden><h2>Teşekkürler</h2><p id="pmDoneText"></p></section>'
-                .'<script src="/permit-sign.js?v=1" type="module"></script>';
+                .'<script src="/permit-sign.js?v=2" type="module"></script>';
         } else {
             $body .= '<section class="pm-card"><h2>3. İletişim izinleri</h2><ul class="pm-given">'.$choices.'</ul></section>'
                 .'<section class="pm-card"><h2>4. Beyan ve imza</h2><p class="pm-decl">'.$e($doc['declaration']).'</p>'
@@ -382,7 +382,7 @@ TXT;
                 .'<dt>Gönderim</dt><dd>'.$e(['sms' => 'SMS bağlantısı', 'whatsapp' => 'WhatsApp bağlantısı', 'link' => 'Bağlantı', 'clinic' => 'Klinikte imza'][$record['method']] ?? $record['method']).' · '.$e($record['phone']).'</dd>'
                 .'<dt>IP / cihaz</dt><dd>'.$e(($record['ip'] ?? '') ?: '-').' · '.$e(($record['agent'] ?? '') ?: '-').'</dd><dt>Belge özeti (SHA-256)</dt><dd><code>'.$e($hash).'</code></dd>'
                 .'<dt>Oluşturan</dt><dd>'.$e($record['createdBy']).' · '.$e(self::tsi($record['createdAt'], 'd.m.Y H:i')).'</dd></dl></section>'
-                .'<p class="pm-print"><button type="button" data-print>Yazdır / PDF</button></p><script src="/permit-sign.js?v=1" type="module"></script>';
+                .'<p class="pm-print"><button type="button" data-print>Yazdır / PDF</button></p><script src="/permit-sign.js?v=2" type="module"></script>';
         }
         return $head.$body.'</main></body></html>';
     }

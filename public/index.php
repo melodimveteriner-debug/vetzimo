@@ -1188,6 +1188,26 @@ try {
             throw $error;
         }
     }
+    if (preg_match('~\A/k/([A-Za-z0-9]{10})\z~',$path,$consentMatch) && in_array($method,['GET','POST'],true)) {
+        // Onam formunun hesapsız imza bağlantısı (SMS / WhatsApp / e-posta ile gönderilir; imzadan sonra geçersizleşir).
+        $consentLinks=new VetNet\Cpanel\ClinicConsent($db,$origin);
+        header('Cache-Control: no-store');
+        header('Referrer-Policy: no-referrer');
+        if ($method==='POST') {
+            (new DealerLogin($db,$config['rateSecret']))->throttle('consent-link:'.($_SERVER['REMOTE_ADDR']??''),$now);
+            reply($consentLinks->decideLink($consentMatch[1],input(500000),$now,$_SERVER));
+        }
+        header("Content-Security-Policy: default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
+        header('Content-Type: text/html; charset=utf-8');
+        try {
+            echo VetNet\Cpanel\UiLocale::page(VetNet\Cpanel\ClinicConsent::linkPage($consentLinks->openLink($consentMatch[1],$now)),$config);
+        } catch (RuntimeException $error) {
+            (new DealerLogin($db,$config['rateSecret']))->throttle('consent-miss:'.($_SERVER['REMOTE_ADDR']??''),$now);
+            http_response_code($error->getCode()===410?410:404);
+            echo '<!doctype html><html lang="tr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Onam formu</title><link rel="stylesheet" href="/permit-sign.css?v=2"><main class="pm"><section class="pm-card"><h1>Bağlantı geçersiz</h1><p>'.htmlspecialchars($error->getMessage(),ENT_QUOTES,'UTF-8').'</p></section></main></html>';
+        }
+        exit;
+    }
     if (preg_match('~\A/(?:onay/([A-Za-z0-9_-]{32})|o/([A-Za-z0-9]{10}))\z~',$path,$permitMatch) && in_array($method,['GET','POST'],true)) {
         $permitMatch[1]=($permitMatch[1] ?? '')!=='' ? $permitMatch[1] : $permitMatch[2];
         // Hayvan sahibinin tek kullanımlık onay bağlantısı (giriş gerekmez; bağlantı imzadan sonra geçersizleşir).
@@ -1373,7 +1393,7 @@ try {
         if ($actor['role']!=='customer') $actor=(new VetNet\Cpanel\Commerce($db))->packageActor($actor);
         else if ($method==='POST') (new DealerLogin($db,$config['rateSecret']))->throttle('consent:'.$actor['account_id'],$now);
         requireFeature($actor,'consents',$method==='POST');
-        $consents=new VetNet\Cpanel\ClinicConsent($db);
+        $consents=new VetNet\Cpanel\ClinicConsent($db,$origin,(string)($config['encryptionKey'] ?? ''));
         try {
             if ($method==='GET') {
                 $id=$_GET['id'] ?? '';
@@ -1391,6 +1411,7 @@ try {
             if ($op==='create') reply($consents->create($actor,$body,$now));
             if ($op==='cancel') reply($consents->cancel($actor,$id,$now));
             if ($op==='decide') reply($consents->signInClinic($actor,$id,$body,$now,$_SERVER));
+            if ($op==='send') reply($consents->sendLink($actor,$id,is_string($body->method ?? null)?$body->method:'',$body,$now));
             throw new RuntimeException('İşlem geçersiz.',422);
         } catch (PDOException $error) {
             if ($error->getCode()==='42S02') throw new RuntimeException('Onam tablosu henüz kurulmadı; güncellemeyi tamamlayın.',503);

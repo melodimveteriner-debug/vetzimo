@@ -120,7 +120,7 @@ function formatTime(value, lang) {
  * options: {consent (gövde + hash dahil), tr, defaultName, subtitle, submit(payload) => Promise<consent>}
  * Dönüş: Promise<güncel onam | null>
  */
-export function openSignDialog({consent, tr, defaultName = "", subtitle = "", submit}) {
+export function openSignDialog({consent, tr, defaultName = "", subtitle = "", submit, verifyLabel = ""}) {
   ensureStyle();
   return new Promise(resolve => {
     const dialog = el("dialog", "", {className: "vzc-dialog"});
@@ -145,7 +145,11 @@ export function openSignDialog({consent, tr, defaultName = "", subtitle = "", su
     const reason = el("textarea", "", {rows: 3, maxLength: 500});
     reasonLabel.append(el("span", tr("Reddetme nedeni (isteğe bağlı)")), reason);
     const error = el("p", "", {className: "vzc-error", role: "alert"});
-    body.append(text, agreeLabel, nameLabel, pad.element, reasonLabel, error);
+    // Yüz yüze imza: personel kişinin kimliğini gördüğünü onaylar (kayda doğrulayan personel yazılır).
+    const verifyBox = el("label", "", {className: "vzc-check", hidden: !verifyLabel});
+    const verify = el("input", "", {type: "checkbox"});
+    verifyBox.append(verify, el("span", verifyLabel));
+    body.append(text, agreeLabel, verifyBox, nameLabel, pad.element, reasonLabel, error);
     const foot = el("footer", "", {className: "vzc-foot"});
     const decline = el("button", tr("Reddet"), {type: "button", className: "vzc-btn danger vzc-left"});
     const cancel = el("button", tr("Vazgeç"), {type: "button", className: "vzc-btn"});
@@ -175,7 +179,9 @@ export function openSignDialog({consent, tr, defaultName = "", subtitle = "", su
       else {
         if (!agree.checked) { error.textContent = tr("Metni okuduğunuzu onaylayın."); agree.focus(); return; }
         if (pad.isEmpty()) { error.textContent = tr("Lütfen imza alanına imzanızı atın."); return; }
+        if (verifyLabel && !verify.checked) { error.textContent = tr("Kimliği yüz yüze doğruladığınızı işaretleyin."); verify.focus(); return; }
         payload = {decision: "sign", signerName: signer, agree: true, signature: pad.toDataURL(), hash: consent.hash};
+        if (verifyLabel) Object.assign(payload, {inPerson: true, verifiedInPerson: true});
       }
       sign.disabled = decline.disabled = cancel.disabled = true;
       try {
@@ -191,6 +197,7 @@ export function openSignDialog({consent, tr, defaultName = "", subtitle = "", su
   });
 }
 
+const CHANNELS = {portal: "Hasta sahibi portalı", clinic: "Klinikte, aynı cihazda", "in-person": "Yüz yüze, kimlik doğrulandı", sms: "SMS bağlantısıyla", whatsapp: "WhatsApp bağlantısıyla", email: "E-posta bağlantısıyla"};
 const STATUS = {pending: "İmza bekliyor", signed: "İmzalandı", declined: "Reddedildi", cancelled: "İptal edildi"};
 export const consentStatus = STATUS;
 
@@ -214,7 +221,7 @@ export function openConsentViewer({consent, tr, meta = {}, actions = []}) {
   cell(tr("Durum"), tr(STATUS[consent.status] || consent.status));
   cell(tr("Hazırlayan"), [consent.createdBy, formatTime(consent.createdAt)].filter(Boolean).join(" · "));
   if (consent.decidedAt) cell(consent.status === "declined" ? tr("Reddeden") : consent.status === "cancelled" ? tr("İptal") : tr("İmzalayan"), [consent.signerName, formatTime(consent.decidedAt)].filter(Boolean).join(" · "));
-  if (consent.channel) cell(tr("İmza yeri"), consent.channel === "portal" ? tr("Hasta sahibi portalı") : tr("Klinikte, aynı cihazda"));
+  if (consent.channel) cell(tr("İmza yeri"), tr(CHANNELS[consent.channel] || "Klinikte, aynı cihazda"));
   if (consent.note) cell(tr("Not"), consent.note);
   cell(tr("Belge özeti (SHA-256)"), consent.hash.slice(0, 16) + "…" + consent.hash.slice(-8));
   body.append(badge, text, info);
@@ -271,7 +278,7 @@ header b{font-size:14pt}h1{font-size:16pt;margin:0 0 10px}.info{display:grid;gri
   if (consent.signature) { const img = node("img"); img.src = consent.signature; img.alt = tr("İmza"); right.append(img); }
   else right.append(node("div", "______________________________"), node("small", tr("İmza")));
   sign.append(left, right);
-  const foot = node("div", tr("Bu belge elektronik ortamda hazırlanmış ve imzalanmıştır.") + " SHA-256: " + consent.hash + (consent.channel ? " · " + (consent.channel === "portal" ? tr("Hasta sahibi portalı") : tr("Klinikte, aynı cihazda")) : ""), "foot");
+  const foot = node("div", tr("Bu belge elektronik ortamda hazırlanmış ve imzalanmıştır.") + " SHA-256: " + consent.hash + (consent.channel ? " · " + (tr(CHANNELS[consent.channel] || "Klinikte, aynı cihazda")) : ""), "foot");
   doc.body.append(header, node("h1", consent.title), info, node("div", consent.body, "text"), sign, foot);
   const go = () => { frame.contentWindow.focus(); frame.contentWindow.print(); setTimeout(() => frame.remove(), 60000); };
   const img = doc.querySelector("img");

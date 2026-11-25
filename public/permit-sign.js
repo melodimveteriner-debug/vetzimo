@@ -30,7 +30,7 @@ if (form) {
     if (name.length < 3) { error.textContent = "Adınızı ve soyadınızı yazın."; form.elements.signerName.focus(); return; }
     const body = {decision, signerName: name, hash: form.dataset.hash};
     if (decision === "sign") {
-      if (!form.elements.read.checked) { error.textContent = "Aydınlatma metnini okuduğunuzu işaretleyin."; return; }
+      if (!form.elements.read.checked) { error.textContent = form.dataset.kind === "consent" ? "Formu okuduğunuzu işaretleyin." : "Aydınlatma metnini okuduğunuzu işaretleyin."; return; }
       if (strokes < 8) { error.textContent = "Lütfen imza alanına imzanızı atın."; return; }
       body.read = true; body.signature = signature();
       body.choices = Object.fromEntries(["sms", "whatsapp", "email", "marketing"].map(k => [k, !!form.elements[k]?.checked]));
@@ -43,7 +43,9 @@ if (form) {
       form.hidden = true;
       const done = document.getElementById("pmDone"); done.hidden = false;
       const given = Object.entries(d.choices || {}).filter(([, v]) => v).length;
-      document.getElementById("pmDoneText").textContent = d.status === "signed"
+      document.getElementById("pmDoneText").textContent = form.dataset.kind === "consent"
+        ? (d.status === "signed" ? "Onayınız ve imzanız kliniğe iletildi. Bu sayfayı kapatabilirsiniz." : "Onay vermediğiniz kliniğe iletildi. Bu sayfayı kapatabilirsiniz.")
+        : d.status === "signed"
         ? "Onayınız ve imzanız kaydedildi" + (given ? "." : "; iletişim izni vermediniz.") + " Bu sayfayı kapatabilirsiniz."
         : "Tercihiniz kaydedildi. Size hatırlatma ve tanıtım mesajı gönderilmeyecek. Bu sayfayı kapatabilirsiniz.";
       done.scrollIntoView({behavior: "smooth"});

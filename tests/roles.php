@@ -22,10 +22,15 @@ $invite=function(string $phone,string $role,string $customer,object $modules)use
 };
 // Tüm hesap türlerinde aynı aktivasyon yöntemleri (SMS, e-posta, bu cihazda, yüz yüze; ekip hesabında şifre belirleme).
 $base=['name'=>'Yöntem Testi','branchId'=>'merkez','modules'=>(object)[]];
-$r=$identity->invite($actor,$scope,(object)($base+['phone'=>'05551000091','role'=>'branch','method'=>'device']),$now,['origin'=>'https://klinik.example']);
+$r0=$r=$identity->invite($actor,$scope,(object)($base+['phone'=>'05551000091','role'=>'branch','method'=>'device']),$now,['origin'=>'https://klinik.example']);
 ok($r['status']==='device' && str_starts_with($r['link'],'https://klinik.example/app#aktivasyon/'),'Şube yöneticisi için "bu cihazda aç" çalışmadı');
 $r=$identity->invite($actor,$scope,(object)($base+['phone'=>'05551000092','role'=>'staff','method'=>'sms']),$now,['origin'=>'https://klinik.example']);
 ok($r['status']==='sms_unavailable' && str_contains($r['share'],$r['link']),'SMS hattı yokken bağlantı paylaşım için dönmedi');
+// Aynı kişiye tekrar davet: hata yerine yeni bağlantı (eski bağlantı geçersiz olur)
+$again=$identity->invite($actor,$scope,(object)($base+['phone'=>'05551000091','role'=>'branch','method'=>'device']),$now,['origin'=>'https://klinik.example']);
+ok($again['status']==='device' && $again['link']!==$r0['link'],'Bekleyen davet yeniden gönderilemedi');
+rejected(422,fn()=>$identity->activationInfo(substr($r0['link'],strrpos($r0['link'],'/')+1),$now));
+$identity->activationInfo(substr($again['link'],strrpos($again['link'],'/')+1),$now);
 rejected(422,fn()=>$identity->invite($actor,$scope,(object)($base+['phone'=>'05551000093','role'=>'staff','method'=>'email','email'=>'gecersiz']),$now));
 rejected(422,fn()=>$identity->invite($actor,$scope,(object)(['phone'=>'05551000008','role'=>'customer','branchId'=>'merkez','customerId'=>'owner2','method'=>'password','password'=>'Uzun-sifre-12345','modules'=>(object)[]]),$now));
 rejected(422,fn()=>$identity->invite($actor,$scope,(object)($base+['phone'=>'05551000094','role'=>'staff','method'=>'in-person']),$now));

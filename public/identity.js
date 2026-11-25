@@ -7,7 +7,7 @@ import {mountAccessLayout} from "./access-layout.js?v=20261125-r65";
 import {paginate} from "./paged.js";
 import {mountCenterSuite,opsFetch} from "./center-ops.js";
 import {vaccineLabels} from "./vaccine-progress.js";
-import {openSignDialog,openConsentViewer,consentStatus} from "./consent-sign.js?v=1";
+import {openSignDialog,openConsentViewer,consentStatus} from "./consent-sign.js?v=2";
 const view=document.querySelector("#view");
 const status=document.querySelector("#status");
 const captchaBox=document.querySelector("#captcha");
