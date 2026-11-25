@@ -683,8 +683,20 @@ async function portal() {
     await api("password/change",data);
     location.assign("/app");
   }));
+  // Bildirim merkezi ve uygulama ayarları (bildirim tercihleri, cihazlar, biyometrik kilit, hesap silme)
+  const inbox=panel("notifications","Bildirimler");
+  let inboxReady=false;
+  panels.get("notifications").button.addEventListener("click",()=>{if(inboxReady)return;inboxReady=true;import("./notification-hub.js?v=2").then(m=>m.mountNotificationHub(inbox,{tr:uiLabel,onSettings:()=>show("account")}));});
   const account=panel("account","Hesabım");
   account.append(change);
+  const appSettings=el("section","",{className:"owner-app-settings"});
+  account.append(appSettings);
+  import("./settings-hub.js?v=2").then(async m=>{
+    const ctx={tr:uiLabel,api:(p,i={})=>fetch(p,{credentials:"same-origin",...i}),scope:session.scopeId||""};
+    const prefs=el("div"),devices=el("div");
+    appSettings.append(el("h2",uiLabel("Uygulama bildirimleri")),prefs,el("h2",uiLabel("Cihazlarım ve hesap")),devices);
+    m.notificationPrefs(prefs,ctx);m.devicesAndAccount(devices,ctx);
+  });
   account.append(contact({name:data.clinic.branch||data.clinic.partner,phone:data.clinic.phone}));
   const links=el("div","",{className:"links"});
   if (session.members.length>1) links.append(link("Kurum değiştir","/app?kurum=1"));
@@ -693,7 +705,8 @@ async function portal() {
   view.append(status);
   const result=new URLSearchParams(location.search).get("randevu");
   const opened=params.get("bildirim");
-  show(panels.has(opened)?opened:result&&panels.has("appointments")?"appointments":"overview");
+  show(panels.has(opened)?opened:params.get("bolum")==="bildirimler"?"notifications":result&&panels.has("appointments")?"appointments":"overview");
+  if (params.get("bolum")==="bildirimler") panels.get("notifications").button.click();
   if (opened) document.getElementById("owner-record-"+params.get("kayit"))?.scrollIntoView({block:"center"});
   if (session.scopeId) mountOwnerNotifications(toolbar,session.scopeId);
 }

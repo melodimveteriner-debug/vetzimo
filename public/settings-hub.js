@@ -219,5 +219,15 @@ export async function devicesAndAccount(root, ctx) {
     del.append(pw, l, h("button", "sh-btn danger", tr("Silme talebi gönder"), {type: "submit"}), msg);
     del.addEventListener("submit", async e => { e.preventDefault(); try { await json(ctx, "/api/app/deletion", {confirm: true, password: pw.value}); msg.hidden = false; msg.textContent = tr("Silme talebiniz alındı; en geç 30 gün içinde tamamlanır."); pw.value = ""; } catch (er) { msg.hidden = false; msg.textContent = er.message; } });
   } else del.append(h("p", "", tr("Bu hesap türü uygulama üzerinden silinemez; VetZimo destek ile iletişime geçin.")));
-  root.replaceChildren(h("h4", "", tr("Bildirim alan cihazlar")), list, del);
+  const extra = [];
+  const N = window.VetZimoNative;
+  if (N?.native) {
+    // Uygulamada: Face ID / Touch ID / parmak izi ile kilit (uygulama 5 dk arka planda kalınca)
+    const bio = h("input", "", null, {type: "checkbox", checked: N.biometricOn()});
+    const l = h("label", "sh-switch"); l.append(bio, h("span", "", tr("Biyometrik kilit (Face ID, Touch ID veya parmak izi)")));
+    const msg = h("p", "sh-status", "", {hidden: true});
+    bio.addEventListener("change", async () => { try { await N.setBiometric(bio.checked); msg.hidden = false; msg.textContent = bio.checked ? tr("Biyometrik kilit açıldı.") : tr("Biyometrik kilit kapatıldı."); } catch (e) { bio.checked = !bio.checked; msg.hidden = false; msg.textContent = e.message; } });
+    extra.push(h("h4", "", tr("Güvenlik")), l, msg);
+  }
+  root.replaceChildren(...extra, h("h4", "", tr("Bildirim alan cihazlar")), list, del);
 }

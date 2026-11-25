@@ -155,7 +155,7 @@ final class AppHub
         $p = $this->q('SELECT muted,sound,quiet FROM app_preference WHERE account_id=?', [$actor['account_id']])->fetch() ?: ['muted' => '[]', 'sound' => 'default', 'quiet' => null];
         $cats = [];
         foreach (self::CATEGORIES as $key => [$label, $critical]) if ($policies[$key][$role] ?? false) $cats[] = ['key' => $key, 'label' => $label, 'critical' => $critical];
-        return ['categories' => $cats, 'muted' => json_decode((string)$p['muted'], true) ?: [], 'sound' => $p['sound'], 'quiet' => json_decode((string)$p['quiet'], true),
+        return ['scope' => ($actor['kind'] ?? '') === 'center' ? (string)$actor['account_id'] : (string)($actor['membership_id'] ?? ''), 'role' => $role, 'categories' => $cats, 'muted' => json_decode((string)$p['muted'], true) ?: [], 'sound' => $p['sound'], 'quiet' => json_decode((string)$p['quiet'], true),
             'sounds' => self::SOUNDS, 'vapid' => (new AppPush($this->db, $this->config))->vapidPublic(), 'badge' => $this->unread($actor['account_id']),
             'devices' => $this->q('SELECT id,platform,provider,app_version,model,seen_at FROM app_device WHERE account_id=? AND revoked_at IS NULL ORDER BY seen_at DESC LIMIT 20', [$actor['account_id']])->fetchAll()];
     }

@@ -1,4 +1,4 @@
-const CACHE = 'vetzimo-public-offline-r69';
+const CACHE = 'vetzimo-public-offline-r70';
 const OFFLINE = '/vetzimo-offline.html';
 const PANELS = new Set(['/app', '/giris', '/clinic', '/klinik', '/hasta-sahibi', '/yonetim', '/uygulama']);
 
@@ -25,4 +25,35 @@ self.addEventListener('fetch', event => {
       return (await caches.open(CACHE)).match(OFFLINE).then(page => page || Response.error());
     }
   })());
+});
+
+// ── Web Push (VAPID): bildirim gösterimi, simge rozeti, dokununca ilgili sayfa.
+self.addEventListener('push', event => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch { data = {title: 'VetZimo', body: event.data ? event.data.text() : ''}; }
+  const title = data.title || 'VetZimo';
+  event.waitUntil((async () => {
+    if (typeof data.badge === 'number' && self.navigator?.setAppBadge) { try { data.badge ? await self.navigator.setAppBadge(data.badge) : await self.navigator.clearAppBadge(); } catch {} }
+    await self.registration.showNotification(title, {
+      body: data.body || '', tag: 'vz' + (data.id || Date.now()), renotify: false, silent: !!data.silent,
+      icon: '/vetzimo-pwa-192.png', badge: '/vetzimo-pwa-192.png', timestamp: Date.now(),
+      data: {href: typeof data.href === 'string' && data.href.startsWith('/') ? data.href : '/app', id: data.id, membership: data.membership || ''},
+    });
+  })());
+});
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  const d = event.notification.data || {};
+  const target = new URL(d.href || '/app', self.location.origin);
+  if (d.id) target.searchParams.set('vzn', String(d.id));
+  if (d.membership) target.searchParams.set('vzm', d.membership);
+  event.waitUntil((async () => {
+    const all = await self.clients.matchAll({type: 'window', includeUncontrolled: true});
+    const same = all.find(c => new URL(c.url).origin === self.location.origin);
+    if (same) { await same.focus(); same.postMessage({type: 'vz-open', href: target.pathname + target.search + target.hash, id: d.id, membership: d.membership}); return; }
+    await self.clients.openWindow(target.href);
+  })());
+});
+self.addEventListener('pushsubscriptionchange', event => {
+  event.waitUntil(self.clients.matchAll({type: 'window'}).then(cs => cs.forEach(c => c.postMessage({type: 'vz-resubscribe'}))));
 });
