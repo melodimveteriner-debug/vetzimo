@@ -116,7 +116,7 @@ final class ClinicRecordDeletion
                 WHERE r.partner_id=? AND r.id=?",[$partner,$id]);
         }
         $this->execute('DELETE FROM clinic_visit_request WHERE partner_id=? AND id=?',[$partner,$id]);
-        $this->execute("DELETE FROM clinic_delivery_notice WHERE partner_id=? AND target=? AND kind IN ('native_visit_clinic','native_visit_owner')",
+        $this->execute("DELETE FROM clinic_delivery_notice WHERE partner_id=? AND target=? AND kind IN ('visit_clinic','visit_owner')",
             [$partner,'/evde-hizmet/uygulama/'.$id]);
     }
 

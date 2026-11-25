@@ -217,9 +217,9 @@ final class HomeVisit
             $title='Evde Hizmet · '.(self::STATUS[$status]??$status);
             $target='/evde-hizmet/uygulama/'.$row['id'];
             $key='app:visit:'.$row['id'].':'.$revision;
-            $notices->add($row['partner_id'],$scope['branch_id'],'','native_visit_clinic',$key.':clinic',$title,$target);
+            $notices->add($row['partner_id'],$scope['branch_id'],'','visit_clinic',$key.':clinic',$title,$target);
             if ($scope['customer_id']!=='' && $action!=='request') {
-                $notices->add($row['partner_id'],$scope['branch_id'],$scope['customer_id'],'native_visit_owner',$key.':owner',$title,$target);
+                $notices->add($row['partner_id'],$scope['branch_id'],$scope['customer_id'],'visit_owner',$key.':owner',$title,$target);
             }
         }
     }

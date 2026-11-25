@@ -108,32 +108,8 @@ export async function mountCenterSuite(ui,session){
   subscriptions:'Geçerli abonelik',applications:'Yeni başvuru',support:'Açık destek talebi',receipts:'Bugünkü klinik tahsilatı'};
  const roleLabels={dealer:'Bayi yöneticisi',branch:'Şube yöneticisi',staff:'Personel',customer:'Hasta sahibi'};
  async function nativeApps(){
-  const endpoint='/api/app/v1/management';
-  const data=await opsFetch(endpoint,null,session.scopeId);
-  const categoryLabels={appointments:'Randevular',vaccines:'Aşı ve takip',stock:'Stok',homecare:'Evden Takip',shared:'Paylaşılan kayıtlar',homeVisits:'Evde Hizmet'};
-  const outcomes={sent:'Sağlayıcıya teslim edildi',retry:'Teslimat yeniden denenecek',rejected:'Yetki veya tercih nedeniyle atlandı'};
-  content.replaceChildren(el('h3','Son 60 günde kayıtlı cihazlar'),
-   table(['Platform','Sürüm','Cihaz'],data.devices.map(row=>[row.platform,row.build,row.total])),
-   el('h3','Push gönderimleri'),
-   table(['Durum','Adet'],data.push.map(row=>[outcomes[row.outcome]||row.outcome,row.total])),
-   el('h3','Rol ve kategori izinleri'),
-   el('p','Bildirim alıcısının kayıt yetkisi ve cihazda seçtiği tercihler gönderim sırasında ayrıca kontrol edilir.'),
-   table(['Kategori',...Object.values(roleLabels)],Object.entries(categoryLabels).map(([category,label])=>[
-    label,...Object.entries(roleLabels).map(([role,roleLabel])=>{
-     const policy=data.policies.find(item=>item.category===category&&item.role===role);
-     const enabled=!policy||Number(policy.enabled)===1;
-     if(session.reauthRequired) return enabled?'Etkin':'Kapalı';
-     const toggle=button(enabled?'Etkin':'Kapalı',async()=>{
-      await opsFetch(endpoint,{category,role,enabled:!enabled},session.scopeId);
-      await nativeApps();
-     });
-     toggle.setAttribute('aria-label',label+' · '+roleLabel+' · '+(enabled?'kapat':'etkinleştir'));
-     toggle.setAttribute('aria-pressed',String(enabled));
-     return toggle;
-    })])),
-   el('h3','Hesap silme talepleri'),
-   table(['Hesap kimliği','Talep tarihi'],data.deletionRequests.map(row=>[
-    row.account_id,new Date(Number(row.requested_at)*1000).toLocaleString()]))); 
+  const m=await import('./center-apps.js?v=1');
+  await m.mountApps(content,{fetch:opsFetch,scope:session.scopeId,reauth:session.reauthRequired,tr:uiLabel});
  }
  const statuses={active:'Etkin',pending:'Beklemede',revoked:'Kapalı'};
  const moduleLabels={appointments:'Randevular',clients:'Müşteriler',patients:'Hastalar ve klinik kayıtlar',

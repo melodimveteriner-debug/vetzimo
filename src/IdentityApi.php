@@ -56,12 +56,11 @@ final class IdentityApi
         $q=$this->db->prepare("UPDATE identity_session SET membership_id=? WHERE token_hash=? AND account_id=?");
         $q->execute([$id,base64_encode(hash('sha256',$cookies[SessionRepository::SESSION_COOKIE],true)),$actor['account_id']]);
         if ($id!==$actor['membership_id']) {
+            // Uygulama cihazı yeni çalışma alanına taşınır; bildirimler hesap bazında gelmeye devam eder.
             try {
-                $discard=$this->db->prepare('DELETE FROM native_device WHERE device_hash=? AND account_id=? AND membership_id<>?');
-                $discard->execute([base64_encode(hash('sha256',$cookies[SessionRepository::DEVICE_COOKIE],true)),$actor['account_id'],$id]);
-            } catch (\PDOException $error) {
-                if ($error->getCode()!=='42S02') throw $error;
-            }
+                $this->db->prepare('UPDATE app_device SET membership_id=? WHERE session_device=? AND account_id=?')
+                    ->execute([$id,base64_encode(hash('sha256',$cookies[SessionRepository::DEVICE_COOKIE],true)),$actor['account_id']]);
+            } catch (\PDOException) {}
         }
     }
     public function reauth(array $cookies,array $actor,string $password,int $now): void

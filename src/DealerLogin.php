@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace VetNet\Cpanel;
 
+require_once __DIR__.'/AppHub.php';
 use PDO;
 use RuntimeException;
 
@@ -79,6 +80,7 @@ final class DealerLogin
         if ($insert->rowCount() !== 1) {
             return null;
         }
+        (new AppHub($this->database))->securityLogin($account['id'],$account['membership_id'],$account['role'],(string)($_SERVER['HTTP_USER_AGENT'] ?? ''),$now);
 
         return ['token' => $token, 'device' => $device, 'age' => self::SESSION_SECONDS, 'partner_id'=>$account['partner_id'], 'destination'=>$account['role']==='customer'?'/hasta-sahibi':'/clinic'];
     }
@@ -110,13 +112,8 @@ final class DealerLogin
 
     public function signOut(string $token, string $device): void
     {
-        try {
-            $remove=$this->database->prepare('DELETE d FROM native_device d JOIN identity_session s
-                ON s.device_hash=d.device_hash AND s.account_id=d.account_id WHERE s.token_hash=? AND s.device_hash=?');
-            $remove->execute([self::hashToken($token),self::hashToken($device)]);
-        } catch (\PDOException $error) {
-            if ($error->getCode()!=='42S02') throw $error;
-        }
+        // Çıkış yapılan cihaza artık bildirim gönderilmez.
+        (new AppHub($this->database))->forgetSession(self::hashToken($device));
         $query = $this->database->prepare('DELETE FROM identity_session WHERE token_hash=? AND device_hash=?');
         $query->execute([self::hashToken($token), self::hashToken($device)]);
     }

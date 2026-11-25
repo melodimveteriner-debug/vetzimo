@@ -12,8 +12,8 @@ use VetNet\Cpanel\SessionRepository;
 
 require_once dirname(__DIR__).'/src/StaffPlan.php';
 
-foreach (['NativeApp','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','SaasPayment','DealerAgreement','CenterAnalytics','ClinicAlerts','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','TeamTotp','WebInbox','MinistryBridge','SiteLegal','OmniInbox','PhoneGateway','ClientPermit','PrintTemplates','Support','Commerce','Appearance'] as $class) {
-    require dirname(__DIR__) . '/src/' . $class . '.php';
+foreach (['AppHub','AppPush','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','SaasPayment','DealerAgreement','CenterAnalytics','ClinicAlerts','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','TeamTotp','WebInbox','MinistryBridge','SiteLegal','OmniInbox','PhoneGateway','ClientPermit','PrintTemplates','Support','Commerce','Appearance'] as $class) {
+    require_once dirname(__DIR__) . '/src/' . $class . '.php';
 }
 
 function reply(array $body, int $status = 200): never {
@@ -252,40 +252,63 @@ try {
     $now = time();
     $sessions = new SessionRepository($db);
     $workspaces = new DealerWorkspace($db);
-    if (!$externalWeb && preg_match('~\A/api/app/v1/(patients|appointments|exams|sales|collections|payments|expenses|products|stockLots|stockMoves|labs|home-visits|inbox|device|deletion|management)(?:/([A-Za-z0-9_-]{1,80}))?\z~D',$path,$match)) {
-        $route=$match[1]; $record=$match[2]??null;
-        $readOnly=array_key_exists($route,VetNet\Cpanel\NativeApp::RECORD_FIELDS)||$route==='home-visits';
-        if ($record!==null && !$readOnly && $route!=='inbox') throw new RuntimeException('İşlem bulunamadı.',404);
-        $allowed=($record!==null || $readOnly)&&!(in_array($route,['labs','sales','products','stockLots'],true)&&$record!==null)?['GET']:['GET','POST'];
-        if (!in_array($method,$allowed,true)) { header('Allow: '.implode(', ',$allowed)); throw new RuntimeException('Yöntem desteklenmiyor.',405); }
-        $app=new VetNet\Cpanel\NativeApp($db,$config);
-        $actor=$sessions->resolve($_COOKIE,$now);
-        if (!$actor) throw new RuntimeException('Oturum doğrulanamadı.',401);
-        if ($route==='management') {
-            if ($actor['kind']!=='center' || !(int)$actor['is_owner'] || !hash_equals($actor['account_id'],$_SERVER['HTTP_X_VETNET_SCOPE']??'')) throw new RuntimeException('Merkez yetkisi gerekli.',403);
-            if ($method==='POST' && $now-(int)$actor['reauth_at']>300) throw new RuntimeException('Merkez oturumunu yeniden doğrulayın.',403);
-            reply($app->management($method==='POST'?input(4096):null));
+    if (!$externalWeb && str_starts_with($path,'/api/app/')) {
+        // Uygulama merkezi: Android, iOS, masaüstü ve web aynı oturumla çalışır (çerez, aynı köken).
+        $hub=new VetNet\Cpanel\AppHub($db,$config);
+        $sessionDevice=base64_encode(hash('sha256',(string)($_COOKIE[SessionRepository::DEVICE_COOKIE]??''),true));
+        if ($path==='/api/app/release' && $method==='GET') {
+            reply($hub->release((string)($_GET['platform']??''),(int)($_GET['build']??0)));
         }
-        if ($actor['kind']!=='phone' || !hash_equals($actor['membership_id'],$_SERVER['HTTP_X_VETNET_SCOPE']??'')) throw new RuntimeException('Çalışma alanı oturumu değişti.',409);
-        if ($actor['role']==='customer') $actor=(new IdentityApi($db))->actor($_COOKIE,$now);
-        if (in_array($route,['products','stockLots'],true) && $record!==null && $method==='POST')
-            reply($app->moveStock($actor,$route,$record,$_COOKIE,$now,input(4096)));
-        if ($route==='sales' && $record!==null && $method==='POST') reply($app->collectSale($actor,$record,$_COOKIE,$now,input(4096)));
-        if ($route==='labs' && $record!==null && $method==='POST') reply($app->updateLab($actor,$record,$_COOKIE,$now,input(22000)));
-        if (isset(VetNet\Cpanel\NativeApp::RECORD_FIELDS[$route])) reply($app->records($actor,$route,$record,$_GET['offset']??'0'));
-        $data=$method==='POST'?input(8192):null;
-        reply(match($route) {
-            'home-visits'=>$app->homeVisits($actor,$record),
-            'inbox'=>$app->inbox($actor,$now,$data,$record),
-            'device'=>$app->device($actor,$_COOKIE,$now,$data),
-            'deletion'=>$app->deletion($actor,$now,$data),
-        });
+        $actor=$sessions->resolve($_COOKIE,$now);
+        if ($path==='/api/app/error' && $method==='POST') {
+            (new DealerLogin($db,$config['rateSecret']))->throttle('app-error:'.($_SERVER['REMOTE_ADDR']??''),$now);
+            $hub->error($actor,input(9000),$sessionDevice,$now);
+            reply(['ok'=>true]);
+        }
+        if (!$actor) throw new RuntimeException('Oturum doğrulanamadı.',401);
+        if (($actor['kind']??'')==='phone') $actor=(new IdentityApi($db))->actor($_COOKIE,$now);
+        if ($method==='POST' && ($actor['kind']??'')==='phone' && !hash_equals((string)$actor['membership_id'],$_SERVER['HTTP_X_VETNET_SCOPE']??''))
+            throw new RuntimeException('Çalışma alanı oturumu değişti.',409);
+        if ($method==='POST' && ($actor['kind']??'')==='center' && !hash_equals((string)$actor['account_id'],$_SERVER['HTTP_X_VETNET_SCOPE']??''))
+            throw new RuntimeException('Merkez oturumu değişti.',409);
+        if ($path==='/api/app/config' && $method==='GET') reply($hub->settings($actor));
+        if ($path==='/api/app/device' && $method==='POST') {
+            $body=input(6000);
+            if (($body->action??'')==='revoke') { $hub->revokeDevice($actor,(string)($body->id??'')); reply($hub->settings($actor)); }
+            reply($hub->register($actor,$sessionDevice,$body,$now));
+        }
+        if ($path==='/api/app/preferences' && $method==='POST') reply($hub->preferences($actor,$sessionDevice,input(4096)));
+        if ($path==='/api/app/notifications' && $method==='GET')
+            reply($hub->inbox($actor,isset($_GET['before'])?(string)$_GET['before']:null,isset($_GET['category'])?(string)$_GET['category']:null,($_GET['unread']??'')==='1'));
+        if ($path==='/api/app/notifications' && $method==='POST') reply($hub->mark($actor,input(8192),$now));
+        if ($path==='/api/app/deletion' && in_array($method,['GET','POST'],true)) {
+            if (($actor['kind']??'')!=='phone') throw new RuntimeException('Bu hesap uygulama üzerinden silinemez.',422);
+            if ($method==='POST') {
+                (new DealerLogin($db,$config['rateSecret']))->throttle('app-deletion:'.($_SERVER['REMOTE_ADDR']??''),$now);
+                $body=input(2048);
+                if (($body->confirm??false)!==true || !is_string($body->password??null)) throw new RuntimeException('Onay ve şifre gerekli.',422);
+                (new IdentityApi($db))->reauth($_COOKIE,$actor,$body->password,$now);
+                $actor=$sessions->resolve($_COOKIE,$now);
+                reply($hub->deletion($actor,$now,true));
+            }
+            reply($hub->deletion($actor,$now,false));
+        }
+        throw new RuntimeException('İşlem bulunamadı.',404);
+    }
+    if (!$externalWeb && $path==='/api/center/app-management' && in_array($method,['GET','POST'],true)) {
+        $actor=$sessions->resolve($_COOKIE,$now);
+        if (!$actor || $actor['kind']!=='center' || !(int)$actor['is_owner'] || !hash_equals($actor['account_id'],$_SERVER['HTTP_X_VETNET_SCOPE']??'')) throw new RuntimeException('Merkez yetkisi gerekli.',403);
+        $hub=new VetNet\Cpanel\AppHub($db,$config);
+        if ($method==='GET') reply($hub->management($now));
+        if ($now-(int)$actor['reauth_at']>300) throw new RuntimeException('Merkez oturumunu yeniden doğrulayın.',403);
+        reply($hub->manage(input(40000),$now));
     }
     if (!$externalWeb && $path==='/hesap-silme' && in_array($method,['GET','POST'],true)) {
+        // Mağaza kuralı: hesap silme talebi uygulama dışından da yapılabilmeli.
         $actor=$sessions->resolve($_COOKIE,$now);
         $form='';
         if (($actor['kind']??'')==='phone') {
-            $app=new VetNet\Cpanel\NativeApp($db,$config);
+            $hub=new VetNet\Cpanel\AppHub($db,$config);
             if ($method==='POST') {
                 (new DealerLogin($db,$config['rateSecret']))->throttle('app-deletion:'.($_SERVER['REMOTE_ADDR']??''),$now);
                 $password=$_POST['password']??null;
@@ -293,17 +316,18 @@ try {
                 (new IdentityApi($db))->reauth($_COOKIE,$actor,$password,$now);
                 $actor=$sessions->resolve($_COOKIE,$now);
                 if (!$actor) throw new RuntimeException('Oturum doğrulanamadı.',401);
-                $app->deletion($actor,$now,(object)['confirm'=>true]);
+                $hub->deletion($actor,$now,true);
                 header('Location: /hesap-silme',true,303); exit;
             }
-            $form=$app->deletion($actor,$now,null)['requestedAt']
-                ? '<p>Hesap silme talebiniz alındı.</p>'
-                : '<form method="post"><label>Şifreniz <input name="password" type="password" autocomplete="current-password" required></label><p><label><input type="checkbox" name="confirm" value="yes" required> Hesabımın silinmesini talep ediyorum.</label></p><button type="submit">Talebi gönder</button></form>';
+            $state=$hub->deletion($actor,$now,false);
+            $form=$state['status']==='pending' ? '<p class="ok">Hesap silme talebiniz alındı. En geç 30 gün içinde tamamlanır ve size bildirilir.</p>'
+                : ($state['status']==='done' ? '<p class="ok">Hesabınız silindi.</p>'
+                : '<form method="post"><label>Şifreniz <input name="password" type="password" autocomplete="current-password" required></label><label class="c"><input type="checkbox" name="confirm" value="yes" required> Hesabımın ve giriş bilgilerimin silinmesini istiyorum.</label><button>Silme talebi gönder</button></form>');
         } elseif ($method==='POST') throw new RuntimeException('Oturum doğrulanamadı.',401);
-        else $form='<p>Talep oluşturmak için <a href="/app">VetZimo hesabınızla giriş yapın</a> ve bu sayfaya dönün.</p>';
+        else $form='<p>Talep oluşturmak için <a href="/app">VetZimo hesabınızla giriş yapın</a> ve bu sayfaya dönün. Uygulamada: Ayarlar › Hesap › Hesabımı sil.</p>';
         header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'");
         header('Content-Type: text/html; charset=utf-8');
-        echo '<!doctype html><html lang="tr"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>VetZimo · Hesap silme</title><style>body{font:1rem/1.6 system-ui;margin:3rem auto;padding:0 1.2rem;max-width:38rem}input,button{font:inherit}</style><main><h1>Hesap silme talebi</h1><p>Talep mevcut VetZimo hesabınız için kaydedilir ve yönetim tarafından incelenir. Talep kaydı, silmenin tamamlandığı anlamına gelmez.</p>'.$form.'<p><a href="/platform/gizlilik">Gizlilik bilgilendirmesi</a></p></main></html>';
+        echo '<!doctype html><html lang="tr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><title>VetZimo · Hesap silme</title><style>body{font:1rem/1.6 system-ui;margin:0;background:linear-gradient(160deg,#f3efff,#e9f7ff);color:#1d1638;min-height:100vh}main{max-width:38rem;margin:0 auto;padding:3rem 1.2rem}h1{font-size:1.6rem;margin:0 0 .6rem}.card{background:#fff;border-radius:18px;padding:1.4rem;box-shadow:0 18px 40px rgba(60,30,140,.12)}label{display:grid;gap:.3rem;margin:.8rem 0}label.c{display:flex;gap:.5rem;align-items:flex-start}input,button{font:inherit}input[type=password]{padding:.7rem;border:1px solid #cfc6ef;border-radius:10px}button{background:#6a3df0;color:#fff;border:0;border-radius:12px;padding:.75rem 1.2rem;font-weight:700;cursor:pointer}.ok{background:#e6f7ee;color:#11633a;padding:.8rem;border-radius:10px}a{color:#5b2fd6}@media (prefers-color-scheme:dark){body{background:#120d24;color:#ece8ff}.card{background:#1d1638}input[type=password]{background:#120d24;color:#fff;border-color:#4b3d86}a{color:#b8a4ff}}</style><main><h1>Hesap silme talebi</h1><div class="card"><p>Talep, VetZimo giriş hesabınız için kaydedilir. Tamamlandığında giriş bilgileriniz, cihaz kayıtlarınız ve bildirimleriniz silinir. Kliniğinizin tuttuğu tıbbi kayıtlar yasal saklama yükümlülüğü nedeniyle klinikte kalır; bunlar için kliniğinize başvurabilirsiniz.</p>'.$form.'</div><p><a href="/platform/gizlilik">Gizlilik bilgilendirmesi</a></p></main></html>';
         exit;
     }
     if ($path==='/api/evde-hizmet/konum'||(!$externalWeb && in_array($path,['/clinic/evde-hizmet','/hasta-sahibi/evde-hizmet','/yonetim/evde-hizmet',
