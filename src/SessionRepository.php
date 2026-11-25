@@ -14,6 +14,8 @@ final class SessionRepository
     public const SESSION_COOKIE = '__Host-vetnet-session';
     public const DEVICE_COOKIE = '__Host-vetnet-device';
     private const IDLE_TIMEOUT = 1800;
+    // Merkez yönetici oturumu 2 saat hareketsizlikte kapanır (klinik oturumları 30 dakika).
+    private const CENTER_IDLE_TIMEOUT = 7200;
 
     public function __construct(private readonly PDO $database)
     {
@@ -39,13 +41,13 @@ final class SessionRepository
              LEFT JOIN identity_membership m ON m.id=s.membership_id AND m.account_id=a.id
              LEFT JOIN partner_account p ON p.id=m.partner_id
              WHERE s.token_hash=? AND s.device_hash=? AND a.blocked=0
-               AND a.version=s.account_version AND s.expires>? AND s.touched>?
+               AND a.version=s.account_version AND s.expires>? AND s.touched>IF(a.kind='center',?,?)
                AND ((a.kind='center' AND c.account_id IS NOT NULL AND a.totp_seed IS NOT NULL
                      AND s.membership_id IS NULL)
                  OR (a.kind='phone' AND m.status='active' AND p.active=1))"
             . ($forUpdate ? " FOR UPDATE" : "")
         );
-        $query->execute([$tokenHash, $deviceHash, $now, $now - self::IDLE_TIMEOUT]);
+        $query->execute([$tokenHash, $deviceHash, $now, $now - self::CENTER_IDLE_TIMEOUT, $now - self::IDLE_TIMEOUT]);
         $session = $query->fetch();
         if ($session === false) {
             return null;

@@ -5,6 +5,8 @@ use PDO;
 use RuntimeException;
 final class Center
 {
+    /** Merkez oturumu: giriş (2FA) sonrası 2 saat işlem yapılabilir, 2 saat hareketsizlikte oturum kapanır. */
+    public const REAUTH_WINDOW = 7200;
     public function __construct(private readonly PDO $db,private readonly array $config) {}
     public function login(object $input,string $ip,int $now,bool $explainOtp=false): ?array
     {
@@ -36,7 +38,7 @@ final class Center
             $token=bin2hex(random_bytes(32));$device=bin2hex(random_bytes(32));
             $this->db->prepare('UPDATE identity_account SET totp_step=? WHERE id=?')->execute([$step,$account['id']]);
             $this->db->prepare('INSERT INTO identity_session(token_hash,device_hash,account_id,account_version,membership_id,created,touched,expires,reauth_at) VALUES (?,?,?,?,NULL,?,?,?,?)')
-                ->execute([base64_encode(hash('sha256',$token,true)),base64_encode(hash('sha256',$device,true)),$account['id'],$account['version'],$now,$now,$now+3600,$now]);
+                ->execute([base64_encode(hash('sha256',$token,true)),base64_encode(hash('sha256',$device,true)),$account['id'],$account['version'],$now,$now,$now+self::REAUTH_WINDOW,$now]);
             $this->audit($account['id'],'center.login');
             $this->db->commit();return ['token'=>$token,'device'=>$device,'age'=>3600,'destination'=>'/yonetim'];
         } catch(\Throwable $e){if($this->db->inTransaction())$this->db->rollBack();throw $e;}
@@ -51,7 +53,7 @@ final class Center
         if(!$actor||$actor['kind']!=='center') throw new RuntimeException('Merkez yöneticisi yetkisi gerekli.',403);
         $dep=(int)$actor['is_owner']?'owner':(string)($actor['department'] ?? '');
         if($dep!=='owner'&&!in_array($dep,$departments,true)) throw new RuntimeException('Bu bölüm departmanınızın yetkisi dışında.',403);
-        if($write&&$now-(int)$actor['reauth_at']>300) throw new RuntimeException('Bu işlem için yeni doğrulama koduyla tekrar giriş yapın.',403);
+        if($write&&$now-(int)$actor['reauth_at']>self::REAUTH_WINDOW) throw new RuntimeException('Bu işlem için yeni doğrulama koduyla tekrar giriş yapın.',403);
         return $actor+['department'=>$dep];
     }
 
@@ -109,7 +111,7 @@ final class Center
     {
         $actor=(new SessionRepository($this->db))->resolve($cookies,$now);
         if(!$actor||$actor['kind']!=='center'||!(int)$actor['is_owner']) throw new RuntimeException('Merkez yöneticisi yetkisi gerekli.',403);
-        if($write&&$now-(int)$actor['reauth_at']>300) throw new RuntimeException('Bu işlem için yeni doğrulama koduyla tekrar giriş yapın.',403);
+        if($write&&$now-(int)$actor['reauth_at']>self::REAUTH_WINDOW) throw new RuntimeException('Bu işlem için yeni doğrulama koduyla tekrar giriş yapın.',403);
         return $actor;
     }
     public function partners(array $actor): array

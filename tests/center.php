@@ -41,6 +41,7 @@ echo "PASS assigned subscription lookup and overlapping term rejection\n";
 $center->toggle($actor,(object)['partnerId'=>$created['id'],'active'=>false],$now);
 good((new SessionRepository($db))->resolve($dealerCookies,$now)===null,'Disabled dealer kept session');
 good((new DealerLogin($db,$config['rateSecret']))->signIn('05551000021','Second-password-42','192.0.2.21',$now)===null,'Disabled dealer logged in');
-denied(fn()=>$center->requireOwner($cookies,$now+301,true));
+good(is_array($center->requireOwner($cookies,$now+301,true)),'Center write blocked after 5 minutes');
+denied(fn()=>$center->requireOwner($cookies,$now+\VetNet\Cpanel\Center::REAUTH_WINDOW+1,true));
 good((int)$db->query('SELECT COUNT(*) FROM center_audit')->fetchColumn()===3,'Center audit incomplete');
 echo "PASS TOTP vectors/encryption/replay prevention, administrator setup/login, dealer creation/activation/listing, dealer denial from center, deactivation/session revocation, recent-auth requirement and audit\n";

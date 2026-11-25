@@ -336,7 +336,7 @@ try {
         if (!$actor || $actor['kind']!=='center' || !(int)$actor['is_owner'] || !hash_equals($actor['account_id'],$_SERVER['HTTP_X_VETNET_SCOPE']??'')) throw new RuntimeException('Merkez yetkisi gerekli.',403);
         $hub=new VetNet\Cpanel\AppHub($db,$config);
         if ($method==='GET') reply($hub->management($now));
-        if ($now-(int)$actor['reauth_at']>300) throw new RuntimeException('Merkez oturumunu yeniden doğrulayın.',403);
+        if ($now-(int)$actor['reauth_at']>VetNet\Cpanel\Center::REAUTH_WINDOW) throw new RuntimeException('Merkez oturumunu yeniden doğrulayın.',403);
         reply($hub->manage(input(40000),$now));
     }
     if (!$externalWeb && $path==='/hesap-silme' && in_array($method,['GET','POST'],true)) {
@@ -918,7 +918,7 @@ try {
     }
     if(in_array($path,['/api/identity/session','/api/identity/profile'],true)&&$method==='GET') {
         $actor=$sessions->resolve($_COOKIE,$now);
-        if(($actor['kind'] ?? '')==='center') reply(['kind'=>'center','name'=>$actor['identifier'],'identifier'=>$actor['identifier'],'scopeId'=>$actor['account_id'],'members'=>[],'active'=>null,'reauthRequired'=>$now-(int)$actor['reauth_at']>300,'department'=>(int)$actor['is_owner']?'owner':(string)($actor['department'] ?? '')]);
+        if(($actor['kind'] ?? '')==='center') reply(['kind'=>'center','name'=>$actor['identifier'],'identifier'=>$actor['identifier'],'scopeId'=>$actor['account_id'],'members'=>[],'active'=>null,'reauthRequired'=>$now-(int)$actor['reauth_at']>VetNet\Cpanel\Center::REAUTH_WINDOW,'department'=>(int)$actor['is_owner']?'owner':(string)($actor['department'] ?? '')]);
     }
     $identity=new IdentityApi($db);
     if ($path==='/api/identity/notifications' && in_array($method,['GET','POST'],true)) {
