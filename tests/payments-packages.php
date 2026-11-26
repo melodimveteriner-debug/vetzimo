@@ -56,7 +56,7 @@ $soon=strtotime('2028-05-10 10:00:00 +03:00');
 $out=$rem->run(strtotime($rows[1]['ends_on'].' 10:00:00 +03:00')-20*86400,true);
 ok(count($out)===1 && $out[0]['stage']==='30d' && str_contains($out[0]['text'],'gün'),'30 günlük hatırlatma yok: '.json_encode($out,JSON_UNESCAPED_UNICODE));
 $msg=$rem->message(['name'=>'Demo Klinik','ends_on'=>'2026-12-10','kind'=>'trial','plan_name'=>'Plus','paid_terms'=>0],'48h',3600);
-ok(str_contains($msg[1],'silinecektir'),'Demo 48 saat uyarısında veri silme yok');
+ok(str_contains($msg[1],'kalıcı olarak silinir') && str_contains($msg[1],'30 gün') && str_contains($msg[1],'Yedeğinizi'),'Demo 48 saat uyarısında 30 gün saklama / silme / yedek bilgisi yok');
 
 // 4) Merkez ekip hesabı (destek)
 $owner=$db->query("SELECT a.id FROM identity_account a JOIN identity_center c ON c.account_id=a.id WHERE c.is_owner=1")->fetchColumn();

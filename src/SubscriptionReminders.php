@@ -65,7 +65,7 @@ final class SubscriptionReminders
         $when = $stage === '48h' ? 'son 48 saat' : ($stage === '30d' ? max(1, (int)ceil($left / 86400)).' gün' : 'yaklaşık 3 ay');
         if ($trial && $stage === '48h') {
             return ['VetZimo demonuz 48 saat içinde bitiyor',
-                "Sayın {$r['name']}, VetZimo demo süreniz {$date} tarihinde sona eriyor ({$when} kaldı). Süre bitiminde paket alınmazsa hesabınız kapanacak ve demo süresince girdiğiniz veriler silinecektir. Verilerinizi korumak için paketinizi şimdi seçin: {$link}"];
+                "Sayın {$r['name']}, VetZimo demo süreniz {$date} tarihinde sona eriyor ({$when} kaldı). Süre bitiminde giriş kapanır. Verileriniz için endişelenmeyin: 30 gün daha sistemimizde güvenle saklanır, bu sürede paket alırsanız kaldığınız yerden devam edersiniz; 30 günün sonunda kalıcı olarak silinir. Yedeğinizi almayı unutmayın (Ayarlar › Şube yedeği). Paketinizi şimdi seçin: {$link}"];
         }
         if ($trial) {
             return ['VetZimo demo süreniz bitiyor',
@@ -73,7 +73,7 @@ final class SubscriptionReminders
         }
         if ($stage === '48h') {
             return ['VetZimo aboneliğiniz 48 saat içinde bitiyor',
-                "Sayın {$r['name']}, VetZimo {$r['plan_name']} aboneliğiniz {$date} tarihinde sona eriyor. Yenilenmezse hesabınıza erişim duracaktır. Kartla hemen yenileyebilir veya havale yapabilirsiniz: {$link}"];
+                "Sayın {$r['name']}, VetZimo {$r['plan_name']} aboneliğiniz {$date} tarihinde sona eriyor. Yenilenmezse süre bitiminde giriş kapanır. Verileriniz için endişelenmeyin: 30 gün daha sistemimizde güvenle saklanır; 30 günün sonunda kalıcı olarak silinir. Yedeğinizi almayı unutmayın (Ayarlar › Şube yedeği). Kartla hemen yenileyebilir veya havale yapabilirsiniz: {$link}"];
         }
         return ['VetZimo abonelik yenileme hatırlatması',
             "Sayın {$r['name']}, VetZimo {$r['plan_name']} aboneliğinizin bitmesine {$when} var ({$date}). Kesintisiz kullanım için yenilemenizi kartla anında ya da havale ile yapabilirsiniz: {$link}"];

@@ -9,7 +9,7 @@ use RuntimeException;
 /**
  * Bayinin yaşam döngüsü:
  * - renewal(): uygulamanın üst uyarı şeridi için kalan gün / son tarih (demo ve 30 günden az kalan abonelik).
- * - sweep(): süresi biten bayi ve demolar 30 gün saklanır; sonra girişleri kapatılır, açık oturumları sonlandırılır.
+ * - sweep(): süresi biten bayi ve demonun girişi hemen kapanır; veriler 30 gün saklanır, sonra kalıcı olarak silinir.
  * - purge(): yönetici (şifre + iki adımlı doğrulama sonrası) bayiyi ve şubelerini tüm verileriyle veritabanından siler.
  *   VetZimo bayiye ait dosyaları diskte tutmaz (görseller, ekler, web sitesi medyası veritabanındadır); silme tamdır.
  */
@@ -85,24 +85,66 @@ final class PartnerLifecycle
         return ['state' => $keep < $day ? 'retention-over' : 'retention', 'ends' => $end, 'keepUntil' => $keep];
     }
 
-    /**
-     * Saklama süresi (bitişten sonra 30 gün) dolan bayilerin girişini kapatır ve oturumlarını sonlandırır.
-     * Veriler silinmez; silme yalnız yöneticinin onayıyla yapılır. Hafif: tek sorgu, yalnız etkin bayilere bakar.
-     */
-    public function sweep(int $now): array
+    private function ensureClosure(): void
     {
+        $this->db->exec("CREATE TABLE IF NOT EXISTS partner_closure (partner_id VARCHAR(80) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL PRIMARY KEY,
+            ends_on DATE NOT NULL, closed_at INT UNSIGNED NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    }
+
+    /**
+     * Süre bitişi kuralı:
+     * 1) Abonelik/demo süresi biten bayinin girişi hemen kapanır, açık oturumları sonlanır (veriler korunur).
+     * 2) Veriler bitişten sonra 30 gün saklanır; bu sürede yenileme yapılırsa hesap kendiliğinden yeniden açılır.
+     * 3) 30 günün sonunda bayinin ve şubelerinin tüm verileri kalıcı olarak silinir.
+     * Merkezin mesaj hattı olarak kullanılan bayi hiçbir zaman silinmez. $purgeLimit: tek çalıştırmada en çok silinecek bayi.
+     */
+    public function sweep(int $now, int $purgeLimit = 20): array
+    {
+        $this->ensureClosure();
+        $today = self::today()->format('Y-m-d');
         $limit = self::today()->modify('-'.self::RETENTION_DAYS.' days')->format('Y-m-d');
-        $q = $this->db->prepare("SELECT p.id FROM partner_account p JOIN clinic_subscription s ON s.partner_id=p.id
-            WHERE p.active=1 GROUP BY p.id HAVING MAX(s.ends_on) < ?");
-        $q->execute([$limit]);
+        $protected = '';
+        try { $protected = (string)(new CenterContact($this->db, ''))->settings()['linePartner']; } catch (\Throwable) {}
         $closed = [];
-        foreach ($q->fetchAll(PDO::FETCH_COLUMN) as $partner) {
+        $q = $this->db->prepare("SELECT p.id,MAX(s.ends_on) ends_on FROM partner_account p JOIN clinic_subscription s ON s.partner_id=p.id
+            WHERE p.active=1 GROUP BY p.id HAVING MAX(s.ends_on) < ?");
+        $q->execute([$today]);
+        foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $partner = $row['id'];
+            if ($partner === $protected) continue;
             $this->db->prepare('UPDATE partner_account SET active=0,updated_at=? WHERE id=? AND active=1')->execute([gmdate('c', $now), $partner]);
             $this->db->prepare('DELETE s FROM identity_session s JOIN identity_membership m ON m.id=s.membership_id WHERE m.partner_id=?')->execute([$partner]);
-            try { $this->db->prepare('INSERT INTO center_audit(account_id,action,target_id) VALUES (NULL,?,?)')->execute(['partner.retention_closed', $partner]); } catch (\PDOException) {}
+            $this->db->prepare('INSERT INTO partner_closure(partner_id,ends_on,closed_at) VALUES (?,?,?) ON DUPLICATE KEY UPDATE ends_on=VALUES(ends_on),closed_at=VALUES(closed_at)')
+                ->execute([$partner, $row['ends_on'], $now]);
             $closed[] = $partner;
         }
-        return $closed;
+        $purged = [];
+        if ($purgeLimit > 0) {
+            $q = $this->db->prepare("SELECT c.partner_id FROM partner_closure c JOIN partner_account p ON p.id=c.partner_id AND p.active=0
+                WHERE NOT EXISTS (SELECT 1 FROM clinic_subscription s WHERE s.partner_id=c.partner_id AND s.ends_on >= ?) ORDER BY c.ends_on LIMIT ".(int)$purgeLimit);
+            $q->execute([$limit]);
+            foreach ($q->fetchAll(PDO::FETCH_COLUMN) as $partner) {
+                if ($partner === $protected) continue;
+                try { $this->purge($partner); $purged[] = $partner; }
+                catch (\Throwable $e) { error_log('VetZimo retention purge '.$partner.': '.get_class($e)); }
+            }
+        }
+        return ['closed' => $closed, 'purged' => $purged];
+    }
+
+    /** Süre bitişiyle kapanan bayi yeni dönem alınca (ödeme, yönetici ataması, deneme) yeniden açılır. Elle kapatılan bayiye dokunmaz. */
+    public function reopen(string $partner): bool
+    {
+        // Tablo yoksa (hiç kapatma olmadıysa) yapılacak bir şey yoktur; DDL işlem içinde çalıştırılmaz.
+        try { $q = $this->db->prepare('SELECT 1 FROM partner_closure WHERE partner_id=?'); $q->execute([$partner]); }
+        catch (\PDOException) { return false; }
+        if (!$q->fetchColumn()) return false;
+        $q = $this->db->prepare('SELECT 1 FROM clinic_subscription WHERE partner_id=? AND ends_on>=? LIMIT 1');
+        $q->execute([$partner, self::today()->format('Y-m-d')]);
+        if (!$q->fetchColumn()) return false;
+        $this->db->prepare('UPDATE partner_account SET active=1,updated_at=? WHERE id=?')->execute([gmdate('c'), $partner]);
+        $this->db->prepare('DELETE FROM partner_closure WHERE partner_id=?')->execute([$partner]);
+        return true;
     }
 
     // ───────────────────────────── tamamen silme ─────────────────────────────

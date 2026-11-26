@@ -43,6 +43,8 @@ final class SiteLegal
         'telefon' => '', 'web' => 'www.vetzimo.com',
     ];
     public const DEFAULT_DATE = '2026-11-24';
+    /** Varsayılan metni sonradan güncellenen belgeler: [tarih, sürüm] (süre bitişi, 30 gün saklama ve yedek maddesi). */
+    private const DEFAULT_REVISIONS = ['kullanim-sozlesmesi' => ['2026-11-26', 2], 'kullanim-sartlari' => ['2026-11-26', 2], 'kvkk-aydinlatma' => ['2026-11-26', 2]];
     private const MONTHS = ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
 
     public function __construct(private PDO $db) {}
@@ -101,7 +103,8 @@ final class SiteLegal
         while ($lines && trim($lines[0]) === '') array_shift($lines);
         if ($lines && str_starts_with($lines[0], '> ')) $summary = trim(substr(array_shift($lines), 2));
         return ['slug' => $slug, 'title' => $title, 'summary' => $summary, 'body' => trim(implode("\n", $lines))."\n",
-            'version' => 1, 'effective_on' => self::DEFAULT_DATE, 'updated_at' => self::DEFAULT_DATE.' 00:00:00', 'updated_by' => '', 'stored' => false];
+            'version' => self::DEFAULT_REVISIONS[$slug][1] ?? 1, 'effective_on' => self::DEFAULT_REVISIONS[$slug][0] ?? self::DEFAULT_DATE,
+            'updated_at' => (self::DEFAULT_REVISIONS[$slug][0] ?? self::DEFAULT_DATE).' 00:00:00', 'updated_by' => '', 'stored' => false];
     }
 
     public function doc(string $slug): array

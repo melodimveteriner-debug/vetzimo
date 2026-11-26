@@ -9,10 +9,10 @@ function ok(bool $value,string $message): void { if(!$value) throw new RuntimeEx
 $db=Database::connect(getenv('VETNET_TEST_DSN'),'root','');
 (new Installer($db,dirname(__DIR__)))->install('Legal Test','05551000116','legal@example.test','Legal-test-secret-42');
 $legal=new SiteLegal($db); $now=strtotime('2026-11-24 12:00:00 UTC');
-foreach (array_keys(SiteLegal::DOCS) as $slug) { $d=$legal->doc($slug); ok($d['version']===1 && strlen($d['body'])>1500 && $d['title']!=='','Varsayılan metin eksik: '.$slug); }
+foreach (array_keys(SiteLegal::DOCS) as $slug) { $d=$legal->doc($slug); ok($d['version']>=1 && strlen($d['body'])>1500 && $d['title']!=='','Varsayılan metin eksik: '.$slug); }
 $page=$legal->mainHtml('kvkk-aydinlatma')['main'];
 ok(strpos($page,'Düzenlenme tarihi:')!==false && strpos($page,'Düzenlenme tarihi:')<strpos($page,'<h1>'),'Düzenlenme tarihi başlığın üstünde değil');
-ok(str_contains($page,'24 Kasım 2026') && str_contains($page,'Zimo Soft Yazılım Tasarım İthalat İhracat A.Ş.') && str_contains($page,'Odunpazarı / Eskişehir'),'Şirket veya tarih bilgisi yok');
+ok(str_contains($page,'26 Kasım 2026') && str_contains($page,'Zimo Soft Yazılım Tasarım İthalat İhracat A.Ş.') && str_contains($page,'Odunpazarı / Eskişehir'),'Şirket veya tarih bilgisi yok');
 ok(!str_contains($page,'MERSİS numarası:'),'Boş MERSİS satırı gösterildi');
 ok(!preg_match('/\{[a-z_]+\}/',$page),'Doldurulmamış alan kaldı');
 $saved=$legal->save((object)['slug'=>'cerez-politikasi','title'=>'Çerez Politikası','summary'=>'Özet','body'=>"## Başlık\n<script>alert(1)</script> **kalın**\n- {unvan}\n- KEP: {kep}",'note'=>'Test','effectiveOn'=>'2026-12-01','version'=>1],'Test Yönetici',$now);

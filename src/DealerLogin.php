@@ -42,6 +42,7 @@ final class DealerLogin
         $accounts = $query->fetchAll();
         $dummy = '$argon2id$v=19$m=19456,t=2,p=1$dmV0bmV0LWR1bW15LXNhbHQ$2kJt5TvTYj2TjRtwCXNTSep3hx6JPELnITrpTXQsiGA';
         // All memberships of this identifier resolve to the same identity account.
+        if (!$accounts) $this->closedNotice($identifier, $password);
         if (!password_verify($password, $accounts[0]['password_hash'] ?? $dummy) || !$accounts) return null;
         $workspaces = new WorkspaceRepository($this->database);
         $account = null;
@@ -83,6 +84,26 @@ final class DealerLogin
         (new AppHub($this->database))->securityLogin($account['id'],$account['membership_id'],$account['role'],(string)($_SERVER['HTTP_USER_AGENT'] ?? ''),$now);
 
         return ['token' => $token, 'device' => $device, 'age' => self::SESSION_SECONDS, 'partner_id'=>$account['partner_id'], 'destination'=>$account['role']==='customer'?'/hasta-sahibi':'/clinic'];
+    }
+
+    /**
+     * Süresi bittiği için girişi kapatılan bayinin kullanıcısı doğru şifreyi girerse açıklayıcı mesaj görür
+     * (şifre doğrulanmadan hiçbir bilgi verilmez). Veriler bitişten 30 gün sonra silinir.
+     */
+    private function closedNotice(string $identifier, string $password): void
+    {
+        try {
+            $q = $this->database->prepare("SELECT a.password_hash,c.ends_on FROM identity_account a JOIN identity_membership m ON m.account_id=a.id
+                JOIN partner_closure c ON c.partner_id=m.partner_id WHERE a.kind='phone' AND a.identifier=? AND a.blocked=0 AND m.status='active' ORDER BY c.ends_on DESC LIMIT 1");
+            $q->execute([$identifier]);
+            $row = $q->fetch();
+        } catch (\PDOException) { return; }
+        if (!$row || !password_verify($password, (string)$row['password_hash'])) return;
+        $tz = new \DateTimeZone('Europe/Istanbul');
+        $keep = (new \DateTimeImmutable((string)$row['ends_on'], $tz))->modify('+'.PartnerLifecycle::RETENTION_DAYS.' days');
+        $months = ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
+        $date = $keep->format('j').' '.$months[(int)$keep->format('n')-1].' '.$keep->format('Y');
+        throw new RuntimeException('Abonelik süreniz dolduğu için giriş kapatıldı. Verileriniz '.$date.' tarihine kadar güvenle saklanıyor; bu tarihten önce aboneliğinizi yenilerseniz her şey kaldığı yerden devam eder. Yenilemek için bizimle iletişime geçin.', 403);
     }
 
     public function changePassword(array $cookies, string $current, string $next, string $address, int $now): void

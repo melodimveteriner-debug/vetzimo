@@ -72,6 +72,7 @@ Bazı altyapı hizmetleri (örneğin anlık bildirim, harita ve rota, mesajlaşm
 
 ## 7. Saklama süreleri ve imha
 Kişisel veriler, işleme amacının gerektirdiği süre ve ilgili mevzuatta öngörülen süreler boyunca saklanır. Başlıca süreler şunlardır:
+- Klinik çalışma alanı verileri (hasta, hasta sahibi, muayene, aşı, satış vb.): abonelik veya deneme süresi boyunca; süre bitiminden sonra giriş kapalı olarak 30 gün daha saklanır ve bu sürenin sonunda kalıcı olarak silinir (yedeğinizi süre bitmeden almanız önerilir),
 - Hesap ve abonelik kayıtları: sözleşme ilişkisi boyunca ve sona ermesinden itibaren genel zamanaşımı süresi olan 10 yıl,
 - Fatura ve muhasebe belgeleri: Türk Ticaret Kanunu ve Vergi Usul Kanunu uyarınca 10 yıl,
 - Erişim ve trafik kayıtları: 5651 sayılı Kanun ve ikincil mevzuatta öngörülen süre,

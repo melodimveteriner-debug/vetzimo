@@ -53,18 +53,33 @@ $db->prepare("INSERT INTO clinic_subscription(partner_id,plan_id,plan_name,kind,
 $db->exec("DELETE FROM clinic_subscription WHERE partner_id='$A'");
 $db->prepare("INSERT INTO clinic_subscription(partner_id,plan_id,plan_name,kind,starts_on,ends_on) VALUES (?,?,?,?,?,?)")->execute([$A,'pro','Demo','trial',date('Y-m-d',strtotime('-3 days')),date('Y-m-d',strtotime('+11 days'))]);
 ok($life->renewal($A)['state']==='trial','Demo uyarısı yok');
-// ── süresi dolan: 30 gün saklama, sonra giriş kapanır
+// ── süresi dolan: giriş hemen kapanır, veriler 30 gün saklanır, yenilenirse yeniden açılır, 30 gün sonra otomatik silinir
 $db->exec("UPDATE clinic_subscription SET starts_on='".date('Y-m-d',strtotime('-80 days'))."',ends_on='".date('Y-m-d',strtotime('-20 days'))."' WHERE partner_id='$A'");
-ok($life->renewal($A)['state']==='expired' && $life->sweep($now)===[],'Saklama süresi dolmadan giriş kapatıldı');
-$db->exec("UPDATE clinic_subscription SET ends_on='".date('Y-m-d',strtotime('-31 days'))."' WHERE partner_id='$A'");
-ok($life->sweep($now)===[$A] && $life->retention($A)['state']==='retention-over','Saklama süresi dolan bayinin girişi kapanmadı');
-ok($login->signIn('05551000177','Silme-test-secret-42','192.0.2.171',$now)===null || (int)$db->query("SELECT active FROM partner_account WHERE id='$A'")->fetchColumn()===0,'Kapanan bayi giriş yapabildi');
+$r=$life->sweep($now);
+ok($r['closed']===[$A] && $r['purged']===[],'Süresi biten bayinin girişi kapanmadı ya da erken silindi: '.json_encode($r));
+ok($life->retention($A)['state']==='retention','Saklama durumu yanlış');
+$other=$login->signIn('05551000177','Silme-test-secret-42','192.0.2.170',$now);
+ok(($other['partner_id'] ?? '')===$B,'Ortak hesap açık olan diğer kliniğe giremedi');
+$db->exec("UPDATE identity_membership SET status='pending' WHERE partner_id='$B' AND account_id='$shared'");
+$msg=''; try { $login->signIn('05551000177','Silme-test-secret-42','192.0.2.171',$now); } catch (RuntimeException $e) { $msg=$e->getMessage(); }
+ok(str_contains($msg,'saklanıyor'),'Kapanan bayiye açıklayıcı mesaj gösterilmedi: '.$msg);
+$wrong=null; try { $wrong=$login->signIn('05551000177','yanlis-sifre-0000','192.0.2.172',$now); } catch (RuntimeException $e) { $wrong='hata:'.$e->getMessage(); }
+ok($wrong===null,'Yanlış şifrede kapanış bilgisi sızdı');
+$db->exec("UPDATE identity_membership SET status='active' WHERE partner_id='$B' AND account_id='$shared'");
 ok((int)$db->query("SELECT COUNT(*) FROM identity_session s JOIN identity_membership m ON m.id=s.membership_id WHERE m.partner_id='$A'")->fetchColumn()===0,'Oturumlar sonlanmadı');
+$db->beginTransaction(); $com->assign((object)['partnerId'=>$A,'plan'=>'pro','kind'=>'assigned','starts_on'=>date('Y-m-d'),'ends_on'=>date('Y-m-d',strtotime('+5 days'))],true); $db->commit();
+ok((int)$db->query("SELECT active FROM partner_account WHERE id='$A'")->fetchColumn()===1,'Yenilenen bayi yeniden açılmadı');
+$db->exec("DELETE FROM clinic_subscription WHERE partner_id='$A' AND ends_on>='".date('Y-m-d')."'");
+ok($life->sweep($now)['closed']===[$A],'İkinci kapanış olmadı');
+$db->exec("UPDATE clinic_subscription SET ends_on='".date('Y-m-d',strtotime('-31 days'))."' WHERE partner_id='$A'");
+$db->exec("UPDATE partner_closure SET ends_on='".date('Y-m-d',strtotime('-31 days'))."' WHERE partner_id='$A'");
+ok($life->retention($A)['state']==='retention-over','30 gün dolmuş görünmüyor');
 // ── tamamen silme
 $sum=$life->summary($A);
 ok($sum['counts']['Üyelik (bayi, şube, personel, hasta sahibi)']>=1,'Özet boş');
-$out=$life->purge($A);
-ok($out['rows']>0,'Hiçbir şey silinmedi');
+$r=$life->sweep($now);
+ok($r['purged']===[$A],'30 gün sonunda otomatik silinmedi: '.json_encode($r));
+ok((int)$db->query("SELECT COUNT(*) FROM partner_account WHERE id='$A'")->fetchColumn()===0,'Bayi kaydı silinmedi');
 $left=[];
 foreach ($db->query("SELECT TABLE_NAME,COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND DATA_TYPE IN ('varchar','char','text','mediumtext')")->fetchAll(PDO::FETCH_NUM) as [$t,$c]) {
   $q=$db->prepare("SELECT COUNT(*) FROM `$t` WHERE `$c`=? OR `$c`=? OR `$c` LIKE ?"); $q->execute([$A,'partner:'.$A,'partner:'.$A.':%']);

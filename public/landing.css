@@ -257,3 +257,4 @@ body:has(.lp) .site-header{position:sticky;top:0;z-index:30;background:color-mix
 .lp[dir=rtl] .lp-track{animation-direction:reverse}
 .lp-panel .lp-url{display:flex;align-items:center;gap:.45rem;padding:.45rem .8rem;border-radius:999px;background:var(--lp-tint);font-size:.95rem;font-weight:700;width:max-content;max-width:100%;overflow-wrap:anywhere}
 .lp-panel .lp-themes{display:block;width:100%;max-width:360px;height:auto;aspect-ratio:8/5;border-radius:12px;border:1px solid var(--lp-line);box-shadow:0 8px 22px #2a1d7a1a}
+.lp-faq-all{display:inline-flex;align-items:center;gap:.4rem;margin-top:.4rem;padding:.6rem 1.1rem;border-radius:999px;background:var(--lp-tint);color:var(--lp-a);font-weight:800;text-decoration:none}.lp-faq-all:hover{background:color-mix(in srgb,var(--lp-a) 16%,var(--lp-tint))}

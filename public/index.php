@@ -904,7 +904,7 @@ try {
             reply($commerce->subscription($partner) + ['plans'=>array_values($commerce->catalog())]);
         }
         if ($method==='GET' && $action==='partners') {
-            (new VetNet\Cpanel\PartnerLifecycle($db))->sweep($now);
+            (new VetNet\Cpanel\PartnerLifecycle($db))->sweep($now,1);
             if (isset($_GET['page'])) reply($center->partnerPage($_GET['page'],$_GET['q']??'',$_GET['status']??''));
             reply(['partners'=>$center->partners($actor)]);
         }

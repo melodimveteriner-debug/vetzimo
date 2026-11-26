@@ -385,6 +385,7 @@ final class Commerce
         }
         $this->db->prepare('INSERT INTO clinic_subscription(partner_id,plan_id,plan_name,kind,starts_on,ends_on) VALUES(?,?,?,?,?,?)')
             ->execute([$partner,$plan['id'],$plan['name'],$kind,$start,$end]);
+        (new PartnerLifecycle($this->db))->reopen($partner);
         // Süreli deneme, temel dönemin bitişini aşamaz.
         $q = $this->db->prepare("SELECT MAX(ends_on) FROM clinic_subscription WHERE partner_id=? AND kind<>'upgrade'");
         $q->execute([$partner]);

@@ -43,7 +43,7 @@ Bu yasakların ihlali 5237 sayılı Türk Ceza Kanunu'nun 243–245. maddelerind
 - Hasta sahiplerine aydınlatma yapılması, gerekli açık rızaların ve ileti izinlerinin alınması, VERBİS kaydı ve ilgili kişi başvurularının yanıtlanması Abone'nin yükümlülüğüdür. Platform'daki müşteri onay formu, imza ve kayıt araçları Abone'ye yardımcı olmak içindir; hukuki yükümlülüğü VetZimo'ya devretmez.
 - VetZimo; verileri Abone'nin talimatı dışında işlememeyi, KVKK'nın 12. maddesi uyarınca uygun teknik ve idari tedbirleri (şifreleme, erişim kontrolü, kayıt tutma, yedekleme) almayı, personelini gizlilikle yükümlü tutmayı, öğrendiği veri ihlallerini Abone'ye gecikmeksizin ve en geç 72 saat içinde bildirmeyi kabul eder.
 - Barındırma, e-posta, ödeme ve harita gibi alt hizmetler için alt işleyenlerle çalışılabilir. Yurt dışına aktarım gerektiren durumlarda KVKK'nın 9. maddesine uygun mekanizma kullanılır.
-- Sözleşme sona erdiğinde Klinik Verisi, 15. maddedeki dışa aktarma süresinden sonra silinir veya anonim hale getirilir; yasal saklama yükümlülükleri saklıdır.
+- Sözleşme sona erdiğinde Klinik Verisi, 15. maddedeki 30 günlük saklama süresinin sonunda kalıcı olarak silinir; yasal saklama yükümlülükleri saklıdır.
 
 ## 8. SMS, WhatsApp, e-posta ve diğer iletiler
 - Hatırlatma, kampanya, toplu mesaj, onay formu, gelen kutusu yanıtı ve benzeri tüm iletiler **Abone'nin kendi telefon hattı, kendi WhatsApp hesabı, kendi e-posta adresi veya kendi seçtiği sağlayıcı** üzerinden, Abone adına ve Abone'nin talimatıyla gönderilir. Gönderen sıfatı ve sorumluluğu Abone'ye aittir.
@@ -79,7 +79,9 @@ Taraflar, sözleşme kapsamında öğrendikleri ticari sırları, fiyatları, te
 ## 15. Süre, fesih ve verilerin iadesi
 - Sözleşme elektronik onayla yürürlüğe girer ve abonelik (deneme dahil) devam ettiği sürece geçerlidir.
 - Abone aboneliğini dönem sonunda yenilememek suretiyle sona erdirebilir. VetZimo, 6. madde ihlalinde, ödeme yapılmamasında, mevzuata aykırı kullanımda veya güvenlik riski halinde hesabı derhal askıya alabilir ve sözleşmeyi feshedebilir.
-- Sona ermeden itibaren 30 gün içinde Abone verilerini Platform'un dışa aktarma araçlarıyla alabilir; bu sürenin sonunda veriler silinir veya anonim hale getirilir.
+- **Süre bitişi ve verilerin saklanması:** Abonelik veya deneme (demo) süresi sona erdiğinde ve yenilenmediğinde hesaba giriş kapanır. Klinik Verisi, bitiş tarihinden itibaren **30 gün** daha VetZimo sistemlerinde güvenle saklanır; bu sürede Abone ve Yetkili Kullanıcıları giriş yapamaz. Bu 30 gün içinde abonelik yenilenirse hesap yeniden açılır ve tüm kayıtlarla kaldığı yerden devam eder.
+- 30 günlük saklama süresinin sonunda Abone'ye ve şubelerine ait tüm Klinik Verisi, yasal saklama yükümlülükleri saklı kalmak kaydıyla **kalıcı olarak silinir** ve geri getirilemez.
+- **Yedek alma yükümlülüğü:** Abone, süre bitmeden önce verilerinin yedeğini (Ayarlar › Şube yedeği ve Excel dışa aktarma araçlarıyla) almakla yükümlüdür. VetZimo, bitişten önceki son gün ve bitiş günü uygulama içinde; son 48 saatte e-posta, SMS ve WhatsApp ile hatırlatma yapar. Abone, bu madde kapsamındaki bilgilendirmeyi okuduğunu ve kabul ettiğini beyan eder.
 
 ## 16. Değişiklikler
 VetZimo bu sözleşmeyi mevzuat, hizmet kapsamı veya güvenlik gereklilikleri nedeniyle güncelleyebilir. Güncel metin düzenleme tarihiyle birlikte yayımlanır ve Abone'ye Platform içinde bildirilir. Esaslı değişikliklerde yeniden onay istenebilir; onay verilmemesi halinde Abone dönem sonunda aboneliğini sonlandırabilir.

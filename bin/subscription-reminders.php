@@ -16,7 +16,7 @@ try {
     $sent = (new SubscriptionReminders($db, (string)($config['encryptionKey'] ?? ''), (string)$config['origin']))->run(time(), in_array('--dry', $argv, true));
     foreach ($sent as $s) fwrite(STDOUT, $s['stage'].' · '.$s['name'].' · '.($s['channels'] ? implode(',', $s['channels']) : 'gönderim yok').PHP_EOL);
     // Süresi biten bayi ve demolar 30 gün saklanır; sonra girişleri kapatılır (veriler yöneticinin silmesine kadar korunur).
-    if (!in_array('--dry', $argv, true)) foreach ((new VetNet\Cpanel\PartnerLifecycle($db))->sweep(time()) as $closed) fwrite(STDOUT, 'saklama süresi doldu · giriş kapatıldı · '.$closed.PHP_EOL);
+    if (!in_array('--dry', $argv, true)) { $sweep = (new VetNet\Cpanel\PartnerLifecycle($db))->sweep(time()); foreach ($sweep['closed'] as $id) fwrite(STDOUT, 'süre bitti · giriş kapatıldı · '.$id.PHP_EOL); foreach ($sweep['purged'] as $id) fwrite(STDOUT, '30 günlük saklama doldu · veriler silindi · '.$id.PHP_EOL); }
     exit(0);
 } catch (Throwable $error) {
     fwrite(STDERR, 'VetZimo abonelik hatırlatmaları çalıştırılamadı ('.get_class($error).').'.PHP_EOL);

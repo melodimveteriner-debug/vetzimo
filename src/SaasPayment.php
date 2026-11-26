@@ -328,6 +328,7 @@ final class SaasPayment
         if ($bonus > 0) $end = $end->modify('+'.$bonus.' days');
         $this->db->prepare('INSERT INTO clinic_subscription(partner_id,plan_id,plan_name,kind,starts_on,ends_on) VALUES (?,?,?,?,?,?)')
             ->execute([$row['partner_id'], $row['plan_id'], $row['plan_name'], 'paid', $start->format('Y-m-d'), $end->format('Y-m-d')]);
+        (new PartnerLifecycle($this->db))->reopen((string)$row['partner_id']);
         $this->db->prepare("UPDATE saas_order SET status='paid',paid_at=?,starts_on=?,ends_on=? WHERE id=?")
             ->execute([$now, $start->format('Y-m-d'), $end->format('Y-m-d'), $row['id']]);
     }

@@ -677,8 +677,8 @@ export async function mountCenterSuite(ui,session){
   // Saklama durumu ve tamamen silme (yalnız merkez yöneticisi; şifre + iki adımlı doğrulama + bayi adı).
   const ret=data.retention||{};
   const fmt=d=>d?new Date(d+'T00:00:00').toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'}):'';
-  const retText={active:'Abonelik/demo '+fmt(ret.ends)+' tarihine kadar geçerli.',retention:'Süresi '+fmt(ret.ends)+' tarihinde doldu. Veriler '+fmt(ret.keepUntil)+' tarihine kadar saklanır; bu tarihten sonra girişler otomatik kapatılır.',
-   'retention-over':'Saklama süresi '+fmt(ret.keepUntil)+' tarihinde doldu; girişler kapatıldı. Bayiyi aşağıdan tamamen silebilirsiniz.',unmanaged:'Bu bayiye henüz abonelik tanımlanmadı.'}[ret.state]||'';
+  const retText={active:'Abonelik/demo '+fmt(ret.ends)+' tarihine kadar geçerli. Süre bitince giriş kapanır; veriler 30 gün saklanır, sonra otomatik silinir.',retention:'Süresi '+fmt(ret.ends)+' tarihinde doldu; giriş kapalı. Veriler '+fmt(ret.keepUntil)+' tarihine kadar saklanır ve bu tarihte otomatik silinir. Yeni dönem tanımlarsanız hesap kendiliğinden yeniden açılır.',
+   'retention-over':'Saklama süresi '+fmt(ret.keepUntil)+' tarihinde doldu; veriler bir sonraki otomatik temizlikte silinecek. Hemen silmek için aşağıdaki alanı kullanabilirsiniz.',unmanaged:'Bu bayiye henüz abonelik tanımlanmadı.'}[ret.state]||'';
   if(retText)content.append(el('p',retText,{className:'center-retention'+(ret.state==='retention-over'?' is-over':'')}));
   if(data.canPurge){
    const zone=el('section','',{className:'center-danger'});

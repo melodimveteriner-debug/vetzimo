@@ -38,7 +38,7 @@ KVKK m.12/2 uyarınca Şirket, Klinik Verileri bakımından veri işleyen olarak
 - Kullanıcı'nın ilgili kişi başvurularını yanıtlayabilmesi için makul destek sağlar.
 
 ### 5.3 Dışa aktarma ve silme
-Kullanıcı, verilerini uygulama içindeki araçlarla her zaman dışa aktarabilir. Sözleşmenin sona ermesinden itibaren **30 gün** boyunca hesap salt okunur olarak dışa aktarma için açık tutulur; bu sürenin sonunda Klinik Verileri yasal saklama yükümlülükleri saklı kalmak kaydıyla silinir.
+Kullanıcı, verilerini uygulama içindeki araçlarla (Ayarlar › Şube yedeği, Excel dışa aktarma) her zaman yedekleyebilir. Abonelik veya deneme süresi sona erdiğinde hesaba giriş kapanır; veriler bitişten itibaren **30 gün** daha sistemde güvenle saklanır ve bu sürede abonelik yenilenirse hesap kaldığı yerden açılır. 30 günün sonunda Klinik Verileri yasal saklama yükümlülükleri saklı kalmak kaydıyla **kalıcı olarak silinir**. Bu nedenle Kullanıcı'nın süre bitmeden yedeğini alması gerekir; Şirket bitişten önce uygulama içinde ve e-posta/SMS/WhatsApp ile hatırlatma yapar.
 
 ## 6. İletişim kanalları ve ticari iletiler
 Kullanıcı, Hizmet üzerinden SMS, e-posta, WhatsApp veya diğer kanallarla gönderdiği iletilerin içeriğinden; 6563 sayılı Kanun, Ticari İletişim ve Ticari Elektronik İletiler Hakkında Yönetmelik ve İleti Yönetim Sistemi (İYS) kurallarına uygunluğundan münhasıran sorumludur. Bağlanan üçüncü taraf kanalların (Meta, Telegram, SMS operatörleri vb.) kullanım koşullarına uyulması Kullanıcı'nın sorumluluğundadır; bu sağlayıcıların politika değişiklikleri veya kesintileri nedeniyle oluşan aksaklıklardan Şirket sorumlu tutulamaz.
