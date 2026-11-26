@@ -134,6 +134,27 @@ final class PhoneGateway
         $body = trim($body);
         if ($body === '' || mb_strlen($body) > 4000) throw new RuntimeException('Mesaj 1-4000 karakter olmalı.', 422);
         if (!in_array($channel, ['sms', 'whatsapp', 'app'], true) || !in_array($source, ['reminder', 'bulk', 'inbox', 'test', 'manual', 'center'], true)) throw new RuntimeException('Kuyruk isteği geçersiz.', 422);
+        // Çift gönderim koruması: aynı kayıt (kaynak + referans) zaten kuyruktaysa yeni mesaj açılmaz.
+        $q = $this->db->prepare('SELECT id FROM phone_outbox WHERE source=? AND source_ref=?');
+        $q->execute([$source, mb_substr($ref, 0, 190)]);
+        if ($existing = (int)$q->fetchColumn()) return $existing;
+        if ($source !== 'test' && $channel !== 'app') {
+            // Aynı alıcıya aynı metin son 24 saatte gönderildiyse/kuyruktaysa ikinci kez gönderilmez (çift tıklama, yeniden kaydetme, döngü).
+            $same = $this->db->prepare("SELECT id FROM phone_outbox WHERE partner_id=? AND channel=? AND phone=? AND body=? AND created_at>?
+                AND status IN ('queued','claimed','sent','unknown') ORDER BY id DESC LIMIT 1");
+            $same->execute([$partner, $channel, $phone, $body, $now - 86400]);
+            if ($dup = (int)$same->fetchColumn()) return $dup;
+            // Bağlantılı tek kişilik mesajlar (davet, onay formu, onam, ödeme talebi, hoş geldin): kişi başına 10 dakikada 1, 24 saatte en çok 3.
+            $kind = $source === 'manual' ? explode(':', $ref)[0] : '';
+            if (in_array($kind, ['invite', 'permit', 'consent', 'payreq', 'welcome'], true)) {
+                $c = $this->db->prepare("SELECT COUNT(*),COALESCE(MAX(created_at),0) FROM phone_outbox WHERE partner_id=? AND channel=? AND phone=? AND source='manual' AND source_ref LIKE ? AND created_at>?
+                    AND status IN ('queued','claimed','sent','unknown')");
+                $c->execute([$partner, $channel, $phone, $kind.':%', $now - 86400]);
+                [$count, $last] = array_map('intval', $c->fetch(PDO::FETCH_NUM));
+                if ($now - $last < 600) throw new RuntimeException('Bu kişiye az önce aynı türde mesaj gönderildi. Tekrar göndermek için 10 dakika bekleyin.', 429);
+                if ($count >= 3) throw new RuntimeException('Bu kişiye son 24 saatte bu türde 3 mesaj gönderildi; tekrar göndermek için yarını bekleyin veya bağlantıyı kopyalayıp iletin.', 429);
+            }
+        }
         $this->checkMonthlyLimit($partner, $channel, $source, $ref, $now);
         $this->db->prepare('INSERT IGNORE INTO phone_outbox (partner_id,channel,phone,body,source,source_ref,priority,expires_at,created_by,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)')
             ->execute([$partner, $channel, $phone, $body, $source, mb_substr($ref, 0, 190), $priority, $expires, mb_substr($by, 0, 120), $now]);
@@ -572,7 +593,8 @@ final class PhoneGateway
             if ($row['status'] !== 'queued') throw new RuntimeException('Yalnızca bekleyen mesaj iptal edilebilir.', 409);
             $this->finish($row, 'cancelled', 'İptal eden: '.($actor['name'] ?? ''), $now);
         } elseif ($action === 'retry') {
-            if (!in_array($row['status'], ['failed', 'expired'], true) && !($row['status'] === 'unknown' && !empty($input->checked))) {
+            // Başarısız görünen SMS de aslında çıkmış olabilir (telefon geç onaylar): yeniden gönderim yalnız kullanıcı kontrol ettiğini onaylarsa.
+            if (!in_array($row['status'], ['failed', 'expired', 'unknown'], true) || ($row['status'] !== 'expired' && empty($input->checked))) {
                 throw new RuntimeException($row['status'] === 'unknown' ? 'Önce alıcıya ulaşıp ulaşmadığını kontrol edip onaylayın.' : 'Bu mesaj yeniden denenemez.', 409);
             }
             $this->db->prepare("UPDATE phone_outbox SET status='queued',device_id='',error='',claimed_at=NULL,done_at=NULL,expires_at=NULL,not_before=0 WHERE id=?")->execute([$id]);

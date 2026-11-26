@@ -17,7 +17,29 @@ use RuntimeException;
  */
 final class AddonPackages
 {
-    private const CATALOG_ID = '00000000000000000000000000000007';
+    // Benzersiz kayıt numarası (önceki sürümde 07 kullanılmıştı ve "otomatik demo" ayarıyla çakışıyordu; repair() düzeltir).
+    private const CATALOG_ID = '0000000000000000000000000000a001';
+    private static bool $repaired = false;
+
+    /**
+     * Önceki sürümün kayıt çakışmasını bir kez onarır: 07 numaralı "otomatik demo" kaydının içine yazılmış ek paket kataloğu
+     * kendi kaydına taşınır, demo ayarı varsayılana döner (Yönetici › Demo ayarlarından yeniden kaydedilebilir).
+     */
+    private function repair(): void
+    {
+        if (self::$repaired) return;
+        self::$repaired = true;
+        try {
+            $row = $this->db->query("SELECT kind,payload FROM center_management WHERE id='00000000000000000000000000000007'")->fetch(PDO::FETCH_ASSOC);
+            if ($row && $row['kind'] !== 'addon_catalog' && isset(json_decode((string)$row['payload'], true)['packages'])) {
+                $this->db->prepare("INSERT IGNORE INTO center_management(id,kind,payload) VALUES (?,'addon_catalog',?)")->execute([self::CATALOG_ID, $row['payload']]);
+                $this->db->exec("UPDATE center_management SET payload='{}' WHERE id='00000000000000000000000000000007'");
+            } elseif ($row && $row['kind'] === 'addon_catalog') {
+                $this->db->prepare("INSERT IGNORE INTO center_management(id,kind,payload) VALUES (?,'addon_catalog',?)")->execute([self::CATALOG_ID, $row['payload']]);
+                $this->db->exec("DELETE FROM center_management WHERE id='00000000000000000000000000000007' AND kind='addon_catalog'");
+            }
+        } catch (\PDOException) { self::$repaired = false; }
+    }
     public const KINDS = [
         'sms' => ['SMS', 'adet SMS'], 'whatsapp' => ['WhatsApp', 'adet WhatsApp mesajı'], 'users' => ['Kullanıcı', 'ek kullanıcı'],
         'branches' => ['Şube', 'ek şube'], 'patients' => ['Hasta kaydı', 'ek hasta kaydı'], 'clients' => ['Hasta sahibi kaydı', 'ek hasta sahibi kaydı'],
@@ -50,6 +72,7 @@ final class AddonPackages
     // ---------------- Katalog ----------------
     public function catalog(bool $onlyActive = false): array
     {
+        $this->repair();
         $q = $this->db->prepare("SELECT payload FROM center_management WHERE id=? AND kind='addon_catalog'");
         $q->execute([self::CATALOG_ID]);
         $raw = $q->fetchColumn();
@@ -68,6 +91,7 @@ final class AddonPackages
     /** Yönetici "Ek paketleri gizle" anahtarı: açıkken hiçbir bayiye ek paket gösterilmez/satılmaz. */
     public function hidden(): bool
     {
+        $this->repair();
         $q = $this->db->prepare("SELECT payload FROM center_management WHERE id=? AND kind='addon_catalog'");
         $q->execute([self::CATALOG_ID]);
         $raw = $q->fetchColumn();
@@ -100,6 +124,7 @@ final class AddonPackages
 
     public function saveCatalog(object $input): array
     {
+        $this->repair();
         $rows = $input->packages ?? null;
         if (!is_array($rows) || count($rows) > 200) throw new RuntimeException('Ek paket listesi geçersiz.', 422);
         $clean = [];

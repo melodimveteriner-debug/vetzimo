@@ -1,6 +1,6 @@
 import {waveChart} from './wave-chart.js';
 import {sitePalettes,darkPalette,loadAppearance} from './theme.js?v=2';
-import {paginate} from './paged.js';
+import {paginate} from './paged.js?v=2';
 let opsFeatureFields={};
 export async function opsFetch(path,body,scope){
  const headers=scope?{'X-VeTNet-Scope':scope}:{};
@@ -25,7 +25,7 @@ export async function mountCenterSuite(ui,session){
  ];
  // Departman hesapları yalnız kendi bölümlerini görür (sunucu da aynı kuralı uygular).
  const department=session.department||'owner';
- const DEPARTMENT_TABS={support:['destek'],dealer:['odeme-kanallari','abonelikler','ek-paketler']};
+ const DEPARTMENT_TABS={support:['destek'],dealer:['odeme-kanallari','abonelikler','ek-paketler','odemeler']};
  if(DEPARTMENT_TABS[department]){const keep=tabs.filter(([k])=>DEPARTMENT_TABS[department].includes(k));tabs.splice(0,tabs.length,...keep);}
  const localizedTabs={genel:'overview',muhasebe:'accounting',raporlar:'reports',paketler:'pricing',basvurular:'demo',tema:'settings'};
  for (const item of tabs) item[1]=localizedTabs[item[0]] ? uiText(localizedTabs[item[0]],item[1]) : uiLabel(item[1]);
@@ -56,14 +56,28 @@ export async function mountCenterSuite(ui,session){
  mobile.addEventListener('change',()=>setMenu(!mobile.matches));
  nav.append(el('p','VetZimo Yönetim',{className:'center-kicker'}),...(department==='support'||department==='dealer'?[el('small',department==='support'?'Destek departmanı':'Bayi departmanı')]:[]));
  const groups=[
-  // Sıra: önce günlük iş (başvuru, bayi, ödeme onayı), sonra raporlar ve ayarlar.
-  ['Çalışma alanı',['genel','analiz','basvurular','bayiler','abonelikler','paketler','ek-paketler']],
-  ['Finans',['odemeler','tahsilatlar','satislar','muhasebe','raporlar']],
-  ['Satış sitesi ve yayınlar',['site','evde-hizmet','duyurular','reklam','yasal','degisiklikler']],
-  ['Uygulamalar ve destek',['destek','bildirimler','uygulamalar']],
-  ['Merkez ve ekip',['merkez-iletisim','odeme-kanallari','magaza-banka','ekip']],
-  ['Ayarlar',[]]
+  // Başlıklar: günlük iş → bayiler → satış ve paketler → ödemeler → finans → iletişim → satış sitesi → uygulamalar → sistem.
+  ['Panel',['genel','analiz']],
+  ['Bayiler',['bayiler','basvurular','abonelikler','destek']],
+  ['Paketler ve satış',['paketler','ek-paketler','evde-hizmet']],
+  ['Ödemeler',['odemeler','odeme-kanallari','magaza-banka']],
+  ['Finans ve raporlar',['muhasebe','satislar','tahsilatlar','raporlar']],
+  ['İletişim ve bildirimler',['bildirimler','merkez-iletisim','duyurular','reklam']],
+  ['Satış sitesi',['site','yasal','degisiklikler']],
+  ['Uygulamalar ve entegrasyonlar',['uygulamalar','okc']],
+  ['Sistem ve güvenlik',['tema','guvenlik','ekip','kayitlar','yedekleme','aktarim']],
+  ['Diğer',[]]
  ];
+ // Her sayfanın ne işe yaradığı başlığın altında görünür.
+ const descriptions={genel:'Bugün müdahale etmeniz gerekenler, eksik kurulumlar ve temel göstergeler.',analiz:'Bayi, gelir ve kullanım eğilimleri.',
+  bayiler:'Bayi hesapları, yetkiler, abonelik ve kullanım ayrıntıları.',basvurular:'Demo istekleri: değerlendirme, onay ve dönüşüm.',abonelikler:'Bayi paket dönemleri; atama, yenileme ve bitiş tarihleri.',destek:'Bayilerden gelen destek talepleri ve yanıtlar.',
+  paketler:'Ücretsiz, Pro, Plus ve Kurumsal paketlerin özellik, modül, sınır ve fiyatları.','ek-paketler':'SMS, WhatsApp ve diğer sınırlı haklar için ek paketler; gizleme ve elle kredi.','evde-hizmet':'Evde hizmet paket şablonları.',
+  odemeler:'Bayi ödeme bildirimleri ve onaylar.','odeme-kanallari':'PayTR kart ödemesi ayarı; abonelik ve ek paket siparişleri, havale onayı.','magaza-banka':'Havale/EFT ile satış için IBAN ve alıcı bilgisi.',
+  muhasebe:'Tüm bayilerin kasa hareketleri.',satislar:'Bayilerin satışlarda aldığı ödemeler.',tahsilatlar:'Bayilerin ek tahsilatları.',raporlar:'Dönemsel mali özet.',
+  bildirimler:'E-posta (SMTP) ve bildirim kanalları.','merkez-iletisim':'Merkezin SMS/WhatsApp hattı ve yöneticiye giden uyarılar.',duyurular:'Bayi panelinde görünen duyurular.',reklam:'Bayi panelindeki tanıtım alanları.',
+  site:'Satış sitesi sayfaları, metinler ve görseller.',yasal:'KVKK, gizlilik, kullanım şartları ve çerez metinleri.',degisiklikler:'Sürüm notları (Son değişiklikler).',
+  uygulamalar:'Mobil/masaüstü uygulamalar, bildirim (push) anahtarları ve şablonlar.',okc:'Yazar kasa (ÖKC) entegrasyonları.',
+  tema:'Yönetim paneli görünümü.',guvenlik:'Doğrulama, oturum ve güvenlik ayarları.',ekip:'Merkez ekip hesapları ve departmanlar.',kayitlar:'Yönetim işlem günlüğü.',yedekleme:'Klinik verisi yedeği.',aktarim:'Başka yazılımlardan klinik verisi içe aktarma.'};
  const assigned=groups.flatMap(([,keys])=>keys);
  // Sol menü yalnız bölümleri gösterir; bölümün sayfaları üstte sekme olarak açılır (aynı bağlantılar iki yerde tekrarlanmaz).
  const groupEntries=keys=>(keys.length?keys:tabs.map(([key])=>key).filter(key=>!assigned.includes(key))).filter(key=>tabs.some(entry=>entry[0]===key));
@@ -82,7 +96,8 @@ export async function mountCenterSuite(ui,session){
  if(session.reauthRequired) account.append(el('a','İşlemler için doğrula',{href:reauthUrl}));
  account.append(logoutButton());
  mountLanguageSelect(account);
- top.append(el('h2',tab[1],{className:'center-title'}),account);
+ const titleBox=el('div','',{className:'center-title-box'});titleBox.append(el('h2',tab[1],{className:'center-title'}),...(descriptions[tab[0]]?[el('p',descriptions[tab[0]],{className:'center-subtitle'})]:[]));
+ top.append(titleBox,account);
  const content=el('section','',{className:'center-card'});
  const button=(text,fn)=>{
   const b=el('button',text,{type:'button',className:'secondary'});
@@ -99,7 +114,7 @@ export async function mountCenterSuite(ui,session){
  const subtabs=el('nav','',{className:'center-subtabs'});
  subtabs.setAttribute('aria-label',currentGroup[0]);
  for(const key of groupKeys){const m=tabs.find(entry=>entry[0]===key);if(!m)continue;const a=el('a',m[1],{href:url(key)});if(key===tab[0])a.setAttribute('aria-current','page');subtabs.append(a);}
- if(currentGroup[0]==='Satış sitesi ve yayınlar'&&department==='owner')subtabs.append(el('a','Web Sitesi Yönetimi',{href:'/yonetim/web-siteleri'}));
+ if(currentGroup[0]==='Paketler ve satış'&&department==='owner')subtabs.append(el('a','Bayi web siteleri',{href:'/yonetim/web-siteleri'}));
  main.append(top,...(subtabs.children.length>1?[subtabs]:[]),content);
  // Bayi ödeme uyarıları (havale bildirimi, kartla ödeme): yalnız merkez yöneticisine ve bayi departmanına.
  if(department!=='support')fetch('/api/app/notifications?unread=1&category=payments',{credentials:'same-origin'}).then(r=>r.ok?r.json():null).then(d=>{
@@ -143,7 +158,7 @@ export async function mountCenterSuite(ui,session){
   vaccines:'Aşı kayıtları',shares:'Bildirimler',exam:'Muayene özetleri',lab:'Laboratuvar fotoğrafları',xray:'Röntgen fotoğrafları'};
  const number=new Intl.NumberFormat('tr-TR');
  async function overview(){
-  const {metrics,day,daily,stages:stageCounts}=await call('overview');
+  const {metrics,day,daily,stages:stageCounts,attention=[]}=await call('overview');
   const cards=el('div','',{className:'center-metrics'});
   const destinations={partners:'bayiler',active:'bayiler',team:'bayiler',subscriptions:'abonelikler',applications:'basvurular',support:'destek',receipts:'muhasebe'};
   for(const [key,label] of Object.entries(labels)){
@@ -159,7 +174,22 @@ export async function mountCenterSuite(ui,session){
   });
   const countsByStage=new Map(stageCounts.map(row=>[row.stage,Number(row.total)]));
   const steps=Object.entries(stages).map(([key,label])=>[label,countsByStage.get(key)||0]);
-  content.replaceChildren(cards);
+  // Dikkat gerektirenler: bekleyen işler önce, sonra eksik kurulumlar; her satır ilgili sayfayı açar.
+  const att=el('section','',{className:'center-attention'});
+  const head=el('header','',{className:'center-attention-head'});
+  const urgent=attention.filter(a=>a.tone!=='setup');
+  head.append(el('h3','Dikkat gerektirenler'),el('span',urgent.length?urgent.length+' bekleyen iş':'Bekleyen iş yok',{className:'center-pill '+(urgent.length?'is-warn':'is-ok')}));
+  att.append(head);
+  if(!attention.length)att.append(el('p','Her şey yolunda: bekleyen onay, başvuru veya eksik kurulum yok.',{className:'muted'}));
+  const grid=el('div','',{className:'center-attention-grid'});
+  for(const a of attention){
+   const item=el('a','',{className:'center-attention-item tone-'+a.tone,href:url(a.tab)});
+   const left=el('div');left.append(el('strong',a.title),el('small',a.detail));
+   item.append(el('span',a.count?number.format(a.count):(a.tone==='setup'?'Kurulum':'!'),{className:'center-attention-count'}),left,el('span','›',{className:'center-attention-go','aria-hidden':'true'}));
+   grid.append(item);
+  }
+  att.append(grid);
+  content.replaceChildren(att,cards);
   if(Number(metrics.applications)>0){
    content.append(el('a',number.format(metrics.applications)+' yeni başvuruyu incele',
     {className:'center-alert center-demo-alert',href:url('basvurular',{stage:'new'})}));

@@ -781,7 +781,7 @@ try {
         if ($method==='GET' && $action==='subscriptions') reply(['terms'=>$db->query(
             'SELECT p.name,s.partner_id,s.plan_name,s.kind,s.starts_on,s.ends_on FROM clinic_subscription s JOIN partner_account p ON p.id=s.partner_id ORDER BY s.ends_on DESC,s.id DESC LIMIT 300'
         )->fetchAll()]);
-        if ($method==='GET' && $action==='overview') reply($center->overview());
+        if ($method==='GET' && $action==='overview') reply($center->overview()+['attention'=>$center->attention($config)]);
         if ($method==='GET' && $action==='downloads') {
             $days=filter_var($_GET['days'] ?? 30,FILTER_VALIDATE_INT,['options'=>['min_range'=>7,'max_range'=>365]]) ?: 30;
             reply((new VetNet\Cpanel\AppDownloads($db,dirname(__DIR__),(string)$config['rateSecret']))->stats($days,$now)+['origin'=>$origin]);

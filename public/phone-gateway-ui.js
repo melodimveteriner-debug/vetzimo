@@ -136,10 +136,11 @@ export function mountPhoneGateway(root,api){
      h("a",{class:"pg-btn dark",href:o.link,target:"_blank",rel:"noopener",text:tr("Aç ve gönder"),onclick:()=>setTimeout(()=>act({action:"opened",id:o.id}),400)})))):null,
    h("div",{class:"pg-filter"},...[["all","Tümü"],["wait","Bekleyen"],["problem","Sorunlu"],["sms","SMS"],["whatsapp","WhatsApp"]].map(([k,l])=>h("button",{type:"button",class:filter===k?"on":"",onclick:()=>{filter=k;draw()},text:tr(l)}))),
    rows.length?h("div",{class:"pg-table-wrap"},h("table",{class:"pg-table"},h("thead",{},h("tr",{},...["Zaman","Kanal","Alıcı","Mesaj","Kaynak","Durum",""].map(t=>h("th",{text:tr(t)})))),
-    h("tbody",{},...rows.map(o=>h("tr",{},h("td",{text:when(o.at)}),h("td",{text:o.channel==="sms"?"SMS":"WhatsApp"}),h("td",{text:o.phone}),h("td",{class:"pg-msg",text:o.body,title:o.body}),
+    h("tbody",{},...rows.map(o=>h("tr",{},h("td",{text:when(o.at)}),h("td",{text:o.channel==="sms"?"SMS":o.channel==="whatsapp"?"WhatsApp":tr("Uygulama yanıtı")}),h("td",{text:o.channel==="app"?({whatsapp:"WhatsApp",instagram:"Instagram",facebook:"Facebook",telegram:"Telegram",messenger:"Messenger"}[o.phone]||o.phone):o.phone}),h("td",{class:"pg-msg",text:o.body,title:o.body}),
      h("td",{text:tr(source[o.source]||o.source)}),h("td",{},h("span",{class:"pg-st "+o.status,text:tr(label[o.status]||o.status)}),o.error?h("small",{class:"pg-err",text:o.error}):null),
      h("td",{class:"pg-row-actions"},o.status==="queued"?h("button",{type:"button",class:"pg-link",text:tr("İptal"),onclick:()=>act({action:"cancel",id:o.id})}):null,
-      ["failed","expired"].includes(o.status)?h("button",{type:"button",class:"pg-link",text:tr("Yeniden dene"),onclick:()=>act({action:"retry",id:o.id})}):null,
+      o.status==="expired"?h("button",{type:"button",class:"pg-link",text:tr("Yeniden dene"),onclick:()=>act({action:"retry",id:o.id})}):null,
+      o.status==="failed"?h("button",{type:"button",class:"pg-link",text:tr("Yeniden dene"),onclick:()=>{if(confirm(tr("Telefon bu mesajı gönderilemedi olarak bildirdi; yine de alıcıya ulaşmış olabilir. Alıcıya gelmediğini kontrol ettiyseniz devam edin. Yeniden gönderilsin mi?")))act({action:"retry",id:o.id,checked:!0})}}):null,
       o.status==="unknown"?h("button",{type:"button",class:"pg-link",text:tr("Yeniden dene"),onclick:()=>{if(confirm(tr("Bu mesajın alıcıya ulaşıp ulaşmadığı bilinmiyor. Yeniden gönderilirse iki kez gidebilir. Devam edilsin mi?")))act({action:"retry",id:o.id,checked:!0})}}):null,
       o.link?h("a",{class:"pg-link",href:o.link,target:"_blank",rel:"noopener",text:tr("Aç ve gönder"),onclick:()=>setTimeout(()=>act({action:"opened",id:o.id}),400)}):null)))))):h("p",{class:"pg-muted pg-empty",text:tr("Kayıt yok.")})];
  }

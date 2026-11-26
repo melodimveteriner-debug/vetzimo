@@ -1,7 +1,7 @@
 // Ayarlar merkezi: dağınık ayar sayfaları tek yerde, kategorilere ayrılmış sekmelerde. Her kart yalnız kullanıcının
 // yetkili olduğu sayfayı gösterir; alt sayfalarda üstte "Ayarlar › kategori" şeridi ve kardeş sekmeler çıkar.
 // Uygulama bildirim tercihleri (kategori sessize alma, ses, sessiz saatler), cihazlar ve hesap silme burada çalışır.
-const STYLE = "/settings-hub.css?v=1";
+const STYLE = "/settings-hub.css?v=2";
 export const GROUPS = [
   ["klinik", "Klinik", [
     ["settings", "Genel ayarlar", "Klinik adı, logo, iletişim, çalışma saatleri ve varsayılanlar"],
@@ -45,7 +45,7 @@ export const GROUPS = [
     ["bas-konus", "Bas Konuş", "Sesli komut ve dikte ayarları"],
   ]],
   ["hesap", "Hesap ve abonelik", [
-    ["hesap-ayarlari", "Hesap ayarları", "Şifre ve oturum"],
+    ["hesabim", "Hesabım", "Ad, telefon, şifre değiştirme, iki adımlı doğrulama"],
     ["abonelik", "Abonelik", "Paket ve bitiş tarihi"],
     ["kredi-magazasi", "Abonelik mağazası", "Paket yükseltme ve online ödeme"],
     ["cihazlarim", "Cihazlarım ve hesabımı sil", "Bildirim alan cihazlar, hesap silme talebi"],
@@ -57,7 +57,7 @@ export const GROUPS = [
     ["son-degisiklikler", "Son değişiklikler", "VetZimo sürüm notları"],
   ]],
 ];
-const INLINE = new Set(["bildirimler", "cihazlarim", "tema", "bas-konus", "google-yorum", "ajanlar", "hasta-sahibi-odemeleri"]);
+const INLINE = new Set(["hesabim", "bildirimler", "cihazlarim", "tema", "bas-konus", "google-yorum", "ajanlar", "hasta-sahibi-odemeleri"]);
 const ROUTE_GROUP = Object.fromEntries(GROUPS.flatMap(([g, , items]) => items.map(([r]) => [r, g])));
 const h = (tag, cls, text, props = {}) => { const n = Object.assign(document.createElement(tag), props); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
 const css = () => { if (!document.querySelector(`link[href="${STYLE}"]`)) document.head.append(Object.assign(document.createElement("link"), {rel: "stylesheet", href: STYLE})); };
@@ -97,6 +97,7 @@ export function mountSettingsHub(root, ctx) {
     panel.append(area);
     body.replaceChildren(panel);
     if (route === "bildirimler") notificationPrefs(area, ctx);
+    else if (route === "hesabim") accountPanel(area, ctx);
     else if (route === "cihazlarim") devicesAndAccount(area, ctx);
     else if (route === "ajanlar") import("./agent-access.js?v=1").then(m => m.mountAgentDownloads(area, {tr}));
     else if (route === "hasta-sahibi-odemeleri") import("./owner-pay.js?v=2").then(m => m.mountOwnerPayAdmin(area, {api: ctx.api, scope: ctx.scope, tr}));
@@ -201,6 +202,41 @@ export async function notificationPrefs(root, ctx) {
 }
 
 const PLATFORM = {android: "Android", ios: "iPhone / iPad", web: "Tarayıcı", windows: "Windows", macos: "macOS", linux: "Linux"};
+
+/** Hesabım: profil, şifre değiştirme ve hesapla ilgili kısayollar (sağ üst menüdeki "Hesap Ayarları" buraya açılır). */
+export async function accountPanel(root, ctx) {
+  const tr = ctx.tr || (s => s);
+  const info = h("div", "sh-account");
+  root.replaceChildren(info);
+  try {
+    const p = await json(ctx, "/api/identity/profile");
+    info.append(h("p", "", null), h("div", "sh-account-id"));
+    info.lastChild.append(h("strong", "", p.name || tr("VetZimo kullanıcısı")), h("span", "", tr("Giriş telefonu") + ": " + (p.identifier || "—")));
+  } catch (e) { info.append(h("p", "sh-error", e.message)); }
+  const form = h("form", "sh-form");
+  const field = (label, name, auto) => { const l = h("label", "sh-field"); const i = h("input", "", null, {type: "password", name, required: true, autocomplete: auto, maxLength: 128}); l.append(h("span", "", tr(label)), i); form.append(l); return i; };
+  form.append(h("h4", "", tr("Şifre değiştir")));
+  const cur = field("Mevcut şifre", "currentPassword", "current-password"), next = field("Yeni şifre · en az 12 karakter", "password", "new-password"), rep = field("Yeni şifre (tekrar)", "repeat", "new-password");
+  next.minLength = 12;
+  const msg = h("p", "sh-muted", "", {role: "status"}), save = h("button", "sh-btn primary", tr("Şifreyi güncelle"), {type: "submit"});
+  form.append(msg, save, h("p", "sh-muted", tr("Şifre değişince tüm cihazlarda yeniden giriş yapmanız gerekir.")));
+  form.addEventListener("submit", async e => {
+    e.preventDefault();
+    if (next.value !== rep.value) { msg.textContent = tr("Yeni şifreler eşleşmiyor."); return; }
+    save.disabled = true; msg.textContent = tr("Kaydediliyor…");
+    try { await json(ctx, "/api/identity/password/change", {currentPassword: cur.value, password: next.value}); location.assign("/app"); }
+    catch (er) { msg.textContent = er.message; save.disabled = false; }
+  });
+  const links = h("div", "sh-account-links");
+  for (const [href, label, d] of [["#iki-adimli-dogrulama", "İki adımlı doğrulama", "Girişte telefon uygulamasından kod"], ["#bildirim-epostasi", "Bildirim e-postası", "Uyarıların gideceği adres"],
+    ["#ayarlar?sekme=hesap&bolum=cihazlarim", "Cihazlarım", "Bildirim alan cihazlar ve hesap silme"], ["#abonelik", "Abonelik", "Paket ve bitiş tarihi"]]) {
+    if (!href.startsWith("#ayarlar") && ctx.allowed && !ctx.allowed(href.slice(1))) continue;
+    const a = h("a", "sh-card", null, {href}); a.append(h("strong", "", tr(label)), h("span", "", tr(d)));
+    if (href.includes("bolum=cihazlarim")) a.addEventListener("click", ev => { ev.preventDefault(); location.hash = "ayarlar?sekme=hesap&bolum=cihazlarim"; });
+    links.append(a);
+  }
+  root.append(form, links);
+}
 
 export async function devicesAndAccount(root, ctx) {
   const tr = ctx.tr || (s => s);

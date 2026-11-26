@@ -1,6 +1,6 @@
 import {permissionMatrix} from "./permission-matrix.js";
 import {actionNames} from "./access.js";
-import {paginate} from "./paged.js";
+import {paginate} from "./paged.js?v=2";
 
 const roles={branch:"Şube yöneticisi",staff:"Personel",customer:"Hasta sahibi"};
 const outcomes={active:"Personel hesabı etkin. Telefon ve belirlediğiniz şifre ile giriş yapılabilir.",email_sent:"Tek kullanımlık şifre belirleme bağlantısı e-posta ile gönderildi.",sent:"SMS sağlayıcısı gönderimi kabul etti.",delivery_unknown:"SMS sonucu henüz doğrulanamadı.",provider_pending:"Üyelik beklemede. SMS sağlayıcısı kullanılabilir olduğunda tekrar deneyin.",credit_pending:"Üyelik beklemede. Bayi bakiyesi ve gönderim limitlerini kontrol edin.",quota_pending:"Üyelik beklemede. Gönderim kotası doldu.",wait:"Bir aktivasyon zaten beklemede. Beş dakika sonra yeniden deneyebilirsiniz."};

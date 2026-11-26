@@ -30,8 +30,41 @@ final class Commerce
         'support'=>['Destek kapsamı',null],'trial'=>['Deneme süresi (gün)',365],'discount'=>['Yıllık indirim (%)',100],
     ];
 
+    /** Eski paketler ve yerini alan güncel paket (eski paketteki abonelikler bir kez buraya taşınır). */
+    public const LEGACY_PLANS=['baslangic'=>'pro','profesyonel'=>'plus','kurumsal'=>'ozel'];
+    private static bool $legacyChecked=false;
+
+    /** Bir kez çalışır: eski paketlerdeki süren abonelikleri karşılık gelen güncel pakete taşır ve eski paketleri listelerden kaldırır. */
+    private function retireLegacyPlans(): void
+    {
+        if (self::$legacyChecked) return;
+        self::$legacyChecked=true;
+        try {
+            // Önceki sürümün işareti 08 numarasına (merkez iletişim kaydı) yazılmıştı: varsa kaldırılır / merkez iletişime geri döner.
+            $old=$this->db->query("SELECT payload FROM center_management WHERE id='00000000000000000000000000000008' AND kind='legacy_plans'")->fetchColumn();
+            if ($old!==false) {
+                if (isset(json_decode((string)$old,true)['phone'])) $this->db->exec("UPDATE center_management SET kind='center_contact' WHERE id='00000000000000000000000000000008'");
+                else $this->db->exec("DELETE FROM center_management WHERE id='00000000000000000000000000000008' AND kind='legacy_plans'");
+            }
+            $q=$this->db->prepare("SELECT 1 FROM center_management WHERE id=? AND kind='legacy_plans'");
+            $q->execute(['0000000000000000000000000000a002']);
+            if ($q->fetchColumn()) return;
+            $names=array_column(self::plans(),'name','id');
+            foreach ($this->db->query('SELECT plan_id,settings FROM clinic_package_settings')->fetchAll(PDO::FETCH_KEY_PAIR) as $id=>$json) {
+                $names[$id]=json_decode((string)$json,true)['name'] ?? ($names[$id] ?? $id);
+            }
+            $today=(new \DateTimeImmutable('now',new \DateTimeZone('Europe/Istanbul')))->format('Y-m-d');
+            foreach (self::LEGACY_PLANS as $old=>$new) {
+                $this->db->prepare('UPDATE clinic_subscription SET plan_id=?,plan_name=? WHERE plan_id=? AND ends_on>=?')->execute([$new,$names[$new] ?? $new,$old,$today]);
+                $this->db->prepare("UPDATE clinic_package_settings SET settings=JSON_SET(settings,'$.deleted',true,'$.published',false) WHERE plan_id=?")->execute([$old]);
+            }
+            $this->db->prepare("INSERT IGNORE INTO center_management(id,kind,payload) VALUES (?,'legacy_plans','{\"done\":true}')")->execute(['0000000000000000000000000000a002']);
+        } catch (\PDOException) { /* tablolar henüz yoksa sonraki istekte denenir */ self::$legacyChecked=false; }
+    }
+
     public function catalog(): array
     {
+        $this->retireLegacyPlans();
         $plans=self::plans();
         foreach ($this->db->query('SELECT plan_id,settings FROM clinic_package_settings') as $row) {
             $id=$row['plan_id'];

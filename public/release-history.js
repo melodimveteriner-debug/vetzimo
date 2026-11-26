@@ -1,4 +1,4 @@
-import {pageControls} from "./paged.js";
+import {pageControls} from "./paged.js?v=2";
 
 const labels={feature:"Yeni özellik",fix:"Hata giderme",update:"Düzenleme"};
 const date=new Intl.DateTimeFormat((document.documentElement.lang||"tr"),{dateStyle:"long",timeStyle:"short",timeZone:"Europe/Istanbul"});

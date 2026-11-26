@@ -1,5 +1,5 @@
 import {opsFetch} from "./center-ops.js";
-import {paginate} from "./paged.js";
+import {paginate} from "./paged.js?v=2";
 import {saasTerms,termValue} from "./saas-market.js?v=2";
 import {termDate,termStatus} from "./saas-subscription.js";
 

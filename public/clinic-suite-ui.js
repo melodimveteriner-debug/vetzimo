@@ -1,9 +1,9 @@
 import {clinicFetch} from "./access.js?v=20261125-r65";
-import {mountClinicAccounts} from "./clinic-accounts-ui.js?v=r72";
-import {mountTemplates} from "./clinic-tools-ui.js";
-import {mountCreditShop} from "./center-shop.js?v=6";
+import {mountClinicAccounts} from "./clinic-accounts-ui.js?v=r73";
+import {mountTemplates} from "./clinic-tools-ui.js?v=2";
+import {mountCreditShop} from "./center-shop.js?v=7";
 import {opsFetch} from "./center-ops.js";
-import {mountReleaseHistory} from "./release-history.js";
+import {mountReleaseHistory} from "./release-history.js?v=2";
 
 function el(tag,text="",properties={}) {
   const node=document.createElement(tag);

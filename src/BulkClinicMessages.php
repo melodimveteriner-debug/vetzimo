@@ -186,6 +186,7 @@ final class BulkClinicMessages
         // Gün ve ay sınırları Türkiye saatine göre hesaplanır.
         $local=new \DateTimeImmutable('now',new \DateTimeZone('Europe/Istanbul'));
         $gateway=new PhoneGateway($this->db);
+        try { $phoneSettings=$gateway->settings($partner); } catch (\Throwable) { $phoneSettings=null; }
         $dayUsage=$gateway->usedSince($partner,$local->setTime(0,0)->getTimestamp());
         $monthUsage=$gateway->usedSince($partner,$local->modify('first day of this month')->setTime(0,0)->getTimestamp());
         $limits=[];
@@ -194,7 +195,9 @@ final class BulkClinicMessages
             $dayUsed=$dayUsage[$channel];
             $monthUsed=$monthUsage[$channel];
             // Üst sınır paketteki aylık gönderim sınırıdır (boşsa sınırsız).
-            $limits[]=['channel'=>$channel,'unlimited'=>$balance>=1000000000,'balance'=>$balance>=1000000000?null:$balance,'day_used'=>$dayUsed,'day_cap'=>$balance>=1000000000?null:$dayUsed+$balance,
+            // Günlük üst sınır: telefon hattının günlük gönderim ayarı (Telefon Bağlantısı › Ayarlar); aylık kalan hak günlük sınır değildir.
+            $dayCap=$phoneSettings&&$gateway->route($partner,$channel)?(int)($phoneSettings[$channel==='sms'?'smsPerDay':'waPerDay']??0):null;
+            $limits[]=['channel'=>$channel,'unlimited'=>$balance>=1000000000,'balance'=>$balance>=1000000000?null:$balance,'day_used'=>$dayUsed,'day_cap'=>$dayCap?:null,
                 'month_used'=>$monthUsed,'month_cap'=>$balance>=1000000000?null:$monthUsed+$balance,'enabled'=>$session[$channel]?1:0];
         }
         $addon=new AddonPackages($this->db);

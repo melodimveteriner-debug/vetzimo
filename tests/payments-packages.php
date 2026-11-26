@@ -111,7 +111,8 @@ ok($op->linkInfo($pm[1],time())['debt']===0,'Bağlantıyla yapılan ödeme borcu
 try { $op->linkInfo('AAAAAAAAAA',time()); ok(false,'Geçersiz bağlantı açıldı'); } catch (RuntimeException $e) { ok($e->getCode()===404,'Geçersiz bağlantı hatası yanlış'); }
 try { $op->linkInfo($pm[1],time()+15*86400); ok(false,'Süresi dolmuş bağlantı açıldı'); } catch (RuntimeException $e) { ok($e->getCode()===410,'Süre hatası yanlış'); }
 // 6) Paket silme: aboneliği olmayan eski paket silinir, süren aboneliği olan silinemez; 999999 her sınırda "sınırsız"
-ok($commerce->deletePackage((object)['id'=>'baslangic'])==='Başlangıç' && !isset($commerce->catalog()['baslangic']),'Eski paket silinmedi');
+// Eski paketler (Başlangıç, Profesyonel, eski Kurumsal) listelerden kaldırıldı
+ok(!array_intersect_key($commerce->catalog(),array_flip(['baslangic','profesyonel','kurumsal'])),'Eski paketler listede duruyor');
 try { $commerce->deletePackage((object)['id'=>'plus']); ok(false,'Süren aboneliği olan paket silindi'); } catch (RuntimeException $e) { ok($e->getCode()===409,'Beklenmeyen silme hatası: '.$e->getMessage()); }
 $commerce->savePackage((object)['id'=>'baslangic','create'=>true,'name'=>'Yeni Başlangıç','description'=>'Test','terms'=>(object)['users'=>999999,'branches'=>999999,'storage'=>999999,'patients'=>500]]);
 $re=$commerce->catalog()['baslangic'];

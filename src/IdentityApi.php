@@ -130,7 +130,8 @@ final class IdentityApi
                     $gw->enqueue($actor['partner_id'],'sms',$phone,$text,'manual','invite:'.$id.':'.$now,0,$now,$now+86400,(string)($actor['name'] ?? ''));
                     return ['status'=>'sms_queued','link'=>$link];
                 }
-            } catch (\Throwable) {}
+            } catch (RuntimeException $e) { if ($e->getCode()===429) throw $e; }
+            catch (\Throwable) {}
             return ['status'=>'sms_unavailable','link'=>$link,'share'=>$text];
         }
         try {

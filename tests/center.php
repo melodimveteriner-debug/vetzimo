@@ -25,11 +25,11 @@ denied(fn()=>$center->requireOwner($dealerCookies,$now));
 good(count($center->partners($actor))===2,'Dealer creation missing');
 good(count($center->details($created['id'])['members'])===1,'Dealer membership missing');
 $commerce = new VetNet\Cpanel\Commerce($db);
-$term = (object)['partnerId'=>$created['id'],'plan'=>'profesyonel','kind'=>'trial','starts_on'=>'2020-01-01','ends_on'=>'2099-01-01'];
+$term = (object)['partnerId'=>$created['id'],'plan'=>'plus','kind'=>'trial','starts_on'=>'2020-01-01','ends_on'=>'2099-01-01'];
 $db->beginTransaction();
 $commerce->assign($term);
 $db->commit();
-good($commerce->subscription($created['id'])['current']['plan_name']==='Profesyonel','Assigned term missing');
+good($commerce->subscription($created['id'])['current']['plan_name']==='Plus','Assigned term missing');
 $db->beginTransaction();
 try {
     $commerce->assign($term);

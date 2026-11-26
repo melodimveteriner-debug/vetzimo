@@ -1,7 +1,7 @@
 import {clinicFetch} from "./access.js";
 import {opsFetch} from "./center-ops.js";
 import {currency,dateLabel,today} from "./model.js";
-import {paginate} from "./paged.js";
+import {paginate} from "./paged.js?v=2";
 import {fillPrintTemplate,printCategories,printFields} from "./print-model.js";
 
 const asDate=value=>/^\d{4}-\d{2}-\d{2}$/.test(value||"")?dateLabel(value,{day:"numeric",month:"long",year:"numeric"}):String(value||"").replace("T"," ");

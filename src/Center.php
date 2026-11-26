@@ -251,6 +251,55 @@ final class Center
         return $date;
     }
 
+    /**
+     * Yöneticinin müdahalesini bekleyen işler ve eksik kurulumlar (Genel Bakış › Dikkat gerektirenler).
+     * Her satır: anahtar, önem (urgent|warn|setup|ok), başlık, açıklama, sayı ve gidilecek sekme.
+     */
+    public function attention(array $config): array
+    {
+        $out = [];
+        $one = function (string $sql, array $args = []): int {
+            try { $q = $this->db->prepare($sql); $q->execute($args); return (int)$q->fetchColumn(); } catch (\PDOException) { return 0; }
+        };
+        $tz = new \DateTimeZone('Europe/Istanbul');
+        $today = (new \DateTimeImmutable('today', $tz))->format('Y-m-d');
+        $soon = (new \DateTimeImmutable('today', $tz))->modify('+30 days')->format('Y-m-d');
+        $add = static function (array &$out, string $key, string $tone, string $title, string $detail, int $count, string $tab) { $out[] = compact('key', 'tone', 'title', 'detail', 'count', 'tab'); };
+        $n = $one("SELECT COUNT(*) FROM saas_order WHERE method='bank' AND status='review'");
+        if ($n) $add($out, 'bank-review', 'urgent', 'Havale bildirimi onay bekliyor', 'Bayi havale yaptığını bildirdi; tutarı bankada doğrulayıp onaylayın (abonelik veya ek paket açılır).', $n, 'odeme-kanallari');
+        $n = $one("SELECT COUNT(*) FROM saas_order WHERE method='bank' AND status='pending' AND created_at<?", [time() - 3 * 86400]);
+        if ($n) $add($out, 'bank-pending', 'warn', 'Ödenmemiş havale siparişi (3+ gün)', 'Sipariş verilmiş ama ödeme bildirimi gelmemiş; bayiyle iletişime geçin.', $n, 'odeme-kanallari');
+        $n = $one("SELECT COUNT(*) FROM clinic_lead WHERE stage='new'");
+        if ($n) $add($out, 'leads', 'urgent', 'Yeni demo başvurusu', 'Değerlendirilmeyi bekleyen başvurular.', $n, 'basvurular');
+        $n = $one("SELECT COUNT(*) FROM clinic_support WHERE status='Açık'");
+        if ($n) $add($out, 'support', 'urgent', 'Açık destek talebi', 'Yanıt bekleyen bayi talepleri.', $n, 'destek');
+        $n = $one("SELECT COUNT(DISTINCT s.partner_id) FROM clinic_subscription s JOIN partner_account p ON p.id=s.partner_id AND p.active=1
+            WHERE s.kind<>'trial' AND s.ends_on BETWEEN ? AND ? AND NOT EXISTS (SELECT 1 FROM clinic_subscription x WHERE x.partner_id=s.partner_id AND x.starts_on>s.ends_on)", [$today, $soon]);
+        if ($n) $add($out, 'renewals', 'warn', 'Aboneliği 30 gün içinde bitecek bayi', 'Yenileme planlanmamış; hatırlatma otomatik gider, isterseniz arayın.', $n, 'abonelikler');
+        $n = $one("SELECT COUNT(DISTINCT s.partner_id) FROM clinic_subscription s JOIN partner_account p ON p.id=s.partner_id AND p.active=1
+            WHERE s.kind='trial' AND s.ends_on BETWEEN ? AND ?", [$today, (new \DateTimeImmutable('today', $tz))->modify('+7 days')->format('Y-m-d')]);
+        if ($n) $add($out, 'trials', 'warn', 'Demosu 7 gün içinde bitecek bayi', 'Satışa dönüştürmek için görüşme planlayın.', $n, 'abonelikler');
+        $n = $one("SELECT COUNT(*) FROM partner_account p WHERE p.active=1 AND NOT EXISTS (SELECT 1 FROM clinic_subscription s WHERE s.partner_id=p.id AND s.starts_on<=? AND s.ends_on>=?)", [$today, $today]);
+        if ($n) $add($out, 'no-term', 'warn', 'Aktif aboneliği olmayan bayi', 'Süresi dolmuş veya hiç dönem tanımlanmamış bayiler.', $n, 'abonelikler');
+        $n = $one("SELECT COUNT(*) FROM identity_membership m JOIN partner_account p ON p.id=m.partner_id WHERE m.role='dealer' AND m.status='pending'");
+        if ($n) $add($out, 'dealer-pending', 'warn', 'Aktivasyonu tamamlanmamış bayi yöneticisi', 'Davet bağlantısını açmamış bayi hesapları.', $n, 'bayiler');
+        // Kurulum eksikleri
+        $pay = (new SaasPayment($this->db, (string)($config['encryptionKey'] ?? ''), $config))->methods();
+        if (!$pay['card']) $add($out, 'paytr', 'setup', 'Kartla ödeme (PayTR) kapalı', 'Bayiler paket ve ek paketi kartla satın alamaz.', 0, 'odeme-kanallari');
+        if (!$pay['bank']) $add($out, 'bank', 'setup', 'Havale ile satış kapalı', 'Mağaza havale bilgilerini (IBAN) girin.', 0, 'magaza-banka');
+        try { $smtp = (new Notifications($this->db, (string)($config['encryptionKey'] ?? '')))->settings()['smtpEnabled'] ?? false; } catch (\Throwable) { $smtp = false; }
+        if (!$smtp) $add($out, 'smtp', 'setup', 'E-posta (SMTP) ayarı yok', 'Aktivasyon, şifre ve bildirim e-postaları gitmez.', 0, 'bildirimler');
+        try { $cc = (new CenterContact($this->db, (string)($config['encryptionKey'] ?? '')))->settings(); } catch (\Throwable) { $cc = []; }
+        if (($cc['linePartner'] ?? '') === '') $add($out, 'center-line', 'setup', 'Merkez SMS/WhatsApp hattı seçilmedi', 'Demo doğrulama kodu ve merkez uyarıları SMS ile gitmez.', 0, 'merkez-iletisim');
+        try { $push = (new AppPush($this->db, $config))->status(); } catch (\Throwable) { $push = ['fcm' => false, 'apns' => false]; }
+        if (!$push['fcm'] || !$push['apns']) $add($out, 'push', 'setup', 'Mobil bildirim anahtarları eksik', (!$push['fcm'] ? 'Android (FCM) ' : '').(!$push['apns'] ? 'iOS (APNs) ' : '').'ayarlanmadı; web bildirimi çalışır.', 0, 'uygulamalar');
+        $noPrice = count(array_filter((new AddonPackages($this->db))->catalog(true), static fn($r) => $r['amount'] === null));
+        if ($noPrice) $add($out, 'addon-price', 'setup', 'Fiyatı girilmemiş ek paket', 'Fiyatsız paketler bayi mağazasında görünmez.', $noPrice, 'ek-paketler');
+        $order = ['urgent' => 0, 'warn' => 1, 'setup' => 2];
+        usort($out, static fn($a, $b) => $order[$a['tone']] <=> $order[$b['tone']]);
+        return $out;
+    }
+
     public function overview(): array
     {
         $metrics = $this->db->query("SELECT

@@ -7,7 +7,7 @@
 # Kullanım:  python vetzimo-telefon.py eslestir KOD [SUNUCU]   ·   python vetzimo-telefon.py   ·   python vetzimo-telefon.py durum
 import hashlib, json, os, random, shutil, subprocess, sys, time, urllib.error, urllib.request
 
-VERSION = "1.3.1"
+VERSION = "1.3.2"
 HOME = os.environ.get("VZ_PHONE_HOME") or os.path.join(os.path.expanduser("~"), ".vetzimo-telefon")
 CONFIG = os.path.join(HOME, "config.json")
 STATE = os.path.join(HOME, "durum.json")
@@ -144,7 +144,7 @@ def sent_confirmed(phone, body):
     """SMS'in telefonun Gönderilenler kutusuna düşüp düşmediğine bakar (birkaç saniye bekleyerek)."""
     digits = "".join(ch for ch in phone if ch.isdigit())[-10:]
     head = " ".join(body.split())[:20]
-    for wait in (4, 6, 10):
+    for wait in (4, 6, 10, 15):
         time.sleep(wait)
         for box in ("sent", "outbox"):
             try:
@@ -154,9 +154,9 @@ def sent_confirmed(phone, body):
             for item in items if isinstance(items, list) else []:
                 num = "".join(ch for ch in str(item.get("number", "")) if ch.isdigit())[-10:]
                 if num == digits and " ".join(str(item.get("body", "")).split())[:20] == head:
-                    if box == "sent":
-                        return True
-                    break
+                    # "Giden kutusu"nda bekleyen mesajı da Android gönderecek: başarısız sayılmaz
+                    # (aksi halde "yeniden dene" ile aynı SMS ikinci kez gider).
+                    return True
     return False
 
 
@@ -265,7 +265,16 @@ def run():
             state["apps"], state["appsBaseline"] = apps_on, False
             log("Uygulama mesajlarını aktarma " + ("açıldı." if apps_on else "kapatıldı."))
         slot = reply.get("simSlot") or ""
+        done_jobs = state.setdefault("doneJobs", [])
         for job in reply.get("jobs", []):
+            # Aynı iş ikinci kez gelirse (bağlantı kopması, yeniden kuyruğa alma) SMS tekrar gönderilmez.
+            if job["id"] in done_jobs:
+                results.append({"id": job["id"], "status": "sent"})
+                log("İş zaten gönderilmişti, tekrar gönderilmedi → #" + str(job["id"]))
+                continue
+            done_jobs.append(job["id"])
+            del done_jobs[:-1000]
+            save(STATE, state)
             args = ["-n", job["phone"]]
             if slot in ("0", "1"):
                 args += ["-s", slot]

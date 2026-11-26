@@ -149,6 +149,21 @@ $wa=(object)['app'=>'whatsapp','key'=>'nwa1234567','name'=>'+90 532 999 88 77','
 $gw->sync($device,(object)['apps'=>[$wa]],$now+1307,$inbox);
 ok((bool)$db->query("SELECT 1 FROM inbox_conversation WHERE contact_key='+905329998877'")->fetchColumn(),'WhatsApp numarası kişi anahtarı olmadı');
 
+// Bağlantılı tek kişilik SMS'ler telefon hattı açıkken kuyruğa girer: müşteri onay formu, onam, ödeme talebi,
+// şube yöneticisi / personel / hasta sahibi daveti ve tekrar daveti.
+$count=fn(string $like)=>(int)$db->query("SELECT COUNT(*) FROM phone_outbox WHERE channel='sms' AND source='manual' AND source_ref LIKE ".$db->quote($like))->fetchColumn();
+$permit=(new VetNet\Cpanel\ClientPermit($db,'https://klinik.example'))->create($actor,(object)['client'=>'c2','method'=>'sms'],$now);
+ok($permit['sent']==='queued' && $count('permit:%')===1,'Müşteri onay formu SMS kuyruğa girmedi');
+$cons=(new VetNet\Cpanel\ClinicConsent($db,'https://klinik.example'))->create($actor+['account_id'=>''],(object)['patient'=>'p1','title'=>'Ameliyat onamı','body'=>'Metin','method'=>'sms'],$now);
+ok($cons['delivery']['status']==='queued' && $count('consent:%')===1,'Onam SMS kuyruğa girmedi: '.json_encode($cons['delivery']));
+$db->prepare("UPDATE identity_session SET reauth_at=?")->execute([$now]);
+$actor['reauth_at']=$now;
+foreach ([['branch','05551000171'],['staff','05551000172']] as [$role,$ph]) {
+  $r=$identity->invite($actor,$actor['membership_id'],(object)['role'=>$role,'method'=>'sms','name'=>'Deneme '.$role,'phone'=>$ph,'branchId'=>'merkez','modules'=>(object)[]],$now,['origin'=>'https://klinik.example']);
+  ok($r['status']==='sms_queued','Davet SMS kuyruğa girmedi ('.$role.'): '.json_encode($r));
+}
+$r=$identity->invite($actor,$actor['membership_id'],(object)['role'=>'customer','method'=>'sms','phone'=>'05443334455','branchId'=>'merkez','customerId'=>'c2','modules'=>(object)[]],$now,['origin'=>'https://klinik.example']);
+ok($r['status']==='sms_queued' && $count('invite:%')===3,'Hasta sahibi daveti SMS kuyruğa girmedi');
 // ── yetki ve ayrım
 $foreign=$actor; $foreign['partner_id']=str_repeat('f',32);
 try { $gw->act($foreign,(object)['action'=>'cancel','id'=>$id],$now); $leak=true; } catch (RuntimeException) { $leak=false; }
@@ -158,4 +173,16 @@ ok(count($status['devices'])===1 && $status['devices'][0]['battery']===80 && iss
 $gw->revoke($actor,(object)['id'=>$device['id']],$now);
 try { $gw->agentAuth('Bearer '.$token); $accepted=true; } catch (RuntimeException) { $accepted=false; }
 ok(!$accepted,'Kaldırılan telefon bağlanmaya devam etti');
+// Çift gönderim koruması: aynı metin aynı kişiye 24 saatte bir kez; davet/onay bağlantısı kişi başına 10 dk'da 1, günde en çok 3
+$d1=$gw->enqueue($partner,'sms','05551009901','Aynı metin','manual','x:1',0,$now);
+ok($gw->enqueue($partner,'sms','05551009901','Aynı metin','manual','x:2',0,$now)===$d1,'Aynı metin ikinci kez kuyruğa girdi');
+$gw->enqueue($partner,'sms','05551009902','Davet 1','manual','invite:a:1',0,$now);
+try { $gw->enqueue($partner,'sms','05551009902','Davet 2','manual','invite:a:2',0,$now+60); throw new LogicException('10 dakika sınırı çalışmadı'); } catch (RuntimeException $e) { ok($e->getCode()===429,'Sınır kodu yanlış'); }
+$gw->enqueue($partner,'sms','05551009902','Davet 2','manual','invite:a:2',0,$now+700);
+$gw->enqueue($partner,'sms','05551009902','Davet 3','manual','invite:a:3',0,$now+1400);
+try { $gw->enqueue($partner,'sms','05551009902','Davet 4','manual','invite:a:4',0,$now+2100); throw new LogicException('Günlük 3 sınırı çalışmadı'); } catch (RuntimeException $e) { ok($e->getCode()===429,'Günlük sınır kodu yanlış'); }
+// Başarısız görünen mesaj onaysız yeniden gönderilmez
+$db->prepare("UPDATE phone_outbox SET status='failed' WHERE id=?")->execute([$d1]);
+try { $gw->act($actor,(object)['action'=>'retry','id'=>$d1],$now); throw new LogicException('Onaysız yeniden gönderildi'); } catch (RuntimeException $e) { ok($e->getCode()===409,'Yeniden deneme hatası yanlış'); }
+$gw->act($actor,(object)['action'=>'retry','id'=>$d1,'checked'=>true],$now);
 echo "phone gateway ok\n";
