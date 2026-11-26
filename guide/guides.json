@@ -1,0 +1,786 @@
+{
+ "updated": "2026-11-26",
+ "topics": [
+  {
+   "id": "ilk-bakis",
+   "title": "VetZimo'ya ilk bakış",
+   "icon": "🧭",
+   "color": "#6a3df0",
+   "category": "Başlangıç",
+   "minutes": 3,
+   "summary": "Ekranın bölümlerini, üst aramayı, VeBot'u ve Bas Konuş'u tanıyın.",
+   "keywords": "menü arama vebot bas konuş bildirim panel genel bakış başlangıç",
+   "route": "overview",
+   "steps": [
+    {
+     "title": "Genel Bakış",
+     "text": "Giriş yaptığınızda Genel Bakış açılır. Üstteki Hızlı işlemler düğmeleriyle tek tıkla yeni müşteri, hasta, aşı, randevu, satış veya tahsilat açarsınız. Altta bugünkü aşılar, randevular ve son satışlar listelenir.",
+     "media": {
+      "type": "image",
+      "src": "genel.webp",
+      "caption": "Genel Bakış: hızlı işlemler ve günün özeti"
+     }
+    },
+    {
+     "title": "Sol menü",
+     "text": "Menü gruplara ayrılmıştır: Klinik işlemleri (randevu, müşteri, hasta, aşı), Ticari işlemler (satış, ürün, muhasebe, rapor) ve Diğer (ayarlar, destek, Klinik Rehberi). Bir gruba tıklayınca alt sayfaları açılır; aynı sayfalar içerik alanının üstünde düğme olarak da görünür."
+    },
+    {
+     "title": "Üst arama",
+     "text": "Ekranın üstündeki arama kutusuna hasta adı, müşteri adı, telefon, mikroçip numarası veya ürün yazın. Sayfa adlarını da bulur: örneğin \"aşı sihirbazı\" yazıp Enter'a basın. Klavyede / tuşu aramayı açar."
+    },
+    {
+     "title": "VeBot ve Bas Konuş",
+     "text": "Sağ alttaki robot simgesi VeBot'tur: \"bugünkü aşılar\", \"Pamuk'un son muayenesi\" gibi soruları yanıtlar. Altındaki mikrofon Bas Konuş'tur: basılı tutup konuşun; sayfa açar, hasta seçer, muayene alanlarını doldurur."
+    },
+    {
+     "title": "Bildirimler",
+     "text": "Sağ üstteki zarf simgesi yeni mesaj, onay ve uyarıları gösterir. Okuduğunuz bildirimi tamamlandı olarak işaretleyebilirsiniz."
+    }
+   ],
+   "tips": [
+    "Telefonda menü sol üstteki ☰ düğmesiyle açılır.",
+    "Tema ve dil sağ üstteki hesap menüsünden değişir."
+   ]
+  },
+  {
+   "id": "musteri-kaydi",
+   "title": "Hasta sahibi (müşteri) kaydı",
+   "icon": "👤",
+   "color": "#0e9f9a",
+   "category": "Kayıt",
+   "minutes": 3,
+   "summary": "Yeni müşteri kaydı açın, onay formunu gönderin ve aynı akışta hastasını oluşturun.",
+   "keywords": "müşteri hasta sahibi kayıt yeni müşteri telefon portal şifre sms onay kvkk",
+   "route": "clients",
+   "steps": [
+    {
+     "title": "Kısa video: müşteri kaydı",
+     "text": "Aşağıdaki videoda müşteri kaydının baştan sona nasıl yapıldığını görebilirsiniz.",
+     "media": {
+      "type": "video",
+      "src": "v-musteri-kaydi.mp4",
+      "poster": "v-musteri-kaydi-poster.webp",
+      "caption": "Yeni müşteri → bilgiler → Müşteri Ekle ve Hasta Oluştur → onay formu"
+     }
+    },
+    {
+     "title": "Formu açın",
+     "text": "Genel Bakış'ta Yeni müşteri düğmesine ya da Müşteriler › Müşteri Listesi'nde Yeni Müşteri'ye tıklayın.",
+     "media": {
+      "type": "image",
+      "src": "musteri-form.webp",
+      "caption": "Yeni Müşteri Ekle formu"
+     }
+    },
+    {
+     "title": "Zorunlu alanlar",
+     "text": "Ad soyad ve cep telefonu zorunludur. Cep telefonu, hasta sahibi portalında kullanıcı adı olur. \"SMS gönder ve ilk giriş şifresini oluştur\" işaretliyse müşteriye giriş şifresi kliniğinizin telefon hattından gönderilir."
+    },
+    {
+     "title": "Kaydı bitirin",
+     "text": "Yalnız müşteriyi kaydetmek için Müşteri Oluştur'a basın. Hastasını hemen eklemek istiyorsanız Müşteri Ekle ve Hasta Oluştur'u seçin; hasta formu, sahibi seçili olarak açılır."
+    },
+    {
+     "title": "Müşteri onay formu",
+     "text": "Kayıttan sonra KVKK ve iletişim izni penceresi açılır. Tablette hemen imzalatabilir, SMS veya WhatsApp ile bağlantı gönderebilir ya da Şimdi değil diyerek sonra Müşteri Onayları sayfasından gönderebilirsiniz."
+    },
+    {
+     "title": "Müşteri listesi",
+     "text": "Tüm müşteriler Müşteri Listesi'ndedir. Satırdaki ada tıklayınca müşteri kartı açılır: hastaları, borcu, mesajları ve onayları buradadır.",
+     "media": {
+      "type": "image",
+      "src": "musteri-liste.webp",
+      "caption": "Müşteri listesi"
+     }
+    }
+   ],
+   "tips": [
+    "Aynı telefonla ikinci kayıt açılmaz; sistem mevcut müşteriyi gösterir.",
+    "Dış müşteri (başka klinikten gelen) için Müşteriler › Dış Müşteriler'i kullanın."
+   ]
+  },
+  {
+   "id": "hasta-kaydi",
+   "title": "Hasta oluşturma",
+   "icon": "🐾",
+   "color": "#f97316",
+   "category": "Kayıt",
+   "minutes": 3,
+   "summary": "Hastayı sahibine bağlayın, tür ve ırkı seçin, istenirse doğrudan aşı sihirbazına geçin.",
+   "keywords": "hasta kayıt yeni hasta tür ırk mikroçip çip pasaport doğum cinsiyet protokol",
+   "route": "new-patient",
+   "steps": [
+    {
+     "title": "Kısa video: hasta kaydı",
+     "text": "Video, hasta formunun doldurulmasını ve aşı sihirbazına geçişi gösterir.",
+     "media": {
+      "type": "video",
+      "src": "v-hasta-kaydi.mp4",
+      "poster": "v-hasta-kaydi-poster.webp",
+      "caption": "Tür, ırk, ad, doğum tarihi, cinsiyet → Hasta Oluştur ve Aşı Takvimi Sihirbazına Geç"
+     }
+    },
+    {
+     "title": "Formu açın",
+     "text": "Hastalar › Yeni Hasta Ekle'ye tıklayın. Sahibi henüz kayıtlı değilse Hasta sahibi alanının yanındaki + Yeni sahip ile hızlıca ekleyin.",
+     "media": {
+      "type": "image",
+      "src": "hasta-form.webp",
+      "caption": "Yeni Hasta Ekle formu"
+     }
+    },
+    {
+     "title": "Zorunlu alanlar",
+     "text": "Hasta sahibi, tür, ırk, hasta adı ve cinsiyet zorunludur. Irk alanına yazmaya başlayınca liste önerir; listede yoksa kendiniz yazabilirsiniz. Önce türü seçin, ırk önerileri türe göre gelir."
+    },
+    {
+     "title": "Mikroçip ve Bakanlık bilgileri",
+     "text": "Formun altında mikroçip numarası, takılma tarihi, pasaport, renk, kilo, kısırlaştırma ve kan grubu alanları vardır. Kritik uyarılar (ör. ilaç alerjisi) hasta dosyasında ve muayenede kırmızı görünür."
+    },
+    {
+     "title": "Kaydet",
+     "text": "Hasta Oluştur yalnız kaydeder. Hasta Oluştur ve Aşı Takvimi Sihirbazına Geç ise aşı planını hemen hazırlamanızı sağlar."
+    },
+    {
+     "title": "Hasta dosyası",
+     "text": "Kayıttan sonra hasta dosyası açılır: muayene, aşı, tetkik, reçete, satış ve belgeler tek ekrandadır. Yeni muayene düğmesi buradadır.",
+     "media": {
+      "type": "image",
+      "src": "hasta-dosya.webp",
+      "caption": "Hasta dosyası"
+     }
+    }
+   ],
+   "tips": [
+    "Protokol numarası kaydedilince otomatik verilir.",
+    "Sahibi bilinmeyen (sokak hayvanı) hasta için \"Sahibi bilinmiyor\" kutusunu işaretleyin."
+   ]
+  },
+  {
+   "id": "asi-listesi",
+   "title": "Aşı listesini tanımlama",
+   "icon": "💉",
+   "color": "#d0368a",
+   "category": "Aşı",
+   "minutes": 3,
+   "summary": "Sihirbazın kullandığı aşı tanımlarını türe göre bir kez hazırlayın.",
+   "keywords": "aşı listesi aşı tanımı başlangıç gün yenileme zorunlu kuduz karma parazit",
+   "route": "vaccineCatalog",
+   "steps": [
+    {
+     "title": "Neden önce liste?",
+     "text": "Aşı sihirbazı, Aşı Listesi'ndeki tanımlardan plan çıkarır. Liste boşsa sihirbaz yalnız boş bir satır gösterir. Bu yüzden ilk iş, kliniğinizin protokolünü türe göre bir kez tanımlamaktır."
+    },
+    {
+     "title": "Kısa video: aşı tanımı ekleme",
+     "text": "",
+     "media": {
+      "type": "video",
+      "src": "v-asi-listesi.mp4",
+      "poster": "v-asi-listesi-poster.webp",
+      "caption": "Aşı Takvimi › Aşı Listesi › Yeni aşı tanımı"
+     }
+    },
+    {
+     "title": "Alanların anlamı",
+     "text": "Hasta türü: tanımın hangi türe uygulanacağı (Tümü seçerseniz her türe). Başlangıçtan sonraki gün: hastanın başlangıç tarihine (genelde doğum tarihi) eklenecek gün; ör. 56 = 8. hafta. Yenileme aralığı ve birimi: uygulama yapıldıktan sonra bir sonraki dozun ne zaman planlanacağı; 0 ise yenilenmez. Zorunlu mu: klinik protokolünde zorunlu olanlar sihirbazda \"Zorunlu\" etiketiyle görünür."
+    },
+    {
+     "title": "Ürün ve ücret",
+     "text": "Tanıma stoktaki aşı ürününü ve ücretini bağlarsanız uygulama yapıldığında satış ve stok düşümü kolaylaşır.",
+     "media": {
+      "type": "image",
+      "src": "asi-listesi-dolu.webp",
+      "caption": "Kedi için tanımlanmış örnek aşı listesi"
+     }
+    }
+   ],
+   "tips": [
+    "Örnek kedi protokolü: Parazit 42. gün (2 ayda bir), Karma 1. doz 56. gün, Karma 2. doz 84. gün (yılda bir), Kuduz 112. gün (yılda bir).",
+    "Kullanmadığınız tanımı silmek yerine Durum: Pasif yapın; geçmiş kayıtlar bozulmaz."
+   ]
+  },
+  {
+   "id": "asi-sihirbazi",
+   "title": "Aşı sihirbazı nasıl çalışır?",
+   "icon": "🧪",
+   "color": "#7c3aed",
+   "category": "Aşı",
+   "minutes": 4,
+   "summary": "Başlangıç tarihi + tanımdaki gün = planlanan tarih. Yapılanları işaretleyin, kalanlar takvime düşsün.",
+   "keywords": "aşı sihirbazı plan takvim başlangıç tarihi yapıldı yenileme hatırlatma",
+   "route": "vaccine-wizard",
+   "steps": [
+    {
+     "title": "Kısa video: plan oluşturma",
+     "text": "",
+     "media": {
+      "type": "video",
+      "src": "v-asi-sihirbazi.mp4",
+      "poster": "v-asi-sihirbazi-poster.webp",
+      "caption": "Doğum tarihini başlangıç seç → yapılanı işaretle → Kaydet ve aşı takvimini oluştur"
+     }
+    },
+    {
+     "title": "1 · Hastayı seçin",
+     "text": "Aşı Takvimi › Aşı Sihirbazı'ndan hastayı seçin ya da hasta kaydında \"Aşı Takvimi Sihirbazına Geç\" düğmesini kullanın. Sihirbaz, hastanın türüne uyan aktif tanımları başlangıç gününe göre sıralar."
+    },
+    {
+     "title": "2 · Başlangıç tarihini seçin",
+     "text": "Varsayılan başlangıç, hastanın doğum tarihidir. Bugün, Geçen hafta, Geçen ay veya Doğum tarihi kısayollarıyla değiştirebilirsiniz. Her satırın planlanan tarihi = başlangıç tarihi + tanımdaki gün sayısıdır. Başlangıcı değiştirince tüm tarihler birlikte kayar.",
+     "media": {
+      "type": "image",
+      "src": "asi-sihirbazi-plan.webp",
+      "caption": "Sihirbaz: başlangıç tarihi ve hesaplanan satırlar"
+     }
+    },
+    {
+     "title": "3 · Satırları işaretleyin",
+     "text": "Eklensin: bu aşı takvime alınsın mı? Yapıldı: aşı daha önce (başka yerde ya da bugün) yapıldıysa işaretleyin ve gerçek uygulama tarihini girin; varsa seri/lot numarasını seçin. Tarihi geçmiş ama yapılmamış satırlar kırmızı \"Tarihi geçmiş\" uyarısıyla görünür; tarihi elle düzeltebilirsiniz."
+    },
+    {
+     "title": "4 · Yenileme mantığı",
+     "text": "Yenileme aralığı olan bir aşı \"Yapıldı\" olarak kaydedilince sistem bir sonraki dozu otomatik planlar: ör. Kuduz yılda bir ise 1 yıl sonrasına yeni kayıt açılır. Bu sayede hatırlatmalar hiç kesilmez."
+    },
+    {
+     "title": "5 · Kaydedin",
+     "text": "Kaydet ve aşı takvimini oluştur'a basın. Planlanan aşılar Aşı Takvimi'ne, yapılanlar Yapılmış Aşılar'a düşer; otomatik hatırlatma açıksa sahibine zamanında SMS/WhatsApp gider.",
+     "media": {
+      "type": "image",
+      "src": "asi-takvim.webp",
+      "caption": "Aşı takvimi listesi"
+     }
+    },
+    {
+     "title": "Listede olmayan aşı",
+     "text": "Tanımlarda olmayan bir uygulama için Özel aşı satırı ekle ile adını ve tarihini yazarak ekleyebilirsiniz."
+    }
+   ],
+   "tips": [
+    "Sihirbazı aynı hasta için tekrar açarsanız mevcut planı bozmadan yeni satır ekleyebilirsiniz.",
+    "Yapılmamış Aşılar listesi, tarihi geçmiş ama uygulanmamış dozları gösterir; arama listesi olarak kullanın."
+   ],
+   "warn": "Bir satırı \"Yapıldı\" işaretlerken uygulama tarihini gerçek tarih olarak girin; bir sonraki doz bu tarihten hesaplanır."
+  },
+  {
+   "id": "randevu",
+   "title": "Randevu takvimi",
+   "icon": "📅",
+   "color": "#2563eb",
+   "category": "Günlük iş",
+   "minutes": 3,
+   "summary": "Saat hücresinden randevu açın, personele göre görün, sürükleyerek taşıyın.",
+   "keywords": "randevu takvim personel sürükle bırak hafta ay liste durum online randevu",
+   "route": "appointments",
+   "steps": [
+    {
+     "title": "Kısa video: randevu açma",
+     "text": "",
+     "media": {
+      "type": "video",
+      "src": "v-randevu.mp4",
+      "poster": "v-randevu-poster.webp",
+      "caption": "Takvimde boş hücredeki + → müşteri, hasta, personel, işlem → Kaydet"
+     }
+    },
+    {
+     "title": "Görünümler",
+     "text": "Hafta, Ay, Liste ve Personel görünümleri vardır. Personel görünümünde her hekimin sütunu yan yana durur; kimin ne zaman dolu olduğunu tek bakışta görürsünüz.",
+     "media": {
+      "type": "image",
+      "src": "randevu.webp",
+      "caption": "Personel görünümünde randevu takvimi"
+     }
+    },
+    {
+     "title": "Randevu açma",
+     "text": "Boş saat hücresindeki + işaretine tıklayın; tarih ve saat otomatik dolar. Müşteriyi seçince hastaları listelenir. Personel, işlem ve not girip Kaydet'e basın.",
+     "media": {
+      "type": "image",
+      "src": "randevu-form.webp",
+      "caption": "Yeni randevu formu"
+     }
+    },
+    {
+     "title": "Taşıma ve durumlar",
+     "text": "Randevuyu sürükleyip başka saate, güne veya personele bırakabilirsiniz; çakışma varsa sistem uyarır. Renkler durumu gösterir: Planlandı, Onay Bekliyor, Onaylandı, Muayenede, Tamamlandı, Gelmedi."
+    }
+   ],
+   "tips": [
+    "Web sitenizden gelen online randevular \"Onay Bekliyor\" olarak düşer.",
+    "Randevu hatırlatma SMS'i Ayarlar › Otomatik SMS ve WhatsApp'tan açılır."
+   ]
+  },
+  {
+   "id": "muayene",
+   "title": "Muayene ve Bas Konuş",
+   "icon": "🩺",
+   "color": "#059669",
+   "category": "Günlük iş",
+   "minutes": 3,
+   "summary": "Muayeneyi hasta dosyasından açın, alanları sesle doldurun.",
+   "keywords": "muayene bas konuş ses dikte tanı bulgu reçete tetkik",
+   "route": "exams",
+   "steps": [
+    {
+     "title": "Muayene açma",
+     "text": "Hasta dosyasında Yeni muayene düğmesine basın ya da Hastalar › Muayeneler'den Yeni muayene açın. Kilo, ateş, nabız, solunum, şikâyet, bulgular, tanı ve plan alanları vardır.",
+     "media": {
+      "type": "image",
+      "src": "muayene-liste.webp",
+      "caption": "Muayeneler listesi"
+     }
+    },
+    {
+     "title": "Bas Konuş ile doldurma",
+     "text": "Sağ alttaki mikrofona basılı tutun ve örneğin \"Pamuk muayene aç, kilo dört buçuk, ateş otuz sekiz virgül beş, şikâyet iştahsızlık\" deyin. Sistem hastayı seçer, muayene formunu açar ve söylediğiniz alanları doldurur. Kaydetmeden önce kontrol edin."
+    },
+    {
+     "title": "Muayene sonrası",
+     "text": "Muayeneden reçete, tetkik, tedavi işlemi veya satış oluşturabilirsiniz; hepsi hasta dosyasında zaman sırasıyla görünür.",
+     "media": {
+      "type": "image",
+      "src": "hasta-dosya.webp",
+      "caption": "Hasta dosyasında klinik kayıtlar"
+     }
+    }
+   ],
+   "tips": [
+    "Bas Konuş tarayıcının mikrofon iznini ister; ilk kullanımda \"İzin ver\" deyin.",
+    "Gürültülü ortamda kısa cümleler daha doğru sonuç verir."
+   ]
+  },
+  {
+   "id": "satis",
+   "title": "Satış ve tahsilat",
+   "icon": "🧾",
+   "color": "#ea580c",
+   "category": "Ticari",
+   "minutes": 3,
+   "summary": "Ürün ve hizmetleri satışa ekleyin, ödemeyi alın ya da borç olarak bırakın.",
+   "keywords": "satış tahsilat ödeme kart nakit havale kdv indirim borç e-smm fatura",
+   "route": "sales",
+   "steps": [
+    {
+     "title": "Kısa video: satış girme",
+     "text": "",
+     "media": {
+      "type": "video",
+      "src": "v-satis.mp4",
+      "poster": "v-satis-poster.webp",
+      "caption": "Yeni satış → müşteri, hasta → katalogdan ürün → tahsilat ve ödeme yöntemi → Kaydet"
+     }
+    },
+    {
+     "title": "Kalemler",
+     "text": "Katalog ürünü / hizmet listesinden seçince ad, fiyat ve KDV otomatik gelir. Barkod okuyucuyla da ekleyebilirsiniz. Serbest kalem ile listede olmayan bir hizmeti yazabilirsiniz.",
+     "media": {
+      "type": "image",
+      "src": "satis-dolu.webp",
+      "caption": "Satış formu: kalemler ve toplamlar"
+     }
+    },
+    {
+     "title": "Tahsilat",
+     "text": "Tahsilat alanına alınan tutarı ve ödeme yöntemini (Kart, Nakit, Havale) girin. Tamamı alınmadıysa kalan tutar müşterinin borcu olarak kalır ve Borç Hatırlatma'da görünür."
+    },
+    {
+     "title": "Diğer kayıt seçenekleri",
+     "text": "Kaydet ve tahsilat ekle, sonradan ödeme almak için; Kaydet ve e-SMM aç, serbest meslek makbuzu düzenlemek için kullanılır."
+    },
+    {
+     "title": "Satış geçmişi ve tahsilatlar",
+     "text": "Satışlar sayfasında bugün, dün, bu hafta, bu ay toplamları ve tüm satışlar listelenir. Muhasebe › Tahsilatlar'da ödemeleri izlersiniz.",
+     "media": {
+      "type": "image",
+      "src": "tahsilat.webp",
+      "caption": "Tahsilatlar"
+     }
+    }
+   ],
+   "tips": [
+    "Stok kartı olan ürün satılınca stok otomatik düşer.",
+    "Yanlış satışı silmek yerine iade/düzeltme kaydı açın; kasa raporu doğru kalır."
+   ]
+  },
+  {
+   "id": "borc",
+   "title": "Borç hatırlatma ve ödeme talebi",
+   "icon": "💳",
+   "color": "#dc2626",
+   "category": "Ticari",
+   "minutes": 2,
+   "summary": "Borçlu müşterileri görün, SMS/WhatsApp ile hatırlatın, ödeme bağlantısı gönderin.",
+   "keywords": "borç hatırlatma ödeme talebi ödeme linki paytr havale iban",
+   "route": "borc-hatirlatma",
+   "steps": [
+    {
+     "title": "Borçlu listesi",
+     "text": "Muhasebe › Borç Hatırlatma, açık bakiyesi olan müşterileri tutar, gün ve son ödemeyle listeler. Üstteki kutular toplam alacağı ve yaş dağılımını gösterir.",
+     "media": {
+      "type": "image",
+      "src": "borc.webp",
+      "caption": "Borç Hatırlatma"
+     }
+    },
+    {
+     "title": "Hatırlatma gönderme",
+     "text": "Satırdaki SMS veya WhatsApp düğmesi hazır metni kliniğinizin telefon hattından gönderir. Aynı kişiye kısa sürede tekrar gönderim engellenir."
+    },
+    {
+     "title": "Ödeme talebi",
+     "text": "Ödeme talebi düğmesi müşteriye kısa bir ödeme bağlantısı gönderir. Müşteri bağlantıdan kartla (PayTR) öder ya da kliniğin IBAN bilgisini görerek havale yapar. Kart ödemesi otomatik tahsilata dönüşür; havaleyi onaylamanız gerekir."
+    }
+   ],
+   "tips": [
+    "Ödeme bilgileri Ayarlar › Klinik › Hasta sahibi ödemeleri bölümünden girilir."
+   ]
+  },
+  {
+   "id": "stok",
+   "title": "Stok ve faturadan stok girişi",
+   "icon": "📦",
+   "color": "#0891b2",
+   "category": "Ticari",
+   "minutes": 3,
+   "summary": "Ürün kartlarını yönetin, alış faturasından stoğu tek seferde artırın.",
+   "keywords": "stok ürün barkod kritik stok skt fatura xml alış tedarikçi toplu fiyat",
+   "route": "products",
+   "steps": [
+    {
+     "title": "Ürün ve stok",
+     "text": "Ürünler › Ürün Listesi'nde stok kodu, barkod, mevcut stok, kritik stok seviyesi ve satış fiyatı görünür. Kritik Stoklar ve SKT Yaklaşanlar listeleri sizi önceden uyarır.",
+     "media": {
+      "type": "image",
+      "src": "stok.webp",
+      "caption": "Ürün ve stok listesi"
+     }
+    },
+    {
+     "title": "Faturadan stok girişi",
+     "text": "e-Fatura XML dosyasını sürükleyip bırakın veya kâğıt faturanın fotoğrafını yükleyin. Sistem kalemleri okur, mevcut ürünlerle eşleştirir; siz kontrol edip onaylayınca stok ve alış kaydı birlikte oluşur.",
+     "media": {
+      "type": "image",
+      "src": "faturadan-stok.webp",
+      "caption": "Faturadan Stok Girişi"
+     }
+    },
+    {
+     "title": "Toplu fiyat",
+     "text": "Toplu Fiyat Güncelle ile ürünlere yüzde ya da tutar zammı yapabilir, Excel ile içe/dışa aktarabilirsiniz."
+    }
+   ],
+   "tips": [
+    "Eşleşmeyen kalemi bir kez elle eşleştirin; bir dahaki faturada otomatik tanınır."
+   ]
+  },
+  {
+   "id": "onam",
+   "title": "Onam formları ve müşteri onayları",
+   "icon": "✍️",
+   "color": "#9333ea",
+   "category": "İletişim",
+   "minutes": 3,
+   "summary": "Ameliyat, yatış ve anestezi onamlarını SMS, e-posta, klinikte veya yüz yüze imzalatın.",
+   "keywords": "onam imza ameliyat anestezi yatış kvkk müşteri onayı izin sms e-posta tablet",
+   "route": "onamlar",
+   "steps": [
+    {
+     "title": "Onam formları",
+     "text": "Hastalar › Onam Formları'nda yeni onam açın, şablonu (ameliyat, anestezi, yatış vb.) seçin. Gönderim yolu: Klinikte imza (tablette), Yüz yüze imza, SMS ile, WhatsApp ile, E-posta ile veya İptal.",
+     "media": {
+      "type": "image",
+      "src": "onam.webp",
+      "caption": "Onam Formları: imza bekleyenler"
+     }
+    },
+    {
+     "title": "İmza bağlantısı",
+     "text": "SMS/WhatsApp/e-posta seçilirse sahibine tek kullanımlık bağlantı gider. Sahip telefonunda formu okuyup parmağıyla imzalar; imzalı belge hasta dosyasına eklenir."
+    },
+    {
+     "title": "Müşteri onayları (KVKK)",
+     "text": "Müşteriler › Müşteri Onayları'nda KVKK aydınlatma ve SMS/WhatsApp/e-posta izinlerinin durumunu görürsünüz: İmza bekleyen, İmzalandı, Onay vermedi, Süresi doldu.",
+     "media": {
+      "type": "image",
+      "src": "musteri-onay.webp",
+      "caption": "Müşteri Onayları"
+     }
+    }
+   ],
+   "tips": [
+    "İletişim izni olmayan müşteriye kampanya mesajı gönderilmez; hatırlatmalar izin türüne göre çalışır."
+   ]
+  },
+  {
+   "id": "telefon",
+   "title": "Telefon Bağlantısı: SMS ve WhatsApp",
+   "icon": "📱",
+   "color": "#16a34a",
+   "category": "İletişim",
+   "minutes": 5,
+   "summary": "Mesajlar kliniğinizin kendi numarasından gider; ücretli SMS sağlayıcısı gerekmez.",
+   "keywords": "telefon bağlantısı sms whatsapp android termux eşleştirme kodu gönderim kuyruğu saat sınır",
+   "route": "telefon-baglantisi",
+   "steps": [
+    {
+     "title": "Kısa video: kurulum adımları",
+     "text": "Kurulum birkaç dakika sürer. Video, eşleştirme kodu oluşturmayı, ayarları ve gönderim kuyruğunu gösterir.",
+     "media": {
+      "type": "video",
+      "src": "v-telefon.mp4",
+      "poster": "v-telefon-poster.webp",
+      "caption": "Kurulum → Eşleştirme kodu oluştur → Ayarlar → Gönderim kuyruğu"
+     }
+    },
+    {
+     "title": "1 · Android telefonu hazırlayın",
+     "text": "Kliniğin hattının takılı olduğu Android telefona F-Droid'den Termux, Termux:API ve Termux:Boot uygulamalarını kurun (Google Play sürümleri eskidir).",
+     "media": {
+      "type": "image",
+      "src": "telefon.webp",
+      "caption": "Telefon Bağlantısı › Kurulum"
+     }
+    },
+    {
+     "title": "2 · Eşleştirin",
+     "text": "Eşleştirme kodu oluştur'a basın. Çıkan tek satırlık komutu Kopyala ile alın, Termux'u açıp yapıştırın ve Enter'a basın. SMS izni sorulursa izin verin. Kod 30 dakika geçerlidir; süresi dolarsa yenisini oluşturun."
+    },
+    {
+     "title": "3 · Telefonu açık tutun",
+     "text": "Ayarlar › Pil bölümünden Termux ve Termux:API için pil optimizasyonunu kapatın, Termux:Boot'u bir kez açın. Telefon şarjda ve internete bağlı kalmalıdır; yeniden başlayınca bağlantı kendiliğinden açılır."
+    },
+    {
+     "title": "4 · Gönderim ayarları",
+     "text": "Ayarlar sekmesinde SMS ve WhatsApp'ı açın; gönderim saatlerini, mesajlar arası bekleme süresini ve günlük sınırı belirleyin. Gece gelen işler sabah gönderim saatinde çıkar.",
+     "media": {
+      "type": "image",
+      "src": "telefon-ayar.webp",
+      "caption": "Gönderim ayarları"
+     }
+    },
+    {
+     "title": "5 · Kuyruğu izleyin",
+     "text": "Gönderim kuyruğu sekmesi her mesajın alıcısını, metnini, tarih-saatini ve durumunu (Bekliyor, Gönderildi, Hata) gösterir. Aynı mesaj aynı kişiye 24 saat içinde ikinci kez gönderilmez.",
+     "media": {
+      "type": "image",
+      "src": "telefon-kuyruk.webp",
+      "caption": "Gönderim kuyruğu"
+     }
+    }
+   ],
+   "tips": [
+    "Paketinizdeki aylık SMS/WhatsApp hakkı Muhasebe › Aylık gönderim hakkı'nda görünür; biterse ek paket alabilirsiniz.",
+    "WhatsApp için telefonda WhatsApp veya WhatsApp Business kurulu ve oturum açık olmalıdır."
+   ],
+   "warn": "Eşleştirme komutunu kimseyle paylaşmayın; komutu çalıştıran telefon kliniğiniz adına mesaj gönderebilir."
+  },
+  {
+   "id": "hatirlatici",
+   "title": "Otomatik hatırlatmalar",
+   "icon": "⏰",
+   "color": "#ca8a04",
+   "category": "İletişim",
+   "minutes": 2,
+   "summary": "Aşı, randevu, kontrol, doğum günü ve borç mesajlarını otomatiğe bağlayın.",
+   "keywords": "otomatik hatırlatma sms whatsapp aşı randevu doğum günü şablon",
+   "route": "hatirlaticilar",
+   "steps": [
+    {
+     "title": "Hatırlatıcıları açın",
+     "text": "Ayarlar › SMS, WhatsApp ve mesajlar › Otomatik SMS ve WhatsApp sayfasında her hatırlatma türü için açık/kapalı, kaç saat/gün önce, hangi kanal ve mesaj metni seçilir.",
+     "media": {
+      "type": "image",
+      "src": "hatirlatici.webp",
+      "caption": "Otomatik SMS ve WhatsApp"
+     }
+    },
+    {
+     "title": "Şablon değişkenleri",
+     "text": "Metinde {sahip}, {hasta}, {tarih}, {saat} gibi alanlar otomatik doldurulur; klinik adı ve telefonu mesajın sonuna eklenir."
+    }
+   ],
+   "tips": [
+    "Önce Telefon Bağlantısı kurulmalıdır; hatırlatmalar o hattan gider."
+   ]
+  },
+  {
+   "id": "gelen-kutusu",
+   "title": "Gelen Kutusu",
+   "icon": "💬",
+   "color": "#0284c7",
+   "category": "İletişim",
+   "minutes": 2,
+   "summary": "WhatsApp, Instagram, Facebook, Telegram, SMS ve e-postayı tek yerden yanıtlayın.",
+   "keywords": "gelen kutusu mesaj whatsapp instagram facebook telegram e-posta yanıt",
+   "route": "gelen-kutusu",
+   "steps": [
+    {
+     "title": "Tek ekranda tüm kanallar",
+     "text": "Gelen Kutusu'nda sol tarafta konuşmalar, ortada mesajlar, sağda müşteri ve hasta kartı yer alır. Kanal filtresiyle yalnız WhatsApp veya yalnız Instagram mesajlarını görebilirsiniz.",
+     "media": {
+      "type": "image",
+      "src": "gelen.webp",
+      "caption": "Gelen Kutusu"
+     }
+    },
+    {
+     "title": "Eşleştirme",
+     "text": "Mesaj gönderen numara kayıtlı bir müşteriyse otomatik eşleşir; değilse tek tıkla yeni müşteri oluşturabilir ya da mevcut müşteriye bağlayabilirsiniz."
+    }
+   ],
+   "tips": []
+  },
+  {
+   "id": "entegrasyon",
+   "title": "Cihaz, e-Belge ve Bakanlık entegrasyonları",
+   "icon": "🔌",
+   "color": "#4f46e5",
+   "category": "Entegrasyon",
+   "minutes": 5,
+   "summary": "Laboratuvar ve görüntüleme cihazlarını, e-Fatura/e-SMM'yi ve Bakanlık kayıtlarını bağlayın.",
+   "keywords": "entegrasyon cihaz hemogram biyokimya röntgen ultrason e-fatura e-arşiv e-smm bakanlık e-reçete hbs",
+   "route": "cihaz-entegrasyonu",
+   "steps": [
+    {
+     "title": "Klinik bağlantı uygulaması",
+     "text": "Entegrasyonlar, klinikteki bir Windows bilgisayara kurulan VetZimo bağlantı uygulamasıyla çalışır. Ayarlar › Entegrasyonlar › Ajanlar ve indirmeler bölümünden kurulum dosyasını indirin, kurun ve ekrandaki eşleştirme kodunu girin."
+    },
+    {
+     "title": "Cihaz entegrasyonu",
+     "text": "Hemogram, biyokimya, kan gazı, idrar, röntgen, ultrason, MR ve tomografi cihazlarını ekleyin. Cihazdan gelen sonuç hastanın mikroçipi veya protokol numarasıyla otomatik eşleşir; eşleşmeyenler Gelen sonuçlar listesinde bekler.",
+     "media": {
+      "type": "image",
+      "src": "cihaz.webp",
+      "caption": "Cihaz entegrasyonu"
+     }
+    },
+    {
+     "title": "e-Fatura / e-Arşiv / e-SMM",
+     "text": "e-Belgeler sayfasındaki 5 adımlı kurulum rehberini izleyin: bağlantı uygulamasını eşleştirin, portal adresinizi ve kullanıcı bilgilerinizi girin, test belgesi kesin. Sonra satış ekranından tek tıkla belge düzenlenir.",
+     "media": {
+      "type": "image",
+      "src": "ebelge.webp",
+      "caption": "e-Belgeler kurulum rehberi"
+     }
+    },
+    {
+     "title": "Bakanlık Köprüsü",
+     "text": "e-Reçete ve aşı kayıtları Bakanlık sistemine aktarılmak üzere kuyruğa alınır. Gönderilecekler, Kuyruk ve geçmiş, Kurulum ve ajan sekmelerinden durumu izlersiniz.",
+     "media": {
+      "type": "image",
+      "src": "bakanlik.webp",
+      "caption": "Bakanlık Köprüsü"
+     }
+    }
+   ],
+   "tips": [
+    "Bağlantı uygulaması kurulu bilgisayar açık ve internete bağlı olmalıdır.",
+    "Cihaz marka/modeliniz listede yoksa Yeni eğitim istiyorum ile bize bildirin."
+   ]
+  },
+  {
+   "id": "ekip",
+   "title": "Ekip, şube ve yetkiler",
+   "icon": "👥",
+   "color": "#be185d",
+   "category": "Yönetim",
+   "minutes": 3,
+   "summary": "Personel ve şube yöneticisi ekleyin, aktivasyon gönderin, kimin neyi göreceğini belirleyin.",
+   "keywords": "ekip personel kullanıcı şube yöneticisi yetki rol aktivasyon davet iki adımlı",
+   "route": "merkezi-hesaplar",
+   "steps": [
+    {
+     "title": "Kişi ekleme",
+     "text": "Ayarlar › Ekip ve yetkiler › Şube · kullanıcı · hasta sahibi yetkileri sayfasında Şube yöneticisi, Personel veya Hasta sahibi ekleyin. Ad ve cep telefonunu yazın, aktivasyonun SMS veya e-postayla gitmesini seçin.",
+     "media": {
+      "type": "image",
+      "src": "ekip.webp",
+      "caption": "Klinik hesapları ve yetkileri"
+     }
+    },
+    {
+     "title": "Aktivasyon bekleyenler",
+     "text": "Kurum üyelikleri listesinde aktivasyonu tamamlanmamış kişilerin yanında SMS ile veya e-posta ile tekrar gönder düğmeleri vardır."
+    },
+    {
+     "title": "Yetkiler",
+     "text": "Her modül için Yok, Okuma, Yazma yetkisi verilir. Örneğin resepsiyon randevu ve müşteri yazabilir, muhasebeyi göremez."
+    },
+    {
+     "title": "Güvenlik",
+     "text": "Ekip hesapları için İki Adımlı Doğrulama'yı açın; şifre ele geçse bile hesap korunur."
+    }
+   ],
+   "tips": [
+    "Paketinizin kullanıcı ve şube sınırı ekranın üstünde görünür."
+   ]
+  },
+  {
+   "id": "evde-hizmet",
+   "title": "Evde hizmet",
+   "icon": "🏠",
+   "color": "#0d9488",
+   "category": "Günlük iş",
+   "minutes": 2,
+   "summary": "Ev ziyareti başvurularını, rotayı ve canlı konumu yönetin.",
+   "keywords": "evde hizmet ev ziyareti rota canlı konum bölge fiyat",
+   "route": "evde-hizmet",
+   "steps": [
+    {
+     "title": "Başvurular",
+     "text": "Evde Hizmet sayfasında web sitenizden veya telefondan gelen ev ziyareti başvuruları listelenir. Onaylayınca randevu takvimine düşer.",
+     "media": {
+      "type": "image",
+      "src": "evde.webp",
+      "caption": "Evde Hizmet"
+     }
+    },
+    {
+     "title": "Rota ve canlı konum",
+     "text": "Günlük rota sekmesi ziyaretleri sıraya koyar. Yola çıktığınızda hasta sahibine yaklaşık varış süresi ve \"yaklaşıyor\" bildirimi gider."
+    },
+    {
+     "title": "Bölge ve fiyatlar",
+     "text": "Hizmet verdiğiniz bölgeleri ve ziyaret ücretlerini Ayarlar sekmesinden tanımlayın."
+    }
+   ],
+   "tips": []
+  },
+  {
+   "id": "ayarlar",
+   "title": "Ayarlar, abonelik ve ek paketler",
+   "icon": "⚙️",
+   "color": "#64748b",
+   "category": "Yönetim",
+   "minutes": 2,
+   "summary": "Klinik bilgileri, tema, bildirimler, abonelik ve ek SMS/WhatsApp paketleri.",
+   "keywords": "ayarlar klinik bilgi logo tema abonelik ek paket sms paketi whatsapp paketi yenileme",
+   "route": "ayarlar",
+   "steps": [
+    {
+     "title": "Ayarlar merkezi",
+     "text": "Diğer › Ayarlar tüm ayarları sekmelerde toplar: Klinik, Ekip ve yetkiler, SMS/WhatsApp, Bildirimler, Entegrasyonlar, Görünüm ve ses, Hesap ve abonelik, Veri. Üstteki arama kutusuyla ayar bulabilirsiniz.",
+     "media": {
+      "type": "image",
+      "src": "ayarlar.webp",
+      "caption": "Ayarlar merkezi"
+     }
+    },
+    {
+     "title": "Abonelik mağazası",
+     "text": "Muhasebe › Abonelik mağazası'nda paketinizi ve bitiş tarihini görür, yenileme veya üst pakete geçişi kartla ya da havaleyle yaparsınız. Aylık hak bittiğinde Ek paketler bölümünden SMS ve WhatsApp kredisi alabilirsiniz.",
+     "media": {
+      "type": "image",
+      "src": "magaza.webp",
+      "caption": "Abonelik mağazası"
+     }
+    }
+   ],
+   "tips": [
+    "Ek kredi süresizdir ve aylık hak bittikten sonra kullanılır."
+   ]
+  }
+ ]
+}

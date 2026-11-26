@@ -57,7 +57,7 @@ final class SaasPayment
     {
         $q = $this->db->query("SELECT payload FROM center_management WHERE kind='shop_bank' ORDER BY updated_at DESC LIMIT 1");
         $s = json_decode((string)$q->fetchColumn(), true);
-        return $s && ($s['enabled'] ?? '') === 'yes' ? $s['beneficiary'].' · '.$s['iban'] : null;
+        return $s && ($s['enabled'] ?? '') === 'yes' ? implode(' · ', array_filter([$s['bankName'] ?? '', $s['beneficiary'], $s['iban']])) : null;
     }
 
     public function methods(): array

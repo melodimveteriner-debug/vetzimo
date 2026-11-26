@@ -332,14 +332,19 @@ final class WebBuilderAdmin
     }
     /** Yönetim ekranlarının VetZimo teması (klinikte kişisel tema, merkezde genel tema). Boşsa varsayılan tasarım. */
     public static string $palette='';
+    /** Klinik panelinin içinde (iframe) açılan düzenleyici: kendi üst çubuğu gizlenir, VetZimo kabuğu kalır. */
+    public static function embedded(): bool
+    {
+        return ($_SERVER['HTTP_SEC_FETCH_DEST'] ?? '')==='iframe' || ($_GET['panel'] ?? '')==='1';
+    }
     public static function page(string $title,string $contents,string $class=''): string
     {
         $palette=preg_match('/\A[a-z]{3,12}\z/',self::$palette)?self::$palette:'';
         return '<!doctype html><html lang="tr"'.($palette!==''?' data-theme="'.$palette.'" class="builder-surface"':'').'><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'.
-            '<meta name="robots" content="noindex,nofollow"><title>'.self::e($title).' · VetZimo</title><link rel="stylesheet" href="/web-builder-admin.css?v=39">'.
+            '<meta name="robots" content="noindex,nofollow"><title>'.self::e($title).' · VetZimo</title><link rel="stylesheet" href="/web-builder-admin.css?v=40">'.
             ($palette!==''?'<link rel="stylesheet" href="/themes.css?v=20261126-r9"><link rel="stylesheet" href="/surface-themes.css?v=20261126-r5">':'').
-            '<script src="/web-builder-admin.js?v=38" defer></script></head>'.
-            '<body class="'.self::e($class).'">'.$contents.'</body></html>';
+            '<script src="/web-builder-admin.js?v=39" defer></script></head>'.
+            '<body class="'.self::e(trim($class.(self::embedded()?' builder-embedded':''))).'">'.$contents.'</body></html>';
     }
     public function render(array $actor,?array $site,string $tab,array $get,?string $error=null,array $submitted=[]): string
     {

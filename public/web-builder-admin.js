@@ -1,3 +1,23 @@
+// VetZimo klinik panelinin içinde açıldığında: kendi üst çubuğunu gizle, yüksekliği panele bildir,
+// düzenleyici dışına giden bağlantıları üst pencerede (VetZimo) ya da yayındaki siteyi yeni sekmede aç.
+if (window.parent !== window) {
+    try {
+        if (window.parent.location.origin === location.origin) {
+            document.body.classList.add("builder-embedded");
+            const sendHeight = () => window.parent.postMessage({type: "clinic-module-height", height: Math.ceil(document.documentElement.scrollHeight)}, location.origin);
+            new ResizeObserver(sendHeight).observe(document.body);
+            addEventListener("load", sendHeight);
+            document.addEventListener("click", event => {
+                const a = event.target.closest("a[href]");
+                if (!a || a.target) return;
+                const url = new URL(a.href, location.href);
+                if (url.origin !== location.origin) { a.target = "_blank"; a.rel = "noopener"; return; }
+                if (url.pathname.startsWith("/web-sitem/onizleme")) { a.target = "_blank"; return; }
+                if (!url.pathname.startsWith("/web-sitem")) a.target = "_top";
+            }, true);
+        }
+    } catch {}
+}
 const notice = document.querySelector("#builder-error");
 
 function showError(message) {

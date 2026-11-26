@@ -12,7 +12,7 @@ use VetNet\Cpanel\SessionRepository;
 
 require_once dirname(__DIR__).'/src/StaffPlan.php';
 
-foreach (['AddonPackages','AppHub','AppDownloads','DemoAuto','CenterContact','SubscriptionReminders','OwnerPayment','ClinicRecords','AppPush','DeviceHub','VisitTracker','ReviewLink','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','SaasPayment','DealerAgreement','CenterAnalytics','ClinicAlerts','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','TeamTotp','WebInbox','MinistryBridge','SiteLegal','OmniInbox','PhoneGateway','ClientPermit','PrintTemplates','Support','Commerce','Appearance'] as $class) {
+foreach (['AddonPackages','ClinicGuide','AppHub','AppDownloads','DemoAuto','CenterContact','SubscriptionReminders','OwnerPayment','ClinicRecords','AppPush','DeviceHub','VisitTracker','ReviewLink','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','SaasPayment','DealerAgreement','CenterAnalytics','ClinicAlerts','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','TeamTotp','WebInbox','MinistryBridge','SiteLegal','OmniInbox','PhoneGateway','ClientPermit','PrintTemplates','Support','Commerce','Appearance'] as $class) {
     require_once dirname(__DIR__) . '/src/' . $class . '.php';
 }
 
@@ -196,6 +196,8 @@ try {
             echo VetNet\Cpanel\UiLocale::page($html,$config);
             exit;
         }
+        // Klinik rehberi satış sitesinden kaldırıldı; içerik yalnız ücretli paketlerde uygulama içinde (Diğer › Klinik Rehberi).
+        if ($marketPath==='/platform/blog' || str_starts_with($marketPath,'/platform/blog/')) { header('Location: /platform',true,301); exit; }
         $key = hash('sha256',$marketPath);
         $file = rtrim($config['assets'],'/').'/market-pages/'.$key.'.html';
         if (!is_file($file)) throw new RuntimeException('Sayfa bulunamadı.',404);
@@ -1629,6 +1631,13 @@ try {
         if ($export) header('Content-Disposition: attachment; filename="vetzimo-sube-yedegi.json"');
         reply($result);
     }
+    if (($path === '/api/guide' || str_starts_with($path,'/api/guide/media/')) && $method === 'GET') {
+        // Klinik Rehberi: yalnız ücretli aktif paketteki klinik ekibi; içerik ve medya web kökü dışında.
+        $actor=$workspaces->actor($_COOKIE,$now);
+        $guide=new VetNet\Cpanel\ClinicGuide($db,dirname(__DIR__).'/guide');
+        if ($path === '/api/guide') { header('Cache-Control: private, no-store'); reply($guide->topics($actor)); }
+        $guide->media($actor,substr($path,strlen('/api/guide/media/')));
+    }
     if ($path === '/api/workspace' && $method === 'GET') {
         $actor=$workspaces->actor($_COOKIE,$now);
         $session=static function(?object $visible) use($actor,$db,$appearance): array {
@@ -1636,7 +1645,7 @@ try {
                 (new VetNet\Cpanel\WorkspaceRepository($db))->branches('partner:'.$actor['partner_id']);
             $multipleBranches=count(array_filter($branches,static fn($row)=>($row->status??'')!=='Pasif'))>1;
             return [
-            'php'=>true,'workspacePatch'=>true,'recordDeletion'=>$actor['role']==='dealer','packageRestricted'=>isset($actor['packageModules']),'agreementRequired'=>!(new VetNet\Cpanel\DealerAgreement($db))->signed($actor['partner_id']),'personalPalette'=>$appearance->read('account:'.$actor['account_id'])['palette'],'role'=>$actor['role']==='dealer'?'dealer':'staff','central'=>true,'memberRole'=>$actor['role'],'member'=>['role'=>$actor['role']],'modules'=>ClinicAccess::modules($actor),'branches'=>[$actor['branch_id']],'scopeId'=>$actor['membership_id'],
+            'php'=>true,'workspacePatch'=>true,'recordDeletion'=>$actor['role']==='dealer','packageRestricted'=>isset($actor['packageModules']),'guide'=>(new VetNet\Cpanel\ClinicGuide($db,dirname(__DIR__).'/guide'))->allowed($actor),'agreementRequired'=>!(new VetNet\Cpanel\DealerAgreement($db))->signed($actor['partner_id']),'personalPalette'=>$appearance->read('account:'.$actor['account_id'])['palette'],'role'=>$actor['role']==='dealer'?'dealer':'staff','central'=>true,'memberRole'=>$actor['role'],'member'=>['role'=>$actor['role']],'modules'=>ClinicAccess::modules($actor),'branches'=>[$actor['branch_id']],'scopeId'=>$actor['membership_id'],
             'partnerId'=>$actor['partner_id'],'partnerName'=>$actor['partner_name'],'multipleBranches'=>$multipleBranches,'name'=>$actor['name'],'author'=>$actor['name'],
         ];
         };

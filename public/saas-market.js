@@ -129,8 +129,7 @@ function home() {
     <section class="block" data-edit-area="Öne çıkan modüller"><div class="section-title"><div><span class="eyebrow">MODÜLLER</span><h2>İlk randevudan muayene sonrasına</h2></div>${link("/ozellikler","Tüm özellikler ↗")}</div>
     ${cards(["web-site-tasarlayici","randevu","evden-takip","hasta-yonetimi","hasta-sahibi-portali","satis"].map(id=>features.find(row=>row[0]===id)),"/ozellikler")}</section>
     <section class="callout" data-edit-area="Paket çağrısı"><div><span class="eyebrow">PAKETLER VE DENEME</span><h2>Kliniğinize uygun kapsamı birlikte belirleyelim.</h2></div><div class="actions">${link("/paketler","Paketleri karşılaştırın","button outline")}${link("/deneme","Ücretsiz Demo","button primary")}</div></section>
-    <section class="block split" data-edit-area="Sık sorulanlar"><div><span class="eyebrow">SIK SORULANLAR</span><h2>İlk görüşmeden önce</h2></div><div>${faq()}</div></section>
-    <section class="block" data-edit-area="Klinik rehberi"><div class="section-title"><div><span class="eyebrow">REHBER</span><h2>Klinik işletimi üzerine</h2></div>${link("/blog","Tüm yazılar ↗")}</div>${cards(posts,"/blog")}</section>`;
+    <section class="block split" data-edit-area="Sık sorulanlar"><div><span class="eyebrow">SIK SORULANLAR</span><h2>İlk görüşmeden önce</h2></div><div>${faq()}</div></section>`;
 }
 const price=value=>value===null?"Teklif isteyin":new Intl.NumberFormat("tr-TR",{style:"currency",currency:"TRY"}).format(value/100);
 function packages(plans) {
@@ -189,7 +188,7 @@ function marketHeader() {
 }
 function marketFooter() {
   return `<footer><div class="wrap footer-inner"><div><a class="brand" href="${base}"><img class="vetzimo-wordmark" src="/vetzimo-logo.webp" alt="VetZimo" width="156" height="44"></a><p>Veteriner klinik yönetim platformu</p></div>
-  <nav aria-label="Alt menü">${link("/hakkimizda","Hakkımızda")}${link("/blog","Blog")}${link("/sss","Sık sorulanlar")}${link("/iletisim","İletişim")}${link("/demo","Demo talebi")}<a href="/platform/gizlilik" data-notice-open>Başvuru bilgilendirmesi</a></nav></div><div class="wrap footer-legal"><nav aria-label="Yasal"><a href="/platform/yasal/kvkk-aydinlatma">KVKK Aydınlatma</a><a href="/platform/yasal/gizlilik-politikasi">Gizlilik Politikası</a><a href="/platform/yasal/kullanim-sartlari">Kullanım Şartları</a><a href="/platform/yasal/cerez-politikasi">Çerez Politikası</a></nav><p><!-- vz-legal-foot -->© 2026 Vetzimo.com · Zimo Soft Yazılım Tasarım İthalat İhracat A.Ş. · Odunpazarı / Eskişehir<!-- /vz-legal-foot --></p></div></footer>`;
+  <nav aria-label="Alt menü">${link("/hakkimizda","Hakkımızda")}${link("/sss","Sık sorulanlar")}${link("/iletisim","İletişim")}${link("/demo","Demo talebi")}<a href="/platform/gizlilik" data-notice-open>Başvuru bilgilendirmesi</a></nav></div><div class="wrap footer-legal"><nav aria-label="Yasal"><a href="/platform/yasal/kvkk-aydinlatma">KVKK Aydınlatma</a><a href="/platform/yasal/gizlilik-politikasi">Gizlilik Politikası</a><a href="/platform/yasal/kullanim-sartlari">Kullanım Şartları</a><a href="/platform/yasal/cerez-politikasi">Çerez Politikası</a></nav><p><!-- vz-legal-foot -->© 2026 Vetzimo.com · Zimo Soft Yazılım Tasarım İthalat İhracat A.Ş. · Odunpazarı / Eskişehir<!-- /vz-legal-foot --></p></div></footer>`;
 }
 function layout({title,body,preview,site,collect}) {
   const shared=site.shared||{}, page=site.page||{}, local=page.seo||{}, global=shared.seo||{};
@@ -216,7 +215,6 @@ export const marketPages=[
   [marketShared,"Site geneli · Üst menü ve alt alan"],["/","Ana sayfa"],
   ["/ozellikler","Özellikler"],...features.map(([id,name])=>["/ozellikler/"+id,name]),
   ["/cozumler","Çözümler"],...solutions.map(([id,name])=>["/cozumler/"+id,name]),
-  ["/blog","Klinik rehberi"],...posts.map(([id,name])=>["/blog/"+id,name]),
   ["/paketler","Paketler ve fiyatlar"],["/entegrasyonlar","Entegrasyonlar"],["/sss","Sık sorulan sorular"],
   ["/hakkimizda","Hakkımızda"],["/gizlilik","Başvuru bilgilendirmesi"],["/demo","Demo talebi"],["/deneme","Ücretsiz Demo"],["/iletisim","İletişim"],
 ];
@@ -234,7 +232,7 @@ export function saasRender(url,plans,preview,site={},collect) {
   const path=url.pathname.slice(base.length).replace(/\/$/,"");
   const [,group,id,...extra]=path.split("/");
   let title="Veteriner klinik yönetim platformu", body, status=200;
-  const topics={ozellikler:[features,"Özellikler"],cozumler:[solutions,"Çözümler"],blog:[posts,"Klinik rehberi"]};
+  const topics={ozellikler:[features,"Özellikler"],cozumler:[solutions,"Çözümler"]};
   if (!path) body=home();
   else if (!extra.length&&Object.hasOwn(topics,group)) {
     const [items,label]=topics[group];

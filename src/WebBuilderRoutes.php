@@ -7,9 +7,10 @@ use RuntimeException;
 
 final class WebBuilderRoutes
 {
+    // Düzenleyici ve önizleme yalnız aynı kökenden çerçevelenebilir: VetZimo klinik panelinin orta alanında açılır.
     private static function body(string $html,int $code=200,bool $preview=false): never
     {
-        header("Content-Security-Policy: default-src 'self'; img-src 'self' data: blob:; base-uri 'none'; object-src 'none'; form-action 'self'; frame-src 'self' https://www.google.com https://maps.google.com https://www.google.com.tr https://maps.google.com.tr; frame-ancestors ".($preview?"'self'":"'none'"));
+        header("Content-Security-Policy: default-src 'self'; img-src 'self' data: blob:; base-uri 'none'; object-src 'none'; form-action 'self'; frame-src 'self' https://www.google.com https://maps.google.com https://www.google.com.tr https://maps.google.com.tr; frame-ancestors 'self'");
         header('Content-Type: text/html; charset=utf-8');
         header('Referrer-Policy: same-origin');
         http_response_code($code);
@@ -194,6 +195,10 @@ final class WebBuilderRoutes
             if ($centerEditor && !$row) self::editorError('Düzenlenecek site bulunamadı.',404);
             $tab=is_string($_GET['tab']??null)&&isset(WebBuilderAdmin::TABS[$_GET['tab']])?$_GET['tab']:'genel';
             if ($path==='/web-sitem') {
+                // Klinik düzenleyicisi doğrudan adresle açılırsa VetZimo kabuğunun içinde (Diğer › Web Sitem) gösterilir.
+                if (!$centerEditor && $method==='GET' && ($_GET['panel']??'')!=='1' && ($_SERVER['HTTP_SEC_FETCH_DEST']??'')==='document') {
+                    header('Location: /clinic#web-sitem'.($tab!=='genel'?'/'.$tab:''),true,303);exit;
+                }
                 if ($method==='POST') {
                     try {
                         if (!$_POST && (int)($_SERVER['CONTENT_LENGTH']??0)>0) {

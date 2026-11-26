@@ -11,7 +11,6 @@ const GROUPS = [
   ["Genel sayfalar", p => !/\/(ozellikler|cozumler|blog)(\/|$)/.test(p)],
   ["Özellikler", p => p.startsWith("/platform/ozellikler")],
   ["Çözümler", p => p.startsWith("/platform/cozumler")],
-  ["Blog", p => p.startsWith("/platform/blog")],
 ];
 const PLATFORM = {android: "Android", ios: "iOS", windows: "Windows", macos: "macOS", linux: "Linux", web: "Web", other: "Diğer"};
 

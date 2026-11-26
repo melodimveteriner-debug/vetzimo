@@ -10,7 +10,7 @@ use RuntimeException;
 final class CenterManagement
 {
     public const FIELDS = [
-        'shop_bank'=>['enabled'=>3,'beneficiary'=>160,'iban'=>34],
+        'shop_bank'=>['enabled'=>3,'bankName'=>80,'beneficiary'=>160,'iban'=>34,'company'=>200,'taxOffice'=>80,'taxNo'=>11,'mersis'=>16,'address'=>300,'phone'=>24,'email'=>160,'kep'=>160],
         'payments'=>['partner'=>32,'reference'=>120,'amount'=>16,'note'=>500,'plan'=>32,'starts_on'=>10,'ends_on'=>10],
         'market'=>['path'=>150,'title'=>160,'description'=>350,'section_title'=>160,'section_text'=>1500,'section_url'=>500],
         'announcements'=>['partner'=>32,'title'=>160,'text'=>1600],
@@ -162,7 +162,7 @@ final class CenterManagement
                     $value=$input->$field ?? '';
                     if (!is_string($value) || !preg_match('/\A.{0,'.$limit.'}\z/us',trim($value))) throw new RuntimeException('Geçersiz alan: '.$field,422);
                     $data[$field]=trim($value);
-                    if ($data[$field]==='' && !in_array($field,['partner','note','url','plan','starts_on','ends_on','section_title','section_text','section_url'],true) && !in_array($kind,['announcements','ads'],true)) throw new RuntimeException('Zorunlu alanları doldurun.',422);
+                    if ($data[$field]==='' && !in_array($field,['partner','note','url','plan','starts_on','ends_on','section_title','section_text','section_url','taxOffice','taxNo','mersis','address','phone','email','kep'],true) && !in_array($kind,['announcements','ads'],true)) throw new RuntimeException('Zorunlu alanları doldurun.',422);
                 }
                 if (in_array($kind,['announcements','ads'],true)) {
                     $slot=$input->slot ?? null;
@@ -190,9 +190,12 @@ final class CenterManagement
                 }
                 if ($kind==='shop_bank') {
                     $data['iban']=strtoupper(str_replace(' ','',$data['iban']));
-                    if (!in_array($data['enabled'],['yes','no'],true) || !preg_match('/\ATR[0-9]{24}\z/',$data['iban'])) {
+                    if (!in_array($data['enabled'],['yes','no'],true) || !preg_match('/\ATR[0-9]{24}\z/',$data['iban']) || !OwnerPayment::validIban($data['iban'])) {
                         throw new RuntimeException('Türkiye IBAN ve satış durumunu kontrol edin.',422);
                     }
+                    if ($data['taxNo']!=='' && !preg_match('/\A[0-9]{10,11}\z/',$data['taxNo'])) throw new RuntimeException('Vergi numarası 10, T.C. kimlik numarası 11 haneli olmalı.',422);
+                    if ($data['email']!=='' && !filter_var($data['email'],FILTER_VALIDATE_EMAIL)) throw new RuntimeException('E-posta adresi geçersiz.',422);
+                    if ($data['kep']!=='' && !filter_var($data['kep'],FILTER_VALIDATE_EMAIL)) throw new RuntimeException('KEP adresi geçersiz.',422);
                     $id=substr(hash('sha256','shop-bank-settings'),0,32);
                 }
                 if ($kind==='payments') {

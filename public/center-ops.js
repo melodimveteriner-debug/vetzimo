@@ -376,7 +376,7 @@ export async function mountCenterSuite(ui,session){
    el('a','Önceki bölüme dön',{href:url(target[0])}));
  }
  const managementFields={
-  shop_bank:[['enabled','Havale ile satış'],['beneficiary','Alıcı adı'],['iban','Türkiye IBAN']],
+  shop_bank:[['enabled','Havale ile satış'],['bankName','Banka adı'],['beneficiary','Alıcı adı (hesap sahibi)'],['iban','Türkiye IBAN'],['company','Şirket unvanı'],['taxOffice','Vergi dairesi'],['taxNo','Vergi / T.C. kimlik no'],['mersis','MERSİS no'],['address','Şirket adresi'],['phone','Şirket telefonu'],['email','Muhasebe e-postası'],['kep','KEP adresi']],
   payments:[['partner','Bayi'],['reference','Dekont / işlem referansı'],['amount','Tutar (₺)'],['note','Not'],['plan','Abonelik paketi'],['starts_on','Başlangıç'],['ends_on','Bitiş']],
   market:[['path','Satış sayfası yolu'],['title','Başlık'],['description','Arama sonucu açıklaması'],['section_title','Ek bölüm başlığı'],['section_text','Ek bölüm metni'],['section_url','Ek bölüm HTTPS bağlantısı']],
   announcements:[['partner','Hedef bayi'],['title','Başlık'],['text','Duyuru']],
@@ -417,7 +417,7 @@ export async function mountCenterSuite(ui,session){
    else if(name==='brand') control=selectField(name,label,['Beko','Ingenico','Hugin','Paygo','inPOS'].map(brand=>[brand,brand]));
    else if(name==='section_text'){control=textArea(name,label,1500);control.querySelector('textarea').required=false;}
    else if(name==='text'||name==='description') control=textArea(name,label,kind==='releases'?1500:kind==='announcements'?1600:kind==='ads'?500:350);
-   else control=field(name,label,{required:!['url','note','section_title','section_url'].includes(name),value:editing?.[name]||(name==='path'?'/platform':'')});
+   else control=field(name,label,{required:!['url','note','section_title','section_url','taxOffice','taxNo','mersis','address','phone','email','kep'].includes(name),value:editing?.[name]||(name==='path'?'/platform':'')});
    if(editing && name!=='branch') control.querySelector('input,select,textarea').value=editing[name]??'';
    if(editing && name==='path') control.querySelector('input').readOnly=true;
    if(optionalPartner && ['title','text'].includes(name))control.querySelector('input,textarea').required=false;
