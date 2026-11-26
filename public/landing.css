@@ -255,3 +255,5 @@ body:has(.lp) .site-header{position:sticky;top:0;z-index:30;background:color-mix
 .lp[dir=rtl] .lp-step.on{transform:translateX(-4px)}
 .lp[dir=rtl] .lp-device{transform:rotateY(8deg) rotateX(4deg)}
 .lp[dir=rtl] .lp-track{animation-direction:reverse}
+.lp-panel .lp-url{display:flex;align-items:center;gap:.45rem;padding:.45rem .8rem;border-radius:999px;background:var(--lp-tint);font-size:.95rem;font-weight:700;width:max-content;max-width:100%;overflow-wrap:anywhere}
+.lp-panel .lp-themes{display:block;width:100%;max-width:360px;height:auto;aspect-ratio:8/5;border-radius:12px;border:1px solid var(--lp-line);box-shadow:0 8px 22px #2a1d7a1a}
