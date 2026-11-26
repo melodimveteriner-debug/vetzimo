@@ -369,7 +369,7 @@ final class OwnerPayment
     {
         $t = htmlspecialchars($token, ENT_QUOTES, 'UTF-8');
         return '<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow">'
-            .'<title>Güvenli ödeme</title><link rel="stylesheet" href="/permit-sign.css?v=2"><link rel="stylesheet" href="/owner-pay-link.css?v=1"></head><body><main class="pm" id="payRoot" data-token="'.$t.'">'
+            .'<title>Güvenli ödeme</title><link rel="stylesheet" href="/permit-sign.css?v=3"><link rel="stylesheet" href="/owner-pay-link.css?v=1"></head><body><main class="pm" id="payRoot" data-token="'.$t.'">'
             .'<section class="pm-card"><p>Yükleniyor…</p></section></main><script src="/owner-pay-link.js?v=1" type="module"></script></body></html>';
     }
 

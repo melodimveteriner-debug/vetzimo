@@ -9,6 +9,7 @@ export const GROUPS = [
     ["services", "Hizmetler", "Hizmet listesi ve fiyatlar"],
     ["cikti-sablonlari", "Çıktı şablonları", "Reçete, fatura, onam ve rapor çıktıları"],
     ["google-yorum", "Google yorum bağlantısı", "Evde hizmet sonrası hasta sahibine gidecek değerlendirme bağlantısı"],
+    ["yasal-metinler", "Yasal metinler ve şirket bilgileri", "KVKK aydınlatma, açık rıza, gizlilik, çerez, kullanım koşulları · şirket bilgileri ve logo"],
     ["hasta-sahibi-odemeleri", "Hasta sahibi ödemeleri", "Borcu olan hasta sahipleri kartla (PayTR) veya havale ile öder; havale onayları"],
   ]],
   ["ekip", "Ekip ve yetkiler", [

@@ -50,6 +50,7 @@ fresh test_track empty;   run visit-track.php env VETNET_TEST_DSN='mysql:host=12
 fresh test_dldemo empty;  run downloads-demo.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_dldemo' php tests/downloads-demo.php
 fresh test_ids empty;     run settings-ids.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_ids' php tests/settings-ids.php
 fresh test_guide empty;   run clinic-guide.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_guide' php tests/clinic-guide.php
+fresh test_legal empty;   run clinic-legal.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_legal' php tests/clinic-legal.php
 fresh test_paypkg empty;  run payments-packages.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_paypkg' php tests/payments-packages.php
 fresh test_center empty;   run center.php  env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_center' php tests/center.php
 if command -v node >/dev/null; then

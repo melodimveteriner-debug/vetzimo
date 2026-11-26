@@ -727,7 +727,7 @@ export async function mountCenterSuite(ui,session){
   return wrapper;
  }
  async function legalDocs(){
-  const module=await import('./legal-admin.js?v=1');
+  const module=await import('./legal-admin.js?v=2');
   await module.mountLegalAdmin(content,{call,reauthUrl:url('guvenlik',{returnTab:'yasal'})});
  }
  async function marketEditor(){

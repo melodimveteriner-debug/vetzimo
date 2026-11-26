@@ -1,0 +1,41 @@
+/* Klinik paneli · Yasal Metinler (tema değişkenleriyle uyumlu). */
+.clg{display:grid;gap:16px;min-width:0;--p:var(--theme-primary,var(--accent,#6a3df0));--s:var(--theme-secondary,#d0368a)}
+.clg-head{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;align-items:end;padding:clamp(18px,3vw,28px);border-radius:22px;color:#fff;background:linear-gradient(120deg,var(--p),var(--s));box-shadow:0 16px 34px color-mix(in srgb,var(--p) 24%,transparent)}
+.clg-head h1{margin:0 0 6px;font-size:clamp(1.4rem,3vw,2rem)}
+.clg-head p{margin:0;max-width:70ch;opacity:.92}
+.clg-link{display:grid;gap:6px;justify-items:start;padding:12px 14px;border-radius:16px;background:rgba(255,255,255,.14);min-width:0}
+.clg-link .clg-muted{color:rgba(255,255,255,.85)}
+.clg-link code{font-size:.85rem;word-break:break-all;background:rgba(0,0,0,.18);padding:4px 8px;border-radius:8px}
+.clg-link .clg-btn.ghost{background:#fff;color:var(--p);border-color:transparent}
+.clg-card{padding:clamp(16px,2.6vw,24px);border-radius:20px;background:var(--paper,#fff);border:1px solid var(--line,#e5e7eb);min-width:0}
+.clg-card h2{margin:0 0 4px;font-size:1.15rem}
+.clg-muted{color:var(--muted,#6b7280);font-size:.88rem;margin:4px 0}
+.clg-error{color:#b42318}
+.clg-warn{margin:0;padding:12px 16px;border-radius:14px;background:#fff7ed;color:#9a3412;border:1px solid #fed7aa;font-weight:600}
+.clg-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,240px),1fr));gap:12px;margin:12px 0}
+.clg-grid label,.clg-logo-box,.clg-editor label{display:grid;gap:5px;font-size:.88rem;font-weight:600;min-width:0}
+.clg-grid .wide{grid-column:1/-1}
+.clg-grid input,.clg-editor input,.clg-body{font:inherit;font-weight:400;padding:10px 12px;border-radius:12px;border:1px solid var(--line,#d1d5db);background:var(--paper,#fff);color:inherit;width:100%;min-width:0}
+.clg-grid input:disabled{opacity:.75}
+.clg-logo{width:96px;height:96px;object-fit:contain;border-radius:16px;border:1px solid var(--line,#e5e7eb);background:#fff}
+.clg-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.clg-between{justify-content:space-between}
+.clg-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.clg-btn{border:1px solid transparent;border-radius:12px;padding:9px 15px;font:inherit;font-weight:700;cursor:pointer;color:#fff;background:linear-gradient(115deg,var(--p),var(--s));transition:transform .2s}
+.clg-btn:hover{transform:translateY(-1px)}
+.clg-btn:disabled{opacity:.6;cursor:not-allowed;transform:none}
+.clg-btn.ghost{background:var(--paper,#fff);color:inherit;border-color:var(--line,#d1d5db)}
+.clg-docs{display:grid;gap:10px;margin:12px 0}
+.clg-doc{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px;padding:12px 14px;border-radius:16px;border:1px solid var(--line,#e5e7eb)}
+.clg-doc>div:first-child{display:grid;gap:2px;min-width:0}
+.clg-doc small{color:var(--muted,#6b7280)}
+.clg-badge{justify-self:start;font-size:.74rem;font-weight:700;padding:2px 9px;border-radius:999px;background:color-mix(in srgb,var(--p) 12%,transparent);color:var(--p)}
+.clg-badge.own{background:#fff7ed;color:#c2410c}
+.clg-frame{width:100%;height:min(75vh,900px);border:1px solid var(--line,#e5e7eb);border-radius:16px;background:#fff;margin-top:10px}
+.clg-editor{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;margin-top:10px}
+.clg-body{min-height:420px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.88rem;line-height:1.55;margin-top:10px}
+.clg-preview{margin-top:6px;padding:16px;border-radius:16px;border:1px solid var(--line,#e5e7eb);max-height:560px;overflow:auto;line-height:1.6}
+.clg-preview h1{font-size:1.25rem;margin:0 0 8px}.clg-preview h2{font-size:1.05rem;margin:16px 0 6px}
+.clg-preview .lga-note{padding:10px 12px;border-radius:12px;background:color-mix(in srgb,var(--p) 8%,transparent);border-left:4px solid var(--p)}
+@media (max-width:760px){.clg-head{grid-template-columns:1fr}.clg-editor{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){.clg-btn{transition:none}}

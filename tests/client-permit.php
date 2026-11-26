@@ -93,6 +93,36 @@ $api->save($cookies,$actor['membership_id'],$now,(object)['revision'=>$state2['r
 $w=$identity->customerPassword($actor,'c9',(object)['welcomeSms'=>true],$now,['origin'=>'https://www.vetzimo.com','appointmentReminderConnections'=>[]]);
 $msg=(string)$db->query("SELECT body FROM phone_outbox WHERE source_ref LIKE 'welcome:c9:%'")->fetchColumn();
 ok($w['sms']==='queued' && $w['permit']===true,'Hoş geldin SMS i telefon hattına alınmadı: '.json_encode($w));
-ok(preg_match('~Şifre: [A-Za-z0-9]{8}\n~u',$msg)===1 && str_contains($msg,'Giriş: 5449998877') && preg_match('~KVKK/izin onayı: www\.vetzimo\.com/o/[A-Za-z0-9]{10}$~u',$msg)===1,'Hoş geldin SMS içeriği yanlış: '.$msg);
+ok(!str_contains($msg,'Şifre') && preg_match('~KVKK onayı ve şifre oluşturma: www\.vetzimo\.com/o/([A-Za-z0-9]{10})$~u',$msg,$wm)===1,'Hoş geldin SMS içeriği yanlış: '.$msg);
 ok(mb_strlen($msg)<=200,'Hoş geldin SMS i gereksiz uzun: '.mb_strlen($msg));
+// ── hoş geldin akışı: önce KVKK onayı (aynı sayfa) → şifre oluşturma → giriş
+ok($login->signIn('05449998877','Herhangi-1',' 192.0.2.150',$now)===null,'Şifre oluşturulmadan giriş yapılabildi');
+$wo=$permits->open($wm[1],$now);
+ok(!empty($wo['doc']['onboard']) && str_contains(ClientPermit::html($wo['doc'],$wo['hash'],'sign'),'Şifremi oluştur ve giriş yap') && str_contains($wo['doc']['legalUrl'],'/yasal/'),'Hoş geldin sayfası şifre adımı veya yasal bağlantı içermiyor');
+$wd=$permits->decide($wm[1],(object)['decision'=>'sign','signerName'=>'Yeni Müşteri','read'=>true,'signature'=>$sign(),'hash'=>$wo['hash'],'choices'=>(object)['sms'=>true]],$now+5,[]);
+ok($wd['status']==='signed' && preg_match('/\A[a-f0-9]{64}\z/',$wd['setup'] ?? '')===1,'Onaydan sonra şifre anahtarı verilmedi');
+foreach ([['kisa1','kisa1'],['sadeceharf','sadeceharf'],['Uygun-sifre1','Farkli-sifre1']] as [$p1,$p2]) {
+  try { $permits->setupPassword((object)['setup'=>$wd['setup'],'password'=>$p1,'password2'=>$p2],$now+6); $weak=true; } catch (RuntimeException) { $weak=false; }
+  ok(!$weak,'Zayıf/uyuşmayan şifre kabul edildi: '.$p1);
+}
+$sp=$permits->setupPassword((object)['setup'=>$wd['setup'],'password'=>'Pamuk2026','password2'=>'Pamuk2026'],$now+7);
+ok($sp['login']==='/app?telefon=05449998877','Giriş adresi yanlış: '.$sp['login']);
+$in=$login->signIn('05449998877','Pamuk2026','192.0.2.151',$now+8);
+ok($in!==null,'Oluşturulan şifreyle giriş yapılamadı');
+try { $permits->setupPassword((object)['setup'=>$wd['setup'],'password'=>'Baska2026','password2'=>'Baska2026'],$now+9); $reuse=true; } catch (RuntimeException) { $reuse=false; }
+ok(!$reuse,'Şifre anahtarı ikinci kez kullanıldı');
+// ── ret: üzgün sayfa, şifre anahtarı yok, hesap açılmaz
+$state3=$work->read($cookies,$now); $st3=$state3['state'];
+$st3->clients[]=(object)['id'=>'c10','branch'=>'merkez','name'=>'Ret Eden','phone'=>'0544 999 88 66','sms'=>'Var'];
+$api->save($cookies,$actor['membership_id'],$now,(object)['revision'=>$state3['revision'],'state'=>$st3]);
+$identity->customerPassword($actor,'c10',(object)['welcomeSms'=>true],$now+10,['origin'=>'https://www.vetzimo.com','appointmentReminderConnections'=>[]]);
+preg_match('~/o/([A-Za-z0-9]{10})$~',(string)$db->query("SELECT body FROM phone_outbox WHERE source_ref LIKE 'welcome:c10:%'")->fetchColumn(),$rm);
+$ro=$permits->open($rm[1],$now+11);
+$rd=$permits->decide($rm[1],(object)['decision'=>'decline','signerName'=>'Ret Eden','hash'=>$ro['hash']],$now+12,[]);
+ok($rd['status']==='declined' && !isset($rd['setup']),'Ret sonrası şifre anahtarı verildi');
+ok(str_contains(ClientPermit::html($ro['doc'],$ro['hash'],'sign'),'bizden haber alamayacak'),'Üzgün sayfa metni yok');
+// ── klinik tarafı kendi isteğiyle şifre oluşturma bağlantısı üretemez
+$ca=$permits->act($actor,(object)['action'=>'create','client'=>'c10','method'=>'link','onboard'=>true],$now+13);
+$ct=substr($ca['url'],strlen('https://klinik.example/o/'));
+ok(empty($permits->open($ct,$now+14)['doc']['onboard']),'Klinik tarafı şifre oluşturma bağlantısı üretebildi');
 echo "client permit ok\n";

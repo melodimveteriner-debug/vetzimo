@@ -515,7 +515,7 @@ final class WebBuilderPublic
             '<body class="theme-'.self::e($d['theme']).' palette-'.self::e($d['palette']).'"><a class="skip" href="#icerik">İçeriğe geç</a><header class="site-header">'.$strip.'<div class="header-inner">'.
             '<a class="site-brand" href="'.self::href($base).'">'.$logo.'<span data-ui-preserve>'.self::e($clinic).'</span></a>'.
             '<nav class="primary-nav" aria-label="Ana menü">'.$nav.'</nav><div class="site-language" data-ui-language></div></div></header><main id="icerik">'.$body.'</main>'.
-            '<footer><div><strong>'.self::e($clinic).'</strong> '.$footerHours.$homeCareLink.' <a href="'.self::href($base,'araclar').'">Evcil Hayvan Araçları</a> <a href="'.self::href($base,'iletisim').'">İletişim</a></div>'.
+            '<footer><div><strong>'.self::e($clinic).'</strong> '.$footerHours.$homeCareLink.' <a href="'.self::href($base,'araclar').'">Evcil Hayvan Araçları</a> <a href="'.self::href($base,'iletisim').'">İletişim</a>'.(($legalUrl=$this->web->legalUrl((string)$site['partner_id']))!==''?' <a href="'.self::e($legalUrl).'" rel="noopener">Yasal Metinler</a>':'').'</div>'.
             '<div class="site-platform-credit"><span>Bu site <a href="https://www.vetzimo.com"><img src="/vetzimo-mark.png" width="18" height="18" alt="">VetZimo</a> tarafından sağlanmaktadır.</span></div></footer>'.
             '<dialog id="gallery-dialog" aria-label="Galeri fotoğrafı"><button type="button" aria-label="Önceki fotoğraf" data-previous>‹</button><img alt="">'.
             '<button type="button" aria-label="Sonraki fotoğraf" data-next>›</button><button type="button" data-close>Kapat</button></dialog>'.($notFound?'':$this->assistant($site,$d,$base,$preview,(bool)$visitCatalog)).'</body></html>';

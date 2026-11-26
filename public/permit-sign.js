@@ -40,6 +40,7 @@ if (form) {
       const r = await fetch(location.pathname, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || "Gönderilemedi.");
+      if (form.dataset.onboard === "1") { onboard(d); return; }
       form.hidden = true;
       const done = document.getElementById("pmDone"); done.hidden = false;
       const given = Object.entries(d.choices || {}).filter(([, v]) => v).length;
@@ -56,4 +57,46 @@ if (form) {
   };
   form.addEventListener("submit", e => { e.preventDefault(); send("sign"); });
   document.getElementById("pmDecline").addEventListener("click", () => send("decline"));
+}
+
+// Hoş geldin akışı (aynı sayfada): onay → mutlu kedi-köpek + şifre oluşturma → /app; ret → üzgün kedi-köpek.
+function onboard(d) {
+  const flow = document.getElementById("pmFlow");
+  const show = el => { flow.hidden = true; el.hidden = false; scrollTo({top: 0, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"}); };
+  if (d.status !== "signed") { show(document.getElementById("pmSad")); return; }
+  const happy = document.getElementById("pmHappy");
+  const pass = document.getElementById("pmPass");
+  show(happy);
+  if (!d.setup) {
+    pass.hidden = true;
+    const p = document.getElementById("pmPassDone");
+    p.textContent = "Onayınız kaydedildi. Hesabınız zaten açık; giriş sayfasından telefon numaranız ve şifrenizle girebilirsiniz.";
+    p.hidden = false;
+    setTimeout(() => location.assign("/app"), 3500);
+    return;
+  }
+  const err = document.getElementById("pmPassError");
+  const rules = {len: v => v.length >= 8, mix: v => /\p{L}/u.test(v) && /\d/.test(v)};
+  const check = () => {
+    const v = pass.elements.password.value, w = pass.elements.password2.value;
+    for (const li of pass.querySelectorAll("[data-rule]")) li.classList.toggle("ok", li.dataset.rule === "same" ? v !== "" && v === w : rules[li.dataset.rule](v));
+  };
+  pass.addEventListener("input", check);
+  document.getElementById("pmShow").addEventListener("change", e => { for (const n of ["password", "password2"]) pass.elements[n].type = e.target.checked ? "text" : "password"; });
+  pass.elements.password.focus({preventScroll: true});
+  pass.addEventListener("submit", async e => {
+    e.preventDefault(); err.textContent = "";
+    const password = pass.elements.password.value, password2 = pass.elements.password2.value;
+    if (!rules.len(password)) { err.textContent = "Şifreniz en az 8 karakter olmalı."; return; }
+    if (!rules.mix(password)) { err.textContent = "Şifrenizde en az bir harf ve bir rakam bulunmalı."; return; }
+    if (password !== password2) { err.textContent = "Şifreler birbirini tutmuyor."; return; }
+    const btn = pass.querySelector("button[type=submit]"); btn.disabled = true;
+    try {
+      const r = await fetch("/api/permit-setup", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({setup: d.setup, password, password2})});
+      const out = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(out.error || "Şifre oluşturulamadı.");
+      pass.hidden = true; document.getElementById("pmPassDone").hidden = false;
+      setTimeout(() => location.assign(out.login || "/app"), 1500);
+    } catch (x) { err.textContent = x.message; btn.disabled = false; }
+  });
 }

@@ -255,7 +255,10 @@ function login(mode="login") {
     const hint=el("small",uiLabel("Cep telefonu numaranız kullanıcı adınızdır."),{id:"phone-username-hint",className:"access-phone-hint"});
     username.append(hint);
     phone.setAttribute("aria-describedby",hint.id);
-    if (matchMedia("(pointer:fine)").matches) phone.focus({preventScroll:true});
+    // Hoş geldin akışında şifre oluşturduktan sonra gelinirse telefon hazır gelir; şifre alanına odaklanılır.
+    const given=(params.get("telefon")||"").replace(/[^0-9]/g,"");
+    if (/^05\d{9}$/.test(given) && !phone.value) { phone.value=given; form.elements.password?.focus({preventScroll:true}); }
+    else if (matchMedia("(pointer:fine)").matches) phone.focus({preventScroll:true});
   }
   const links=el("div","",{className:"links"});
   if (mode==="login") {
@@ -696,7 +699,7 @@ async function portal() {
   account.append(change);
   const appSettings=el("section","",{className:"owner-app-settings"});
   account.append(appSettings);
-  import("./settings-hub.js?v=9").then(async m=>{
+  import("./settings-hub.js?v=10").then(async m=>{
     const ctx={tr:uiLabel,api:(p,i={})=>fetch(p,{credentials:"same-origin",...i}),scope:session.scopeId||""};
     const prefs=el("div"),devices=el("div");
     appSettings.append(el("h2",uiLabel("Uygulama bildirimleri")),prefs,el("h2",uiLabel("Cihazlarım ve hesap")),devices);
@@ -875,7 +878,7 @@ if (route==="/iletisim") {
   }
   else if (center && fragment[0]==="davet" && fragment[1]) await centerEnrollment();
   else if (route==="/hasta-sahibi") {
-    try {await portal();} catch(error) {if(error.status===401) login();else throw error;}
+    try {await portal(); ownerLegalLink();} catch(error) {if(error.status===401) login();else throw error;}
   }
   else if (fragment[1] && ["aktivasyon","yenile"].includes(fragment[0])) login("redeem");
   else if (center) {
@@ -888,6 +891,33 @@ if (route==="/iletisim") {
     accessHeading("VetZimo erişimi",error.message,"Hesap erişimi");
   } else heading("VetZimo erişimi",error.message);
   view.append(link("Giriş ekranı","/app"));
+}
+
+// Hasta sahibi portalı alt alanı: kliniğin "Yasal Metinler" sayfası portalın içinde (pencerede) açılır.
+async function ownerLegalLink() {
+  try {
+    const r=await fetch("/api/legal-link",{cache:"no-store"});
+    if (!r.ok) return;
+    const {url}=await r.json();
+    const foot=document.querySelector("main > footer, body > footer");
+    if (!foot || !/^\/yasal\/[a-z0-9]{12}$/.test(url||"") || foot.querySelector("[data-legal]")) return;
+    const a=Object.assign(document.createElement("a"),{href:url,textContent:uiLabel("Yasal Metinler")});
+    a.dataset.legal="1";
+    a.addEventListener("click",event=>{
+      event.preventDefault();
+      const d=document.createElement("dialog");
+      d.className="owner-legal";
+      d.style.cssText="width:min(1100px,96vw);height:min(90vh,980px);padding:0;border:0;border-radius:18px;overflow:hidden";
+      const close=Object.assign(document.createElement("button"),{type:"button",textContent:"✕",ariaLabel:uiLabel("Kapat")});
+      close.style.cssText="position:absolute;top:10px;right:10px;width:38px;height:38px;border-radius:50%;border:0;background:rgba(15,23,42,.75);color:#fff;cursor:pointer;z-index:1";
+      const frame=Object.assign(document.createElement("iframe"),{src:url+"?panel=1",title:uiLabel("Yasal Metinler")});
+      frame.style.cssText="width:100%;height:100%;border:0;display:block";
+      close.addEventListener("click",()=>d.close());
+      d.addEventListener("close",()=>d.remove());
+      d.append(close,frame);document.body.append(d);d.showModal();
+    });
+    foot.append(" · ",a);
+  } catch {}
 }
 
 // Dijital onam: klinik tarafından gönderilen formlar. Bekleyenler genel bakışta öne çıkar, imza bu sayfada atılır.

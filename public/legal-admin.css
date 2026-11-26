@@ -36,3 +36,5 @@
 .lga-history em{color:var(--admin-muted,#667085);font-style:normal;flex:1 1 140px}
 .lga-link{border:0;background:none;color:var(--admin-brand,#6d28d9);cursor:pointer;font:inherit;padding:0;text-decoration:underline}
 @media (max-width:980px){.lga-grid{grid-template-columns:minmax(0,1fr)}.lga-side{position:static}.lga-row{grid-template-columns:minmax(0,1fr)}}
+.lga-group{grid-column:1/-1;font-size:.72rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--admin-muted,#667085);margin:6px 2px 0}
+.lga-tab.lga-clinic{border-style:dashed}

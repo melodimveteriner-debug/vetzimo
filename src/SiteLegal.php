@@ -16,6 +16,14 @@ final class SiteLegal
         'cerez-politikasi' => 'Çerez Politikası',
         'kullanim-sozlesmesi' => 'VetZimo Kullanım Sözleşmesi',
     ];
+    /** Kliniklerin ortak yasal metin şablonları: yönetici düzenler, her klinik kendi bilgileriyle (ClinicLegal) yayımlar. Satış sitesinde görünmez. */
+    public const CLINIC_DOCS = [
+        'klinik-kvkk-aydinlatma' => 'KVKK Aydınlatma Metni',
+        'klinik-acik-riza' => 'Açık Rıza ve İletişim İzni Metni',
+        'klinik-gizlilik-politikasi' => 'Gizlilik Politikası',
+        'klinik-cerez-politikasi' => 'Çerez Politikası',
+        'klinik-kullanim-kosullari' => 'Kullanım Koşulları',
+    ];
     public const SHORT = [
         'kvkk-aydinlatma' => 'KVKK Aydınlatma',
         'gizlilik-politikasi' => 'Gizlilik Politikası',
@@ -40,6 +48,12 @@ final class SiteLegal
     public function __construct(private PDO $db) {}
 
     public static function validSlug(mixed $slug): bool
+    {
+        return is_string($slug) && (isset(self::DOCS[$slug]) || isset(self::CLINIC_DOCS[$slug]));
+    }
+
+    /** Satış sitesinde yayımlanan (klinik şablonu olmayan) metin mi? */
+    public static function siteSlug(mixed $slug): bool
     {
         return is_string($slug) && isset(self::DOCS[$slug]);
     }
@@ -81,7 +95,7 @@ final class SiteLegal
     {
         $raw = (string)@file_get_contents(__DIR__.'/legal-defaults/'.$slug.'.md');
         $lines = preg_split('/\R/', $raw) ?: [];
-        $title = self::DOCS[$slug];
+        $title = self::DOCS[$slug] ?? self::CLINIC_DOCS[$slug] ?? $slug;
         $summary = '';
         if ($lines && str_starts_with($lines[0], '# ')) $title = trim(substr(array_shift($lines), 2));
         while ($lines && trim($lines[0]) === '') array_shift($lines);
@@ -126,7 +140,18 @@ final class SiteLegal
         }
         $fields = [];
         foreach (self::COMPANY_FIELDS as $key => [$label, $max]) $fields[] = ['key' => $key, 'label' => $label, 'max' => $max];
-        return ['docs' => $docs, 'company' => $this->company(), 'companyFields' => $fields];
+        $clinicDocs = [];
+        foreach (array_keys(self::CLINIC_DOCS) as $slug) {
+            $doc = $this->doc($slug);
+            $doc['url'] = null;
+            $doc['clinic'] = true;
+            $doc['revisions'] = $this->revisions($slug);
+            $clinicDocs[] = $doc;
+        }
+        $clinicFields = [];
+        foreach (ClinicLegal::FIELDS as $key => [$label, $max]) $clinicFields[] = ['key' => $key, 'label' => $label, 'max' => $max];
+        return ['docs' => $docs, 'company' => $this->company(), 'companyFields' => $fields,
+            'clinicDocs' => $clinicDocs, 'clinicFields' => $clinicFields, 'clinicSample' => ClinicLegal::SAMPLE];
     }
 
     public function save(mixed $input, string $editor, int $now): array

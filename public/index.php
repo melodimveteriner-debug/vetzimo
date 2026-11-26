@@ -12,7 +12,7 @@ use VetNet\Cpanel\SessionRepository;
 
 require_once dirname(__DIR__).'/src/StaffPlan.php';
 
-foreach (['AddonPackages','ClinicGuide','AppHub','AppDownloads','DemoAuto','CenterContact','SubscriptionReminders','OwnerPayment','ClinicRecords','AppPush','DeviceHub','VisitTracker','ReviewLink','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','SaasPayment','DealerAgreement','CenterAnalytics','ClinicAlerts','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','TeamTotp','WebInbox','MinistryBridge','SiteLegal','OmniInbox','PhoneGateway','ClientPermit','PrintTemplates','Support','Commerce','Appearance'] as $class) {
+foreach (['AddonPackages','ClinicGuide','ClinicLegal','AppHub','AppDownloads','DemoAuto','CenterContact','SubscriptionReminders','OwnerPayment','ClinicRecords','AppPush','DeviceHub','VisitTracker','ReviewLink','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','SaasPayment','DealerAgreement','CenterAnalytics','ClinicAlerts','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','TeamTotp','WebInbox','MinistryBridge','SiteLegal','OmniInbox','PhoneGateway','ClientPermit','PrintTemplates','Support','Commerce','Appearance'] as $class) {
     require_once dirname(__DIR__) . '/src/' . $class . '.php';
 }
 
@@ -182,7 +182,7 @@ try {
         $marketPath=$path==='/' ? '/platform' : rtrim($path,'/');
         if (preg_match('~\A/platform/yasal(?:/([a-z-]+))?\z~',$marketPath,$legalMatch)) {
             $legalSlug=$legalMatch[1] ?? null;
-            if ($legalSlug!==null && !VetNet\Cpanel\SiteLegal::validSlug($legalSlug)) throw new RuntimeException('Sayfa bulunamadı.',404);
+            if ($legalSlug!==null && !VetNet\Cpanel\SiteLegal::siteSlug($legalSlug)) throw new RuntimeException('Sayfa bulunamadı.',404);
             $shellFile=rtrim($config['assets'],'/').'/market-pages/'.hash('sha256','/platform/hakkimizda').'.html';
             if (!is_file($shellFile)) throw new RuntimeException('Sayfa bulunamadı.',404);
             header("Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'self'; form-action 'self'");
@@ -536,6 +536,41 @@ try {
     if ($path==='/api/clinic/center-publications' && $method==='GET') {
         $actor=$workspaces->actor($_COOKIE,$now);
         reply(['items'=>(new VetNet\Cpanel\CenterManagement($db,new Center($db,$config)))->published($actor['partner_id'])]);
+    }
+    // Kliniğin yasal metinleri: herkese açık, tek ortak şablon + kliniğin şirket bilgileri (VetZimo içinde çerçeveyle de açılır).
+    if (!$externalWeb && preg_match('~\A/yasal/([a-z0-9]{12})(?:/([a-z-]{3,40}))?\z~',$path,$legalMatch) && $method==='GET') {
+        $clinicLegal=new VetNet\Cpanel\ClinicLegal($db,$origin);
+        if (($legalMatch[2] ?? '')==='logo') $clinicLegal->logo($legalMatch[1]);
+        $legalDoc=($legalMatch[2] ?? '')!=='' ? $legalMatch[2] : null;
+        $legalEmbed=($_GET['panel'] ?? '')==='1' || ($_SERVER['HTTP_SEC_FETCH_DEST'] ?? '')==='iframe';
+        $etag=$clinicLegal->etag($legalMatch[1],$legalDoc.($legalEmbed?':e':''));
+        header('Cache-Control: public, max-age=300');
+        header('ETag: '.$etag);
+        if ($etag!=='' && ($_SERVER['HTTP_IF_NONE_MATCH'] ?? '')===$etag) { http_response_code(304); exit; }
+        $html=$clinicLegal->page($legalMatch[1],$legalDoc,$legalEmbed);
+        header("Content-Security-Policy: default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'; form-action 'none'");
+        header('Content-Type: text/html; charset=utf-8');
+        echo $html;
+        exit;
+    }
+    if ($path==='/api/clinic-legal' && in_array($method,['GET','POST'],true)) {
+        // Klinik paneli · Yasal Metinler: herkes okur; şirket bilgisi, logo ve metin değişikliğini yalnız bayi yöneticisi yapar.
+        $actor=$workspaces->actor($_COOKIE,$now);
+        $clinicLegal=new VetNet\Cpanel\ClinicLegal($db,$origin);
+        header('Cache-Control: no-store');
+        if ($method==='GET') reply($clinicLegal->overview($actor));
+        if (!hash_equals($actor['membership_id'] ?? '',$_SERVER['HTTP_X_VETNET_SCOPE'] ?? '')) throw new RuntimeException('Çalışma alanı oturumu değişti.',409);
+        $body=input(700000);
+        $legalAction=$body->action ?? '';
+        if ($legalAction==='profile') reply($clinicLegal->saveProfile($actor,$body,$now));
+        if ($legalAction==='doc') reply($clinicLegal->saveDoc($actor,$body,$now));
+        throw new RuntimeException('İşlem geçersiz.',422);
+    }
+    if ($path==='/api/legal-link' && $method==='GET') {
+        // Hasta sahibi portalı ve klinik paneli alt alanı: oturumdaki kişinin kliniğinin yasal metinler bağlantısı.
+        $legalActor=$sessions->resolve($_COOKIE,$now);
+        if (!$legalActor || empty($legalActor['partner_id'])) throw new RuntimeException('Oturum bulunamadı.',401);
+        reply(['url'=>'/yasal/'.(new VetNet\Cpanel\ClinicLegal($db,$origin))->key((string)$legalActor['partner_id'])]);
     }
     if (preg_match('~\A/p/([A-Za-z0-9]{10})\z~',$path,$payMatch) && $method==='GET') {
         // Hasta sahibinin hesapsız ödeme sayfası (SMS / uygulama bildirimiyle gönderilen bağlantı).
@@ -1252,7 +1287,7 @@ try {
         } catch (RuntimeException $error) {
             (new DealerLogin($db,$config['rateSecret']))->throttle('consent-miss:'.($_SERVER['REMOTE_ADDR']??''),$now);
             http_response_code($error->getCode()===410?410:404);
-            echo '<!doctype html><html lang="tr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Onam formu</title><link rel="stylesheet" href="/permit-sign.css?v=2"><main class="pm"><section class="pm-card"><h1>Bağlantı geçersiz</h1><p>'.htmlspecialchars($error->getMessage(),ENT_QUOTES,'UTF-8').'</p></section></main></html>';
+            echo '<!doctype html><html lang="tr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Onam formu</title><link rel="stylesheet" href="/permit-sign.css?v=3"><main class="pm"><section class="pm-card"><h1>Bağlantı geçersiz</h1><p>'.htmlspecialchars($error->getMessage(),ENT_QUOTES,'UTF-8').'</p></section></main></html>';
         }
         exit;
     }
@@ -1275,9 +1310,15 @@ try {
             // Kısa bağlantılar tahminle denenmesin: geçersiz denemeler IP başına sınırlanır.
             (new DealerLogin($db,$config['rateSecret']))->throttle('permit-miss:'.($_SERVER['REMOTE_ADDR']??''),$now);
             http_response_code($error->getCode()===410?410:404);
-            echo '<!doctype html><html lang="tr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Onay formu</title><link rel="stylesheet" href="/permit-sign.css?v=2"><main class="pm"><section class="pm-card"><h1>Bağlantı geçersiz</h1><p>'.htmlspecialchars($error->getMessage(),ENT_QUOTES,'UTF-8').'</p></section></main></html>';
+            echo '<!doctype html><html lang="tr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Onay formu</title><link rel="stylesheet" href="/permit-sign.css?v=3"><main class="pm"><section class="pm-card"><h1>Bağlantı geçersiz</h1><p>'.htmlspecialchars($error->getMessage(),ENT_QUOTES,'UTF-8').'</p></section></main></html>';
         }
         exit;
+    }
+    if ($path==='/api/permit-setup' && $method==='POST') {
+        // Hoş geldin akışı: KVKK onayından sonra aynı sayfada hasta sahibinin şifresini oluşturması.
+        header('Cache-Control: no-store');
+        (new DealerLogin($db,$config['rateSecret']))->throttle('permit-setup:'.($_SERVER['REMOTE_ADDR']??''),$now);
+        reply((new VetNet\Cpanel\ClientPermit($db,$origin))->setupPassword(input(4096),$now));
     }
     if (preg_match('~\A/api/permit/belge/([a-f0-9]{32})\z~',$path,$docMatch) && $method==='GET') {
         // Klinik: imzalı onay formunun kayıt görünümü (yazdırılabilir delil).

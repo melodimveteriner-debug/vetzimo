@@ -1,0 +1,25 @@
+/* Satış sitesi · Sık sorulan sorular: arama, başlık şeridi ve gruplu sorular. landing.css değişkenlerini kullanır. */
+.fq-search{width:min(560px,100%);margin-top:.6rem}
+.fq-search input{width:100%;font:inherit;font-size:1.02rem;padding:.95rem 1.2rem;border-radius:16px;border:1px solid var(--lp-line);background:var(--lp-card);color:var(--lp-ink);box-shadow:0 12px 30px color-mix(in srgb,var(--lp-a) 14%,transparent)}
+.fq-search input:focus{outline:2px solid color-mix(in srgb,var(--lp-a) 55%,transparent);outline-offset:2px}
+.fq-cats{display:flex;flex-wrap:wrap;gap:.5rem;justify-content:center;margin-bottom:clamp(1.4rem,3vw,2.2rem)}
+.fq-cats a{display:inline-flex;align-items:center;gap:.4rem;padding:.55rem .95rem;border-radius:99px;border:1px solid var(--lp-line);background:var(--lp-card);color:var(--lp-ink);text-decoration:none;font-weight:650;font-size:.92rem;transition:transform .2s,border-color .2s}
+.fq-cats a:hover{transform:translateY(-2px);border-color:color-mix(in srgb,var(--lp-a) 50%,var(--lp-line))}
+.fq-body{display:grid;gap:clamp(1.4rem,3vw,2.2rem);max-width:980px}
+.fq-group{scroll-margin-top:90px}
+.fq-group h2{display:flex;align-items:center;gap:.55rem;margin:0 0 .9rem;font-size:clamp(1.25rem,2.6vw,1.6rem)}
+.fq-group h2 span{display:grid;place-items:center;width:2.2rem;height:2.2rem;border-radius:12px;background:color-mix(in srgb,var(--lp-a) 14%,transparent);font-size:1.15rem}
+.fq-group details{border:1px solid var(--lp-line);border-radius:16px;background:var(--lp-card);padding:.15rem 1.15rem;margin-bottom:.65rem;transition:border-color .2s,box-shadow .2s;scroll-margin-top:90px}
+.fq-group details[open]{border-color:color-mix(in srgb,var(--lp-a) 45%,var(--lp-line));box-shadow:0 14px 34px color-mix(in srgb,var(--lp-a) 10%,transparent)}
+.fq-group summary{cursor:pointer;list-style:none;padding:.95rem 0;font-weight:700;display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;color:var(--lp-ink)}
+.fq-group summary::-webkit-details-marker{display:none}
+.fq-group summary::after{content:"+";flex:0 0 auto;font-size:1.35rem;line-height:1;color:var(--lp-a);transition:transform .25s}
+.fq-group details[open] summary::after{transform:rotate(45deg)}
+.fq-answer{padding:0 0 1rem;line-height:1.7;max-width:78ch}
+.fq-answer p{margin:.2rem 0 .7rem}.fq-answer ul{margin:.2rem 0 .8rem;padding-left:1.25rem;display:grid;gap:.35rem}
+.fq-answer a{color:var(--lp-a);font-weight:650}
+.fq-empty{padding:1.2rem;border-radius:16px;border:1px dashed var(--lp-line);text-align:center}
+.fq-cta{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:1rem;padding:clamp(1.1rem,3vw,1.6rem);border-radius:22px;background:linear-gradient(120deg,color-mix(in srgb,var(--lp-a) 14%,var(--lp-card)),var(--lp-card));border:1px solid var(--lp-line)}
+.fq-cta div:first-child{display:grid;gap:.25rem}.fq-cta-actions{display:flex;flex-wrap:wrap;gap:.6rem}
+.fq-hidden{display:none!important}
+@media (prefers-reduced-motion:reduce){.fq-cats a,.fq-group details{transition:none}}

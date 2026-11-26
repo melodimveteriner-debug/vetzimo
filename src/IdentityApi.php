@@ -349,10 +349,10 @@ final class IdentityApi
     {
         if ($actor['role']!=='dealer') throw new RuntimeException('Bayi yöneticisi yetkisi gerekli.',403);
         $sms=($input->welcomeSms ?? false)===true;
-        // İlk şifre SMS'e sığsın diye kısa ama tahmin edilemez: 8 karakter, karışmayan harf ve rakamlar.
-        $password=$sms ? self::shortPassword() : ($input->password ?? null);
+        // SMS seçiliyse şifre gönderilmez: hasta sahibi bağlantıda önce KVKK metnini onaylar, sonra şifresini kendisi oluşturur.
+        $password=$sms ? null : ($input->password ?? null);
         $request=null;
-        if ($input && (!is_string($password) || !preg_match('/\A.{6,128}\z/us',$password))) {
+        if ($input && !$sms && (!is_string($password) || !preg_match('/\A.{6,128}\z/us',$password))) {
             throw new RuntimeException('Şifre 6 ile 128 karakter arasında olmalı.',422);
         }
         if ($input) $this->db->beginTransaction();
@@ -378,7 +378,7 @@ final class IdentityApi
                 $template=$state->preferences->customerReminder_welcome_text ?? 'Sayın {musteri}, {klinik} ailesine hoş geldiniz.';
                 $message=trim(strtr($template,['{musteri}'=>$client->name,'{klinik}'=>$clinic]));
                 $site=preg_replace('~\Ahttps://~','',rtrim((string)$config['origin'],'/'));
-                $message.="\nGiriş: ".substr($phone,3)." Şifre: ".$password."\n".$site."/app";
+                // Şifre SMS'te yer almaz; bağlantı aşağıda (onay formu oluşturulunca) eklenir.
                 // Telefon Bağlantısı açıksa ilk giriş SMS'i kliniğin kendi hattından gider; Netgsm gerekmez.
                 $viaPhone=class_exists(PhoneGateway::class) && (new PhoneGateway($this->db))->route($actor['partner_id'],'sms');
                 if (!$viaPhone) {
@@ -407,27 +407,26 @@ final class IdentityApi
             }
             $accountId=$account['id'] ?? bin2hex(random_bytes(16));
             if (!$account) $this->db->prepare("INSERT INTO identity_account(id,kind,identifier) VALUES (?,'phone',?)")->execute([$accountId,$phone]);
+            // SMS akışında üyelik "bekliyor" olarak açılır; hasta sahibi KVKK onayı + şifre oluşturunca etkinleşir.
+            $memberStatus=$sms?'pending':'active';
             if ($member) {
-                $this->db->prepare("UPDATE identity_membership SET status='active' WHERE id=?")->execute([$member['id']]);
+                $this->db->prepare("UPDATE identity_membership SET status=? WHERE id=?")->execute([$memberStatus,$member['id']]);
                 $this->db->prepare('UPDATE identity_activation SET used=1 WHERE membership_id=?')->execute([$member['id']]);
             } else {
                 $this->db->prepare("INSERT INTO identity_membership(id,account_id,partner_id,role,branch_id,customer_id,name,modules,status)
-                    VALUES (?,?,?,'customer',?,?,?,?,'active')")->execute([bin2hex(random_bytes(16)),$accountId,$actor['partner_id'],$client->branch,$id,$client->name,'{"vaccines":"read","appointments":"read","shares":"none"}']);
+                    VALUES (?,?,?,'customer',?,?,?,?,?)")->execute([bin2hex(random_bytes(16)),$accountId,$actor['partner_id'],$client->branch,$id,$client->name,'{"vaccines":"read","appointments":"read","shares":"none"}',$memberStatus]);
             }
-            $this->db->prepare('UPDATE identity_account SET password_hash=?,verified_at=?,version=version+1 WHERE id=?')
-                ->execute([password_hash($password,PASSWORD_ARGON2ID),$now,$accountId]);
-            $this->db->prepare('DELETE FROM identity_session WHERE account_id=?')->execute([$accountId]);
-            $this->audit($actor,'customer.password_set');
+            if (!$sms) {
+                $this->db->prepare('UPDATE identity_account SET password_hash=?,verified_at=?,version=version+1 WHERE id=?')
+                    ->execute([password_hash($password,PASSWORD_ARGON2ID),$now,$accountId]);
+                $this->db->prepare('DELETE FROM identity_session WHERE account_id=?')->execute([$accountId]);
+            }
+            $this->audit($actor,$sms?'customer.onboard_sent':'customer.password_set');
             $this->db->commit();
             if (!$sms) return ['configured'=>true];
-            // KVKK ve iletişim izni onay bağlantısı her hoş geldin SMS'ine otomatik eklenir; klinik metninden bağımsızdır, silinemez.
-            $permitUrl='';
-            if (class_exists(ClientPermit::class)) {
-                try {
-                    $permitUrl=(new ClientPermit($this->db,rtrim((string)($config['origin'] ?? ''),'/')))->create($actor,(object)['client'=>$id,'method'=>'sms','silent'=>true],$now)['short'];
-                    $message.="\nKVKK/izin onayı: ".$permitUrl;
-                } catch (\Throwable) { /* onay formu oluşturulamazsa hoş geldin SMS'i yine gider */ }
-            }
+            // Hoş geldin SMS'i yalnız tek bağlantı içerir: KVKK metni ve onayı → teşekkür + şifre oluşturma → giriş.
+            $permitUrl=(new ClientPermit($this->db,rtrim((string)($config['origin'] ?? ''),'/')))->create($actor,(object)['client'=>$id,'method'=>'sms','silent'=>true,'onboard'=>true],$now)['short'];
+            $message.="\nKVKK onayı ve şifre oluşturma: ".$permitUrl;
             if (!empty($viaPhone)) {
                 try {
                     (new PhoneGateway($this->db))->enqueue($actor['partner_id'],'sms',$phone,$message,'manual','welcome:'.$id.':'.$now,0,$now,$now+86400,(string)($actor['name'] ?? ''));

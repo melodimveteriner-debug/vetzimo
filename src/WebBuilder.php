@@ -37,6 +37,12 @@ final class WebBuilder
 
     private array $branchLists = [];
 
+    /** Kliniğin "Yasal Metinler" sayfasının tam adresi (site alt alanında kullanılır; kendi alan adındaki sitelerde de VetZimo adresine gider). */
+    public function legalUrl(string $partner): string
+    {
+        try { return (new ClinicLegal($this->db,(string)($this->config['origin'] ?? '')))->url($partner); }
+        catch (\Throwable) { return ''; }
+    }
     public function query(string $sql, array $parameters=[]): \PDOStatement
     {
         $stmt=$this->db->prepare($sql);

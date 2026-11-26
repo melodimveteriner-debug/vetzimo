@@ -1,6 +1,6 @@
 // Merkez yönetimi · Yasal metinler: KVKK, gizlilik, kullanım şartları, çerez politikası ve şirket bilgileri.
 // Sunucudaki SiteLegal::render ile aynı sade biçimi canlı önizler; her kayıt yeni bir sürüm olarak saklanır.
-const css='/legal-admin.css?v=1';
+const css='/legal-admin.css?v=2';
 function ensureCss(){if(!document.querySelector(`link[href="${css}"]`)){const l=document.createElement('link');l.rel='stylesheet';l.href=css;document.head.append(l);}}
 const h=(tag,attrs={},...kids)=>{const n=document.createElement(tag);for(const[k,v]of Object.entries(attrs)){if(v==null||v===false)continue;if(k==='class')n.className=v;else if(k==='text')n.textContent=v;else if(k.startsWith('on'))n.addEventListener(k.slice(2),v);else if(v===true)n.setAttribute(k,'');else n.setAttribute(k,v);}for(const c of kids.flat())if(c!=null&&c!==false)n.append(c);return n;};
 const MONTHS=['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
@@ -40,17 +40,20 @@ export async function mountLegalAdmin(root,{call,reauthUrl}){
   const tabs=h('div',{class:'lga-tabs',role:'tablist','aria-label':'Yasal metinler'});
   const pane=h('div',{class:'lga-pane'});
   root.replaceChildren(
-    h('div',{class:'lga-head'},h('div',{},h('h3',{text:'Yasal metinler'}),h('p',{class:'lga-muted',text:'Satış sitesinin alt alanında görünen KVKK, gizlilik, kullanım ve çerez metinleri. Her kayıt yeni bir sürüm oluşturur; düzenlenme tarihi sayfanın en üstünde, önceki sürümlerin tarihleri sayfanın sonunda gösterilir.'})),
+    h('div',{class:'lga-head'},h('div',{},h('h3',{text:'Yasal metinler'}),h('p',{class:'lga-muted',text:'Satış sitesinin alt alanında görünen KVKK, gizlilik, kullanım ve çerez metinleri ile tüm kliniklerin ortak yasal metin şablonları. Klinik şablonları her kliniğin kendi şirket bilgileri ve logosuyla yayımlanır; metni kendine göre düzenleyen klinikler kendi metnini kullanır. Her kayıt yeni bir sürüm oluşturur.'})),
       h('a',{class:'lga-btn ghost',href:'/platform/yasal',target:'_blank',rel:'noopener',text:'Yasal sayfaları aç ↗'})),
     tabs,msg,pane);
   const confirmLeave=()=>!dirty||window.confirm('Kaydedilmemiş değişiklikler var. Yine de çıkılsın mı?');
   function drawTabs(){
-    tabs.replaceChildren(...data.docs.map(d=>h('button',{type:'button',role:'tab','aria-selected':String(current===d.slug),class:'lga-tab',onclick:()=>{if(current!==d.slug&&confirmLeave()){current=d.slug;draw();}}},
-      h('b',{text:d.title}),h('small',{text:`${longDate(d.effective_on)} · Sürüm ${d.version}`}))),
+    const tab=d=>h('button',{type:'button',role:'tab','aria-selected':String(current===d.slug),class:'lga-tab'+(d.clinic?' lga-clinic':''),onclick:()=>{if(current!==d.slug&&confirmLeave()){current=d.slug;draw();}}},
+      h('b',{text:d.title}),h('small',{text:`${longDate(d.effective_on)} · Sürüm ${d.version}`}));
+    tabs.replaceChildren(h('span',{class:'lga-group',text:'Satış sitesi (VetZimo)'}),...data.docs.map(tab),
       h('button',{type:'button',role:'tab','aria-selected':String(current==='company'),class:'lga-tab',onclick:()=>{if(current!=='company'&&confirmLeave()){current='company';draw();}}},
-        h('b',{text:'Şirket bilgileri'}),h('small',{text:'Tüm metinlerde kullanılır'})));
+        h('b',{text:'Şirket bilgileri'}),h('small',{text:'Tüm metinlerde kullanılır'})),
+      ...(data.clinicDocs?.length?[h('span',{class:'lga-group',text:'Klinik metin şablonları (tüm kliniklerde ortak)'}),...data.clinicDocs.map(tab)]:[]));
   }
-  function draw(){dirty=false;say('');drawTabs();current==='company'?drawCompany():drawDoc(data.docs.find(d=>d.slug===current));}
+  const allDocs=()=>[...data.docs,...(data.clinicDocs||[])];
+  function draw(){dirty=false;say('');drawTabs();current==='company'?drawCompany():drawDoc(allDocs().find(d=>d.slug===current));}
 
   function drawCompany(){
     const form=h('form',{class:'lga-company'});
@@ -66,6 +69,7 @@ export async function mountLegalAdmin(root,{call,reauthUrl}){
   }
 
   function drawDoc(doc){
+    const company=doc.clinic?data.clinicSample:data.company,fieldList=doc.clinic?data.clinicFields:data.companyFields;
     const title=h('input',{value:doc.title,maxlength:'160',required:true});
     const summary=h('textarea',{rows:'3',maxlength:'400'});summary.value=doc.summary||'';
     const date=h('input',{type:'date',value:today()});
@@ -73,13 +77,13 @@ export async function mountLegalAdmin(root,{call,reauthUrl}){
     const note=h('input',{maxlength:'300',placeholder:'Örneğin: Yurt dışı aktarım bölümü güncellendi'});
     const preview=h('div',{class:'lga-preview'});
     const stats=h('span',{class:'lga-muted'});
-    const refresh=()=>{preview.innerHTML=`<p class="lga-stamp"><b>Düzenlenme tarihi:</b> ${esc(longDate(date.value||today()))} · Sürüm ${doc.version+1}</p><h1>${esc(title.value)}</h1>${summary.value?`<p class="lga-note">${renderLegal(summary.value,data.company).replace(/^<p>|<\/p>$/g,'')}</p>`:''}${renderLegal(body.value,data.company)}`;
+    const refresh=()=>{preview.innerHTML=`<p class="lga-stamp"><b>Düzenlenme tarihi:</b> ${esc(longDate(date.value||today()))} · Sürüm ${doc.version+1}</p><h1>${esc(title.value)}</h1>${summary.value?`<p class="lga-note">${renderLegal(summary.value,company).replace(/^<p>|<\/p>$/g,'')}</p>`:''}${renderLegal(body.value,company)}`;
       const words=(body.value.match(/\S+/g)||[]).length;stats.textContent=`${words.toLocaleString('tr-TR')} kelime · yaklaşık ${Math.max(1,Math.round(words/200))} dk okuma`;};
     for(const n of [title,summary,date,body,note])n.addEventListener('input',()=>{dirty=true;refresh();});
     const wrap=(before,after='')=>{const s=body.selectionStart,e=body.selectionEnd,sel=body.value.slice(s,e);body.setRangeText(before+sel+after,s,e,'end');body.focus();dirty=true;refresh();};
     const prefix=p=>{const s=body.selectionStart;const start=body.value.lastIndexOf('\n',s-1)+1;body.setRangeText(p,start,start,'end');body.focus();dirty=true;refresh();};
     const fieldPick=h('select',{'aria-label':'Şirket alanı ekle',onchange:()=>{if(fieldPick.value){wrap('{'+fieldPick.value+'}');fieldPick.value='';}}},
-      h('option',{value:'',text:'Alan ekle…'}),...data.companyFields.map(f=>h('option',{value:f.key,text:f.label})));
+      h('option',{value:'',text:'Alan ekle…'}),...fieldList.map(f=>h('option',{value:f.key,text:f.label})));
     const tools=h('div',{class:'lga-tools'},
       h('button',{type:'button',onclick:()=>prefix('## '),title:'Bölüm başlığı (## )',text:'Başlık'}),
       h('button',{type:'button',onclick:()=>prefix('### '),title:'Ara başlık (### )',text:'Ara başlık'}),
@@ -107,14 +111,14 @@ export async function mountLegalAdmin(root,{call,reauthUrl}){
         title.value=x.title;summary.value=x.summary;body.value=x.body;note.value='Sürüm '+r.version+' geri yüklendi';dirty=true;refresh();say('Sürüm '+r.version+' düzenleyiciye yüklendi. Yayınlamak için kaydedin.');}catch(err){fail(err);}}})));
     pane.replaceChildren(
       h('div',{class:'lga-info'},h('span',{},h('b',{text:'Yayındaki sürüm: '}),`${doc.version} · ${longDate(doc.effective_on)}`,doc.updated_by?` · ${doc.updated_by}`:'',doc.stored?'':' · varsayılan metin'),
-        h('a',{href:doc.url,target:'_blank',rel:'noopener',text:'Sitede görüntüle ↗'})),
+        doc.clinic?h('span',{class:'lga-muted',text:'Önizleme örnek klinik bilgileriyle gösterilir. Her klinik kendi şirket bilgileriyle yayımlar; metni kendine göre düzenleyen kliniklere bu şablon değişikliği yansımaz.'}):h('a',{href:doc.url,target:'_blank',rel:'noopener',text:'Sitede görüntüle ↗'})),
       h('div',{class:'lga-grid'},
         h('div',{class:'lga-editor'},
           h('label',{},h('span',{text:'Başlık'}),title),
           h('label',{},h('span',{text:'Giriş özeti (sayfa başında görünür)'}),summary),
           h('div',{class:'lga-row'},h('label',{},h('span',{text:'Düzenlenme tarihi'}),date),h('label',{},h('span',{text:'Değişiklik notu (sürüm geçmişinde görünür)'}),note)),
           h('div',{class:'lga-bodyhead'},h('span',{text:'Metin'}),stats),tools,body,
-          h('p',{class:'lga-muted',text:'Biçim: "## " bölüm başlığı, "### " ara başlık, "- " madde, "> " vurgulu not, **kalın**. {unvan}, {adres}, {kvkk_eposta} gibi alanlar Şirket bilgileri sekmesindeki değerlerle doldurulur.'}),
+          h('p',{class:'lga-muted',text:doc.clinic?'Biçim: "## " bölüm başlığı, "### " ara başlık, "- " madde, "> " vurgulu not, **kalın**. {klinik}, {unvan}, {adres}, {telefon}, {eposta}, {kvkk_eposta}, {vergi}, {mersis}, {kep}, {web} alanları her kliniğin kendi şirket bilgileriyle doldurulur; boş alan içeren satır gösterilmez.':'Biçim: "## " bölüm başlığı, "### " ara başlık, "- " madde, "> " vurgulu not, **kalın**. {unvan}, {adres}, {kvkk_eposta} gibi alanlar Şirket bilgileri sekmesindeki değerlerle doldurulur.'}),
           h('div',{class:'lga-actions'},save,reset)),
         h('div',{class:'lga-side'},h('h4',{text:'Canlı önizleme'}),preview,h('h4',{text:'Sürüm geçmişi'}),history)));
     refresh();

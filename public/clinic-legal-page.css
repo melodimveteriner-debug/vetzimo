@@ -1,0 +1,43 @@
+/* Kliniğin yasal metinler sayfası (/yasal/{anahtar}): sade, okunaklı, her cihazda uygun. Betik kullanmaz. */
+:root{--bg:#f6f7fb;--card:#fff;--ink:#14162b;--muted:#5d6278;--line:#e3e5ef;--accent:#5b3fd6;--accent2:#0e9f9a;--note:#f4f1ff;color-scheme:light}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1120;--card:#171a2e;--ink:#eceefa;--muted:#a3a8c3;--line:#2a2e48;--accent:#a78bfa;--accent2:#2dd4bf;--note:#211d3d;color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.65 system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;-webkit-text-size-adjust:100%}
+.cl{width:min(1120px,100%);margin:0 auto;padding:clamp(16px,4vw,40px) max(16px,env(safe-area-inset-right)) 40px max(16px,env(safe-area-inset-left))}
+.cl-head{display:flex;align-items:center;gap:16px;padding:clamp(18px,3vw,28px);border-radius:22px;background:linear-gradient(120deg,color-mix(in srgb,var(--accent) 14%,var(--card)),var(--card));border:1px solid var(--line)}
+.cl-logo{flex:0 0 auto;width:64px;height:64px;border-radius:16px;object-fit:contain;background:var(--card);border:1px solid var(--line)}
+.cl-logo-text{display:grid;place-items:center;font-size:1.7rem;font-weight:800;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent2));border:0}
+.cl-eyebrow{font-size:.72rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+.cl-head h1{margin:2px 0 0;font-size:clamp(1.35rem,3.4vw,2rem);line-height:1.2;text-wrap:balance}
+.cl-head p{margin:2px 0 0;color:var(--muted)}
+.cl-stamp{display:flex;flex-wrap:wrap;gap:6px 14px;margin:14px 2px;font-size:.92rem;color:var(--muted)}
+.cl-stamp b{color:var(--ink)}
+.cl-tabs{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 8px;scrollbar-width:thin}
+.cl-tabs a{flex:0 0 auto;padding:9px 15px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--ink);text-decoration:none;font-weight:650;font-size:.92rem}
+.cl-tabs a[aria-current=page]{background:linear-gradient(115deg,var(--accent),var(--accent2));border-color:transparent;color:#fff}
+.cl-layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:20px;margin-top:10px;align-items:start}
+.cl-doc{min-width:0;padding:clamp(18px,3vw,34px);border-radius:20px;background:var(--card);border:1px solid var(--line)}
+.cl-title{margin:0 0 10px;font-size:clamp(1.3rem,3vw,1.7rem)}
+.cl-summary p{margin:0 0 14px;padding:12px 14px;border-radius:14px;background:var(--note);color:var(--ink)}
+.cl-doc h2{margin:26px 0 8px;font-size:1.15rem;scroll-margin-top:16px}
+.cl-doc h3{margin:18px 0 6px;font-size:1.02rem}
+.cl-doc p,.cl-doc li{max-width:75ch;overflow-wrap:anywhere}
+.cl-doc ul{padding-left:1.2rem}
+.cl-doc li{margin:4px 0}
+.cl-doc .lg-note{padding:14px 16px;border-radius:14px;background:var(--note);border-left:4px solid var(--accent)}
+.cl-doc a{color:var(--accent)}
+.cl-side{display:grid;gap:14px;position:sticky;top:16px}
+.cl-card,.cl-toc{padding:16px 18px;border-radius:18px;background:var(--card);border:1px solid var(--line)}
+.cl-card h3{margin:0 0 6px;font-size:1rem}
+.cl-card p{margin:0 0 8px;font-size:.93rem}
+.cl-contact{list-style:none;margin:0;padding:0;display:grid;gap:8px;font-size:.9rem}
+.cl-contact li{display:grid}.cl-contact span{color:var(--muted);font-size:.78rem}.cl-contact b{font-weight:600;overflow-wrap:anywhere}
+.cl-resp{border-color:color-mix(in srgb,var(--accent) 35%,var(--line))}
+.cl-muted{color:var(--muted);font-size:.85rem!important}
+.cl-toc summary{cursor:pointer;font-weight:700}
+.cl-toc ol{list-style:none;margin:8px 0 0;padding-left:0;font-size:.9rem;display:grid;gap:4px}
+.cl-toc a{color:var(--ink);text-decoration:none}.cl-toc a:hover{color:var(--accent)}
+.cl-foot{margin-top:22px;text-align:center;color:var(--muted);font-size:.85rem}
+.cl-embed .cl{padding-top:8px}
+@media (max-width:860px){.cl-layout{grid-template-columns:1fr}.cl-side{position:static}}
+@media print{.cl-tabs,.cl-toc{display:none}.cl-layout{grid-template-columns:1fr}body{background:#fff}}
