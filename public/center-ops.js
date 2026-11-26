@@ -1079,25 +1079,69 @@ export async function mountCenterSuite(ui,session){
   controls.addEventListener('input',draw);
   content.replaceChildren(controls,results);draw();
  }
+ // Destek temsilcileri: yanıtlar seçilen ad ve küçük siluetle bayiye görünür. Seçim bilette ve bu tarayıcıda hatırlanır.
+ const SUPPORT_AGENTS=[['Derya F.','f'],['Elif K.','f'],['Zeynep A.','f'],['Merve T.','f'],['Ayşe B.','f'],['Ahmet D.','m'],['Murat Ç.','m'],['Emre Y.','m'],['Burak S.','m'],['Kerem O.','m']];
+ const agentGender=name=>(SUPPORT_AGENTS.find(([n])=>n===name)||[])[1]||'';
+ const SILHOUETTE={f:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.2c-3.1 0-5.3 2.4-5.3 5.6 0 2.3.6 4.3-.8 6.2 1.3.6 2.7.8 4 .7A3.7 3.7 0 0 0 12 16a3.7 3.7 0 0 0 2.1-.3c1.3.1 2.7-.1 4-.7-1.4-1.9-.8-3.9-.8-6.2 0-3.2-2.2-5.6-5.3-5.6z"/><path d="M4.5 21c.6-3 3.6-4.6 7.5-4.6s6.9 1.6 7.5 4.6z"/></svg>',
+  m:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8.2" r="4.2"/><path d="M4 21c.7-3.4 3.9-5.2 8-5.2s7.3 1.8 8 5.2z"/></svg>',
+  c:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 21V9l8-5 8 5v12h-5v-6H9v6z"/></svg>'};
+ const avatar=(kind)=>{const a=el('span','',{className:'sp-avatar sp-'+kind});a.innerHTML=SILHOUETTE[kind]||SILHOUETTE.c;return a;};
+ const roleTitle=department=>department==='Muhasebe'?'Muhasebe Uzmanı':department==='Satış'?'Müşteri Temsilcisi':'Teknik Destek Operatörü';
+ const fmtDate=v=>{const d=new Date(String(v||'').replace(' ','T'));return isNaN(d)?String(v||''):d.toLocaleString('tr-TR',{day:'2-digit',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'});};
  async function supportDetail(id){
   const path='/'+encodeURIComponent(id);
   const {ticket,replies}=await supportCall(path);
-  content.replaceChildren(button('Taleplere dön',support),el('h2',ticket.subject),el('p',[ticket.status,ticket.department,ticket.urgency,ticket.last_reply_at].filter(Boolean).join(' · ')));
-  for(const reply of replies) {
-   const message=el('article','',{className:'center-edit center-reply'});
-   message.append(el('strong',reply.author+' · '+reply.side),el('p',reply.body),el('small',reply.created_at));
-   for(const file of reply.files||[]) {
-    const download=el('a',file.name+' · '+Math.ceil(file.size_bytes/1000)+' KB',
-      {className:'button small',href:'/api/support'+path+'/attachment/'+encodeURIComponent(file.id),download:''});
-    message.append(download);
-   }
-   content.append(message);
+  const head=el('div','',{className:'sp-head'});
+  head.append(button('‹ Taleplere dön',support),el('h2',ticket.subject));
+  const cards=el('div','',{className:'sp-cards'});
+  for(const [label,value,tone] of [['Durum',ticket.status,ticket.status==='Açık'?'open':'done'],['Son yanıt',fmtDate(ticket.last_reply_at||ticket.updated_at),''],['Departman',ticket.department,''],['Öncelik',ticket.urgency,ticket.urgency==='Yüksek'?'hot':''],['Bayi / Şube',[ticket.partner_name,ticket.branch_name].filter(Boolean).join(' · '),'']]){
+   const c=el('div','',{className:'sp-card'+(tone?' sp-'+tone:'')});c.append(el('small',label),el('strong',value||'—'));cards.append(c);
   }
-  if(ticket.status==='Açık'){
-   content.append(makeForm([textArea('body','Yanıt',5000)],'Yanıtla',async values=>{
-    await supportCall(path,values);await supportDetail(id);
-   }),button('Talebi kapat',async()=>{await supportCall(path,{action:'close'});await supportDetail(id);}));
+  const thread=el('div','',{className:'sp-thread'});
+  for(const reply of replies){
+   const center=reply.side==='Yönetim';
+   const g=center?(agentGender(reply.author)||'c'):'c';
+   const msg=el('article','',{className:'sp-msg'+(center?' sp-center':' sp-dealer')});
+   const top=el('header');
+   const who=el('div','',{className:'sp-who'});
+   who.append(el('strong',reply.author));
+   if(center)who.append(el('span','Yetkili',{className:'sp-badge'}));
+   who.append(el('time',fmtDate(reply.created_at)));
+   top.append(avatar(center?g:'c'),who);
+   const body=el('div','',{className:'sp-body'});body.textContent=reply.body;
+   msg.append(top,body);
+   for(const file of reply.files||[]) msg.append(el('a','📎 '+file.name+' · '+Math.ceil(file.size_bytes/1000)+' KB',{className:'button small',href:'/api/support'+path+'/attachment/'+encodeURIComponent(file.id),download:''}));
+   thread.append(msg);
   }
+  content.replaceChildren(head,cards,thread);
+  if(ticket.status!=='Açık')return;
+  const lastAgent=[...replies].reverse().find(r=>r.side==='Yönetim'&&agentGender(r.author))?.author;
+  let saved='';try{saved=localStorage.getItem('vz-support-agent')||'';}catch{}
+  const form=el('form','',{className:'sp-reply'});
+  const pick=el('div','',{className:'sp-agents',role:'radiogroup'});pick.setAttribute('aria-label','Yanıtlayan');
+  let agent=lastAgent||(agentGender(saved)?saved:SUPPORT_AGENTS[0][0]);
+  const drawPick=()=>{pick.replaceChildren(...SUPPORT_AGENTS.map(([n,g])=>{const b=el('button','',{type:'button',className:'sp-agent'+(n===agent?' on':'')});b.setAttribute('aria-pressed',String(n===agent));b.append(avatar(g),el('span',n));b.addEventListener('click',()=>{agent=n;drawPick();sig();});return b;}));};
+  const hint=el('p','',{className:'sp-hint'});
+  const text=el('textarea','',{name:'body',maxLength:5000,required:true,rows:7,placeholder:'Yanıtınızı yazın…'});
+  const sign=el('input','',{type:'checkbox',checked:true});const signLabel=el('label','',{className:'sp-check'});signLabel.append(sign,el('span','İmza ekle'));
+  const preview=el('pre','',{className:'sp-sign'});
+  const sig=()=>{preview.textContent='Saygılarımla\n'+agent+'\n'+roleTitle(ticket.department);preview.hidden=!sign.checked;hint.textContent=lastAgent&&agent!==lastAgent?'Bu talepte önceki yanıtlar '+lastAgent+' adıyla yazıldı; yanıtlayan değişecek.':'Yanıt bayiye “'+agent+' · Yetkili” olarak görünür.';};
+  sign.addEventListener('change',sig);
+  const firstName=ticket.partner_name||'';
+  const quick=el('div','',{className:'sp-quick'});
+  for(const [label,t] of [['Selamlama','Merhaba,\n\nTalebiniz için teşekkür ederiz. '],['İnceleniyor','Talebinizi teknik ekibimize ilettik ve inceliyoruz. Gelişme olduğunda bu talep üzerinden hemen bilgi vereceğiz.'],['Çözüldü','Bildirdiğiniz konu çözüldü. Sayfayı yenileyerek kontrol edebilirsiniz. Başka bir sorunuz olursa bu talebe yazmanız yeterli.'],['Ek bilgi iste','Konuyu hızla çözebilmemiz için ekran görüntüsü ve hatanın oluştuğu sayfa adını paylaşabilir misiniz?'],['Kapanış','Yardımcı olabileceğimiz farklı bir konu olursa iletmenizden mutluluk duyarız.']]){
+   const b=button(label,()=>{text.value=(text.value?text.value.trimEnd()+'\n\n':'')+t;text.focus();});b.classList.add('small');quick.append(b);
+  }
+  const send=el('button','Yanıtı gönder',{type:'submit',className:'button primary'});
+  const close=button('Talebi kapat',async()=>{if(!confirm('Talep kapatılsın mı?'))return;await supportCall(path,{action:'close'});await supportDetail(id);});
+  const status=el('p','',{className:'sp-status',role:'status'});
+  form.addEventListener('submit',async e=>{e.preventDefault();const body=text.value.trim();if(!body)return;send.disabled=true;
+   try{try{localStorage.setItem('vz-support-agent',agent);}catch{}
+    await supportCall(path,{body:sign.checked?body+'\n\n'+preview.textContent:body,agent});await supportDetail(id);}
+   catch(err){status.textContent=err.message||'Gönderilemedi.';send.disabled=false;}});
+  const actions=el('div','',{className:'sp-actions'});actions.append(send,close);
+  form.append(el('h3','Yanıtla'),el('small','Yanıtlayan',{className:'sp-label'}),pick,hint,quick,text,signLabel,preview,actions,status);
+  drawPick();sig();content.append(form);
  }
  async function audit(){const {events}=await call('audit');content.replaceChildren(el('h2','Son 100 yönetim işlemi'),paginate(events,rows=>table(['Tarih','İşlem','Hedef'],rows.map(e=>[e.created_at,e.action,e.target_id]))));}
  await tab[2]();

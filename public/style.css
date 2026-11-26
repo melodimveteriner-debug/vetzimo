@@ -1576,3 +1576,8 @@ td.dealer-message-body{min-width:16em;max-width:28em;font-size:.88rem}td.dealer-
 .finance-rows .fr-amount{display:grid;text-align:right}.finance-rows .fr-amount small{font-weight:500;color:var(--muted);font-size:.75rem}
 @keyframes rowMenuIn{from{opacity:0;transform:translateY(-4px)}}
 @media(max-width:560px){.row-menu-btn span{display:none}.finance-rows li{grid-template-columns:minmax(0,1fr) max-content auto!important}.finance-rows .fr-date{grid-column:1/-1}}
+.thread-who{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.thread-badge{background:#2563eb!important;color:#fff!important}
+.sp-avatar{flex:none;display:inline-grid;place-items:center;width:26px;height:26px;border-radius:50%;background:#dcfce7;color:#15803d}
+.sp-avatar svg{width:17px;height:17px;fill:currentColor}
+.sp-avatar.sp-f{background:#fce7f3;color:#be185d}.sp-avatar.sp-m{background:#dbeafe;color:#1d4ed8}

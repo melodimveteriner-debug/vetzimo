@@ -9,6 +9,11 @@ require_once __DIR__ . '/SupportAttachments.php';
 
 final class Support
 {
+    /** Merkez yanıtlarında görünen destek temsilcisi adları (ad => cinsiyet). Bayi tarafında ad ve küçük siluet gösterilir. */
+    public const AGENTS = [
+        'Derya F.'=>'f','Elif K.'=>'f','Zeynep A.'=>'f','Merve T.'=>'f','Ayşe B.'=>'f',
+        'Ahmet D.'=>'m','Murat Ç.'=>'m','Emre Y.'=>'m','Burak S.'=>'m','Kerem O.'=>'m',
+    ];
     public function __construct(private readonly PDO $db) {}
 
     public function handle(array $actor, array $branches, bool $owner, ?string $id, ?object $input, int $limit, array $files=[], ?string $download=null, bool $native=false): array
@@ -83,7 +88,7 @@ final class Support
             throw new RuntimeException('Bu konuşma kapatıldı.',409);
         }
         $this->db->prepare('INSERT INTO clinic_support_reply(ticket_id,author,side,body,created_at) VALUES(?,?,?,?,?)')
-            ->execute([$id,$owner ? 'Merkez Yönetimi' : $actor['name'],$owner ? 'Yönetim' : 'Bayi',$body,$now]);
+            ->execute([$id,$owner ? self::agent($input->agent ?? null) : $actor['name'],$owner ? 'Yönetim' : 'Bayi',$body,$now]);
         if ($files) {
             $reply=$this->db->lastInsertId();
             $attach=$this->db->prepare('INSERT INTO clinic_support_attachment(id,reply_id,name,bytes,size_bytes) VALUES (?,?,?,?,?)');
@@ -128,6 +133,11 @@ final class Support
         $query->execute([$actor['membership_id'], ...$params]);
         $rows = array_map(static fn($row) => ['ticket'=>$row['ticket'],'subject'=>$row['subject'],'unread'=>true], $query->fetchAll(PDO::FETCH_ASSOC));
         return ['count'=>count($rows),'rows'=>$rows];
+    }
+
+    private static function agent(mixed $name): string
+    {
+        return is_string($name) && isset(self::AGENTS[$name]) ? $name : 'Merkez Yönetimi';
     }
 
     private function requiredText(mixed $value, int $length): string
