@@ -1,6 +1,6 @@
 // Klinik: Onam Formları sayfası. Şablondan onam hazırlar, hasta sahibine gönderir veya klinikte imzalatır,
 // imzalı formları görüntüler ve yazdırır. Veriler /api/consents üzerinden okunur ve yazılır.
-import {openSignDialog, openConsentViewer, consentStatus} from "./consent-sign.js?v=2";
+import {openSignDialog, openConsentViewer, consentStatus} from "./consent-sign.js?v=3";
 
 const METHODS = [["sms", "SMS ile imza bağlantısı gönder (kliniğin hattından)"], ["whatsapp", "WhatsApp ile imza bağlantısı gönder"], ["email", "E-posta ile imza bağlantısı gönder"], ["clinic", "Klinikte bu cihazda imzalat"], ["in-person", "Yüz yüze imza (kimliği doğrulayarak)"], ["portal", "Hasta sahibi portalına gönder"]];
 

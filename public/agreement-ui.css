@@ -14,8 +14,12 @@
 .ag-pad{width:100%;max-width:600px;aspect-ratio:10/3;height:auto;border:1.5px dashed var(--ag-line);border-radius:12px;background:#fff;touch-action:none;cursor:crosshair}
 .ag-sign-tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;max-width:600px}.ag-sign-tools small{color:var(--ag-muted)}
 .ag-accept{display:flex;gap:10px;align-items:flex-start;font-size:.9rem;line-height:1.45}.ag-accept input{margin-top:3px;width:18px;height:18px;flex:none}
-.ag-actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;align-items:center}.ag-accept-hint{color:var(--ag-muted);font-size:.85rem}
-.ag-reject{border-color:#dc2626;color:#b91c1c}
+.ag-accept-hint{margin:0;color:var(--ag-muted);font-size:.85rem}
+/* Onay önce, ret yanında; yan yana sığmayan ekranda ret alta iner */
+.ag-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:10px;align-items:stretch}
+.ag-actions>button{width:100%;min-height:48px;margin:0}
+.ag-reject,.ag-actions .ag-reject{background:#dc2626!important;border-color:#dc2626!important;color:#fff!important}
+.ag-reject:hover{background:#b91c1c!important}
 .ag-gate{position:fixed;inset:0;z-index:2000;display:grid;place-items:center;padding:16px;background:rgba(15,18,26,.72);overflow:auto}
 .ag-gate-card{width:min(760px,100%);max-height:calc(100dvh - 32px);overflow:auto;padding:20px;border-radius:18px;background:var(--paper,#fff);color:var(--ink,#111827);box-shadow:0 24px 64px rgba(0,0,0,.35)}
 .ag-error{color:#b91c1c;margin:8px 0 0}

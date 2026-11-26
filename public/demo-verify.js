@@ -37,8 +37,8 @@ export async function mountDemoVerify(form, {reference, phone}) {
   box.scrollIntoView({behavior: "smooth", block: "start"});
   let panel = null;
   try {
-    const [agreement, {agreementPanel}] = await Promise.all([fetch("/api/saas/demo-agreement").then(r => r.json()), import("./agreement-ui.js?v=2")]);
-    panel = agreementPanel({agreement, acceptLabel: "“Doğrula, imzala ve demoyu başlat” dediğinizde sözleşme imzalanır ve demo hesabınız açılır.",
+    const [agreement, {agreementPanel}] = await Promise.all([fetch("/api/saas/demo-agreement").then(r => r.json()), import("./agreement-ui.js?v=3")]);
+    panel = agreementPanel({agreement, acceptButton: submit, acceptLabel: "“Doğrula, imzala ve demoyu başlat” dediğinizde sözleşme imzalanır ve demo hesabınız açılır.",
       onReject: () => { box.replaceChildren(h("h2", {text: "Demo açılmadı"}), h("p", {text: "Sözleşme onaylanmadığı için demo hesabı açılmadı. Başvurunuz kayıtlı; ekibimiz sizinle iletişime geçebilir."})); }});
     agreementSlot.replaceChildren(panel.node);
   } catch { agreementSlot.replaceChildren(h("p", {class: "dv-error", text: "Sözleşme yüklenemedi. Sayfayı yenileyin."})); }

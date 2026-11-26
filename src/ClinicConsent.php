@@ -285,7 +285,7 @@ final class ClinicConsent
     {
         $e = static fn(string $v): string => htmlspecialchars($v, ENT_QUOTES, 'UTF-8');
         return '<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow">'
-            . '<title>' . $e($doc['title']) . '</title><link rel="stylesheet" href="/permit-sign.css?v=3"></head><body><main class="pm">'
+            . '<title>' . $e($doc['title']) . '</title><link rel="stylesheet" href="/permit-sign.css?v=4"></head><body><main class="pm">'
             . '<header class="pm-head"><span class="pm-badge">' . $e($doc['clinic']) . '</span><h1>' . $e($doc['title']) . '</h1>'
             . '<p>Formu okuyup onaylıyorsanız adınızı yazın ve imza alanına imzanızı atın.</p></header>'
             . '<section class="pm-card"><div class="pm-text" dir="auto" style="white-space:pre-wrap">' . $e($doc['body']) . '</div></section>'
@@ -294,7 +294,7 @@ final class ClinicConsent
             . '<label class="pm-field">Adınız ve soyadınız<input name="signerName" autocomplete="name" maxlength="120" required></label>'
             . '<div class="pm-sign"><canvas id="pmPad" width="900" height="300" aria-label="İmza alanı"></canvas><button type="button" id="pmClear" class="pm-link">İmzayı temizle</button><span class="pm-hint">Parmağınızla veya kalemle imzanızı atın</span></div>'
             . '<p class="pm-error" id="pmError" role="alert"></p>'
-            . '<div class="pm-actions"><button type="submit" class="pm-primary">Onayla ve imzala</button><button type="button" id="pmDecline" class="pm-secondary">Onay vermiyorum</button></div>'
+            . '<div class="pm-actions"><button type="submit" class="pm-primary">Onaylıyorum ve imzalıyorum</button><button type="button" id="pmDecline" class="pm-secondary">Onaylamıyorum</button></div>'
             . '<p class="pm-muted">Belge kimliği: <code>' . $e(substr($doc['hash'], 0, 16)) . '</code> · İmzaladığınızda tarih, saat ve cihaz bilgisi kayıt altına alınır.</p></form>'
             . '<section class="pm-card pm-done" id="pmDone" hidden><h2>Teşekkürler</h2><p id="pmDoneText"></p></section>'
             . '<script src="/permit-sign.js?v=3" type="module"></script></main></body></html>';

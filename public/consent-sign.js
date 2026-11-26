@@ -26,6 +26,7 @@ function ensureStyle() {
 .vzc-pad-line{position:absolute;left:8%;right:8%;bottom:34px;border-bottom:1px solid #cbd5e1;pointer-events:none}
 .vzc-pad-tools{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:.8rem;opacity:.8}
 .vzc-foot{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;padding:12px 20px 16px;border-top:1px solid var(--line,#d0d5dd)}
+.vzc-pair{flex:1 1 100%;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr));gap:8px}.vzc-pair .vzc-btn{width:100%;min-height:46px}.vzc-foot>.vzc-btn{margin-inline-start:auto}
 .vzc-foot .vzc-left{margin-inline-end:auto}
 .vzc-error{margin:0;color:#dc2626;font-weight:600}.vzc-error:empty{display:none}
 .vzc-meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;font-size:.84rem}
@@ -34,11 +35,11 @@ function ensureStyle() {
 .vzc-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-weight:700;font-size:.82rem}
 .vzc-badge[data-tone=ok]{background:color-mix(in srgb,#059669 16%,var(--paper,Canvas));color:color-mix(in srgb,#059669 70%,var(--ink,CanvasText))}.vzc-badge[data-tone=bad]{background:color-mix(in srgb,#dc2626 16%,var(--paper,Canvas));color:color-mix(in srgb,#dc2626 70%,var(--ink,CanvasText))}
 .vzc-btn{font:inherit;font-weight:700;padding:9px 16px;border-radius:10px;border:1px solid var(--line,#d0d5dd);background:var(--paper,Canvas);color:inherit;cursor:pointer}
-.vzc-btn.primary{background:#059669;border-color:#059669;color:#fff}.vzc-btn.danger{color:#b91c1c;border-color:color-mix(in srgb,#dc2626 45%,var(--line,#d0d5dd))}
+.vzc-btn.primary{background:#059669;border-color:#059669;color:#fff}.vzc-btn.danger{background:#dc2626;color:#fff;border-color:#dc2626}
 .vzc-btn:disabled{opacity:.55;cursor:not-allowed}
 .vzc-dialog button.vzc-btn{background:var(--paper,Canvas)!important;color:var(--ink,CanvasText)!important;border:1px solid var(--line,#d0d5dd)!important;box-shadow:none!important;min-height:44px}
 .vzc-dialog button.vzc-btn.primary{background:#059669!important;border-color:#059669!important;color:#fff!important}
-.vzc-dialog button.vzc-btn.danger{color:#dc2626!important;border-color:color-mix(in srgb,#dc2626 50%,var(--line,#d0d5dd))!important}
+.vzc-dialog button.vzc-btn.danger{background:#dc2626!important;color:#fff!important;border-color:#dc2626!important}
 @media (max-width:560px){.vzc-dialog{border-radius:14px}.vzc-head,.vzc-body,.vzc-foot{padding-inline:14px}.vzc-pad canvas{height:170px}.vzc-foot .vzc-btn{flex:1}}
 `;
   document.head.append(style);
@@ -151,10 +152,12 @@ export function openSignDialog({consent, tr, defaultName = "", subtitle = "", su
     verifyBox.append(verify, el("span", verifyLabel));
     body.append(text, agreeLabel, verifyBox, nameLabel, pad.element, reasonLabel, error);
     const foot = el("footer", "", {className: "vzc-foot"});
-    const decline = el("button", tr("Reddet"), {type: "button", className: "vzc-btn danger vzc-left"});
+    const decline = el("button", tr("Onaylamıyorum"), {type: "button", className: "vzc-btn danger"});
     const cancel = el("button", tr("Vazgeç"), {type: "button", className: "vzc-btn"});
-    const sign = el("button", tr("İmzala ve onayla"), {type: "submit", className: "vzc-btn primary"});
-    foot.append(decline, cancel, sign);
+    const sign = el("button", tr("İmzala ve onaylıyorum"), {type: "submit", className: "vzc-btn primary"});
+    // Önce onay, yanında kırmızı ret; sığmayan ekranda ret alta iner. "Vazgeç" en altta ayrı durur.
+    const pair = el("div", "", {className: "vzc-pair"}); pair.append(sign, decline);
+    foot.append(pair, cancel);
     form.append(head, body, foot);
     dialog.append(form);
     document.body.append(dialog);
@@ -162,7 +165,7 @@ export function openSignDialog({consent, tr, defaultName = "", subtitle = "", su
     const close = () => { dialog.close(); };
     dialog.addEventListener("close", () => { dialog.remove(); resolve(result); });
     cancel.addEventListener("click", () => {
-      if (declining) { declining = false; reasonLabel.hidden = true; pad.element.hidden = false; agreeLabel.hidden = false; sign.textContent = tr("İmzala ve onayla"); decline.hidden = false; return; }
+      if (declining) { declining = false; reasonLabel.hidden = true; pad.element.hidden = false; agreeLabel.hidden = false; sign.textContent = tr("İmzala ve onaylıyorum"); sign.className = "vzc-btn primary"; decline.hidden = false; return; }
       close();
     });
     decline.addEventListener("click", () => {

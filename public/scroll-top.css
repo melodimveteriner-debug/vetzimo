@@ -1,0 +1,19 @@
+/* Sayfa başına dön oku: temanın vurgu rengini kullanır (satış sitesi --lp-a, klinik siteleri --accent). */
+.vz-top{--top-c:var(--lp-a,var(--accent,#6a3df0));position:fixed;right:max(18px,env(safe-area-inset-right));bottom:max(18px,env(safe-area-inset-bottom));z-index:60;width:52px;height:52px;padding:0;border:0;border-radius:50%;cursor:pointer;
+  background:color-mix(in srgb,var(--top-c) 92%,#000 8%);color:#fff;box-shadow:0 12px 28px color-mix(in srgb,var(--top-c) 38%,transparent),0 2px 6px rgba(0,0,0,.18);
+  opacity:0;transform:translateY(16px) scale(.9);pointer-events:none;transition:opacity .28s ease,transform .28s ease,box-shadow .2s ease}
+.vz-top.is-visible{opacity:1;transform:none;pointer-events:auto}
+.vz-top:hover{transform:translateY(-3px);box-shadow:0 16px 34px color-mix(in srgb,var(--top-c) 48%,transparent),0 2px 6px rgba(0,0,0,.2)}
+.vz-top:focus-visible{outline:3px solid color-mix(in srgb,var(--top-c) 55%,#fff);outline-offset:3px}
+.vz-top svg{width:100%;height:100%;display:block}
+.vz-top-track{fill:none;stroke:rgba(255,255,255,.22);stroke-width:3}
+.vz-top-ring{fill:none;stroke:#fff;stroke-width:3;stroke-linecap:round;stroke-dasharray:132;stroke-dashoffset:132;transform:rotate(-90deg);transform-origin:50% 50%;transition:stroke-dashoffset .1s linear}
+.vz-top path{fill:none;stroke:#fff;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.vz-top.is-visible path{animation:vz-top-nudge 2.6s ease-in-out infinite}
+@keyframes vz-top-nudge{0%,70%,100%{transform:none}80%{transform:translateY(-2px)}90%{transform:translateY(1px)}}
+.vz-top path{transform-box:fill-box;transform-origin:center}
+@media (max-width:640px){.vz-top{width:46px;height:46px}}
+@media (prefers-reduced-motion:reduce){.vz-top{transition:none}.vz-top.is-visible path{animation:none}}
+@media print{.vz-top{display:none}}
+/* Klinik sitelerinde sağ alttaki asistan düğmesinin üstünde durur */
+body:has(.sa-launcher) .vz-top{bottom:calc(88px + env(safe-area-inset-bottom))}

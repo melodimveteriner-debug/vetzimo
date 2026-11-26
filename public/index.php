@@ -12,7 +12,7 @@ use VetNet\Cpanel\SessionRepository;
 
 require_once dirname(__DIR__).'/src/StaffPlan.php';
 
-foreach (['AddonPackages','ClinicGuide','ClinicLegal','AppHub','AppDownloads','DemoAuto','CenterContact','SubscriptionReminders','OwnerPayment','ClinicRecords','AppPush','DeviceHub','VisitTracker','ReviewLink','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','SaasPayment','DealerAgreement','CenterAnalytics','ClinicAlerts','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','TeamTotp','WebInbox','MinistryBridge','SiteLegal','OmniInbox','PhoneGateway','ClientPermit','PrintTemplates','Support','Commerce','Appearance'] as $class) {
+foreach (['AddonPackages','ClinicGuide','ClinicLegal','PartnerLifecycle','AppHub','AppDownloads','DemoAuto','CenterContact','SubscriptionReminders','OwnerPayment','ClinicRecords','AppPush','DeviceHub','VisitTracker','ReviewLink','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','SaasPayment','DealerAgreement','CenterAnalytics','ClinicAlerts','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','TeamTotp','WebInbox','MinistryBridge','SiteLegal','OmniInbox','PhoneGateway','ClientPermit','PrintTemplates','Support','Commerce','Appearance'] as $class) {
     require_once dirname(__DIR__) . '/src/' . $class . '.php';
 }
 
@@ -20,6 +20,37 @@ function reply(array $body, int $status = 200): never {
     http_response_code($status);
     header('Content-Type: application/json; charset=utf-8');
     echo json_encode($body, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+    exit;
+}
+
+/** Tarayıcıda açılan sayfa (API değil) hata verirse: "Oops!" sayfası, üzgün kedi-köpek ve güvenli dönüş bağlantısı. */
+function wantsPage(): bool {
+    $uri = (string)($_SERVER['REQUEST_URI'] ?? '/');
+    return in_array($_SERVER['REQUEST_METHOD'] ?? 'GET', ['GET','HEAD'], true) && !str_starts_with($uri, '/api/')
+        && str_contains((string)($_SERVER['HTTP_ACCEPT'] ?? ''), 'text/html');
+}
+function oopsPage(int $status, string $message): never {
+    $uri = (string)($_SERVER['REQUEST_URI'] ?? '/');
+    [$home, $label] = match (true) {
+        str_starts_with($uri, '/platform') => ['/platform', 'Ana sayfaya dön'],
+        str_starts_with($uri, '/clinic') => ['/clinic#overview', 'Genel bakışa dön'],
+        str_starts_with($uri, '/yonetim') => ['/yonetim', 'Yönetim paneline dön'],
+        str_starts_with($uri, '/hasta-sahibi'), str_starts_with($uri, '/app') => ['/app', 'Giriş sayfasına dön'],
+        default => ['/', 'Ana sayfaya dön'],
+    };
+    $e = static fn(string $v): string => htmlspecialchars($v, ENT_QUOTES, 'UTF-8');
+    $title = $status === 404 ? 'Aradığınız sayfayı bulamadık' : ($status >= 500 ? 'Bir şeyler ters gitti' : 'Bu sayfa açılamadı');
+    $detail = $status >= 500 ? 'Sunucu isteğinizi şu an tamamlayamadı. Birkaç dakika sonra yeniden deneyin.' : $message;
+    http_response_code($status);
+    header('Content-Type: text/html; charset=utf-8');
+    header('Cache-Control: no-store');
+    header("Content-Security-Policy: default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'; form-action 'none'");
+    echo '<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">'
+        .'<title>Oops! · '.$e($title).'</title><link rel="icon" href="/favicon.ico?v=51"><link rel="stylesheet" href="/oops.css?v=1"></head><body><main class="oops">'
+        .'<div class="oops-photo"><img src="/onboard-sad.webp?v=1" alt="Hüzünlü bir kedi ve köpek" width="960" height="600"><span class="oops-rain" aria-hidden="true"></span></div>'
+        .'<h1>Oops!</h1><h2>'.$e($title).'</h2><p>'.$e($detail).'</p>'
+        .'<div class="oops-actions"><a class="oops-btn" href="'.$e($home).'">'.$e($label).'</a></div>'
+        .'<small>Hata kodu: '.$status.'</small></main></body></html>';
     exit;
 }
 
@@ -845,12 +876,34 @@ try {
             reply($commerce->subscription($partner) + ['plans'=>array_values($commerce->catalog())]);
         }
         if ($method==='GET' && $action==='partners') {
+            (new VetNet\Cpanel\PartnerLifecycle($db))->sweep($now);
             if (isset($_GET['page'])) reply($center->partnerPage($_GET['page'],$_GET['q']??'',$_GET['status']??''));
             reply(['partners'=>$center->partners($actor)]);
         }
         if($method==='GET'&&$action==='partner') {
             $id=$_GET['id'] ?? ''; if(!is_string($id))throw new RuntimeException('Bayi seçin.',422);
-            reply($center->details($id)+['agreements'=>(new VetNet\Cpanel\DealerAgreement($db))->records($id)]);
+            reply($center->details($id)+['agreements'=>(new VetNet\Cpanel\DealerAgreement($db))->records($id),
+                'retention'=>(new VetNet\Cpanel\PartnerLifecycle($db))->retention($id),'canPurge'=>(int)($actor['is_owner'] ?? 0)===1]);
+        }
+        if($method==='GET'&&$action==='partner-purge') {
+            if ((int)($actor['is_owner'] ?? 0)!==1) throw new RuntimeException('Bu işlemi yalnız merkez yöneticisi yapabilir.',403);
+            $id=$_GET['id'] ?? ''; if(!is_string($id)||$id==='')throw new RuntimeException('Bayi seçin.',422);
+            reply((new VetNet\Cpanel\PartnerLifecycle($db))->summary($id));
+        }
+        if($method==='POST'&&$action==='partner-purge') {
+            // Geri alınamaz: bayi adı birebir yazılır, yönetici şifresi + iki adımlı doğrulama kodu istenir.
+            if(!hash_equals($actor['account_id'],$_SERVER['HTTP_X_VETNET_SCOPE'] ?? '')) throw new RuntimeException('Yönetici oturumu değişti.',409);
+            $body=input(4096);
+            $id=$body->partnerId ?? '';
+            if(!is_string($id)||$id==='') throw new RuntimeException('Bayi seçin.',422);
+            $life=new VetNet\Cpanel\PartnerLifecycle($db);
+            $info=$life->summary($id);
+            if (!is_string($body->confirmName ?? null) || trim($body->confirmName)!==trim((string)$info['partner']['name'])) throw new RuntimeException('Onay için bayi adını birebir yazın.',422);
+            $center->confirmOwner($actor,$body,(string)($_SERVER['REMOTE_ADDR'] ?? ''),$now);
+            @set_time_limit(600);
+            $result=$life->purge($id);
+            $center->audit($actor['account_id'],'partner.purged',$id);
+            reply($result+['name'=>$info['partner']['name']]);
         }
         if($method==='GET'&&$action==='audit') reply(['events'=>$db->query('SELECT action,target_id,created_at FROM center_audit ORDER BY id DESC LIMIT 100')->fetchAll()]);
         if($method==='POST') {
@@ -1287,7 +1340,7 @@ try {
         } catch (RuntimeException $error) {
             (new DealerLogin($db,$config['rateSecret']))->throttle('consent-miss:'.($_SERVER['REMOTE_ADDR']??''),$now);
             http_response_code($error->getCode()===410?410:404);
-            echo '<!doctype html><html lang="tr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Onam formu</title><link rel="stylesheet" href="/permit-sign.css?v=3"><main class="pm"><section class="pm-card"><h1>Bağlantı geçersiz</h1><p>'.htmlspecialchars($error->getMessage(),ENT_QUOTES,'UTF-8').'</p></section></main></html>';
+            echo '<!doctype html><html lang="tr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Onam formu</title><link rel="stylesheet" href="/permit-sign.css?v=4"><main class="pm"><section class="pm-card"><h1>Bağlantı geçersiz</h1><p>'.htmlspecialchars($error->getMessage(),ENT_QUOTES,'UTF-8').'</p></section></main></html>';
         }
         exit;
     }
@@ -1310,7 +1363,7 @@ try {
             // Kısa bağlantılar tahminle denenmesin: geçersiz denemeler IP başına sınırlanır.
             (new DealerLogin($db,$config['rateSecret']))->throttle('permit-miss:'.($_SERVER['REMOTE_ADDR']??''),$now);
             http_response_code($error->getCode()===410?410:404);
-            echo '<!doctype html><html lang="tr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Onay formu</title><link rel="stylesheet" href="/permit-sign.css?v=3"><main class="pm"><section class="pm-card"><h1>Bağlantı geçersiz</h1><p>'.htmlspecialchars($error->getMessage(),ENT_QUOTES,'UTF-8').'</p></section></main></html>';
+            echo '<!doctype html><html lang="tr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Onay formu</title><link rel="stylesheet" href="/permit-sign.css?v=4"><main class="pm"><section class="pm-card"><h1>Bağlantı geçersiz</h1><p>'.htmlspecialchars($error->getMessage(),ENT_QUOTES,'UTF-8').'</p></section></main></html>';
         }
         exit;
     }
@@ -1686,7 +1739,7 @@ try {
                 (new VetNet\Cpanel\WorkspaceRepository($db))->branches('partner:'.$actor['partner_id']);
             $multipleBranches=count(array_filter($branches,static fn($row)=>($row->status??'')!=='Pasif'))>1;
             return [
-            'php'=>true,'workspacePatch'=>true,'recordDeletion'=>$actor['role']==='dealer','packageRestricted'=>isset($actor['packageModules']),'guide'=>(new VetNet\Cpanel\ClinicGuide($db,dirname(__DIR__).'/guide'))->allowed($actor),'agreementRequired'=>!(new VetNet\Cpanel\DealerAgreement($db))->signed($actor['partner_id']),'personalPalette'=>$appearance->read('account:'.$actor['account_id'])['palette'],'role'=>$actor['role']==='dealer'?'dealer':'staff','central'=>true,'memberRole'=>$actor['role'],'member'=>['role'=>$actor['role']],'modules'=>ClinicAccess::modules($actor),'branches'=>[$actor['branch_id']],'scopeId'=>$actor['membership_id'],
+            'php'=>true,'workspacePatch'=>true,'recordDeletion'=>$actor['role']==='dealer','packageRestricted'=>isset($actor['packageModules']),'guide'=>(new VetNet\Cpanel\ClinicGuide($db,dirname(__DIR__).'/guide'))->allowed($actor),'renewal'=>(new VetNet\Cpanel\PartnerLifecycle($db))->renewal((string)$actor['partner_id']),'agreementRequired'=>!(new VetNet\Cpanel\DealerAgreement($db))->signed($actor['partner_id']),'personalPalette'=>$appearance->read('account:'.$actor['account_id'])['palette'],'role'=>$actor['role']==='dealer'?'dealer':'staff','central'=>true,'memberRole'=>$actor['role'],'member'=>['role'=>$actor['role']],'modules'=>ClinicAccess::modules($actor),'branches'=>[$actor['branch_id']],'scopeId'=>$actor['membership_id'],
             'partnerId'=>$actor['partner_id'],'partnerName'=>$actor['partner_name'],'multipleBranches'=>$multipleBranches,'name'=>$actor['name'],'author'=>$actor['name'],
         ];
         };
@@ -1713,15 +1766,19 @@ try {
     foreach ($unavailable as $prefix=>$message) {
         if (str_starts_with($path,$prefix)) reply(['error'=>$message],503);
     }
+    if (wantsPage()) oopsPage(404, 'Bu adreste bir sayfa yok ya da taşınmış olabilir.');
     reply(['error'=>'İstenen işlem bulunamadı.'],404);
 } catch (RuntimeException $error) {
     $code = $error->getCode();
     if (is_int($code) && $code >= 400 && $code <= 599 && !$error instanceof PDOException) {
+        if (wantsPage() && !headers_sent()) oopsPage($code, $error->getMessage());
         reply(['error'=>$error->getMessage()], $code);
     }
     error_log(get_class($error));
+    if (wantsPage() && !headers_sent()) oopsPage(500, '');
     reply(['error'=>'Sunucu isteği tamamlayamadı.'], 500);
 } catch (Throwable $error) {
     error_log(get_class($error));
+    if (wantsPage() && !headers_sent()) oopsPage(500, '');
     reply(['error'=>'Sunucu isteği tamamlayamadı.'], 500);
 }

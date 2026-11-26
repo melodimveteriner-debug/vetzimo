@@ -672,6 +672,37 @@ export async function mountCenterSuite(ui,session){
    el('p',current?current.plan_name+' · '+current.ends_on+' tarihine kadar':'Geçerli abonelik bulunmuyor.'),
    el('h3','Şubeler'),table(['Şube','Durum','Veri düzeni'],data.branches.map(b=>[b.name,b.status,b.sharedWith?'Ortak':'Bağımsız'])),
    agreementBox,el('h3','Üyelikler'),filters,results);
+  // Saklama durumu ve tamamen silme (yalnız merkez yöneticisi; şifre + iki adımlı doğrulama + bayi adı).
+  const ret=data.retention||{};
+  const fmt=d=>d?new Date(d+'T00:00:00').toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'}):'';
+  const retText={active:'Abonelik/demo '+fmt(ret.ends)+' tarihine kadar geçerli.',retention:'Süresi '+fmt(ret.ends)+' tarihinde doldu. Veriler '+fmt(ret.keepUntil)+' tarihine kadar saklanır; bu tarihten sonra girişler otomatik kapatılır.',
+   'retention-over':'Saklama süresi '+fmt(ret.keepUntil)+' tarihinde doldu; girişler kapatıldı. Bayiyi aşağıdan tamamen silebilirsiniz.',unmanaged:'Bu bayiye henüz abonelik tanımlanmadı.'}[ret.state]||'';
+  if(retText)content.append(el('p',retText,{className:'center-retention'+(ret.state==='retention-over'?' is-over':'')}));
+  if(data.canPurge){
+   const zone=el('section','',{className:'center-danger'});
+   const open=button('Bayiyi ve tüm verilerini sil',async()=>{
+    open.disabled=true;
+    try{
+     const sum=await call('partner-purge?'+new URLSearchParams({id}));
+     const counts=el('ul');for(const [k,v] of Object.entries(sum.counts))counts.append(el('li',k+': '+Number(v).toLocaleString('tr-TR')));
+     const name=field('confirmName','Onay için bayi adını birebir yazın: '+sum.partner.name,{maxLength:160});
+     const pass=field('password','Yönetici şifreniz',{type:'password',autocomplete:'current-password'});
+     const otp=field('otp','Doğrulama uygulamasındaki 6 haneli kod',{inputMode:'numeric',maxLength:6,autocomplete:'one-time-code'});
+     const form=makeForm([name,pass,otp],'Kalıcı olarak sil',async values=>{
+      const r=await call('partner-purge',{partnerId:id,...values});
+      status.textContent=r.name+' ve tüm verileri silindi ('+Number(r.rows).toLocaleString('tr-TR')+' kayıt).';
+      await list();
+     });
+     form.querySelector('button[type=submit]')?.classList.add('danger');
+     zone.replaceChildren(el('h3','Bayiyi kalıcı olarak sil'),
+      el('p','Bu işlem geri alınamaz. Bayi, tüm şubeleri, ekip ve hasta sahibi hesapları, klinik kayıtları, mesajları, web sitesi ve görselleri, ödemeleri ve abonelik geçmişi veritabanından silinir. '+sum.files),
+      counts,form);
+    }catch(e){status.textContent=e.message;open.disabled=false;}
+   });
+   open.classList.add('danger');
+   zone.append(el('h3','Tehlikeli bölge'),el('p','Bayiyi ve şubelerine ait tüm verileri kalıcı olarak silmek için yönetici şifreniz ve iki adımlı doğrulama kodunuz istenir.'),open);
+   content.append(zone);
+  }
   const finance=el('section','',{className:'center-card'});
   const report=el('div');
   const period=selectField('period','Dönem',[['day','Günlük'],['week','Haftalık'],['month','Aylık'],['all','Tüm zamanlar'],['custom','Tarih aralığı']]);

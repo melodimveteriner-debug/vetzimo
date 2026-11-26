@@ -162,6 +162,33 @@ final class Center
         $q=$this->db->prepare('SELECT m.id,m.name,m.role,m.branch_id,m.status,m.modules,a.identifier AS phone FROM identity_membership m JOIN identity_account a ON a.id=m.account_id WHERE m.partner_id=? ORDER BY m.name');$q->execute([$id]);
         return ['partner'=>$partner,'branches'=>$branches,'members'=>$q->fetchAll()];
     }
+    /** Geri alınamaz işlemler için anlık onay: merkez yöneticisinin şifresi + yeni bir iki adımlı doğrulama kodu (kod bir kez kullanılır). */
+    public function confirmOwner(array $actor, object $body, string $ip, int $now): void
+    {
+        if ((int)($actor['is_owner'] ?? 0) !== 1) throw new RuntimeException('Bu işlemi yalnız merkez yöneticisi (sahip hesap) yapabilir.',403);
+        $limiter = new DealerLogin($this->db,$this->config['rateSecret']);
+        $limiter->throttle('center-confirm-ip:'.$ip,$now);
+        $limiter->throttle('center-confirm-account:'.$actor['account_id'],$now);
+        $password = $body->password ?? null;
+        $otp = $body->otp ?? null;
+        if (!is_string($password) || $password==='' || strlen($password)>512 || !is_string($otp) || !preg_match('/\A\d{6}\z/',trim($otp))) {
+            throw new RuntimeException('Yönetici şifresi ve altı haneli doğrulama kodu gerekli.',422);
+        }
+        $this->db->beginTransaction();
+        try {
+            $q = $this->db->prepare('SELECT password_hash,totp_seed,totp_step FROM identity_account WHERE id=? AND blocked=0 FOR UPDATE');
+            $q->execute([$actor['account_id']]);
+            $account = $q->fetch();
+            if (!$account || !password_verify($password,(string)$account['password_hash'])) throw new RuntimeException('Yönetici şifresi doğrulanamadı.',422);
+            $step = Totp::verify(Totp::decrypt($account['totp_seed'],$this->config['encryptionKey']),trim($otp),$now,(int)$account['totp_step']);
+            if ($step === null) throw new RuntimeException('Doğrulama kodu geçersiz, süresi geçmiş veya kullanılmış. Uygulamada bir sonraki kodu bekleyin.',422);
+            $this->db->prepare('UPDATE identity_account SET totp_step=? WHERE id=?')->execute([$step,$actor['account_id']]);
+            $this->db->commit();
+        } catch (\Throwable $error) {
+            $this->db->rollBack();
+            throw $error;
+        }
+    }
     public function reauthenticate(array $actor, array $cookies, object $body, string $ip, int $now): void
     {
         $limiter = new DealerLogin($this->db,$this->config['rateSecret']);

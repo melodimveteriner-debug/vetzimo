@@ -7,7 +7,7 @@ import {mountAccessLayout} from "./access-layout.js?v=20261125-r65";
 import {paginate} from "./paged.js?v=2";
 import {mountCenterSuite,opsFetch} from "./center-ops.js";
 import {vaccineLabels} from "./vaccine-progress.js";
-import {openSignDialog,openConsentViewer,consentStatus} from "./consent-sign.js?v=2";
+import {openSignDialog,openConsentViewer,consentStatus} from "./consent-sign.js?v=3";
 const view=document.querySelector("#view");
 const status=document.querySelector("#status");
 const captchaBox=document.querySelector("#captcha");
@@ -240,13 +240,14 @@ function login(mode="login") {
   if (activation && !center) {
     fetch("/api/identity/phone/activation?token="+encodeURIComponent(fragment[1]||"")).then(r=>r.ok?r.json():null).then(async info=>{
       if (!info?.agreementRequired || !form.isConnected) return;
-      const {agreementPanel}=await import("./agreement-ui.js?v=2");
-      agreement=agreementPanel({agreement:info.agreement,tr:uiLabel,acceptLabel:"Şifrenizi belirleyip “Onayla” dediğinizde sözleşme imzalanır ve hesabınız açılır.",onReject:()=>{
+      const {agreementPanel}=await import("./agreement-ui.js?v=3");
+      const submit=form.querySelector('[type="submit"]');
+      if (submit) { if(!form.id) form.id="activationForm"; submit.setAttribute("form",form.id); }
+      agreement=agreementPanel({agreement:info.agreement,tr:uiLabel,acceptButton:submit,acceptLabel:"Şifrenizi belirleyip “Onayla” dediğinizde sözleşme imzalanır ve hesabınız açılır.",onReject:()=>{
         agreement=null;
         view.replaceChildren(el("h1",uiLabel("Hesabınız açılmadı")),el("p",uiLabel("VetZimo Kullanım Sözleşmesi onaylanmadığı için bayi hesabınız (deneme dahil) açılmadı. Aynı bağlantıyla süresi dolmadan dilediğiniz zaman geri dönüp onaylayabilirsiniz.")),(()=>{const again=el("button",uiLabel("Sözleşmeyi yeniden incele"),{type:"button",className:"button"});again.addEventListener("click",()=>login("redeem"));return again})());
       }});
-      form.before(agreement.node);
-      const submit=form.querySelector('[type="submit"]');
+      form.after(agreement.node);
       if (submit) submit.textContent=uiLabel("Kabul ediyorum, imzala ve hesabımı aç");
     }).catch(()=>{});
   }

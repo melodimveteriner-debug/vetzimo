@@ -509,7 +509,7 @@ final class WebBuilderPublic
         $strip=$phone!==''?'<div class="top-strip"><div><span>Acil durumda bizi arayın</span><a href="tel:'.self::e($phone).'" data-ui-preserve>'.self::e($phone).'</a></div></div>':'';
         $homeCareLink=$preview?'':' <a href="'.self::href($base,'evden-takip').'">Evden Takip</a>';
         $html='<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'.
-            self::e($seoTitle).'</title>'.$head.'<link rel="stylesheet" href="/web-builder-site.css?v=55"><link rel="stylesheet" href="/web-builder-themes.css?v=3"><script src="/web-builder-site.js?v=39" defer></script>'.
+            self::e($seoTitle).'</title>'.$head.'<link rel="stylesheet" href="/web-builder-site.css?v=55"><link rel="stylesheet" href="/web-builder-themes.css?v=3"><script src="/web-builder-site.js?v=39" defer></script><script src="/scroll-top.js?v=1" defer></script>'.
             ($toolsPage&&!$notFound?'<link rel="stylesheet" href="/web-tools.css?v=1"><script type="module" src="/web-tools.js?v=1"></script>':'').
             ($visitPage?'<script src="/visit-live-map.js?v=1" defer></script><script src="/home-visits.js?v=62" defer></script>':'').'</head>'.
             '<body class="theme-'.self::e($d['theme']).' palette-'.self::e($d['palette']).'"><a class="skip" href="#icerik">İçeriğe geç</a><header class="site-header">'.$strip.'<div class="header-inner">'.

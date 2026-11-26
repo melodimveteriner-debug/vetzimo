@@ -27,7 +27,7 @@ $open=$permits->open($token,$now);
 ok(str_contains($open['doc']['notice'],'Pati Veteriner Kliniği') && str_contains($open['doc']['notice'],'Odunpazarı') && !preg_match('/\{(klinik|adres|telefon|eposta)\}/',$open['doc']['notice']),'Aydınlatma metni klinik bilgisiyle doldurulmadı');
 ok(count($open['doc']['platform'])===4 && count($open['doc']['choices'])===4,'Platform metinleri veya izin seçenekleri eksik');
 $html=ClientPermit::html($open['doc'],$open['hash'],'sign');
-ok(!preg_match('/<input type="checkbox" name="(sms|whatsapp|email|marketing)" checked/',$html) && str_contains($html,'Onay vermiyorum'),'İzinler önceden işaretli geliyor');
+ok(!preg_match('/<input type="checkbox" name="(sms|whatsapp|email|marketing)" checked/',$html) && str_contains($html,'Onaylamıyorum'),'İzinler önceden işaretli geliyor');
 $bad=[(object)['decision'=>'sign','signerName'=>'Ayşe Yılmaz','read'=>false,'signature'=>$sign(),'hash'=>$open['hash']],
   (object)['decision'=>'sign','signerName'=>'Ayşe Yılmaz','read'=>true,'signature'=>'data:image/png;base64,AAAA','hash'=>$open['hash']],
   (object)['decision'=>'sign','signerName'=>'A','read'=>true,'signature'=>$sign(),'hash'=>$open['hash']],

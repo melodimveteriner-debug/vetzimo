@@ -1,4 +1,9 @@
 Options -Indexes
+# Sunucu düzeyindeki hatalarda ham hata yerine "Oops!" sayfası
+ErrorDocument 403 /oops.html
+ErrorDocument 500 /oops.html
+ErrorDocument 502 /oops.html
+ErrorDocument 503 /oops.html
 DirectoryIndex index.php
 RewriteEngine On
 RewriteRule "(^|/)(?:\.git|\.svn|\.env(?:\.[^/]*)?)(/|$)" - [F,END,NC]

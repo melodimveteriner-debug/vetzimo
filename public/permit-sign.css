@@ -27,10 +27,11 @@ a{color:var(--accent)}
 .pm-hint{font-size:.82rem;color:var(--muted)}
 .pm-link{justify-self:start;border:0;background:none;color:var(--accent);font:inherit;text-decoration:underline;cursor:pointer;padding:0}
 .pm-error{color:#dc2626;font-weight:600;margin:0;min-height:1.2em}
-.pm-actions{display:flex;flex-wrap:wrap;gap:10px}
+.pm-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:10px}
 .pm-primary,.pm-secondary,.pm-print button{padding:13px 22px;border-radius:12px;font:inherit;font-weight:700;cursor:pointer}
-.pm-primary{border:0;background:var(--accent);color:#fff;flex:1 1 220px}
-.pm-secondary{border:1px solid var(--line);background:var(--paper);color:var(--ink)}
+.pm-primary{border:0;background:var(--accent);color:#fff;width:100%}
+/* Onaylamıyorum: kırmızı zemin, beyaz yazı; dar ekranda onay düğmesinin altına iner */
+.pm-secondary{border:0;background:#dc2626;color:#fff;width:100%}.pm-secondary:hover{background:#b91c1c}
 button:disabled{opacity:.6;cursor:wait}
 .pm-given{margin:0;padding-left:0;list-style:none;display:grid;gap:6px}
 .pm-signature{max-width:100%;width:420px;border:1px solid var(--line);border-radius:10px;background:#fff}

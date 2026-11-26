@@ -437,7 +437,7 @@ TXT;
         $onboard = $mode === 'sign' && !empty($doc['onboard']);
         $legal = !empty($doc['legalUrl']) ? '<p class="pm-legal"><a href="'.$e($doc['legalUrl']).'" target="_blank" rel="noopener">Kliniğin tüm yasal metinleri (KVKK, açık rıza, gizlilik, çerez, kullanım koşulları) ↗</a></p>' : '';
         $head = '<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow">'
-            .'<title>'.$e($onboard ? $doc['clinic']['klinik'].' · Hoş geldiniz' : $doc['title']).'</title><link rel="stylesheet" href="/permit-sign.css?v=3"></head><body><main class="pm">'
+            .'<title>'.$e($onboard ? $doc['clinic']['klinik'].' · Hoş geldiniz' : $doc['title']).'</title><link rel="stylesheet" href="/permit-sign.css?v=4"></head><body><main class="pm">'
             .'<div id="pmFlow"><header class="pm-head"><span class="pm-badge">'.$e($doc['clinic']['klinik']).'</span><h1>'.$e($onboard ? 'Hoş geldiniz! Önce kısa bir onay' : $doc['title']).'</h1>'
             .($onboard
                 ? '<p>Sayın <b>'.$e($doc['client'] ?: 'Müşterimiz').'</b>, <b>'.$e($doc['clinic']['klinik']).'</b> ailesine hoş geldiniz. Hasta sahibi hesabınızı açmadan önce kişisel verilerinizin işlenmesine ilişkin bilgilendirmeyi okuyup onayınızı imzanızla vermeniz gerekir. Onayladıktan sonra aynı sayfada şifrenizi oluşturacaksınız.</p>'
@@ -453,7 +453,7 @@ TXT;
                 .'<label class="pm-field">Adınız ve soyadınız<input name="signerName" autocomplete="name" maxlength="120" required></label>'
                 .'<div class="pm-sign"><canvas id="pmPad" width="900" height="300" aria-label="İmza alanı"></canvas><button type="button" id="pmClear" class="pm-link">İmzayı temizle</button><span class="pm-hint">Parmağınızla veya kalemle imzanızı atın</span></div>'
                 .'<p class="pm-error" id="pmError" role="alert"></p>'
-                .'<div class="pm-actions"><button type="submit" class="pm-primary">'.($onboard ? 'Okudum, onaylıyorum ve imzalıyorum' : 'Onayla ve imzala').'</button><button type="button" id="pmDecline" class="pm-secondary">'.($onboard ? 'Onaylamıyorum' : 'Onay vermiyorum').'</button></div>'
+                .'<div class="pm-actions"><button type="submit" class="pm-primary">'.($onboard ? 'Okudum, onaylıyorum ve imzalıyorum' : 'Onaylıyorum ve imzalıyorum').'</button><button type="button" id="pmDecline" class="pm-secondary">'.'Onaylamıyorum'.'</button></div>'
                 .'<p class="pm-muted">Belge kimliği: <code>'.$e(substr($hash, 0, 16)).'</code> · İmzaladığınızda tarih, saat ve cihaz bilgisi kayıt altına alınır.</p></form>'
                 .'<section class="pm-card pm-done" id="pmDone" hidden><h2>Teşekkürler</h2><p id="pmDoneText"></p></section></div>'
                 .($onboard ? self::moods($e) : '')

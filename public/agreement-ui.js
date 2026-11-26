@@ -1,6 +1,6 @@
 // VetZimo Kullanım Sözleşmesi onay ve imza paneli (aktivasyon sayfası ve mevcut bayilerin ilk girişi).
 // Sözleşme okunur, ad soyad yazılır, imza atılır ve onay kutusu işaretlenir; "Kabul etmiyorum" seçilirse hesap açılmaz.
-const css = "/agreement-ui.css?v=2";
+const css = "/agreement-ui.css?v=3";
 const h = (tag, props = {}, ...kids) => {
   const n = document.createElement(tag);
   for (const [k, v] of Object.entries(props)) {
@@ -12,8 +12,9 @@ const h = (tag, props = {}, ...kids) => {
   return n;
 };
 
-/** {agreement, tr, acceptLabel, onReject} → {node, value(): {accepted,name,title,signature,hash} | throws} */
-export function agreementPanel({agreement, tr = s => s, acceptLabel = "", onReject}) {
+/** {agreement, tr, acceptLabel, onReject, acceptButton} → {node, value(): {accepted,name,title,signature,hash} | throws}
+ *  acceptButton: sayfanın onay düğmesi; "Kabul ediyorum" önce, kırmızı "Kabul etmiyorum" yanında (dar ekranda altında) durur. */
+export function agreementPanel({agreement, tr = s => s, acceptLabel = "", onReject, acceptButton = null}) {
   if (!document.querySelector(`link[href="${css}"]`)) document.head.append(h("link", {rel: "stylesheet", href: css}));
   const date = agreement.effective_on ? new Date(agreement.effective_on + "T12:00:00").toLocaleDateString(document.documentElement.lang || "tr", {day: "numeric", month: "long", year: "numeric"}) : "";
   const doc = h("div", {class: "ag-doc", tabindex: "0", role: "document", "aria-label": agreement.title, html: agreement.html});
@@ -54,7 +55,8 @@ export function agreementPanel({agreement, tr = s => s, acceptLabel = "", onReje
       h("label", {}, h("span", {text: tr("Unvanı (isteğe bağlı)")}), title)),
     h("div", {class: "ag-sign"}, h("span", {text: tr("İmza")}), canvas, h("div", {class: "ag-sign-tools"}, h("small", {text: tr("Parmağınızla, kalemle veya fareyle imzalayın.")}), clear)),
     h("label", {class: "ag-accept"}, consent, h("span", {text: tr("Sözleşmenin tamamını okudum, anladım; işletmeyi temsile yetkili olduğumu ve sözleşmeyi elektronik imzamla kabul ettiğimi beyan ederim.")})),
-    h("div", {class: "ag-actions"}, reject, acceptLabel ? h("span", {class: "ag-accept-hint", text: tr(acceptLabel)}) : null));
+    acceptLabel ? h("p", {class: "ag-accept-hint", text: tr(acceptLabel)}) : null,
+    h("div", {class: "ag-actions"}, acceptButton, reject));
   const value = () => {
     if (!reachedEnd) { doc.focus(); throw Error(tr("Lütfen sözleşmeyi sonuna kadar okuyun.")); }
     if (name.value.trim().split(/\s+/).length < 2) { name.focus(); throw Error(tr("İmzalayan kişinin adını ve soyadını yazın.")); }
@@ -96,7 +98,7 @@ export function agreementGate({fetch: api, scope, tr = s => s, canSign, onSigned
         box.remove(); onSigned?.();
       } catch (e) { msg.textContent = e.message; accept.disabled = false; }
     }});
-    panel.node.querySelector(".ag-actions").append(accept);
+    panel.node.querySelector(".ag-actions").prepend(accept);
     card.append(panel.node, msg);
   }).catch(e => { card.replaceChildren(h("p", {text: e.message}), out); });
 }

@@ -1,4 +1,5 @@
 import {sitePalettes,validPalette} from "./theme.js?v=2";
+import "./scroll-top.js?v=1";
 
 const menu=document.querySelector(".nav-toggle");
 menu.addEventListener("click",()=>menu.setAttribute("aria-expanded",String(menu.getAttribute("aria-expanded")!=="true")));
@@ -65,7 +66,7 @@ if (form) {
       const result=await response.json();
       if (!response.ok) throw Error(result.error||"Başvuru kaydedilemedi.");
       if (result.verify) {
-        const {mountDemoVerify}=await import("./demo-verify.js?v=2");
+        const {mountDemoVerify}=await import("./demo-verify.js?v=3");
         await mountDemoVerify(form,{reference:result.reference,phone:result.phone});
         return;
       }
