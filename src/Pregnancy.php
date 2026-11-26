@@ -27,7 +27,13 @@ final class Pregnancy
             mating DATE NOT NULL, ended DATE NULL, source VARCHAR(12) NOT NULL DEFAULT \'clinic\', author VARCHAR(120) NOT NULL DEFAULT \'\',
             updated_at INT UNSIGNED NOT NULL, PRIMARY KEY (partner_id,patient_id), KEY mating_idx (mating)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci');
-        if (!$this->db->query("SHOW COLUMNS FROM clinic_pregnancy LIKE 'litter'")->fetch()) $this->db->exec('ALTER TABLE clinic_pregnancy ADD COLUMN litter TINYINT UNSIGNED NULL');
+        $have=array_column($this->db->query('SHOW COLUMNS FROM clinic_pregnancy')->fetchAll(PDO::FETCH_ASSOC),'Field');
+        foreach (['litter'=>'TINYINT UNSIGNED NULL','healthy'=>'TINYINT UNSIGNED NULL','ended_by'=>'VARCHAR(12) NULL','ended_author'=>'VARCHAR(120) NULL','pet_name'=>"VARCHAR(120) NOT NULL DEFAULT ''"] as $col=>$type)
+            if (!in_array($col,$have,true)) $this->db->exec('ALTER TABLE clinic_pregnancy ADD COLUMN '.$col.' '.$type);
+        $this->db->exec('CREATE TABLE IF NOT EXISTS clinic_pregnancy_call (
+            partner_id VARCHAR(80) NOT NULL, patient_id VARCHAR(80) NOT NULL, mating DATE NOT NULL, milestone VARCHAR(12) NOT NULL,
+            called_by VARCHAR(120) NOT NULL, called_at INT UNSIGNED NOT NULL, PRIMARY KEY (partner_id,patient_id,mating,milestone)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci');
     }
 
     public static function today(): string
@@ -63,7 +69,8 @@ final class Pregnancy
     private static function row(array $r): array
     {
         $plan=self::plan($r['mating'],$r['species']);
-        return ['patient'=>$r['patient_id'],'ended'=>$r['ended'],'litter'=>isset($r['litter'])?(int)$r['litter']:null,'source'=>$r['source'],'author'=>$r['author']]+$plan;
+        return ['patient'=>$r['patient_id'],'ended'=>$r['ended'],'litter'=>isset($r['litter'])?(int)$r['litter']:null,'healthy'=>isset($r['healthy'])?(int)$r['healthy']:null,
+            'endedBy'=>$r['ended_by']??null,'endedAuthor'=>$r['ended_author']??null,'name'=>$r['pet_name']??'','source'=>$r['source'],'author'=>$r['author']]+$plan;
     }
 
     /** Etkin (ve doğumdan sonra 30 günü geçmemiş) kayıtlar. $ids null ise bayinin tümü. Süresi geçenler silinir. */
@@ -113,17 +120,68 @@ final class Pregnancy
             if ($ended>self::today()) throw new RuntimeException('Doğum tarihi ileri bir tarih olamaz.',422);
             $litter=isset($body->litter)&&$body->litter!==''&&$body->litter!==null?(int)$body->litter:null;
             if ($litter!==null && ($litter<1||$litter>20)) throw new RuntimeException('Yavru sayısı 1 ile 20 arasında olmalı.',422);
-            $this->db->prepare('UPDATE clinic_pregnancy SET ended=?,litter=?,updated_at=? WHERE partner_id=? AND patient_id=?')->execute([$ended,$litter,$now,$partner,$patient]);
+            $healthy=isset($body->healthy)&&$body->healthy!==''&&$body->healthy!==null?(int)$body->healthy:null;
+            if ($healthy!==null && ($healthy<0||$healthy>20||($litter!==null&&$healthy>$litter))) throw new RuntimeException('Sağlıklı yavru sayısı toplam yavru sayısını geçemez.',422);
+            $this->db->prepare('UPDATE clinic_pregnancy SET ended=?,litter=?,healthy=?,ended_by=?,ended_author=?,updated_at=? WHERE partner_id=? AND patient_id=?')
+                ->execute([$ended,$litter,$healthy,$source,mb_substr($author,0,120),$now,$partner,$patient]);
             return ['pregnancy'=>$this->forPatients($partner,[$patient])[$patient] ?? null];
         }
         $mating=self::date($body->mating ?? null);
         $today=self::today();
         if ($mating>$today) throw new RuntimeException('Çiftleşme tarihi ileri bir tarih olamaz.',422);
         if ($mating<self::add($today,-75)) throw new RuntimeException('Bu çiftleşme tarihine göre doğum süresi geçmiş görünüyor. Tarihi kontrol edin.',422);
-        $this->db->prepare('INSERT INTO clinic_pregnancy(partner_id,patient_id,species,mating,ended,source,author,updated_at) VALUES (?,?,?,?,NULL,?,?,?)
-            ON DUPLICATE KEY UPDATE species=VALUES(species),mating=VALUES(mating),ended=NULL,source=VALUES(source),author=VALUES(author),updated_at=VALUES(updated_at)')
-            ->execute([$partner,$patient,$species,$mating,$source,mb_substr($author,0,120),$now]);
+        $name=mb_substr(trim((string)($body->name ?? '')),0,120);
+        $this->db->prepare('INSERT INTO clinic_pregnancy(partner_id,patient_id,species,mating,ended,source,author,pet_name,updated_at) VALUES (?,?,?,?,NULL,?,?,?,?)
+            ON DUPLICATE KEY UPDATE species=VALUES(species),mating=VALUES(mating),ended=NULL,litter=NULL,healthy=NULL,ended_by=NULL,ended_author=NULL,source=VALUES(source),author=VALUES(author),
+            pet_name=IF(VALUES(pet_name)<>\'\',VALUES(pet_name),pet_name),updated_at=VALUES(updated_at)')
+            ->execute([$partner,$patient,$species,$mating,$source,mb_substr($author,0,120),$name,$now]);
         return ['pregnancy'=>$this->forPatients($partner,[$patient])[$patient] ?? null];
+    }
+
+    /** Sağ üst klinik uyarıları: hasta sahibinin bildirdiği doğum ve vakti gelen ultrason / röntgen / doğum sonrası kontrol. */
+    public function alerts(string $partner,string $today): array
+    {
+        $calls=[];
+        try {
+            $q=$this->db->prepare('SELECT patient_id,mating,milestone,called_by,called_at FROM clinic_pregnancy_call WHERE partner_id=?');
+            $q->execute([$partner]);
+            foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $c) $calls[$c['patient_id'].':'.$c['mating'].':'.$c['milestone']]=$c;
+        } catch (\PDOException) {}
+        $out=[];
+        foreach ($this->forPatients($partner) as $p) {
+            $pet=$p['name']!==''?$p['name']:'Hasta';
+            $base=$p['patient'].':'.$p['mating'].':';
+            $list=[];
+            if ($p['ended'] && $p['endedBy']==='owner') {
+                $litter=$p['litter']!==null?$p['litter'].' yavru':'Yavru sayısı belirtilmedi';
+                $healthy=$p['healthy']!==null?', '.$p['healthy'].' sağlıklı':'';
+                $list[]=['birth','ok','Doğum gerçekleşti · '.$pet,'Hasta sahibi bildirdi ('.($p['endedAuthor'] ?: 'hasta sahibi').'): '.$litter.$healthy.' · '.(new \DateTimeImmutable($p['ended']))->format('d.m.Y'),$p['ended']];
+            }
+            $control=self::add($p['ended'] ?: $p['birth'],7);
+            if (!$p['ended'] && $p['us']<=$today && $p['xray']>$today) $list[]=['us','warn','Ultrason zamanı geldi · '.$pet,'30. gün ultrasonu '.(new \DateTimeImmutable($p['us']))->format('d.m.Y').'. Hasta sahibini arayıp randevu verin.',$p['us']];
+            if (!$p['ended'] && $p['xray']<=$today) $list[]=['xray','warn','Röntgen zamanı geldi · '.$pet,'45. gün röntgeni (yavru sayısı, normal doğum / sezaryen) '.(new \DateTimeImmutable($p['xray']))->format('d.m.Y').'. Hasta sahibini arayın.',$p['xray']];
+            if ($control<=$today && ($p['ended'] || $p['birth']<=$today)) $list[]=['control','warn','Doğum sonrası kontrol zamanı · '.$pet,'Anne ve yavruların kontrolü '.(new \DateTimeImmutable($control))->format('d.m.Y').'. Hasta sahibini arayıp randevu verin.',$control];
+            foreach ($list as [$m,$tone,$title,$body,$date]) {
+                $call=$calls[$base.$m] ?? null;
+                if ($call) $body.=' · ✓ Arandı: '.$call['called_by'].' ('.(new \DateTimeImmutable('@'.$call['called_at']))->setTimezone(new \DateTimeZone('Europe/Istanbul'))->format('d.m.Y H:i').')';
+                $out[]=['key'=>'pregnancy:'.$base.$m,'kind'=>'pregnancy','tone'=>$call?'ok':$tone,'title'=>$title,'body'=>$body,
+                    'href'=>'#patient/'.rawurlencode($p['patient']),'time'=>$call?(int)$call['called_at']:(int)strtotime($date.' 09:00 +03:00'),'auto'=>false,
+                    'callable'=>true,'called'=>$call?['by'=>$call['called_by'],'at'=>(int)$call['called_at']]:null];
+            }
+        }
+        return $out;
+    }
+
+    /** "Arandı" işareti: kimin aradığı kaydedilir. */
+    public function called(string $partner,string $key,string $by,int $now): void
+    {
+        if (!preg_match('/\Apregnancy:([A-Za-z0-9_-]{1,80}):(\d{4}-\d{2}-\d{2}):(birth|us|xray|control)\z/',$key,$m)) throw new RuntimeException('Bildirim geçersiz.',422);
+        $this->ensure();
+        $exists=$this->db->prepare('SELECT 1 FROM clinic_pregnancy WHERE partner_id=? AND patient_id=? AND mating=?');
+        $exists->execute([$partner,$m[1],$m[2]]);
+        if (!$exists->fetchColumn()) throw new RuntimeException('Gebelik kaydı bulunamadı.',404);
+        $this->db->prepare('INSERT INTO clinic_pregnancy_call(partner_id,patient_id,mating,milestone,called_by,called_at) VALUES (?,?,?,?,?,?)
+            ON DUPLICATE KEY UPDATE called_by=VALUES(called_by),called_at=VALUES(called_at)')->execute([$partner,$m[1],$m[2],$m[3],mb_substr($by,0,120),$now]);
     }
 
     /** Hatırlatma zamanları: ultrason (30. gün), röntgen (45. gün), doğumdan 1 gün önce, aylık parazit. */

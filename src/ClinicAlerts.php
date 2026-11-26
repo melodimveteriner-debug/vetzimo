@@ -12,7 +12,7 @@ use PDO;
  */
 final class ClinicAlerts
 {
-    private const KINDS = ['inbox', 'permit', 'job', 'phone', 'web', 'subscription', 'device'];
+    private const KINDS = ['inbox', 'permit', 'job', 'phone', 'web', 'subscription', 'device', 'pregnancy'];
 
     public function __construct(private readonly PDO $db) {}
 
@@ -80,6 +80,10 @@ final class ClinicAlerts
             $r = $q->fetch(PDO::FETCH_ASSOC);
             if ((int)$r['n'] > 0) $items[] = ['key' => 'device:'.$r['t'].':'.$r['n'], 'kind' => 'device', 'tone' => 'warn', 'title' => 'Eşleşmeyen cihaz sonucu',
                 'body' => $r['n'].' tetkik sonucu hastaya bağlanmayı bekliyor. Aynı adlı hastalardan doğru olanı seçin.', 'href' => '#cihaz-entegrasyonu', 'time' => (int)$r['t'], 'auto' => true];
+        });
+        if (ClinicAccess::allowed($actor, 'patients') && class_exists(Pregnancy::class)) $safe(function () use (&$items, $partner, $now) {
+            $today = (new \DateTimeImmutable('@'.$now))->setTimezone(new \DateTimeZone('Europe/Istanbul'))->format('Y-m-d');
+            foreach ((new Pregnancy($this->db))->alerts($partner, $today) as $item) $items[] = $item;
         });
         if (($actor['role'] ?? '') === 'dealer') $safe(function () use (&$items, $partner, $now) {
             $day = (new \DateTimeImmutable('@'.$now))->setTimezone(new \DateTimeZone('Europe/Istanbul'));

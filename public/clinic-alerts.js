@@ -2,7 +2,7 @@
 // Yeni uyarı gelince kart düşer (önemli olanlar kapatılana kadar kalır); "Tamamlandı" ya da "Aç" ile işlem yapılan uyarı
 // kişi bazında listeden kalkar. Okunan mesaj ve çözülen işler sunucuda kendiliğinden düşer.
 const STYLE = "/clinic-alerts.css?v=1";
-const ICON = {inbox: "💬", permit: "🛡", job: "⚠", phone: "📱", web: "🌐", subscription: "⏳", device: "🧪"};
+const ICON = {pregnancy: "🍼", inbox: "💬", permit: "🛡", job: "⚠", phone: "📱", web: "🌐", subscription: "⏳", device: "🧪"};
 let api, scope, tr = s => s, onChange = () => {}, items = [], seen = new Set(), timer = 0, stack, started = false;
 
 const h = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
@@ -55,6 +55,21 @@ export async function ack(keys) {
   } catch {}
 }
 
+// Gebelik uyarıları: "Arandı" kimin aradığını kaydeder; uyarı "Tamamlandı" denene kadar notla birlikte kalır.
+async function called(item) {
+  try {
+    const r = await api("/api/clinic/alerts", {method: "POST", headers: {"Content-Type": "application/json", "X-VeTNet-Scope": scope}, body: JSON.stringify({call: item.key})});
+    if (!r.ok) return;
+    stack?.querySelector(`[data-key="${CSS.escape(item.key)}"]`)?.remove();
+    set((await r.json()).items || [], false);
+  } catch {}
+}
+function callButton(item) {
+  if (!item.callable || item.called) return [];
+  const b = h("button", "ca-btn", "📞 " + tr("Arandı")); b.type = "button"; b.addEventListener("click", () => called(item));
+  return [b];
+}
+
 function open(item) {
   if (!item.auto) ack(item.key);
   else stack?.querySelector(`[data-key="${CSS.escape(item.key)}"]`)?.remove();
@@ -70,7 +85,7 @@ function toast(item) {
   const actions = h("div", "ca-toast-actions");
   const go = h("button", "ca-btn primary", tr("Aç")); go.type = "button"; go.addEventListener("click", () => open(item));
   const done = h("button", "ca-btn", tr("Tamamlandı")); done.type = "button"; done.addEventListener("click", () => ack(item.key));
-  actions.append(go, done);
+  actions.append(go, ...callButton(item), done);
   body.append(actions);
   const close = h("button", "ca-x", "×"); close.type = "button"; close.setAttribute("aria-label", tr("Kapat")); close.addEventListener("click", () => t.remove());
   t.append(icon, body, close);
@@ -95,7 +110,7 @@ export function render(root) {
     const actions = h("div", "ca-toast-actions");
     const go = h("button", "ca-btn primary", tr("Aç")); go.type = "button"; go.addEventListener("click", () => open(item));
     const done = h("button", "ca-btn", tr("Tamamlandı")); done.type = "button"; done.addEventListener("click", () => ack(item.key));
-    actions.append(go, done);
+    actions.append(go, ...callButton(item), done);
     li.append(text, actions);
     ul.append(li);
   }

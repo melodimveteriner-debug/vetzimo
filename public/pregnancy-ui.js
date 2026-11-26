@@ -127,12 +127,14 @@ export function mountPregnancy(root, opts) {
     const count = el("input", "", {type: "number", min: 1, max: 20, placeholder: "4", inputMode: "numeric"});
     const l1 = el("label", tr("Doğum tarihi")); l1.append(date);
     const l2 = el("label", tr("Yavru sayısı")); l2.append(count);
+    const healthy = el("input", "", {type: "number", min: 0, max: 20, inputMode: "numeric"});
+    const l3 = el("label", tr("Sağlıklı yavru")); l3.append(healthy);
     const ok = el("button", "🍼 " + tr("Kaydet"), {type: "submit", className: "pg-btn pg-btn-go"});
     const err = el("p", "", {className: "pg-err", role: "alert"});
-    form.append(l1, l2, ok, err);
+    form.append(l1, l2, l3, ok, err);
     form.addEventListener("submit", async e => {
       e.preventDefault(); ok.disabled = true;
-      try { item = await save({action: "end", ended: date.value, litter: count.value || null}); draw(); }
+      try { item = await save({action: "end", ended: date.value, litter: count.value || null, healthy: healthy.value === "" ? null : healthy.value}); draw(); }
       catch (x) { err.textContent = x.message || tr("Kaydedilemedi."); ok.disabled = false; }
     });
     return form;
@@ -161,6 +163,7 @@ export function mountPregnancy(root, opts) {
     for (const [ch, x, d] of [["♥", 12, 0], ["z", 38, 1.4], ["♥", 63, 2.3], ["z", 86, .7]]) { const f = el("i", ch); f.style.left = x + "%"; f.style.animationDelay = d + "s"; fx.append(f); }
     const caption = el("p", "", {className: "pg-litter-cap"});
     caption.append(el("strong", (item.litter ? n + " " : "") + tr(patient.species === "Kedi" ? "minik kedi yavrusu dünyaya geldi!" : "minik köpek yavrusu dünyaya geldi!")),
+      ...(item.healthy != null ? [el("span", "💚 " + item.healthy + " " + tr("sağlıklı") + (item.endedBy === "owner" ? " · " + tr("hasta sahibi bildirdi") : ""))] : item.endedBy === "owner" ? [el("span", tr("hasta sahibi bildirdi"))] : []),
       el("span", tr("Doğum sonrası kontrol") + ": " + fmt(item.control) + " · " + tr("aşılar") + " " + fmt(item.vaccineFrom) + " " + tr("sonrası")));
     scene.append(fx, nest, caption);
     return scene;

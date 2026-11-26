@@ -1262,7 +1262,13 @@ try {
         $alerts=new VetNet\Cpanel\ClinicAlerts($db);
         if ($method==='GET') reply($alerts->list($actor,$now));
         if (!hash_equals($actor['membership_id'],$_SERVER['HTTP_X_VETNET_SCOPE'] ?? '')) throw new RuntimeException('Çalışma alanı oturumu değişti.',409);
-        $alerts->ack($actor,input(20000)->keys ?? [],$now);
+        $alertBody=input(20000);
+        if (is_string($alertBody->call ?? null)) {
+            if (!VetNet\Cpanel\ClinicAccess::allowed($actor,'patients')) throw new RuntimeException('Hasta erişiminiz yok.',403);
+            (new VetNet\Cpanel\Pregnancy($db))->called($actor['partner_id'],$alertBody->call,(string)($actor['name'] ?? ''),$now);
+            reply($alerts->list($actor,$now));
+        }
+        $alerts->ack($actor,$alertBody->keys ?? [],$now);
         reply($alerts->list($actor,$now));
     }
     if ($path==='/api/agreement' && in_array($method,['GET','POST'],true)) {
