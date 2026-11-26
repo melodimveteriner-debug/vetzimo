@@ -806,7 +806,7 @@ function ownerSummary(data,panels,show,names) {
   stats.append(
     stat("appointments","Sıradaki randevu",a?dateText(a.date)+(a.time?" · "+a.time:""):uiLabel("Planlı randevu yok"),a?[names.get(a.patient),a.service].filter(Boolean).join(" · "):uiLabel("Kliniğinizden kolayca randevu alın"),panels.has("appointments")?"appointments":"","tone-a"),
     stat("syringe","Aşı ve parazit",vacs[0]?dateText(vacs[0].scheduledAt):uiLabel("Hepsi güncel"),vacs[0]?[names.get(vacs[0].patient),vacs[0].title].filter(Boolean).join(" · ")+(late?" · "+late+" "+uiLabel("gecikmiş"):""):uiLabel("Yaklaşan uygulama yok"),panels.has("health")?"health":"",late?"tone-late":"tone-b"),
-    stat("paw","Dostlarım",String(data.pets.length),uiLabel("kayıtlı hayvan"),"","tone-c"));
+    stat("paw","Dostlarım",String(data.pets.length),uiLabel("Kayıtlı Dostunuz"),"","tone-c"));
   wrap.append(stats);
   const quick=el("div","",{className:"op-quick"});
   const action=(icon,label,fn,href)=>{const x=el(href?"a":"button","",{className:"op-action"});if(href)x.href=href;else{x.type="button";x.addEventListener("click",fn);}x.innerHTML=ownerIcon(icon,22)+"<span></span>";x.querySelector("span").textContent=uiLabel(label);quick.append(x);};

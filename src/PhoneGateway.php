@@ -583,6 +583,16 @@ final class PhoneGateway
             $this->enqueue($partner, $channel, (string)($input->phone ?? ''), (string)($input->text ?? ''), 'test', bin2hex(random_bytes(12)), 0, $now, null, (string)($actor['name'] ?? ''));
             return $this->status($actor, $now);
         }
+        if ($action === 'remind') {
+            // Klinik ekranından (Genel Bakış satır menüsü) hatırlatma: mesaj kliniğin ücretsiz SMS / WhatsApp kuyruğuna alınır.
+            // Hangi cihazdan basılırsa basılsın sunucudaki kuyruğa düşer; kanal kapalıysa bekler, açılınca gönderilir.
+            $channel = $input->channel ?? '';
+            if (!in_array($channel, ['sms', 'whatsapp'], true)) throw new RuntimeException('Kanal seçin.', 422);
+            $ref = (string)($input->ref ?? '');
+            if (!preg_match('/\A[A-Za-z0-9:_.-]{3,150}\z/', $ref)) throw new RuntimeException('Kayıt geçersiz.', 422);
+            $id = $this->enqueue($partner, $channel, (string)($input->phone ?? ''), (string)($input->text ?? ''), 'reminder', 'home:'.$ref.':'.$channel, 1, $now, null, (string)($actor['name'] ?? ''));
+            return ['queued' => $id, 'device' => $this->hasDevice($partner), 'channel' => $channel, 'enabled' => (bool)$this->route($partner, $channel)];
+        }
         $id = $input->id ?? null;
         if (!is_int($id)) throw new RuntimeException('Kayıt bulunamadı.', 404);
         $q = $this->db->prepare('SELECT * FROM phone_outbox WHERE id=? AND partner_id=?');
