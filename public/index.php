@@ -834,6 +834,7 @@ try {
             }
             if ($action==='external-import' && $method==='POST') {
                 if (!hash_equals($actor['account_id'],$_SERVER['HTTP_X_VETNET_SCOPE'] ?? '')) throw new RuntimeException('Yönetici oturumu değişti.',409);
+                VetNet\Cpanel\ExternalImport::headroom();
                 $body=input(VetNet\Cpanel\WorkspaceRepository::WRITE_REQUEST_BYTES);
                 if (!is_object($body->data ?? null) || !is_string($body->branch ?? null)
                     || ($body->data->format ?? '')!=='vetnet-kolayvet-v1' || !is_object($body->data->records ?? null)) {

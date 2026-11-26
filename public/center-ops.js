@@ -5,7 +5,9 @@ let opsFeatureFields={};
 export async function opsFetch(path,body,scope){
  const headers=scope?{'X-VeTNet-Scope':scope}:{};
  const response=await fetch(path,body?{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify(body)}:{headers});
- const data=await response.json();if(!response.ok)throw Error(data.error||'İşlem tamamlanamadı.');return data;
+ const text=await response.text();let data;
+ try{data=JSON.parse(text);}catch{throw Error(response.ok||response.status>=500?'Sunucu yanıtı yarıda kesildi (HTTP '+response.status+'). Sunucunun PHP bellek veya süre sınırı yetersiz olabilir; cPanel › PHP seçenekleri › memory_limit en az 512M yapıp tekrar deneyin.':'İşlem tamamlanamadı (HTTP '+response.status+').');}
+ if(!response.ok)throw Error(data.error||'İşlem tamamlanamadı.');return data;
 }
 export async function mountCenterSuite(ui,session){
  const {uiText,uiLabel,mountLanguageSelect,view,el,heading,field,makeForm,status,logoutButton}=ui;

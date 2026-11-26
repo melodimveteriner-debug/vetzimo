@@ -11,6 +11,7 @@ final class ClinicTransfer
 
     public function handle(array $actor,?object $input,string $branch,bool $export): array
     {
+        ExternalImport::headroom();
         $canImport=ClinicAccess::action($actor,'dataImport',true);
         $canBackup=ClinicAccess::action($actor,'backup');
         if ((!$input && !$canImport && !$canBackup) || ($input && !$canImport) || ($export && !$canBackup)) {

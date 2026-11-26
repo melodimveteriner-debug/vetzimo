@@ -24,6 +24,15 @@ final class ExternalImport
     /** Mali kayıtlar değiştirilemez: aynı dosya tekrar yüklenirse mevcut kayıt korunur. */
     private const IMMUTABLE=['sales','collections','stockMoves'];
 
+    /** Büyük çalışma alanlarında (on binlerce kayıt) aktarım isteği için bellek ve süre payı; barındırma izin vermezse sessizce geçer. */
+    public static function headroom(): void
+    {
+        $limit=ini_get('memory_limit');
+        $bytes=static function(string $v): int { $n=(int)$v; return match(strtolower(substr(trim($v),-1))) { 'g'=>$n<<30,'m'=>$n<<20,'k'=>$n<<10,default=>$n }; };
+        if ($limit!=='-1' && $bytes((string)$limit)<(768<<20)) @ini_set('memory_limit','768M');
+        @set_time_limit(300);
+    }
+
     public static function merge(object $state, object $source,string $branch,bool $restore=false): array
     {
         if (!ClinicAccess::branch($state,$branch) || !empty(ClinicAccess::branch($state,$branch)->sharedWith)) {
