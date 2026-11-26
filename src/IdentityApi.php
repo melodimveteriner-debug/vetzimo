@@ -73,7 +73,7 @@ final class IdentityApi
     public function directory(array $actor): array
     {
         if($actor['role']!=='dealer') throw new RuntimeException('Bayi yöneticisi yetkisi gerekli.',403);
-        $state=$this->state($actor);
+        $state=(new ClinicRecords($this->db))->collections('partner:'.$actor['partner_id'],['clients','patients','exams','labs']) ?? $this->state($actor);
         $q=$this->db->prepare("SELECT m.id,m.role,m.branch_id,m.customer_id,m.name,m.status,m.modules,a.identifier AS phone FROM identity_membership m JOIN identity_account a ON a.id=m.account_id WHERE m.partner_id=? AND m.role<>'dealer' ORDER BY m.name");
         $q->execute([$actor['partner_id']]);
         $members=$q->fetchAll();

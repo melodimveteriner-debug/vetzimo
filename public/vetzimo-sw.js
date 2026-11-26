@@ -1,4 +1,4 @@
-const CACHE = 'vetzimo-public-offline-r71';
+const CACHE = 'vetzimo-public-offline-r72';
 const OFFLINE = '/vetzimo-offline.html';
 const PANELS = new Set(['/app', '/giris', '/clinic', '/klinik', '/hasta-sahibi', '/yonetim', '/uygulama']);
 

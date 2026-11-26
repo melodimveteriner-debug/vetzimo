@@ -21,9 +21,23 @@ final class WorkspaceRepository
         $this->records = new ClinicRecords($database);
     }
 
+    /**
+     * Büyük kliniklerde (on binlerce kayıt) tüm çalışma alanı 128 MB PHP sınırını aşabilir; barındırma izin veriyorsa
+     * bu istek için sınır 512 MB'a çıkarılır (yalnız düşükse). İzin yoksa sessizce geçer.
+     */
+    public static function headroom(int $megabytes=512): void
+    {
+        $limit=(string)ini_get('memory_limit');
+        if ($limit==='-1') return;
+        $n=(int)$limit;
+        $bytes=match(strtolower(substr(trim($limit),-1))) {'g'=>$n<<30,'m'=>$n<<20,'k'=>$n<<10,default=>$n};
+        if ($bytes<($megabytes<<20)) @ini_set('memory_limit',$megabytes.'M');
+    }
+
     /** @return array{revision: int, state: object|null} */
     public function load(string $workspaceId, ?string $branch=null, ?array $actor=null): array
     {
+        self::headroom();
         $result = $this->records->load($workspaceId,$branch,$actor);
         foreach (ClinicProtocol::COLLECTIONS as $collection) {
             foreach ($result['state']->$collection ?? [] as $row) {

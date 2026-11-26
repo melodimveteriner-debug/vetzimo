@@ -57,6 +57,24 @@ final class ClinicRecords
      * hasta sahibi ve evden takip gibi tek kayda bakan işlemler için. Eski biçimdeki alanda null döner.
      * @param array<string,list<string>> $wanted koleksiyon => kimlikler
      */
+    /** Yalnız istenen koleksiyonların tüm satırları (ör. ekip ekranı için müşteri/hasta/muayene/lab); diğerleri boş gelir. */
+    public function collections(string $workspace, array $names): ?object
+    {
+        $head = $this->db->prepare('SELECT w.payload, s.id FROM clinic_workspace w JOIN clinic_record_set s ON s.workspace_id=w.user_id WHERE w.user_id=?');
+        $head->execute([$workspace]);
+        $row = $head->fetch(PDO::FETCH_NUM);
+        if (!$row) return null;
+        $state = json_decode($row[0], false, 512, JSON_THROW_ON_ERROR);
+        if (!$state instanceof \stdClass) return null;
+        foreach (self::COLLECTIONS as $collection) $state->$collection = [];
+        $query = $this->db->prepare('SELECT record_data FROM clinic_record WHERE set_id=? AND collection=? ORDER BY ordinal');
+        foreach (array_intersect($names, self::COLLECTIONS) as $collection) {
+            $query->execute([$row[1], $collection]);
+            while (($json = $query->fetchColumn()) !== false) $state->$collection[] = json_decode($json, false, 512, JSON_THROW_ON_ERROR);
+        }
+        return $state;
+    }
+
     public function slice(string $workspace, array $wanted): ?object
     {
         $head = $this->db->prepare('SELECT w.payload, s.id FROM clinic_workspace w JOIN clinic_record_set s ON s.workspace_id=w.user_id WHERE w.user_id=?');
