@@ -8,6 +8,41 @@ let dailyEditable = false, api, scope, tr = s => s, onChange = () => {}, items =
 const h = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
 const ago = t => { const s = Math.max(0, Date.now() / 1000 - t); return s < 60 ? tr("az önce") : s < 3600 ? Math.round(s / 60) + " " + tr("dk önce") : s < 86400 ? Math.round(s / 3600) + " " + tr("sa önce") : new Date(t * 1000).toLocaleDateString("tr-TR"); };
 
+// Sesli uyarı: yeni düşen her bildirimde türüne göre kısa bir ton çalınır. "Ses açık/kapalı" (vetnet-alert-sound) ayarına uyar.
+// Tarayıcılar sesi ilk dokunuştan önce engellediği için bekleyen ses ilk tıklama/tuşta çalınır.
+let audio = null, pendingTone = "";
+const soundOn = () => { try { return localStorage.getItem("vetnet-alert-sound") !== "off"; } catch { return true; } };
+const TONES = {
+  danger: [[0, 880, .18], [.2, 660, .18], [.4, 880, .22]],
+  warn: [[0, 740, .16], [.18, 988, .2]],
+  daily: [[0, 523, .18], [.16, 659, .18], [.32, 784, .28]],
+  info: [[0, 660, .14], [.14, 880, .18]],
+  ok: [[0, 587, .14], [.14, 784, .2]],
+};
+async function chime(kind) {
+  if (!soundOn()) return;
+  const Ctx = window.AudioContext || window.webkitAudioContext;
+  if (!Ctx) return;
+  try {
+    audio ||= new Ctx();
+    if (audio.state === "suspended") await audio.resume().catch(() => {});
+    if (audio.state !== "running") { pendingTone = kind; return; }
+    const t0 = audio.currentTime + .02;
+    for (const [at, freq, len] of TONES[kind] || TONES.info) {
+      const o = audio.createOscillator(), g = audio.createGain();
+      o.type = "sine"; o.frequency.setValueAtTime(freq, t0 + at);
+      g.gain.setValueAtTime(1e-4, t0 + at);
+      g.gain.exponentialRampToValueAtTime(.22, t0 + at + .02);
+      g.gain.exponentialRampToValueAtTime(1e-4, t0 + at + len);
+      o.connect(g).connect(audio.destination); o.start(t0 + at); o.stop(t0 + at + len + .02);
+    }
+    pendingTone = "";
+  } catch {}
+}
+const unlock = () => { if (pendingTone) chime(pendingTone); else if (audio?.state === "suspended") audio.resume().catch(() => {}); };
+document.addEventListener("pointerup", unlock, {passive: true});
+document.addEventListener("keydown", unlock);
+
 export function startAlerts(options) {
   ({fetch: api, scope, tr = s => s, onChange = () => {}} = options);
   if (started) return; started = true;
@@ -37,9 +72,14 @@ function set(list, toastNew) {
   for (const i of list) seen.add(i.key);
   try { sessionStorage.setItem("vz-alert-seen", JSON.stringify([...seen].slice(-300))); } catch {}
   // Günlük ekip notu gibi "yapışkan" uyarılar ilk açılışta da düşer ve okunana kadar kalır.
-  fresh.filter(i => i.sticky).forEach(toast);
-  if (toastNew) fresh.filter(i => !i.sticky).slice(0, 3).forEach(toast);
-  else if (list.some(i => i.tone === "danger")) list.filter(i => i.tone === "danger").slice(0, 2).forEach(toast);
+  const shown = [...fresh.filter(i => i.sticky), ...(toastNew ? fresh.filter(i => !i.sticky).slice(0, 3) : [])];
+  shown.forEach(toast);
+  if (shown.length) {
+    const rank = i => i.kind === "daily" ? "daily" : i.tone;
+    const order = ["danger", "warn", "daily", "info", "ok"];
+    chime(shown.map(rank).sort((a, b) => order.indexOf(a) - order.indexOf(b))[0]);
+  }
+  if (!toastNew && list.some(i => i.tone === "danger")) list.filter(i => i.tone === "danger").slice(0, 2).forEach(toast);
   onChange(items.length);
   document.querySelectorAll("[data-alert-list]").forEach(render);
 }
