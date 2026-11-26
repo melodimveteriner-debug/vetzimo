@@ -42,6 +42,12 @@ final class WebBooking
     {
         return (new WorkspaceRepository($this->db))->load('partner:'.$partner);
     }
+    /** Yalnız şube + randevu (herkese açık saat listesi ve sık yoklanan web randevu uyarıları tüm kliniği belleğe almaz). */
+    private function appointmentsOnly(string $partner): ?object
+    {
+        return (new ClinicRecords($this->db))->collections('partner:'.$partner, ['appointments'])
+            ?? $this->workspace($partner)['state'];
+    }
     public static function returnPath(mixed $value): ?string
     {
         if (!is_string($value) || strlen($value)>270 ||
@@ -208,7 +214,7 @@ final class WebBooking
         if (empty($rules['enabled']) || !$start || $start->format('Y-m-d')!==$day || $day<$now->format('Y-m-d') ||
             $day>$now->modify('+60 days')->format('Y-m-d') || !in_array($branch,$rules['branches']??[],true) ||
             in_array($day,$rules['holidays']??[],true)) return [];
-        $state??=$this->workspace($site['partner_id'])['state'];
+        $state??=$this->appointmentsOnly($site['partner_id']);
         $branchRow=null;
         foreach ($state->branches??[] as $row) if ($row->id===$branch && ($row->status??'')!=='Pasif') $branchRow=$row;
         if (!$branchRow) return [];
@@ -369,7 +375,7 @@ final class WebBooking
     public function alerts(array $actor,string $branch): array
     {
         if (!ClinicAccess::allowed($actor,'appointments')) throw new RuntimeException('Randevu erişimi yok.',403);
-        $state=$this->workspace($actor['partner_id'])['state'];
+        $state=$this->appointmentsOnly($actor['partner_id']);
         $visible=ClinicAccess::visible($state,$actor);
         $appointments=array_column($visible->appointments??[],null,'id');
         $rows=$this->web->query('SELECT a.id,a.visit_branch,a.visitor,e.id AS event_id,

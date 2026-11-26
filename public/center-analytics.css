@@ -35,3 +35,4 @@
 .ca-tick-s{font-size:13px}.ca-empty{margin:24px 0;color:var(--ca-muted);text-align:center}
 @media (max-width:640px){.ca-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}.ca-tile strong{font-size:1.25rem}
 .ca-wide .ca-chart{overflow-x:auto;-webkit-overflow-scrolling:touch}.ca-wide .ca-svg{min-width:620px}}
+.ca-more{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin-top:10px}

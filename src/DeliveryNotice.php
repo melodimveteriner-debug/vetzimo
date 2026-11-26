@@ -56,14 +56,34 @@ final class DeliveryNotice
         }
     }
 
-    public function queueClinicReminders(int $now): void
+    public function queueClinicReminders(int $now, float $budget=20.0): void
     {
         $day=WebBuilder::today();
         $limit=(new \DateTimeImmutable($day))->modify('+30 days')->format('Y-m-d');
         $workspace=new WorkspaceRepository($this->db);
+        $records=new ClinicRecords($this->db);
         $closed=['Tamamlandı','İptal','İptal Edildi','Reddedildi','Gelmedi'];
-        foreach ($this->db->query('SELECT id FROM partner_account WHERE active=1')->fetchAll(PDO::FETCH_COLUMN) as $partner) {
-            $state=$workspace->load('partner:'.$partner)['state'];
+        // Aşı/takip uyarısı yalnız son 7 günde vadesi gelenler için açılır; içe aktarılan yıllar öncesine ait
+        // yapılmamış kayıtlar kliniğe binlerce e-posta olarak düşmez.
+        $since=(new \DateTimeImmutable($day))->modify('-7 days')->format('Y-m-d');
+        // 10.000 bayide tek çalışmada tüm bayiler taranmaz: her çalışma en fazla $budget sn sürer ve kaldığı bayiden devam eder
+        // (randevu uyarısı 24 saat önceden açıldığından birkaç çalışmalık tur gecikme yaratmaz).
+        $cursorId='00000000000000000000000000000010';
+        $cursor=$this->db->prepare("SELECT payload FROM center_management WHERE id=? AND kind='delivery_cursor'");
+        $cursor->execute([$cursorId]);
+        $after=(string)(json_decode((string)$cursor->fetchColumn(),true)['after'] ?? '');
+        $list=$this->db->prepare('SELECT id FROM partner_account WHERE active=1 AND id>? ORDER BY id LIMIT 2000');
+        $deadline=microtime(true)+$budget;
+        $last='';
+        $list->execute([$after]);
+        $partners=$list->fetchAll(PDO::FETCH_COLUMN);
+        if (!$partners && $after!=='') { $list->execute(['']); $partners=$list->fetchAll(PDO::FETCH_COLUMN); }
+        foreach ($partners as $partner) {
+            if (microtime(true)>$deadline) break;
+            $last=$partner;
+            $state=$records->collections('partner:'.$partner,['appointments','stays','followups','products','stockLots'])
+                ?? $workspace->load('partner:'.$partner)['state'];
+            if (!$state) continue;
             foreach (['appointments','stays'] as $type) foreach ($state->$type??[] as $row) {
                 $status=$row->status??'';
                 $when=$type==='stays'?($row->end??''):($row->date??'').'T'.($row->time??'');
@@ -74,7 +94,7 @@ final class DeliveryNotice
                     $type==='stays'?'Konaklama süresi yaklaşıyor':'Yaklaşan randevu','/clinic#record/'.$type.'/'.rawurlencode($row->id));
             }
             foreach ($state->followups??[] as $row) {
-                if (empty($row->date)||$row->date>$day||in_array($row->status??'',$closed,true)||($row->status??'')==='Yapıldı') continue;
+                if (empty($row->date)||$row->date>$day||$row->date<$since||!empty($row->done)||in_array($row->status??'',$closed,true)||($row->status??'')==='Yapıldı') continue;
                 $this->add($partner,$row->branch,'','clinic',"followup:$row->id:$row->date",
                     'Aşı ve takip uyarısı','/clinic#record/followups/'.rawurlencode($row->id));
             }
@@ -96,6 +116,9 @@ final class DeliveryNotice
                 }
             }
         }
+        $next=count($partners)<2000 && $last===end($partners) ? '' : $last;
+        $this->db->prepare("INSERT INTO center_management(id,kind,payload) VALUES (?,'delivery_cursor',?) ON DUPLICATE KEY UPDATE payload=VALUES(payload)")
+            ->execute([$cursorId,json_encode(['after'=>$next,'at'=>$now])]);
     }
 
     public function send(Notifications $smtp,string $origin,int $now): void

@@ -34,6 +34,12 @@ final class WorkspaceRepository
         if ($bytes<($megabytes<<20)) @ini_set('memory_limit',$megabytes.'M');
     }
 
+    /** Yalnız istenen koleksiyonlar (şubeler ve tercihler her zaman gelir); eski biçimde tam yüklemeye düşer. */
+    public function only(string $workspaceId, array $collections): ?object
+    {
+        return $this->records->collections($workspaceId, $collections) ?? $this->load($workspaceId)['state'];
+    }
+
     /** @return array{revision: int, state: object|null} */
     public function load(string $workspaceId, ?string $branch=null, ?array $actor=null): array
     {

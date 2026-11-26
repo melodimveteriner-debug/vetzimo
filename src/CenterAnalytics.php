@@ -7,7 +7,8 @@ use PDO;
 /**
  * Yönetici (merkez) gelişmiş panel verisi: tüm bayiler, şubeler, hasta sahipleri, hastalar, üyelikler, abonelikler,
  * bayi gelir-gider (satış, tahsilat, gider, tedarikçi ödemesi) ve son 12 ay eğilimleri. Toplama veritabanında yapılır
- * ve 10 dakika önbelleğe alınır; milyonlarca kayıtta panel her açılışta tablo taramaz.
+ * ve 10 dakika önbelleğe alınır. Bayi başına aylık özet ayrıca saklanır ve yalnız verisi değişen bayi yeniden
+ * hesaplanır; 10.000 bayide panel her açılışta milyonlarca satırı taramaz.
  */
 final class CenterAnalytics
 {
@@ -16,18 +17,49 @@ final class CenterAnalytics
 
     public function __construct(private readonly PDO $db) {}
 
-    public function get(bool $refresh, int $now): array
+    /** @param float $budget Bayi özetlerini hesaplamaya ayrılan en uzun süre (sn); web isteği kısa, zamanlanmış görev uzun tutar. */
+    public function get(bool $refresh, int $now, float $budget = 8.0): array
     {
-        if (!$refresh) {
-            $q = $this->db->prepare("SELECT payload FROM center_management WHERE id=? AND kind='analytics_cache'");
-            $q->execute([self::CACHE_ID]);
-            $cached = json_decode((string)$q->fetchColumn(), true);
-            if (is_array($cached) && ($cached['generatedAt'] ?? 0) > $now - self::TTL) return $cached;
-        }
-        $data = $this->compute($now);
+        $q = $this->db->prepare("SELECT payload FROM center_management WHERE id=? AND kind='analytics_cache'");
+        $q->execute([self::CACHE_ID]);
+        $cached = json_decode((string)$q->fetchColumn(), true);
+        if (!$refresh && is_array($cached) && empty($cached['partial']) && ($cached['generatedAt'] ?? 0) > $now - self::TTL) return $cached;
+        $data = $this->compute($now, $budget);
         $this->db->prepare("INSERT INTO center_management(id,kind,payload) VALUES (?,'analytics_cache',?) ON DUPLICATE KEY UPDATE payload=VALUES(payload)")
             ->execute([self::CACHE_ID, json_encode($data, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)]);
         return $data;
+    }
+
+    private function ensureSetCache(): void
+    {
+        $this->db->exec('CREATE TABLE IF NOT EXISTS center_analytics_set (
+            set_id BIGINT UNSIGNED NOT NULL PRIMARY KEY, version VARCHAR(80) NOT NULL, payload MEDIUMTEXT NOT NULL, updated_at INT UNSIGNED NOT NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci');
+    }
+
+    /** Tek bir kayıt kümesinin (bayi) aylık özeti; yalnız o kümenin satırları taranır (birincil anahtar: set_id,collection). */
+    private function setStats(int $set, string $from, string $current): array
+    {
+        $out = [];
+        $read = function (string $collection, string $start, string $amount = "'$.amount'", string $extra = '') use ($set): array {
+            $date = $collection === 'patients' ? "'$.registered'" : "'$.date'";
+            $q = $this->db->prepare("SELECT LEFT(JSON_UNQUOTE(JSON_EXTRACT(record_data,$date)),7) AS m, COUNT(*) AS n,
+                    COALESCE(SUM(ROUND(CAST(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(record_data,$amount)),'') AS DECIMAL(16,2))*100)),0) AS total
+                FROM clinic_record WHERE set_id=? AND collection=? AND JSON_UNQUOTE(JSON_EXTRACT(record_data,$date))>=? $extra GROUP BY m");
+            $q->execute([$set, $collection, $start]);
+            $rows = [];
+            foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $r) $rows[(string)$r['m']] = ['n' => (int)$r['n'], 't' => (int)$r['total']];
+            return $rows;
+        };
+        $out['sales'] = $read('sales', $from);
+        $out['collections'] = $read('collections', $from);
+        $out['expenses'] = $read('expenses', $from, "'$.amount'", "AND JSON_UNQUOTE(JSON_EXTRACT(record_data,'$.type'))='Gider'");
+        $out['payments'] = $read('payments', $from);
+        $out['income'] = $read('expenses', $from, "'$.amount'", "AND JSON_UNQUOTE(JSON_EXTRACT(record_data,'$.type'))='Gelir'");
+        $out['exams'] = $read('exams', $current.'-01', "'$.id'");
+        $out['appointments'] = $read('appointments', $current.'-01', "'$.id'");
+        $out['patients'] = $read('patients', $from, "'$.id'");
+        return $out;
     }
 
     private function months(int $now): array
@@ -38,19 +70,7 @@ final class CenterAnalytics
         return $out;
     }
 
-    /** collection içindeki kayıtları set ve aya göre toplar (tutar kuruş). */
-    private function monthly(string $collection, string $from, string $amountExpr = "'$.amount'", string $extra = ''): array
-    {
-        $date = $collection === 'patients' ? "'$.registered'" : "'$.date'";
-        $sql = "SELECT set_id, LEFT(JSON_UNQUOTE(JSON_EXTRACT(record_data,$date)),7) AS m, COUNT(*) AS n,
-                COALESCE(SUM(ROUND(CAST(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(record_data,$amountExpr)),'') AS DECIMAL(16,2))*100)),0) AS total
-            FROM clinic_record WHERE collection=? AND JSON_UNQUOTE(JSON_EXTRACT(record_data,$date))>=? $extra GROUP BY set_id,m";
-        $q = $this->db->prepare($sql);
-        $q->execute([$collection, $from]);
-        return $q->fetchAll(PDO::FETCH_ASSOC);
-    }
-
-    private function compute(int $now): array
+    private function compute(int $now, float $budget = 8.0): array
     {
         $months = $this->months($now);
         $from = $months[0].'-01';
@@ -94,24 +114,38 @@ final class CenterAnalytics
                 if (isset($saasMonthly[$m])) $saasMonthly[$m] += (int)$r['amount'];
             }
         } catch (\PDOException) {}
-        // Bayi gelir-gider ve klinik etkinliği
-        $put = function (array $rows, string $field, bool $count = false) use (&$partners, $sets) {
-            foreach ($rows as $r) {
-                $pid = $sets[$r['set_id']] ?? null;
-                if (!$pid || !isset($partners[$pid][$field][$r['m']])) continue;
-                $partners[$pid][$field][$r['m']] += $count ? (int)$r['n'] : (int)$r['total'];
-            }
-        };
-        $put($this->monthly('sales', $from), 'sales');
-        $put($this->monthly('collections', $from), 'collections');
-        $put($this->monthly('expenses', $from, "'$.amount'", "AND JSON_UNQUOTE(JSON_EXTRACT(record_data,'$.type'))='Gider'"), 'expenses');
-        $put($this->monthly('payments', $from), 'expenses');
-        $put($this->monthly('expenses', $from, "'$.amount'", "AND JSON_UNQUOTE(JSON_EXTRACT(record_data,'$.type'))='Gelir'"), 'income');
-        foreach (['exams' => 'exams', 'appointments' => 'appointments', 'patients' => 'newPatients'] as $col => $field) {
-            foreach ($this->monthly($col, $current.'-01', "'$.id'") as $r) { $pid = $sets[$r['set_id']] ?? null; if ($pid && $r['m'] === $current) $partners[$pid][$field] += (int)$r['n']; }
+        // Bayi gelir-gider ve klinik etkinliği: bayi başına özet, yalnız verisi değişen bayi için yeniden hesaplanır.
+        $this->ensureSetCache();
+        $period = $from.'|'.$current;
+        $versions = [];
+        foreach ($this->db->query("SELECT s.id,w.revision,w.updated_at FROM clinic_record_set s JOIN clinic_workspace w ON w.user_id=s.workspace_id WHERE s.workspace_id LIKE 'partner:%'")->fetchAll(PDO::FETCH_ASSOC) as $r) {
+            if (isset($sets[$r['id']])) $versions[(int)$r['id']] = $period.'|'.$r['revision'].'|'.$r['updated_at'];
+        }
+        $stats = [];
+        foreach ($this->db->query('SELECT set_id,version,payload FROM center_analytics_set')->fetchAll(PDO::FETCH_ASSOC) as $r) {
+            if (($versions[(int)$r['set_id']] ?? null) === $r['version']) $stats[(int)$r['set_id']] = json_decode($r['payload'], true);
+        }
+        $deadline = microtime(true) + $budget;
+        $store = $this->db->prepare('INSERT INTO center_analytics_set(set_id,version,payload,updated_at) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE version=VALUES(version),payload=VALUES(payload),updated_at=VALUES(updated_at)');
+        $missing = 0;
+        foreach ($versions as $set => $version) {
+            if (isset($stats[$set])) continue;
+            if (microtime(true) > $deadline) { $missing++; continue; }
+            $stats[$set] = $this->setStats($set, $from, $current);
+            $store->execute([$set, $version, json_encode($stats[$set], JSON_THROW_ON_ERROR), $now]);
         }
         $newPatients = array_fill_keys($months, 0);
-        foreach ($this->monthly('patients', $from, "'$.id'") as $r) if (isset($newPatients[$r['m']])) $newPatients[$r['m']] += (int)$r['n'];
+        foreach ($stats as $set => $st) {
+            $pid = $sets[$set] ?? null;
+            if (!$pid) continue;
+            foreach (['sales' => 'sales', 'collections' => 'collections', 'expenses' => 'expenses', 'payments' => 'expenses', 'income' => 'income'] as $key => $field) {
+                foreach ($st[$key] ?? [] as $m => $r) if (isset($partners[$pid][$field][$m])) $partners[$pid][$field][$m] += $r['t'];
+            }
+            $partners[$pid]['exams'] += $st['exams'][$current]['n'] ?? 0;
+            $partners[$pid]['appointments'] += $st['appointments'][$current]['n'] ?? 0;
+            $partners[$pid]['newPatients'] += $st['patients'][$current]['n'] ?? 0;
+            foreach ($st['patients'] ?? [] as $m => $r) if (isset($newPatients[$m])) $newPatients[$m] += $r['n'];
+        }
         // Toplamlar
         $sum = fn(string $f) => array_map(fn($m) => array_sum(array_map(fn($p) => $p[$f][$m], $partners)), array_combine($months, $months));
         $list = array_values($partners);
@@ -122,7 +156,7 @@ final class CenterAnalytics
             'none' => count(array_filter($list, fn($p) => $p['planKind'] === null)), 'unsigned' => count(array_filter($list, fn($p) => !$p['agreement'])),
             'exams' => array_sum(array_column($list, 'exams')), 'appointments' => array_sum(array_column($list, 'appointments')), 'newPatients' => array_sum(array_column($list, 'newPatients')),
             'saasRevenue' => array_sum($saasMonthly)];
-        return ['generatedAt' => $now, 'months' => $months, 'totals' => $totals,
+        return ['generatedAt' => $now, 'partial' => $missing > 0, 'pendingPartners' => $missing, 'months' => $months, 'totals' => $totals,
             'trend' => ['sales' => array_values($sum('sales')), 'collections' => array_values($sum('collections')), 'expenses' => array_values($sum('expenses')),
                 'income' => array_values($sum('income')), 'saas' => array_values($saasMonthly), 'newPatients' => array_values($newPatients)],
             'partners' => array_map(function ($p) { foreach (['sales', 'collections', 'expenses', 'income'] as $f) $p[$f] = array_values($p[$f]); return $p; }, $list)];

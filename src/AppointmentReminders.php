@@ -125,13 +125,22 @@ final class AppointmentReminders
             foreach ($routes as $partner => $route) $connections[$partner] ??= [];
             // Etkin gebelik takibi olan bayiler: uygulama bildirimi sağlayıcı olmadan da gider.
             try { foreach ($this->db->query('SELECT DISTINCT partner_id FROM clinic_pregnancy WHERE ended IS NULL')->fetchAll(PDO::FETCH_COLUMN) as $partner) $connections[$partner] ??= []; } catch (\PDOException) {}
+            // Çok bayide süre (240 sn) dolarsa hep aynı bayiler geride kalmasın: başlangıç her dakika kayar.
+            if (count($connections) > 1) {
+                $keys = array_keys($connections);
+                $shift = intdiv($now, 60) % count($keys);
+                $connections = array_replace(array_flip(array_merge(array_slice($keys, $shift), array_slice($keys, 0, $shift))), $connections);
+            }
+            $records = new ClinicRecords($this->db);
             foreach ($connections as $partner => $settings) {
                 $read->execute([$partner]);
                 $row = $read->fetch();
                 if (!$row) continue;
                 // Paket "Otomatik hatırlatmalar" özelliğini kapatmışsa bu bayiye hatırlatma gönderilmez.
                 if ((((new Commerce($this->db))->packageActor(['partner_id'=>$partner,'role'=>'dealer']))['packageFeatures']['reminders'] ?? true) === false) continue;
-                $state = $workspaces->load('partner:'.$partner)['state'];
+                // Yalnız hatırlatmanın kullandığı tablolar okunur (büyük klinikte tüm çalışma alanı belleğe alınmaz).
+                $state = $records->collections('partner:'.$partner, ['appointments','followups','patients','clients'])
+                    ?? $workspaces->load('partner:'.$partner)['state'];
                 if (!$state) continue;
                 if (class_exists(Pregnancy::class)) $state->_pregnancies = (new Pregnancy($this->db))->forPatients($partner);
                 // İmzalı müşteri onay formu varsa SMS/WhatsApp/e-posta izni olarak o esas alınır.

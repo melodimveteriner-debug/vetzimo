@@ -95,6 +95,12 @@ final class HomeVisit
         return $this->workspaces->load('partner:'.$partner);
     }
 
+    /** Şube listesi (personel erişim denetimi için; sık yoklanan uçlarda tüm klinik belleğe alınmaz). */
+    public function branchesOnly(string $partner): ?object
+    {
+        return $this->workspaces->only('partner:'.$partner, []);
+    }
+
     /**
      * Yetki ve talep doğrulaması için hafif durum: şubeler, ayarlar, hasta sahibinin kendi müşteri kaydı ve
      * istenen hastalar. Büyük klinikte tüm alanı yüklemez; bir satır bulunamazsa güvenli tam yüklemeye geçer.

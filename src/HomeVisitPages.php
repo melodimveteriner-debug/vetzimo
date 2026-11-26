@@ -384,7 +384,7 @@ final class HomeVisitPages
         if ($path==='/api/evde-hizmet/bildirim') {
             if (!$actor||$actor['role']==='customer'||($actor['membership_id']??'')!==($_SERVER['HTTP_X_VETNET_SCOPE']??'')) \reply(['items'=>[]]);
             try {
-                if (!ClinicAccess::valid($actor,$this->visits->workspace($actor['partner_id'])['state']) || !$this->visits->staffAllowed($actor,$this->visits->settings($actor['partner_id']))) \reply(['items'=>[]]);
+                if (!ClinicAccess::valid($actor,$this->visits->branchesOnly($actor['partner_id'])) || !$this->visits->staffAllowed($actor,$this->visits->settings($actor['partner_id']))) \reply(['items'=>[]]);
                 $items=$this->unread($actor);
                 if ($post) {
                     $event=\input(4096)->event??null;

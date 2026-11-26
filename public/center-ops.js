@@ -35,6 +35,9 @@ export async function mountCenterSuite(ui,session){
  const tab=tabs.find(([key])=>key===params.get('tab'))||tabs[0];
  const url=(key,extra={})=>'/yonetim?'+new URLSearchParams({tab:key,...extra});
  const call=(action,body)=>opsFetch('/api/cpanel-center/'+action,body,session.scopeId);
+ // 10.000 bayilik liste birkaç sekmede kullanılır: oturum içinde 60 sn bellekte tutulur, yeni bayi eklenince yenilenir.
+ let partnersCache=null;
+ const partnersList=async()=>{if(partnersCache&&Date.now()-partnersCache.at<60000)return partnersCache.data;const data=await call('partners');partnersCache={at:Date.now(),data};return data;};
  const applyAppearance=appearance=>{
   const palette=appearance.palette||'prizma';
   document.body.dataset.centerPalette=palette;
@@ -225,7 +228,7 @@ export async function mountCenterSuite(ui,session){
    ['Tarih','Bayi','Hareket türü','Tutar'],rows.map(row=>[row.entry_date,row.name,financeLabels[row.source_type],currency(row.amount_cents)]))));
  }
  async function analytics(){
-  const m=await import('./center-analytics.js?v=3');
+  const m=await import('./center-analytics.js?v=4');
   await m.mountAnalytics(content,{call,el,status,openPartner:id=>detail(id)});
  }
  async function addonPackages(){
@@ -268,7 +271,7 @@ export async function mountCenterSuite(ui,session){
   const {plans:catalog,termFields,featureFields}=await call('plans');opsFeatureFields=featureFields||{};
   content.replaceChildren(button('Yeni paket',()=>editPackage({name:'',description:'',vat:'included',published:false,modules:{}},termFields)),el('p','Paket fiyatlarını, satış sitesindeki özellikleri ve bayi erişimini buradan yönetin.'),el('a','Satış sitesindeki paketleri aç',{href:'/platform/paketler'}),table(['Paket','İçerik','Aylık','Yıllık','İşlemler'],catalog.map(plan=>[
    plan.name,plan.description,plan.monthly==null?'Teklif ile':currency(plan.monthly),plan.yearly==null?'Teklif ile':currency(plan.yearly),packageActions(plan,termFields,async()=>{
-    const {partners}=await call('partners');
+    const {partners}=await partnersList();
     const {locations}=await call('branch-directory');
     const search=field('search','Bayi veya şube ara',{type:'search',required:false});
     const choice=selectField('partner','Bayi',[]);
@@ -406,7 +409,7 @@ export async function mountCenterSuite(ui,session){
  }
  async function manage(kind,editing=null){
   const fields=managementFields[kind];
-  const [{rows},{partners}]=await Promise.all([call(kind),call('partners')]);
+  const [{rows},{partners}]=await Promise.all([call(kind),partnersList()]);
   const paymentPlans=kind==='payments'?(await call('plans')).plans:[];
   const names=new Map(partners.map(partner=>[partner.id,partner.name]));
   const optionalPartner=['announcements','ads'].includes(kind);
@@ -515,7 +518,7 @@ export async function mountCenterSuite(ui,session){
   if(editing)content.append(button('Düzenlemeyi iptal et',()=>manage(kind)));
  }
  async function backup(importing){
-  const {partners}=await call('partners');
+  const {partners}=await partnersList();
   const partner=selectField('partner','Bayi',[['','Bayi seçin'],...partners.map(item=>[item.id,item.name])]);
   partner.querySelector('select').required=true;
   const branch=selectField('branch',importing?'Hedef şube':'Şube',[['','Önce bayi seçin']]);
@@ -668,7 +671,7 @@ export async function mountCenterSuite(ui,session){
   add.append(makeForm([field('name','Bayi / klinik adı',{maxLength:160}),field('phone','Yetkili cep telefonu',{type:'tel'}),field('email','Bayi e-postası',{type:'email'}),
    demoPlan,field('demoDays','Demo süresi (gün) · 0 = demo başlatma, dönemi sonra tanımla',{type:'number',min:0,max:365,value:14}),
    el('p','Demo süresi girilirse bayi ilk girişinden itibaren üstte kalan gün ve son tarih uyarısını görür.',{className:'muted'})],'Bayi oluştur',async values=>{
-   const result=await call('partners',{...values,demoDays:Number(values.demoDays||0)});await list();
+   const result=await call('partners',{...values,demoDays:Number(values.demoDays||0)});partnersCache=null;await list();
    // Hoş geldin mesajı: kullanıcı adı + tek kullanımlık bağlantı (şifre belirleme ve VetZimo Kullanım Sözleşmesi imzası).
    const box=el('div','',{className:'center-welcome'});
    const text=el('textarea','',{rows:7,readOnly:true,value:result.welcome});
@@ -956,7 +959,7 @@ export async function mountCenterSuite(ui,session){
   const trial=history.find(event=>event.trial_partner);
   if(trial)content.append(button('Açılan abonelik dönemini göster',()=>subscription(trial.trial_partner)));
   else if(['demo','trial'].includes(lead.kind)&&lead.stage!=='lost'&&lead.phone&&plans.length){
-   const {partners}=await call('partners');
+   const {partners}=await partnersList();
    const digits=value=>String(value??'').replace(/[^0-9]/g,'').slice(-10);
    const matching=partners.filter(partner=>Number(partner.active)&&digits(partner.phone)===digits(lead.phone));
    const target=selectField('target','Demo hesabı',[['new','Yeni demo hesabı aç'],...matching.map(item=>[item.id,item.name])]);

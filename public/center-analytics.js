@@ -1,7 +1,7 @@
 // Yönetici gelişmiş panel: tüm bayiler, şubeler, hasta sahipleri, hastalar, abonelikler ve bayi gelir-giderleri.
 // Grafikler SVG ile çizilir; çizgi grafikte artı imleçli ipucu, çubuklarda tek tek ipucu vardır. Renkler doğrulanmış
 // kategorik paletin ilk üç yuvasıdır (mavi, turuncu, aqua) ve açık/koyu temada ayrı adımlarla tanımlanır.
-const CSS = "/center-analytics.css?v=3";
+const CSS = "/center-analytics.css?v=4";
 const NS = "http://www.w3.org/2000/svg";
 const tl = v => new Intl.NumberFormat("tr-TR", {style: "currency", currency: "TRY", maximumFractionDigits: 0}).format((v || 0) / 100);
 const tlShort = v => { const x = (v || 0) / 100; return Math.abs(x) >= 1e6 ? (x / 1e6).toLocaleString("tr-TR", {maximumFractionDigits: 1}) + " mn ₺" : Math.abs(x) >= 1e3 ? (x / 1e3).toLocaleString("tr-TR", {maximumFractionDigits: 0}) + " bin ₺" : x.toLocaleString("tr-TR", {maximumFractionDigits: 0}) + " ₺"; };
@@ -146,8 +146,9 @@ export async function mountAnalytics(content, {call, el, status, openPartner}) {
       ["team", "Ekip"], ["portal", "Portal"], ["sales12", "Ciro 12 ay"], ["coll12", "Tahsilat 12 ay"], ["exp12", "Gider 12 ay"], ["net12", "Net 12 ay"], ["exams", "Bu ay muayene"], ["agreement", "Sözleşme"]];
     const rows = d.partners.map(p => ({...p, team: p.members.branch + p.members.staff, portal: p.members.customer, sales12: sum(p.sales), coll12: sum(p.collections),
       exp12: sum(p.expenses), net12: sum(p.collections) + sum(p.income) - sum(p.expenses)}));
-    let sortKey = "sales12", dir = -1;
+    let sortKey = "sales12", dir = -1, limit = 50;
     const wrap = el("div", "", {className: "center-table-wrap"});
+    const more = el("div", "", {className: "ca-more"});
     const render = () => {
       const q = search.value.trim().toLocaleLowerCase("tr");
       const list = rows.filter(r => !q || [r.name, r.city, r.plan].some(v => String(v || "").toLocaleLowerCase("tr").includes(q)))
@@ -160,7 +161,8 @@ export async function mountAnalytics(content, {call, el, status, openPartner}) {
         th.append(b); hr.append(th);
       }
       const body = tbl.createTBody();
-      for (const r of list) {
+      // 10.000 bayide tüm satırları çizmek tarayıcıyı kilitler: ilk satırlar gösterilir, "Daha fazla" ile genişler.
+      for (const r of list.slice(0, limit)) {
         const tr = body.insertRow(); tr.tabIndex = 0;
         const kind = r.planKind === "trial" ? " · deneme" : r.planKind ? "" : "";
         const cells = [r.name + (r.active ? "" : " (kapalı)"), r.city || "—", (r.plan || "Abonelik yok") + kind, r.endsOn || "—", n(r.branches), n(r.clients), n(r.patients), n(r.team), n(r.portal),
@@ -170,8 +172,15 @@ export async function mountAnalytics(content, {call, el, status, openPartner}) {
         tr.addEventListener("keydown", e => { if (e.key === "Enter") openPartner?.(r.id); });
       }
       wrap.replaceChildren(tbl);
+      more.replaceChildren(el("span", n(Math.min(limit, list.length)) + " / " + n(list.length) + " bayi gösteriliyor", {className: "muted"}));
+      if (list.length > limit) {
+        const btn = el("button", "Daha fazla göster", {type: "button", className: "secondary"});
+        btn.addEventListener("click", () => { limit += 200; render(); });
+        more.append(btn);
+      }
     };
-    search.addEventListener("input", render);
+    let typing;
+    search.addEventListener("input", () => { clearTimeout(typing); typing = setTimeout(() => { limit = 50; render(); }, 220); });
     csv.addEventListener("click", () => {
       const esc = v => '"' + String(v ?? "").replaceAll('"', '""') + '"';
       const lines = [cols.map(c => esc(c[1])).join(";"), ...rows.map(r => cols.map(([k]) => esc(["sales12", "coll12", "exp12", "net12"].includes(k) ? (r[k] / 100).toFixed(2).replace(".", ",") : k === "agreement" ? (r[k] ? "İmzalı" : "Bekliyor") : r[k])).join(";"))];
@@ -179,7 +188,7 @@ export async function mountAnalytics(content, {call, el, status, openPartner}) {
       a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
     });
     const tools = el("div", "", {className: "ca-tools"}); tools.append(search, csv);
-    tableBox.append(el("h4", "Bayi ayrıntıları · satıra dokunarak bayi kartını açın"), tools, wrap);
+    tableBox.append(el("h4", "Bayi ayrıntıları · satıra dokunarak bayi kartını açın"), tools, wrap, more);
     render();
     const grid = el("div", "", {className: "ca-grid"});
     grid.append(trend, subs, top, saas, pats, tableBox);
