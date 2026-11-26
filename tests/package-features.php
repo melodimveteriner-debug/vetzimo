@@ -82,6 +82,13 @@ $pay->review((object)['id'=>$o['id'],'action'=>'approved','verified'=>true],$now
 ok($addon->balance($partner,'sms')===1001,'Onaylanan ek paket krediye dönmedi');
 try { $pay->review((object)['id'=>$o['id'],'action'=>'approved','verified'=>true],$now); throw new LogicException('Ödenen sipariş ikinci kez onaylandı'); } catch (RuntimeException) {}
 ok($addon->balance($partner,'sms')===1001,'Kredi iki kez tanımlandı');
+// Gizleme anahtarı ve uygunluk: gizliyken sipariş alınmaz; ücretli paketli bayi uygundur
+ok($addon->eligible($partner),'Ücretli paketli bayi ek paket göremiyor');
+$addon->saveCatalog((object)['hidden'=>true,'packages'=>array_map(static fn($r)=>(object)$r,AddonPackages::defaults())]);
+ok($addon->hidden() && !$addon->eligible($partner),'Gizleme çalışmadı');
+try { $pay->addonOrder($actor+['name'=>'Bayi'],(object)['requestId'=>'11111111-2222-3333-4444-555555555556','packageId'=>'sms-1000','method'=>'bank'],'127.0.0.1','https://x',$now); throw new LogicException('Gizliyken ek paket satıldı'); } catch (RuntimeException $e) { ok($e->getCode()===403,'Gizli ek paket hatası yanlış'); }
+$addon->saveCatalog((object)['hidden'=>false,'packages'=>array_map(static fn($r)=>(object)$r,AddonPackages::defaults())]);
+ok(!$addon->eligible('baska-bayi-yok'),'Aboneliği olmayan bayi ek paket görüyor');
 $addon->add($partner,'users',1,'Test','test-u',$now);
 ok($addon->raise($partner,['users'=>2,'branches'=>null])===['users'=>3,'branches'=>null],'Ek kullanıcı sınıra eklenmedi');
 ok(count($addon->ledger($partner))>=3 && $addon->ledger($partner)[0]['created_at']!=='','Kredi hareketleri listelenmedi');

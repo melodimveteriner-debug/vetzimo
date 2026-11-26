@@ -212,7 +212,7 @@ final class BulkClinicMessages
             WHERE partner_id=? AND channel IN ('sms','whatsapp') AND source<>'center' GROUP BY 1,2 ORDER BY 1,2");
         $phone->execute([$partner]);
         foreach ($phone->fetchAll(PDO::FETCH_ASSOC) as $row) $all[]=[...$row,'count'=>(int)$row['count']];
-        return ['account'=>$account,'limits'=>$limits,'ledger'=>$rows,'counts'=>$all,'recent'=>$recent,'credits'=>$credits];
+        return ['account'=>$account,'limits'=>$limits,'ledger'=>$rows,'counts'=>$all,'recent'=>$recent,'credits'=>$credits,'addonsAvailable'=>$addon->eligible($partner)];
     }
 
     /** Mesajın bedeli aylık haktan karşılanır; yetmeyen kısım ek krediden düşülür. Kredi de yetmezse hiçbiri düşülmez. */

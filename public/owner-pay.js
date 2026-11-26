@@ -1,5 +1,5 @@
 // Hasta sahibi borç ödemesi (hasta sahibi girişi) ve kliniğin ödeme ayarları / havale onayları (Ayarlar › Hasta sahibi ödemeleri).
-const STYLE = "/owner-pay.css?v=1";
+const STYLE = "/owner-pay.css?v=2";
 const h = (tag, cls, text, props = {}) => { const n = Object.assign(document.createElement(tag), props); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
 const css = () => { if (!document.querySelector(`link[href="${STYLE}"]`)) document.head.append(Object.assign(document.createElement("link"), {rel: "stylesheet", href: STYLE})); };
 const tl = (c, lang = document.documentElement.lang || "tr") => new Intl.NumberFormat(lang, {minimumFractionDigits: 2, maximumFractionDigits: 2}).format(c / 100) + " ₺";
@@ -85,14 +85,31 @@ export async function mountOwnerPayAdmin(root, {api, scope, tr = s => s}) {
       const [ibanL, iban] = inp("IBAN", s.iban, {maxLength: 34, placeholder: "TR.."});
       const [benL, ben] = inp("Alıcı adı", s.beneficiary, {maxLength: 120});
       const [bnL, bn] = inp("Banka (isteğe bağlı)", s.bankName, {maxLength: 80});
+      // Farklı bankalar için ek hesaplar (en çok 4): hasta sahibine ödeme sayfasında hepsi gösterilir.
+      const extra = h("div", "op-banks");
+      const bankRows = [];
+      const addBank = (x = {}) => {
+        if (bankRows.length >= 4) return;
+        const row = h("div", "op-bank-row");
+        const [nL, n] = inp("Banka", x.bankName, {maxLength: 80}), [iL, i] = inp("IBAN", x.iban, {maxLength: 34, placeholder: "TR.."}), [bL, bb] = inp("Alıcı adı", x.beneficiary, {maxLength: 120});
+        const del = h("button", "button secondary small", tr("Kaldır"), {type: "button"});
+        del.addEventListener("click", () => { row.remove(); bankRows.splice(bankRows.indexOf(item), 1); more.hidden = bankRows.length >= 4; });
+        const item = {n, i, bb};
+        row.append(nL, iL, bL, del); extra.append(row); bankRows.push(item);
+        more.hidden = bankRows.length >= 4;
+      };
+      const more = h("button", "button secondary small", tr("+ Başka banka hesabı ekle"), {type: "button"});
+      more.addEventListener("click", () => addBank());
+      for (const x of s.banks || []) addBank(x);
       const msg = h("p", "op-msg", "", {role: "status"});
       const save = h("button", "button primary", tr("Kaydet"), {type: "submit"});
       const cb = h("p", "op-muted"); cb.append(h("span", "", tr("PayTR panelinde Bildirim URL alanına yazın: ")), h("code", "", data.callback));
-      f.append(h("h3", "", tr("Hasta sahibi ödeme ayarları")), h("p", "op-muted", tr("Borcu olan hasta sahipleri, hasta sahibi girişinden kartla veya havale ile öder. Ödemeler kendi hesabınıza gelir.")),
-        cardL, testL, midL, keyL, saltL, cb, bankL, ibanL, benL, bnL, msg, save);
+      f.append(h("h3", "", tr("Hasta sahibi ödeme ayarları")), h("p", "op-muted", tr("Borcu olan hasta sahipleri, hasta sahibi girişinden veya gönderdiğiniz ödeme bağlantısından kartla ya da havale ile öder. Ödemeler kendi hesabınıza gelir.")),
+        cardL, testL, midL, keyL, saltL, cb, bankL, ibanL, benL, bnL, extra, more,
+        h("p", "op-muted", tr("Borcu olan hasta sahiplerine Muhasebe › Borç Hatırlatma ekranından “Ödeme talebi” gönderebilirsiniz: toplam borç, ödeme bağlantısı, klinik adı ve telefonu SMS ile gider; uygulama hesabı olana bildirim de düşer.")), msg, save);
       f.addEventListener("submit", async e => {
         e.preventDefault(); save.disabled = true; msg.textContent = tr("Kaydediliyor…");
-        try { draw(await call({op: "settings", card: card.checked, test: test.checked, merchantId: mid.value, key: key.value, salt: salt.value, bank: bank.checked, iban: iban.value, beneficiary: ben.value, bankName: bn.value})); }
+        try { draw(await call({op: "settings", card: card.checked, test: test.checked, merchantId: mid.value, key: key.value, salt: salt.value, bank: bank.checked, iban: iban.value, beneficiary: ben.value, bankName: bn.value, banks: bankRows.map(x => ({bankName: x.n.value, iban: x.i.value, beneficiary: x.bb.value}))})); }
         catch (er) { msg.textContent = er.message; save.disabled = false; }
       });
       wrap.append(f);

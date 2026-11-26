@@ -542,7 +542,7 @@ async function portal() {
   // Borç ödeme: kliniğin kendi PayTR mağazası (kart) veya IBAN'ı (havale). Borç yoksa ya da klinik açmadıysa yalnız bilgi gösterilir.
   if(session.scopeId&&data.balanceCents!=null&&Number(data.balanceCents)<0){
     const pay=el("div","",{className:"owner-pay-slot"});overview.append(pay);
-    import("./owner-pay.js?v=1").then(m=>m.mountOwnerPay(pay,{scope:session.scopeId,tr:uiLabel})).catch(()=>{});
+    import("./owner-pay.js?v=2").then(m=>m.mountOwnerPay(pay,{scope:session.scopeId,tr:uiLabel})).catch(()=>{});
   }
   const names=new Map(data.pets.map(row=>[row.id,row.name]));
   const pets=el("section","",{className:"identity-card"});
@@ -696,7 +696,7 @@ async function portal() {
   account.append(change);
   const appSettings=el("section","",{className:"owner-app-settings"});
   account.append(appSettings);
-  import("./settings-hub.js?v=7").then(async m=>{
+  import("./settings-hub.js?v=8").then(async m=>{
     const ctx={tr:uiLabel,api:(p,i={})=>fetch(p,{credentials:"same-origin",...i}),scope:session.scopeId||""};
     const prefs=el("div"),devices=el("div");
     appSettings.append(el("h2",uiLabel("Uygulama bildirimleri")),prefs,el("h2",uiLabel("Cihazlarım ve hesap")),devices);

@@ -115,6 +115,57 @@ final class IdentityApi
         }
         return json_encode($result,JSON_THROW_ON_ERROR);
     }
+    /** Aktivasyon bağlantısını seçilen yolla iletir (SMS: kliniğin hattından; e-posta; bu cihazda / yüz yüze: bağlantı döner). */
+    private function deliverActivation(array $actor,string $id,string $phone,string $method,string $email,string $token,int $now,array $config): array
+    {
+        $link=rtrim((string)($config['origin'] ?? ''),'/').'/app#aktivasyon/'.$token;
+        if ($method==='in-person'||$method==='device') return ['status'=>$method==='device'?'device':'pending','link'=>$link];
+        if ($method==='sms') {
+            // Kliniğin kendi hattından (Telefon Bağlantısı); hat yoksa bağlantı ekranda gösterilir, elle/WhatsApp ile paylaşılır.
+            $clinic=(string)($this->db->query('SELECT name FROM partner_account WHERE id='.$this->db->quote($actor['partner_id']))->fetchColumn() ?: 'Kliniğiniz');
+            $text=$clinic.' sizi VetZimo\'ya davet etti. Hesabınızı açmak için (24 saat geçerli): '.$link;
+            try {
+                $gw=new PhoneGateway($this->db);
+                if ($gw->route($actor['partner_id'],'sms')) {
+                    $gw->enqueue($actor['partner_id'],'sms',$phone,$text,'manual','invite:'.$id.':'.$now,0,$now,$now+86400,(string)($actor['name'] ?? ''));
+                    return ['status'=>'sms_queued','link'=>$link];
+                }
+            } catch (\Throwable) {}
+            return ['status'=>'sms_unavailable','link'=>$link,'share'=>$text];
+        }
+        try {
+            (new Notifications($this->db,$config['encryptionKey']??''))->send('smtp',$email,'VetZimo · Hesabınızı açın',
+                "Kliniğiniz VetZimo üyeliğinizi oluşturdu. Şifrenizi belirlemek veya mevcut hesabınızla üyeliği etkinleştirmek için 24 saat içinde bu bağlantıyı açın.\n\n".$link);
+            return ['status'=>'email_sent'];
+        } catch (\Throwable $error) {
+            return ['status'=>'email_failed','link'=>$link];
+        }
+    }
+
+    /** Aktivasyon bekleyen üyeliğe yeni bağlantı: SMS, e-posta veya bu cihazda. Eski bağlantılar geçersiz olur. */
+    public function resend(array $actor,string $scope,object $input,int $now,array $config=[]): array
+    {
+        $this->sensitive($actor,$scope,$now);
+        $id=$input->membershipId ?? '';
+        $method=$input->method ?? '';
+        if (!is_string($id) || !preg_match('/\A[a-f0-9]{32}\z/',$id) || !in_array($method,['sms','email','device'],true)) throw new RuntimeException('Üyelik ve gönderim yolunu seçin.',422);
+        $email=is_string($input->email ?? null)?trim($input->email):'';
+        if ($method==='email' && (strlen($email)>254 || !filter_var($email,FILTER_VALIDATE_EMAIL))) throw new RuntimeException('Geçerli bir e-posta adresi girin.',422);
+        $q=$this->db->prepare("SELECT m.id,a.identifier AS phone FROM identity_membership m JOIN identity_account a ON a.id=m.account_id WHERE m.id=? AND m.partner_id=? AND m.status='pending' AND m.role IN ('branch','staff','customer')");
+        $q->execute([$id,$actor['partner_id']]);
+        $row=$q->fetch();
+        if (!$row) throw new RuntimeException('Aktivasyon bekleyen üyelik bulunamadı.',404);
+        $token=bin2hex(random_bytes(32));
+        $this->db->beginTransaction();
+        try {
+            $this->db->prepare('UPDATE identity_activation SET used=1 WHERE membership_id=?')->execute([$id]);
+            $this->db->prepare('INSERT INTO identity_activation(token_hash,membership_id,expires) VALUES (?,?,?)')->execute([hash('sha256',$token),$id,$now+($method==='device'?900:86400)]);
+            $this->audit($actor,'membership.reinvited');
+            $this->db->commit();
+        } catch(\Throwable $e) { $this->db->rollBack(); throw $e; }
+        return $this->deliverActivation($actor,$id.':'.$now,$row['phone'],$method,$email,$token,$now,$config);
+    }
+
     public function invite(array $actor,string $scope,object $input,int $now,array $config=[]): array
     {
         // Şube yöneticisi, personel ve hasta sahibi için aynı aktivasyon yöntemleri:
@@ -200,28 +251,7 @@ final class IdentityApi
             $this->db->commit();
         } catch(\Throwable $e) { $this->db->rollBack(); throw $e; }
         if ($direct) return ['status'=>'active'];
-        $link=rtrim((string)($config['origin'] ?? ''),'/').'/app#aktivasyon/'.$token;
-        if ($method==='in-person'||$method==='device') return ['status'=>$method==='device'?'device':'pending','link'=>$link];
-        if ($method==='sms') {
-            // Kliniğin kendi hattından (Telefon Bağlantısı); hat yoksa bağlantı ekranda gösterilir, elle/WhatsApp ile paylaşılır.
-            $clinic=(string)($this->db->query('SELECT name FROM partner_account WHERE id='.$this->db->quote($actor['partner_id']))->fetchColumn() ?: 'Kliniğiniz');
-            $text=$clinic.' sizi VetZimo\'ya davet etti. Hesabınızı açmak için (24 saat geçerli): '.$link;
-            try {
-                $gw=new PhoneGateway($this->db);
-                if ($gw->route($actor['partner_id'],'sms')) {
-                    $gw->enqueue($actor['partner_id'],'sms',$phone,$text,'manual','invite:'.$id.':'.$now,0,$now,$now+86400,(string)($actor['name'] ?? ''));
-                    return ['status'=>'sms_queued','link'=>$link];
-                }
-            } catch (\Throwable) {}
-            return ['status'=>'sms_unavailable','link'=>$link,'share'=>$text];
-        }
-        try {
-            (new Notifications($this->db,$config['encryptionKey']??''))->send('smtp',$email,'VetZimo · Hesabınızı açın',
-                "Kliniğiniz VetZimo üyeliğinizi oluşturdu. Şifrenizi belirlemek veya mevcut hesabınızla üyeliği etkinleştirmek için 24 saat içinde bu bağlantıyı açın.\n\n".$link);
-            return ['status'=>'email_sent'];
-        } catch (\Throwable $error) {
-            return ['status'=>'email_failed','link'=>$link];
-        }
+        return $this->deliverActivation($actor,$id,$phone,$method,(string)$email,$token,$now,$config);
     }
     /** Aktivasyon bağlantısı ön bilgisi: hesap türü ve imzalanması gereken sözleşme. Bağlantıyı tüketmez. */
     public function activationInfo(string $token,int $now): array

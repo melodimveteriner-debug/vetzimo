@@ -33,7 +33,8 @@ final class OwnerPayment
         $s = $this->raw($partner);
         $out = ['card' => ($s['card'] ?? false) === true, 'merchantId' => (string)($s['merchantId'] ?? ''), 'test' => ($s['test'] ?? true) === true,
             'hasKey' => ($s['key'] ?? '') !== '', 'hasSalt' => ($s['salt'] ?? '') !== '',
-            'bank' => ($s['bank'] ?? false) === true, 'iban' => (string)($s['iban'] ?? ''), 'beneficiary' => (string)($s['beneficiary'] ?? ''), 'bankName' => (string)($s['bankName'] ?? '')];
+            'bank' => ($s['bank'] ?? false) === true, 'iban' => (string)($s['iban'] ?? ''), 'beneficiary' => (string)($s['beneficiary'] ?? ''), 'bankName' => (string)($s['bankName'] ?? ''),
+            'banks' => array_values(array_filter(is_array($s['banks'] ?? null) ? $s['banks'] : [], 'is_array'))];
         if ($secrets) {
             $out['key'] = ($s['key'] ?? '') !== '' ? Totp::decrypt($s['key'], $this->key) : '';
             $out['salt'] = ($s['salt'] ?? '') !== '' ? Totp::decrypt($s['salt'], $this->key) : '';
@@ -57,6 +58,15 @@ final class OwnerPayment
         if ($iban !== '' && !self::validIban($iban)) throw new RuntimeException('IBAN geçersiz (TR ile başlayan 26 karakter).', 422);
         $new = ['card' => ($b->card ?? false) === true, 'merchantId' => $merchant, 'test' => ($b->test ?? true) === true, 'key' => $old['key'] ?? '', 'salt' => $old['salt'] ?? '',
             'bank' => ($b->bank ?? false) === true, 'iban' => $iban, 'beneficiary' => mb_substr(trim((string)($b->beneficiary ?? '')), 0, 120), 'bankName' => mb_substr(trim((string)($b->bankName ?? '')), 0, 80)];
+        // Ek banka hesapları (farklı bankalar için en çok 4 IBAN daha).
+        $new['banks'] = [];
+        foreach (is_array($b->banks ?? null) ? array_slice($b->banks, 0, 4) : [] as $x) {
+            if (!is_object($x)) continue;
+            $xi = strtoupper(preg_replace('/\s+/', '', (string)($x->iban ?? '')) ?? '');
+            if ($xi === '') continue;
+            if (!self::validIban($xi)) throw new RuntimeException('Ek banka hesabındaki IBAN geçersiz: '.$xi, 422);
+            $new['banks'][] = ['iban' => $xi, 'beneficiary' => mb_substr(trim((string)($x->beneficiary ?? '')) ?: $new['beneficiary'], 0, 120), 'bankName' => mb_substr(trim((string)($x->bankName ?? '')), 0, 80)];
+        }
         foreach (['key', 'salt'] as $f) {
             $v = trim((string)($b->$f ?? ''));
             if ($v === '') continue;
@@ -122,11 +132,12 @@ final class OwnerPayment
         $q = $this->db->prepare('SELECT id,amount,method,status,created_at FROM owner_payment WHERE partner_id=? AND customer_id=? ORDER BY created_at DESC LIMIT 10');
         $q->execute([$actor['partner_id'], $actor['customer_id']]);
         return ['debt' => $debt, 'card' => $s['card'], 'bank' => $s['bank'] ? ['iban' => $s['iban'], 'beneficiary' => $s['beneficiary'], 'bankName' => $s['bankName']] : null,
+            'banks' => $s['bank'] ? array_merge([['iban' => $s['iban'], 'beneficiary' => $s['beneficiary'], 'bankName' => $s['bankName']]], $s['banks']) : [],
             'payments' => array_map(static fn($r) => ['amount' => (int)$r['amount'], 'created_at' => (int)$r['created_at'], 'code' => strtoupper(substr($r['id'], 0, 8))] + $r, $q->fetchAll(PDO::FETCH_ASSOC))];
     }
 
     /** Hasta sahibi ödeme başlatır. Kart: PayTR ödeme sayfası adresi; havale: ödeme kodu ve IBAN. */
-    public function start(array $actor, object $b, string $ip, string $origin, int $now): array
+    public function start(array $actor, object $b, string $ip, string $origin, int $now, string $back = ''): array
     {
         $info = $this->owner($actor);
         $method = (string)($b->method ?? '');
@@ -147,10 +158,10 @@ final class OwnerPayment
                 mb_substr((string)($client->name ?? $actor['name'] ?? ''), 0, 160), $amount, $method, 'pending', $now]);
         $code = strtoupper(substr($id, 0, 8));
         if ($method === 'bank') return ['id' => $id, 'method' => 'bank', 'code' => $code, 'amount' => $amount, 'bank' => $info['bank']];
-        return ['id' => $id, 'method' => 'card', 'url' => $this->token($id, $actor, $client, $amount, $ip, $origin)];
+        return ['id' => $id, 'method' => 'card', 'url' => $this->token($id, $actor, $client, $amount, $ip, $origin, $back)];
     }
 
-    private function token(string $id, array $actor, ?object $client, int $amount, string $ip, string $origin): string
+    private function token(string $id, array $actor, ?object $client, int $amount, string $ip, string $origin, string $back = ''): string
     {
         $s = $this->settings($actor['partner_id'], true);
         $q = $this->db->prepare('SELECT name FROM partner_account WHERE id=?');
@@ -164,8 +175,8 @@ final class OwnerPayment
         $fields = ['merchant_id' => $s['merchantId'], 'user_ip' => $ip, 'merchant_oid' => $oid, 'email' => $email, 'payment_amount' => (string)$amount,
             'paytr_token' => base64_encode(hash_hmac('sha256', $hash.$s['salt'], $s['key'], true)), 'user_basket' => $basket, 'debug_on' => $test,
             'no_installment' => '0', 'max_installment' => '0', 'user_name' => mb_substr((string)($client->name ?? 'Hasta sahibi'), 0, 60), 'user_address' => 'Türkiye',
-            'user_phone' => preg_replace('/\D/', '', (string)($client->phone ?? '')) ?: '05000000000', 'merchant_ok_url' => $origin.'/app#odeme-tamam',
-            'merchant_fail_url' => $origin.'/app#odeme-hata', 'timeout_limit' => '30', 'currency' => 'TL', 'test_mode' => $test, 'lang' => 'tr'];
+            'user_phone' => preg_replace('/\D/', '', (string)($client->phone ?? '')) ?: '05000000000', 'merchant_ok_url' => $back !== '' ? $back.'?sonuc=tamam' : $origin.'/app#odeme-tamam',
+            'merchant_fail_url' => $back !== '' ? $back.'?sonuc=hata' : $origin.'/app#odeme-hata', 'timeout_limit' => '30', 'currency' => 'TL', 'test_mode' => $test, 'lang' => 'tr'];
         $endpoint = (string)($this->config['paytrEndpoint'] ?? self::ENDPOINT);
         if ($endpoint !== self::ENDPOINT && !preg_match('~\Ahttp://127\.0\.0\.1:\d+/~', $endpoint)) throw new RuntimeException('Ödeme adresi geçersiz.', 503);
         $c = curl_init($endpoint);
@@ -229,6 +240,137 @@ final class OwnerPayment
             $this->db->prepare("UPDATE owner_payment SET status='rejected',decided_by=? WHERE id=?")->execute([$by, $id]);
         } else throw new RuntimeException('Karar geçersiz.', 422);
         return $this->dealer($actor);
+    }
+
+    // ---------------- Ödeme talebi: hesapsız ödeme bağlantısı (/p/…) ----------------
+    private const LINK_TTL = 1209600; // 14 gün
+
+    private function linkTable(): void
+    {
+        $this->db->exec("CREATE TABLE IF NOT EXISTS owner_pay_link (
+            token_hash char(64) CHARACTER SET ascii NOT NULL,
+            partner_id varchar(80) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+            customer_id varchar(80) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+            branch_id varchar(80) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT '',
+            amount int unsigned NOT NULL DEFAULT 0,
+            created_by varchar(120) NOT NULL DEFAULT '',
+            created_at int unsigned NOT NULL,
+            expires_at int unsigned NOT NULL,
+            PRIMARY KEY (token_hash),
+            KEY owner_pay_link_customer (partner_id, customer_id, created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    }
+
+    public static function tl(int $cents): string
+    {
+        return number_format($cents / 100, 2, ',', '.').' TL';
+    }
+
+    /**
+     * Klinik: seçilen borçlu hasta sahiplerine ödeme talebi. Her birine toplam borç, kısa ödeme bağlantısı, klinik adı ve telefonu
+     * içeren SMS (kliniğin hattından) gider; hasta sahibinin uygulama/portal hesabı varsa aynı anda bildirim de düşer.
+     */
+    public function request(array $actor, object $b, int $now, string $origin): array
+    {
+        if (!in_array($actor['role'] ?? '', ['dealer', 'branch', 'staff'], true) || !ClinicAccess::allowed($actor, 'sales', true)) throw new RuntimeException('Ödeme talebi için satış yetkisi gerekli.', 403);
+        $s = $this->settings($actor['partner_id']);
+        if (!$s['card'] && !$s['bank']) throw new RuntimeException('Önce Ayarlar › Hasta sahibi ödemeleri bölümünden kartla ödeme (PayTR) veya havale/EFT IBAN bilgisini açın.', 422);
+        $ids = array_values(array_unique(array_filter(is_array($b->clients ?? null) ? $b->clients : [], 'is_string')));
+        if (!$ids || count($ids) > 200) throw new RuntimeException('En az bir, en çok 200 hasta sahibi seçin.', 422);
+        $clinic = $this->db->prepare('SELECT name,phone FROM partner_account WHERE id=?');
+        $clinic->execute([$actor['partner_id']]);
+        $partner = $clinic->fetch(PDO::FETCH_ASSOC) ?: ['name' => 'Kliniğiniz', 'phone' => ''];
+        $gateway = new PhoneGateway($this->db);
+        $sms = (bool)$gateway->route($actor['partner_id'], 'sms');
+        $hub = new AppHub($this->db);
+        $results = [];
+        foreach ($ids as $id) {
+            $state = $this->ownerState($actor['partner_id'], $id);
+            $client = null;
+            foreach ($state->clients ?? [] as $c) if (($c->id ?? '') === $id) { $client = $c; break; }
+            if (!$client) { $results[] = ['client' => $id, 'status' => 'skipped', 'reason' => 'Kayıt bulunamadı']; continue; }
+            $branch = ClinicAccess::branch($state, (string)($client->branch ?? ''));
+            if (($actor['role'] ?? '') !== 'dealer') {
+                $own = ClinicAccess::branch($state, (string)($actor['branch_id'] ?? ''));
+                if (!$own || (($own->sharedWith ?? '') ?: $own->id) !== ($client->branch ?? '')) { $results[] = ['client' => $id, 'name' => $client->name ?? '', 'status' => 'skipped', 'reason' => 'Başka şubenin kaydı']; continue; }
+            }
+            $debt = array_sum(array_column($this->debts($state, $id), 'left'));
+            if ($debt <= 0) { $results[] = ['client' => $id, 'name' => $client->name ?? '', 'status' => 'skipped', 'reason' => 'Borcu yok']; continue; }
+            $token = ClientPermit::shortToken();
+            $store = fn() => $this->db->prepare('INSERT INTO owner_pay_link(token_hash,partner_id,customer_id,branch_id,amount,created_by,created_at,expires_at) VALUES (?,?,?,?,?,?,?,?)')
+                ->execute([hash('sha256', $token), $actor['partner_id'], $id, (string)($client->branch ?? ''), $debt, mb_substr((string)($actor['name'] ?? ''), 0, 120), $now, $now + self::LINK_TTL]);
+            try { $store(); } catch (\PDOException $e) { if ($e->getCode() !== '42S02') throw $e; $this->linkTable(); $store(); }
+            $url = rtrim($origin, '/').'/p/'.$token;
+            $short = preg_replace('~\Ahttps://~', '', $url);
+            $clinicName = (string)($branch->name ?? '') !== '' && ($branch->name ?? '') !== 'Merkez' ? $partner['name'].' '.$branch->name : $partner['name'];
+            $phone = (string)(($branch->phone ?? '') ?: ($state->preferences->phone ?? '') ?: $partner['phone']);
+            $name = trim((string)($client->name ?? ''));
+            $text = $clinicName.': Sayın '.$name.', toplam '.self::tl($debt).' ödemeniz bulunmaktadır. Güvenli ödeme: '.$short.($phone !== '' ? ' Bilgi: '.$phone : '');
+            $result = ['client' => $id, 'name' => $name, 'amount' => $debt, 'url' => $url, 'text' => $text, 'sms' => 'none', 'app' => false];
+            $to = DealerLogin::normalizePhone((string)($client->phone ?? ''));
+            if ($to !== '' && $sms) {
+                try { $gateway->enqueue($actor['partner_id'], 'sms', $to, $text, 'manual', 'payreq:'.$id.':'.$now, 0, $now, $now + 3 * 86400, (string)($actor['name'] ?? '')); $result['sms'] = 'queued'; }
+                catch (\Throwable $e) { $result['sms'] = 'failed'; $result['reason'] = $e->getMessage(); }
+            } elseif ($to !== '') {
+                $result['sms'] = 'manual';
+                $result['whatsappLink'] = PhoneGateway::waLink($to, $text);
+            }
+            // Uygulama ve hasta sahibi portalı bildirimi (hesabı olan hasta sahibine).
+            $m = $this->db->prepare("SELECT id,account_id FROM identity_membership WHERE partner_id=? AND role='customer' AND customer_id=? AND status='active'");
+            $m->execute([$actor['partner_id'], $id]);
+            foreach ($m->fetchAll(PDO::FETCH_ASSOC) as $mem) {
+                if ($hub->notify($mem['account_id'], $mem['id'], 'customer', 'payments', $clinicName.' · ödeme talebi', 'Toplam '.self::tl($debt).' ödemeniz bulunuyor. Kartla veya havale ile ödeyebilirsiniz.', '/p/'.$token, 'payreq:'.$id.':'.$now, $now)) $result['app'] = true;
+            }
+            (new DeliveryNotice($this->db))->add($actor['partner_id'], (string)($client->branch ?? ''), $id, 'payments', 'payreq:'.$id.':'.$now, 'Ödeme talebi: '.self::tl($debt), '/p/'.$token);
+            $result['status'] = 'sent';
+            $results[] = $result;
+        }
+        return ['results' => $results, 'sms' => $sms];
+    }
+
+    /** Bağlantı → hasta sahibi kimliği (giriş gerekmez; bağlantı 14 gün geçerli). */
+    private function linkActor(string $token, int $now): array
+    {
+        if (!preg_match('/\A[A-Za-z0-9]{10}\z/', $token)) throw new RuntimeException('Bağlantı geçersiz.', 404);
+        try {
+            $q = $this->db->prepare('SELECT * FROM owner_pay_link WHERE token_hash=?');
+            $q->execute([hash('sha256', $token)]);
+            $row = $q->fetch(PDO::FETCH_ASSOC);
+        } catch (\PDOException) { $row = false; }
+        if (!$row) throw new RuntimeException('Ödeme bağlantısı geçersiz.', 404);
+        if ((int)$row['expires_at'] < $now) throw new RuntimeException('Ödeme bağlantısının süresi doldu. Kliniğinizden yeni bağlantı isteyin.', 410);
+        return ['role' => 'customer', 'partner_id' => $row['partner_id'], 'customer_id' => $row['customer_id'], 'branch_id' => $row['branch_id'], 'membership_id' => 'link', 'name' => ''];
+    }
+
+    /** Ödeme sayfası verisi: klinik, hasta sahibi adı, güncel borç ve açık yöntemler. */
+    public function linkInfo(string $token, int $now): array
+    {
+        $actor = $this->linkActor($token, $now);
+        $info = $this->owner($actor);
+        $state = $this->ownerState($actor['partner_id'], $actor['customer_id']);
+        $client = null;
+        foreach ($state->clients ?? [] as $c) if (($c->id ?? '') === $actor['customer_id']) { $client = $c; break; }
+        $q = $this->db->prepare('SELECT name,phone FROM partner_account WHERE id=?');
+        $q->execute([$actor['partner_id']]);
+        $p = $q->fetch(PDO::FETCH_ASSOC) ?: ['name' => '', 'phone' => ''];
+        $branch = ClinicAccess::branch($state, (string)($client->branch ?? ''));
+        return $info + ['clinic' => $p['name'], 'phone' => (string)(($branch->phone ?? '') ?: ($state->preferences->phone ?? '') ?: $p['phone']), 'name' => (string)($client->name ?? '')];
+    }
+
+    /** Ödeme sayfası işlemleri: card (PayTR sayfası), bank (ödeme kodu + IBAN), notify (havale yaptım). */
+    public function linkAction(string $token, object $b, string $ip, string $origin, int $now): array
+    {
+        $actor = $this->linkActor($token, $now);
+        if (($b->op ?? '') === 'notify') { $this->notifyBank($actor, $b); return ['ok' => true]; }
+        return $this->start($actor, $b, $ip, $origin, $now, rtrim($origin, '/').'/p/'.$token);
+    }
+
+    public static function linkPage(string $token): string
+    {
+        $t = htmlspecialchars($token, ENT_QUOTES, 'UTF-8');
+        return '<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow">'
+            .'<title>Güvenli ödeme</title><link rel="stylesheet" href="/permit-sign.css?v=2"><link rel="stylesheet" href="/owner-pay-link.css?v=1"></head><body><main class="pm" id="payRoot" data-token="'.$t.'">'
+            .'<section class="pm-card"><p>Yükleniyor…</p></section></main><script src="/owner-pay-link.js?v=1" type="module"></script></body></html>';
     }
 
     /** Tutarı en eski borçlu satıştan başlayarak tahsilat olarak kasaya işler. Fazla kalan kısım işlenmez (borç kadar). */

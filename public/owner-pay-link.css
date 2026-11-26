@@ -1,0 +1,5 @@
+.pl-sum{display:grid;gap:4px;text-align:center}.pl-amount{font-size:2rem;letter-spacing:-.5px}
+.pl-input{width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #d7d3e6;border-radius:10px;font:inherit;margin:6px 0 10px}
+.pl-copy{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;padding:6px 0;border-bottom:1px dashed #e4e0f0}.pl-copy strong{overflow-wrap:anywhere}
+.pl-bank{margin:8px 0;padding:8px 10px;border:1px solid #ece8f6;border-radius:10px}
+.pm-card .pm-primary,.pm-card .pm-secondary{width:100%;margin-top:8px}

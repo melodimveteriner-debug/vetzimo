@@ -533,6 +533,27 @@ try {
         $actor=$workspaces->actor($_COOKIE,$now);
         reply(['items'=>(new VetNet\Cpanel\CenterManagement($db,new Center($db,$config)))->published($actor['partner_id'])]);
     }
+    if (preg_match('~\A/p/([A-Za-z0-9]{10})\z~',$path,$payMatch) && $method==='GET') {
+        // Hasta sahibinin hesapsız ödeme sayfası (SMS / uygulama bildirimiyle gönderilen bağlantı).
+        header('Cache-Control: no-store');
+        header('Referrer-Policy: no-referrer');
+        header("Content-Security-Policy: default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self' https://www.paytr.com");
+        header('Content-Type: text/html; charset=utf-8');
+        echo VetNet\Cpanel\UiLocale::page(VetNet\Cpanel\OwnerPayment::linkPage($payMatch[1]),$config);
+        exit;
+    }
+    if (preg_match('~\A/api/pay-link/([A-Za-z0-9]{10})\z~',$path,$payMatch) && in_array($method,['GET','POST'],true)) {
+        $pay=new VetNet\Cpanel\OwnerPayment($db,(string)($config['encryptionKey'] ?? ''),$config);
+        header('Cache-Control: no-store');
+        try {
+            if ($method==='GET') reply($pay->linkInfo($payMatch[1],$now));
+            (new DealerLogin($db,$config['rateSecret']))->throttle('pay-link:'.($_SERVER['REMOTE_ADDR'] ?? ''),$now);
+            reply($pay->linkAction($payMatch[1],input(2048),(string)($_SERVER['REMOTE_ADDR'] ?? ''),$origin,$now));
+        } catch (RuntimeException $error) {
+            if (in_array($error->getCode(),[404,410],true)) (new DealerLogin($db,$config['rateSecret']))->throttle('pay-link-miss:'.($_SERVER['REMOTE_ADDR'] ?? ''),$now);
+            throw $error;
+        }
+    }
     if ($path==='/api/owner-pay/paytr' && $method==='POST') {
         // Hasta sahibi kart ödemesi: bayinin kendi PayTR mağazasının bildirimi (imza o bayinin anahtarıyla doğrulanır).
         $result=(new VetNet\Cpanel\OwnerPayment($db,(string)($config['encryptionKey'] ?? ''),$config))->callback($_POST,$now);
@@ -555,8 +576,12 @@ try {
         $pay=new VetNet\Cpanel\OwnerPayment($db,(string)($config['encryptionKey'] ?? ''),$config);
         if ($method==='GET') reply($pay->dealer($clinicActor)+['callback'=>$origin.'/api/owner-pay/paytr']);
         if (!hash_equals((string)($clinicActor['membership_id'] ?? ''),$_SERVER['HTTP_X_VETNET_SCOPE'] ?? '')) throw new RuntimeException('Çalışma alanı oturumu değişti.',409);
-        $body=input(4096);
+        $body=input(20000);
         if (($body->op ?? '')==='settings') reply($pay->saveSettings($clinicActor,$body)+['callback'=>$origin.'/api/owner-pay/paytr']);
+        if (($body->op ?? '')==='request') {
+            (new DealerLogin($db,$config['rateSecret']))->throttle('pay-request:'.$clinicActor['account_id'],$now);
+            reply($pay->request((new VetNet\Cpanel\Commerce($db))->packageActor($clinicActor),$body,$now,$origin));
+        }
         reply($pay->decide($clinicActor,$body,$now)+['callback'=>$origin.'/api/owner-pay/paytr']);
     }
     if ($path==='/api/saas/paytr/callback' && $method==='POST') {
@@ -575,7 +600,7 @@ try {
         if ($method==='GET' && $path==='/api/saas/store') reply([
             'scopeId'=>$actor['membership_id'],'card'=>$methods['card'],'bank'=>$methods['bank'],'orders'=>$payment->orders($actor['partner_id']),
             'subscription'=>(new VetNet\Cpanel\Commerce($db))->subscription($actor['partner_id']),
-            'addons'=>array_values(array_filter((new VetNet\Cpanel\AddonPackages($db))->catalog(true),static fn($r)=>$r['amount']!==null)),
+            'addons'=>(new VetNet\Cpanel\AddonPackages($db))->eligible($actor['partner_id'])?array_values(array_filter((new VetNet\Cpanel\AddonPackages($db))->catalog(true),static fn($r)=>$r['amount']!==null)):[],
             'addonKinds'=>array_map(static fn($k)=>$k[0],VetNet\Cpanel\AddonPackages::KINDS),
             'addonBalances'=>(new VetNet\Cpanel\AddonPackages($db))->balances($actor['partner_id']),
             'plans'=>array_map(static fn($plan)=>$plan+['amounts'=>['monthly'=>VetNet\Cpanel\SaasPayment::amount($plan,'monthly'),'yearly'=>VetNet\Cpanel\SaasPayment::amount($plan,'yearly')],
@@ -749,7 +774,7 @@ try {
             $saas=new VetNet\Cpanel\SaasPayment($db,(string)($config['encryptionKey'] ?? ''),$config);
             reply($action==='paytr'?$saas->settings()+['callback'=>$origin.'/api/saas/paytr/callback']:['rows'=>$saas->adminOrders()]);
         }
-        if ($method==='GET' && $action==='addons') reply(['packages'=>(new VetNet\Cpanel\AddonPackages($db))->catalog(),'kinds'=>array_map(static fn($k)=>$k[0],VetNet\Cpanel\AddonPackages::KINDS)]);
+        if ($method==='GET' && $action==='addons') reply(['hidden'=>(new VetNet\Cpanel\AddonPackages($db))->hidden(),'packages'=>(new VetNet\Cpanel\AddonPackages($db))->catalog(),'kinds'=>array_map(static fn($k)=>$k[0],VetNet\Cpanel\AddonPackages::KINDS)]);
         if ($method==='GET' && $action==='plans') reply(['plans'=>array_values($commerce->catalog()),'termFields'=>VetNet\Cpanel\Commerce::TERMS,'featureFields'=>ClinicAccess::FEATURES]);
         if ($method==='GET' && $action==='subscriptions') reply(['terms'=>$db->query(
             'SELECT p.name,s.partner_id,s.plan_name,s.kind,s.starts_on,s.ends_on FROM clinic_subscription s JOIN partner_account p ON p.id=s.partner_id ORDER BY s.ends_on DESC,s.id DESC LIMIT 300'
@@ -1487,6 +1512,7 @@ try {
                 reply(['ok'=>true]);
             }
             if($action==='invite') reply($identity->invite($actor,$scope,$body,$now,$config));
+            if($action==='resend') reply($identity->resend($actor,$scope,$body,$now,$config));
             if(in_array($action,['permissions','revoke','edit','delete'],true)) { $identity->manage($actor,$scope,$action,$body,$now); reply(['ok'=>true]); }
         }
     }

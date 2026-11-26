@@ -93,6 +93,23 @@ $after=$repo->load('partner:'.$p)['state'];
 $col=array_values(array_filter($after->collections,fn($c)=>($c->sale ?? '')==='s900'));
 ok(count($col)===1 && $col[0]->amount==='250.00' && $col[0]->method==='Havale/EFT','Tahsilat işlenmedi: '.json_encode($col));
 ok($op->owner($cust)['debt']===0,'Borç sıfırlanmadı');
+// 5b) Ödeme talebi: yeni borç → SMS metni (klinik adı, tutar, kısa bağlantı) + uygulama bildirimi; bağlantıyla hesapsız havale
+$data=$repo->load('partner:'.$p);$state=$data['state'];
+$state->sales[]=(object)['id'=>'s901','branch'=>$branch,'date'=>'2026-11-20','client'=>'c900','amount'=>'1250.50','paid'=>'0','items'=>'[]','detail'=>'Ameliyat'];
+ok($repo->save('partner:'.$p,$data['revision'],$state)!==null,'İkinci satış kaydedilemedi');
+$op->saveSettings($actor,(object)['bank'=>true,'iban'=>'TR33 0006 1005 1978 6457 8413 26','beneficiary'=>'Paket Test Kliniği','banks'=>[(object)['bankName'=>'İkinci Banka','iban'=>'TR33 0006 1005 1978 6457 8413 26']]]);
+$req=$op->request($actor+['modules'=>'{}'],(object)['clients'=>['c900']],time(),'https://vetzimo.test');
+$r0=$req['results'][0];
+ok($r0['status']==='sent' && $r0['amount']===125050 && str_contains($r0['text'],'1.250,50 TL') && preg_match('~vetzimo\.test/p/([A-Za-z0-9]{10})~',$r0['text'],$pm) && $r0['app']===true,'Ödeme talebi yanlış: '.json_encode($r0));
+ok((int)$db->query("SELECT COUNT(*) FROM app_notification WHERE account_id='acc-own9' AND category='payments'")->fetchColumn()===1,'Uygulama bildirimi oluşmadı');
+$li=$op->linkInfo($pm[1],time());
+ok($li['debt']===125050 && $li['name']==='Ayşe Sahibi' && count($li['banks'])===2,'Ödeme sayfası bilgisi yanlış: '.json_encode($li));
+$lb=$op->linkAction($pm[1],(object)['method'=>'bank','amount'=>125050],'192.0.2.9','https://vetzimo.test',time());
+$op->linkAction($pm[1],(object)['op'=>'notify','id'=>$lb['id'],'reference'=>'R-1'],'192.0.2.9','https://vetzimo.test',time());
+$op->decide($actor,(object)['id'=>$lb['id'],'action'=>'approve','verified'=>true],time());
+ok($op->linkInfo($pm[1],time())['debt']===0,'Bağlantıyla yapılan ödeme borcu kapatmadı');
+try { $op->linkInfo('AAAAAAAAAA',time()); ok(false,'Geçersiz bağlantı açıldı'); } catch (RuntimeException $e) { ok($e->getCode()===404,'Geçersiz bağlantı hatası yanlış'); }
+try { $op->linkInfo($pm[1],time()+15*86400); ok(false,'Süresi dolmuş bağlantı açıldı'); } catch (RuntimeException $e) { ok($e->getCode()===410,'Süre hatası yanlış'); }
 // 6) Paket silme: aboneliği olmayan eski paket silinir, süren aboneliği olan silinemez; 999999 her sınırda "sınırsız"
 ok($commerce->deletePackage((object)['id'=>'baslangic'])==='Başlangıç' && !isset($commerce->catalog()['baslangic']),'Eski paket silinmedi');
 try { $commerce->deletePackage((object)['id'=>'plus']); ok(false,'Süren aboneliği olan paket silindi'); } catch (RuntimeException $e) { ok($e->getCode()===409,'Beklenmeyen silme hatası: '.$e->getMessage()); }

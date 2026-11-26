@@ -65,6 +65,32 @@ final class AddonPackages
         return $out;
     }
 
+    /** Yönetici "Ek paketleri gizle" anahtarı: açıkken hiçbir bayiye ek paket gösterilmez/satılmaz. */
+    public function hidden(): bool
+    {
+        $q = $this->db->prepare("SELECT payload FROM center_management WHERE id=? AND kind='addon_catalog'");
+        $q->execute([self::CATALOG_ID]);
+        $raw = $q->fetchColumn();
+        return $raw !== false && (json_decode((string)$raw, true)['hidden'] ?? false) === true;
+    }
+
+    /** Ek paketler yalnız ücretli aktif aboneliği olan bayiye görünür (deneme/demo ve Ücretsiz pakette görünmez). */
+    public function eligible(string $partner): bool
+    {
+        if ($this->hidden()) return false;
+        $day = (new \DateTimeImmutable('now', new \DateTimeZone('Europe/Istanbul')))->format('Y-m-d');
+        $q = $this->db->prepare("SELECT plan_id FROM clinic_subscription WHERE partner_id=? AND starts_on<=? AND ends_on>=? AND kind<>'trial'");
+        $q->execute([$partner, $day, $day]);
+        $catalog = (new Commerce($this->db))->catalog();
+        foreach ($q->fetchAll(PDO::FETCH_COLUMN) as $plan) {
+            if ($plan === 'ucretsiz') continue;
+            $p = $catalog[$plan] ?? null;
+            if ($p && (($p['rank'] ?? null) === 0 || ($p['monthly'] ?? null) === 0 && ($p['yearly'] ?? null) === 0)) continue;
+            return true;
+        }
+        return false;
+    }
+
     public static function amount(array $r): ?int
     {
         $price = $r['price'] ?? null;
@@ -98,7 +124,7 @@ final class AddonPackages
                 'vat' => ($r->vat ?? 'included') === 'excluded' ? 'excluded' : 'included', 'active' => ($r->active ?? true) === true, 'description' => $desc];
         }
         $this->db->prepare("INSERT INTO center_management(id,kind,payload) VALUES (?,'addon_catalog',?) ON DUPLICATE KEY UPDATE payload=VALUES(payload)")
-            ->execute([self::CATALOG_ID, json_encode(['packages' => $clean], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)]);
+            ->execute([self::CATALOG_ID, json_encode(['packages' => $clean, 'hidden' => ($input->hidden ?? false) === true], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)]);
         return $this->catalog();
     }
 

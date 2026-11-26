@@ -118,7 +118,9 @@ final class SaasPayment
         $request = (string)($b->requestId ?? '');
         $method = (string)($b->method ?? '');
         if (!preg_match('/\A[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\z/', $request) || !in_array($method, ['card', 'bank'], true)) throw new RuntimeException('Sipariş bilgilerini kontrol edin.', 422);
-        $pkg = (new AddonPackages($this->db))->find((string)($b->packageId ?? ''));
+        $addons = new AddonPackages($this->db);
+        if (!$addons->eligible((string)$actor['partner_id'])) throw new RuntimeException('Ek paketler ücretli aktif aboneliği olan klinikler içindir.', 403);
+        $pkg = $addons->find((string)($b->packageId ?? ''));
         $amount = $pkg ? AddonPackages::amount($pkg) : null;
         if (!$pkg || $amount === null) throw new RuntimeException('Bu ek paket şu anda satışta değil.', 422);
         $id = substr(hash('sha256', 'addon:'.$actor['partner_id'].':'.$request), 0, 32);

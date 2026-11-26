@@ -5,7 +5,7 @@ const ORDER = ["sms", "whatsapp", "users", "branches", "patients", "clients", "s
 const UNIT = {sms: "adet SMS", whatsapp: "adet mesaj", users: "kullanıcı", branches: "şube", patients: "hasta kaydı", clients: "hasta sahibi kaydı", storage: "GB", other: "adet"};
 
 export async function mountAddonAdmin(content, {call, el, status}) {
-  const [{packages, kinds}, orders, partnerData] = await Promise.all([call("addons"), call("saas-orders"), call("partners").catch(() => ({partners: []}))]);
+  const [{packages, kinds, hidden}, orders, partnerData] = await Promise.all([call("addons"), call("saas-orders"), call("partners").catch(() => ({partners: []}))]);
   let rows = packages.map(p => ({...p}));
   const editor = el("div", "", {className: "addon-editor"});
   const input = (value, props = {}) => { const i = el("input", "", props); i.value = value ?? ""; return i; };
@@ -49,11 +49,15 @@ export async function mountAddonAdmin(content, {call, el, status}) {
       editor.append(group);
     }
   }
+  // Genel gizleme: açıkken hiçbir bayi ek paket görmez ve satın alamaz (paket tek tek "Satışta" kutusuyla da kapatılabilir).
+  const hideLabel = el("label", "", {className: "addon-check addon-hide"});
+  const hideBox = el("input", "", {type: "checkbox", checked: !!hidden});
+  hideLabel.append(hideBox, document.createTextNode(" Ek paketleri tüm bayilerden gizle"));
   const save = el("button", "Ek paketleri kaydet", {type: "button", className: "button primary"});
   save.addEventListener("click", async () => {
     save.disabled = true;
     try {
-      const r = await call("addons", {packages: rows.map(({id, kind, name, quantity, price, vat, active, description}) => ({id, kind, name: name.trim(), quantity, price, vat, active, description: (description || "").trim()}))});
+      const r = await call("addons", {hidden: hideBox.checked, packages: rows.map(({id, kind, name, quantity, price, vat, active, description}) => ({id, kind, name: name.trim(), quantity, price, vat, active, description: (description || "").trim()}))});
       rows = r.packages.map(p => ({...p})); draw();
       status.textContent = "Ek paketler kaydedildi. Bayi mağazasında hemen görünür.";
     } catch (e) { status.textContent = e.message; }
@@ -98,7 +102,8 @@ export async function mountAddonAdmin(content, {call, el, status}) {
   draw();
   content.replaceChildren(
     el("h3", "Ek paketler"),
-    el("p", "Bayiler aylık SMS / WhatsApp hakkı bittiğinde bu paketlerden alır; ek kredi süresizdir ve aylık hak bittikten sonra kullanılır. Kullanıcı, şube, hasta, hasta sahibi kaydı ve depolama paketleri bayinin paket sınırına eklenir. \"Diğer\" türüyle kurulum, eğitim gibi serbest ek hizmetler satabilirsiniz. Fiyatı boş bırakılan paket satışta görünmez.", {className: "muted"}),
+    hideLabel,
+    el("p", "Ek paketler yalnız ücretli aktif aboneliği olan bayilerin Abonelik mağazasında görünür; deneme (demo) ve Ücretsiz paketteki bayilerde ve satış sitesinde görünmez. Bayiler aylık SMS / WhatsApp hakkı bittiğinde bu paketlerden alır; ek kredi süresizdir ve aylık hak bittikten sonra kullanılır. Kullanıcı, şube, hasta, hasta sahibi kaydı ve depolama paketleri bayinin paket sınırına eklenir. \"Diğer\" türüyle kurulum, eğitim gibi serbest ek hizmetler satabilirsiniz. Fiyatı boş bırakılan paket satışta görünmez.", {className: "muted"}),
     editor, save,
     el("h3", "Bayiye elle kredi tanımla"), credit,
     el("h3", "Ek paket siparişleri"),

@@ -99,7 +99,7 @@ export function mountSettingsHub(root, ctx) {
     if (route === "bildirimler") notificationPrefs(area, ctx);
     else if (route === "cihazlarim") devicesAndAccount(area, ctx);
     else if (route === "ajanlar") import("./agent-access.js?v=1").then(m => m.mountAgentDownloads(area, {tr}));
-    else if (route === "hasta-sahibi-odemeleri") import("./owner-pay.js?v=1").then(m => m.mountOwnerPayAdmin(area, {api: ctx.api, scope: ctx.scope, tr}));
+    else if (route === "hasta-sahibi-odemeleri") import("./owner-pay.js?v=2").then(m => m.mountOwnerPayAdmin(area, {api: ctx.api, scope: ctx.scope, tr}));
     else ctx.inline?.[route]?.(area);
   }
   function draw() {

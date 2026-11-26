@@ -156,8 +156,8 @@ export async function mountCreditShop(ui,{section=""}={}) {
     addonDetail.replaceChildren(top,form,el("p",row.kind==="sms"||row.kind==="whatsapp"?"Kredi, aylık hakkınız bittiğinde kullanılır ve süresizdir.":"Satın aldığınız artış paket sınırınıza eklenir.",{className:"suite-muted"}));
     addonDetail.hidden=false;addons.hidden=true;addonDetail.scrollIntoView({block:"start"});addonDetail.focus({preventScroll:true});
   }
-  drawAddons();
-  view.append(addons,addonDetail);
+  // Ek paketler yalnız ücretli aktif aboneliği olan bayiye gelir (deneme ve Ücretsiz pakette, ya da yönetici gizlediyse liste boştur).
+  if ((data.addons||[]).length) { drawAddons(); view.append(addons,addonDetail); }
   if (section==="ek-paket") setTimeout(()=>addons.scrollIntoView({block:"start"}),50);
   // Satış sitesindeki "Satın Alın" düğmesinden gelindiyse (#kredi-magazasi/paket-<kod>-<dönem>) seçilen paketin ödeme adımı doğrudan açılır.
   const wanted=/^paket-([a-z0-9][a-z0-9-]*?)-(monthly|yearly)$/.exec(section||"");

@@ -278,6 +278,43 @@ export async function mountClinicAccounts(ui,params) {
       card.addEventListener("click",()=>{roleSelect.value=roleSelect.value===key?"":key;render();});
       card.dataset.role=key;metrics.append(card);
     }
+    // Aktivasyon bekleyen üyelik: yeni bağlantı SMS (kliniğin hattından), e-posta veya bu cihazda; eskisi geçersiz olur.
+    function resendTools(row) {
+      const box=el("div","",{className:"ca-resend"}), out=el("p","",{className:"suite-muted",role:"status"});
+      const send=async(method,email="")=>{
+        const go=()=>api("resend",{membershipId:row.id,method,email});
+        let r;
+        try{r=await go();}
+        catch(e){
+          if(!/yeniden doğrula/i.test(e.message)){out.textContent=e.message;return;}
+          const pass=el("input","",{type:"password",autocomplete:"current-password",placeholder:"Mevcut şifreniz"}),ok=el("button","Doğrula ve gönder",{type:"button",className:"button small primary"});
+          const wrapPass=el("div","",{className:"ca-resend-auth"});wrapPass.append(el("small","Güvenlik için şifrenizi girin (15 dakika geçerli)."),pass,ok);box.append(wrapPass);pass.focus();
+          await new Promise(res=>ok.addEventListener("click",async()=>{ok.disabled=true;try{await api("reauth",{password:pass.value});wrapPass.remove();res();}catch(er){out.textContent=er.message;ok.disabled=false;}}));
+          try{r=await go();}catch(er){out.textContent=er.message;return;}
+        }
+        const l=r.link?link("bağlantı",r.link):null;
+        if(r.status==="sms_queued") out.replaceChildren("Yeni aktivasyon bağlantısı SMS ile gönderiliyor (24 saat geçerli).");
+        else if(r.status==="sms_unavailable"){const wa=link("WhatsApp ile gönder","https://wa.me/"+(row.phone||"").replace(/\D/g,"").replace(/^0/,"90")+"?text="+encodeURIComponent(r.share||r.link));wa.target="_blank";wa.rel="noopener";out.replaceChildren("SMS hattı açık değil. ",wa," · ",l);}
+        else if(r.status==="email_sent") out.replaceChildren("Yeni aktivasyon bağlantısı e-posta ile gönderildi.");
+        else if(r.status==="email_failed") out.replaceChildren("E-posta gönderilemedi; bağlantıyı elle iletin: ",l);
+        else if(r.status==="device"){const w=window.open(r.link,"_blank");if(w)try{w.opener=null}catch{}out.replaceChildren("Aktivasyon ekranı "+(w?"yeni sekmede açıldı":"açılamadı")+" (15 dakika geçerli). ",l);}
+      };
+      const sms=el("button","SMS ile tekrar gönder",{type:"button",className:"button small"});
+      const mail=el("button","E-posta ile",{type:"button",className:"button small"});
+      const here=el("button","Bu cihazda aç",{type:"button",className:"button small"});
+      sms.addEventListener("click",()=>send("sms"));
+      here.addEventListener("click",()=>send("device"));
+      mail.addEventListener("click",()=>{
+        if(box.querySelector(".ca-resend-mail"))return;
+        const f=el("form","",{className:"ca-resend-mail"}),input=el("input","",{type:"email",required:true,maxLength:254,placeholder:"ornek@eposta.com"});
+        const client=data.clients?.find(c=>c.id===row.customer_id);if(client?.email)input.value=client.email;
+        f.append(input,el("button","Gönder",{type:"submit",className:"button small primary"}));
+        f.addEventListener("submit",e=>{e.preventDefault();f.remove();send("email",input.value.trim());});
+        box.append(f);input.focus();
+      });
+      box.append(sms,mail,here,out);
+      return box;
+    }
     function render() {
       roleValue=roleSelect.value;branchValue=branchSelect.value;statusValue=stateSelect.value;
       searchValue=search.querySelector("input").value;
@@ -300,7 +337,8 @@ export async function mountClinicAccounts(ui,params) {
             catalog.hidden=true;detail.replaceChildren(memberCard(row,data));
             detail.querySelector("h2").focus({preventScroll:true});detail.scrollIntoView({block:"start"});
           });
-          tr.insertCell().append(button);
+          const cell=tr.insertCell();cell.append(button);
+          if (row.status==="pending") cell.append(resendTools(row));
         }
         wrap.append(table);return wrap;
       },15));

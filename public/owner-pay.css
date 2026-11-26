@@ -22,3 +22,4 @@
 .op-row>div:first-child{display:grid;gap:2px;min-width:0}.op-row small{opacity:.7}
 .op-row .op-actions{grid-column:1/-1}
 @media (max-width:560px){.op-row{grid-template-columns:1fr auto}.op-row .op-st{grid-column:1/-1;justify-self:start}}
+.op-banks{display:grid;gap:8px;margin:6px 0}.op-bank-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,170px),1fr));gap:8px;align-items:end;padding:8px;border:1px dashed var(--line,#ddd);border-radius:10px}

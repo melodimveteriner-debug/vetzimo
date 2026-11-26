@@ -973,3 +973,5 @@ td [class*=badge],td [class*=status],td [class*=pill],td [class*=chip]{white-spa
 .store-addons{margin-top:22px}.store-addon-head p{max-width:70ch}
 .store-addon-balances{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 4px}
 .store-addon-group{margin-top:16px}.store-addon-group>h3{margin:0 0 4px;font-size:1.05rem}
+.ca-resend{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;align-items:center}.ca-resend>p{flex-basis:100%;margin:2px 0 0;font-size:.85rem}
+.ca-resend-mail,.ca-resend-auth{display:flex;flex-wrap:wrap;gap:6px;flex-basis:100%;align-items:center}.ca-resend-mail input,.ca-resend-auth input{flex:1 1 180px;min-width:0}

@@ -60,6 +60,20 @@ export function mountDebtReminders(root, api) {
     } catch (e) { state.status = e.message; }
     state.busy = false; draw();
   }
+  // Ödeme talebi: toplam borç + hesapsız ödeme bağlantısı (kart / havale) SMS ile; hasta sahibinin hesabı varsa uygulama bildirimi de.
+  async function payRequest(ids) {
+    if (!ids.length) return;
+    state.busy = true; state.status = tr("Ödeme talepleri hazırlanıyor…"); draw();
+    try {
+      const out = [];
+      for (let i = 0; i < ids.length; i += 50) out.push(...(await api.call("clinic/owner-payments", {op: "request", clients: ids.slice(i, i + 50)})).results);
+      state.payResults = out;
+      const sent = out.filter(r => r.status === "sent");
+      state.status = tr("Ödeme talebi") + ": " + sent.filter(r => r.sms === "queued").length + " " + tr("SMS kuyruğa alındı") + " · " + sent.filter(r => r.app).length + " " + tr("uygulama bildirimi") +
+        (out.length - sent.length ? " · " + (out.length - sent.length) + " " + tr("atlandı") : "");
+    } catch (e) { state.status = e.message; }
+    state.busy = false; draw();
+  }
   async function send() {
     const p = state.preview;
     if (!p?.ready.length || !p.confirm) return;
@@ -140,6 +154,9 @@ export function mountDebtReminders(root, api) {
       if (d.phone) {
         actions.append(el("a", "WhatsApp", {href: waLink(d), target: "_blank", rel: "noopener", className: "button small"}));
         actions.append(el("a", tr("Ara"), {href: "tel:" + String(d.phone).replace(/[^+\d]/g, ""), className: "button small ghost"}));
+        const pr = el("button", tr("Ödeme talebi"), {type: "button", className: "button small primary", disabled: state.busy, title: tr("Toplam borç ve ödeme bağlantısı SMS + uygulama bildirimiyle gider")});
+        pr.addEventListener("click", () => payRequest([d.client]));
+        actions.append(pr);
       }
       const ageCell = el("td", String(d.age));
       ageCell.dataset.bucket = String(BUCKETS.findIndex(([lo, hi]) => d.age >= lo && d.age <= hi));
@@ -186,7 +203,29 @@ export function mountDebtReminders(root, api) {
       }
     }
     if (state.status) compose.append(el("p", state.status, {className: "dr-status", role: "status"}));
-    root.replaceChildren(head, tiles, listCard, compose);
+    const pay = el("section", "", {className: "dr-card dr-pay"});
+    const chosen = all.filter(d => state.selected.has(d.client)).map(d => d.client);
+    pay.append(el("h2", tr("Ödeme talebi gönder")),
+      el("p", tr("Seçilen hasta sahiplerine toplam borcu, kliniğinizin adı ve telefonu ile güvenli ödeme bağlantısı içeren kısa SMS gider; hasta sahibinin uygulama hesabı varsa aynı anda bildirim de düşer. Bağlantıdan kartla (PayTR) veya havale/EFT ile ödenir; kartla ödeme kasaya otomatik işlenir."), {className: "dr-muted"}));
+    if (chosen.length) {
+      const s0 = all.find(d => state.selected.has(d.client));
+      pay.append(el("p", tr("Örnek") + ": " + api.clinic().name + ": " + tr("Sayın") + " " + s0.name + ", " + tr("toplam") + " " + plain(s0.cents) + " TL " + tr("ödemeniz bulunmaktadır. Güvenli ödeme:") + " vetzimo.com/p/•••••• " + (api.clinic().phone ? tr("Bilgi:") + " " + api.clinic().phone : ""), {className: "dr-sample"}));
+    }
+    const go = el("button", tr("Seçilenlere ödeme talebi gönder") + " (" + chosen.length + ")", {type: "button", className: "button primary", disabled: state.busy || !chosen.length});
+    go.addEventListener("click", () => payRequest(chosen));
+    pay.append(go);
+    if (state.payResults?.length) {
+      const ul = el("ul", "", {className: "dr-results"});
+      for (const r of state.payResults.slice(0, 60)) {
+        const li = el("li"); li.dataset.status = r.status === "sent" ? "queued" : "skipped";
+        const info = r.status !== "sent" ? r.reason || "" : [r.sms === "queued" ? tr("SMS gönderiliyor") : r.sms === "manual" ? tr("SMS hattı kapalı") : r.sms === "failed" ? (r.reason || tr("SMS gönderilemedi")) : tr("Telefon yok"), r.app ? tr("uygulama bildirimi gitti") : ""].filter(Boolean).join(" · ");
+        li.append(el("strong", r.name || "—"), el("span", (r.amount ? money(r.amount) + " · " : "") + info));
+        if (r.whatsappLink) li.append(el("a", "WhatsApp", {href: r.whatsappLink, target: "_blank", rel: "noopener", className: "button small"}));
+        ul.append(li);
+      }
+      pay.append(ul);
+    }
+    root.replaceChildren(head, tiles, listCard, pay, compose);
   }
   draw();
   api.call("dealer/session").then(s => { state.channels = s.provider || {}; draw(); }).catch(() => { state.channels = {sms: false}; draw(); });

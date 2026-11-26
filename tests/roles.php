@@ -30,7 +30,15 @@ ok($r['status']==='sms_unavailable' && str_contains($r['share'],$r['link']),'SMS
 $again=$identity->invite($actor,$scope,(object)($base+['phone'=>'05551000091','role'=>'branch','method'=>'device']),$now,['origin'=>'https://klinik.example']);
 ok($again['status']==='device' && $again['link']!==$r0['link'],'Bekleyen davet yeniden gönderilemedi');
 rejected(422,fn()=>$identity->activationInfo(substr($r0['link'],strrpos($r0['link'],'/')+1),$now));
+
 $identity->activationInfo(substr($again['link'],strrpos($again['link'],'/')+1),$now);
+// Bekleyen üyeliğe tekrar gönderim: yeni bağlantı, eskisi geçersiz; aktif üyeliğe gönderilmez
+$pendingId=$db->query("SELECT m.id FROM identity_membership m JOIN identity_account a ON a.id=m.account_id WHERE a.identifier='+905551000091' AND m.status='pending'")->fetchColumn();
+$re=$identity->resend($actor,$scope,(object)['membershipId'=>$pendingId,'method'=>'sms'],$now,['origin'=>'https://klinik.example']);
+ok($re['status']==='sms_unavailable' && str_contains($re['share'],$re['link']),'Tekrar SMS gönderimi çalışmadı');
+rejected(422,fn()=>$identity->activationInfo(substr($again['link'],strrpos($again['link'],'/')+1),$now));
+$identity->activationInfo(substr($re['link'],strrpos($re['link'],'/')+1),$now);
+rejected(422,fn()=>$identity->resend($actor,$scope,(object)['membershipId'=>$pendingId,'method'=>'email','email'=>'x'],$now));
 rejected(422,fn()=>$identity->invite($actor,$scope,(object)($base+['phone'=>'05551000093','role'=>'staff','method'=>'email','email'=>'gecersiz']),$now));
 rejected(422,fn()=>$identity->invite($actor,$scope,(object)(['phone'=>'05551000008','role'=>'customer','branchId'=>'merkez','customerId'=>'owner2','method'=>'password','password'=>'Uzun-sifre-12345','modules'=>(object)[]]),$now));
 rejected(422,fn()=>$identity->invite($actor,$scope,(object)($base+['phone'=>'05551000094','role'=>'staff','method'=>'in-person']),$now));

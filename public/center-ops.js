@@ -195,7 +195,7 @@ export async function mountCenterSuite(ui,session){
   await m.mountAnalytics(content,{call,el,status,openPartner:id=>detail(id)});
  }
  async function addonPackages(){
-  const m=await import('./center-addons.js?v=1');await m.mountAddonAdmin(content,{call,el,status});
+  const m=await import('./center-addons.js?v=2');await m.mountAddonAdmin(content,{call,el,status});
  }
  async function paymentChannels(){
   // Abonelik satışı: kart (PayTR iFrame) ve havale. Kart ödemesi PayTR bildirimiyle otomatik onaylanır.
