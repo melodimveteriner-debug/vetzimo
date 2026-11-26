@@ -203,8 +203,9 @@ final class AppPush
         switch ($device['provider']) {
             case 'fcm':
                 if (!$this->status()['fcm']) return ['skipped', 'Firebase ayarlanmadı'];
-                $android = ['priority' => $msg['critical'] ? 'HIGH' : 'NORMAL', 'collapse_key' => $msg['category'], 'ttl' => '86400s',
-                    'notification' => ['channel_id' => 'vz_'.$msg['category'], 'tag' => 'vz'.$msg['id'], 'notification_count' => $msg['badge'],
+                // Tüm bildirimler yüksek öncelikli ve sesli kanaldan gider (kanal "vzs_"; kanal henüz oluşmamışsa Android varsayılan sesli kanalı kullanır).
+                $android = ['priority' => 'HIGH', 'collapse_key' => $msg['category'], 'ttl' => '86400s',
+                    'notification' => ['channel_id' => 'vzs_'.$msg['category'], 'tag' => 'vz'.$msg['id'], 'notification_count' => $msg['badge'],
                         'visibility' => $msg['private'] ? 'PRIVATE' : 'PUBLIC', 'default_sound' => $sound === 'default'] + ($sound !== 'default' && $sound !== 'silent' ? ['sound' => $sound] : [])];
                 $body = json_encode(['message' => ['token' => $token, 'notification' => ['title' => $msg['title'], 'body' => $msg['body']],
                     'data' => ['id' => (string)$msg['id'], 'href' => $msg['href'], 'membership' => $msg['membership'], 'category' => $msg['category'], 'badge' => (string)$msg['badge']],

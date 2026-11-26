@@ -1,4 +1,4 @@
-const CACHE = 'vetzimo-public-offline-r70';
+const CACHE = 'vetzimo-public-offline-r71';
 const OFFLINE = '/vetzimo-offline.html';
 const PANELS = new Set(['/app', '/giris', '/clinic', '/klinik', '/hasta-sahibi', '/yonetim', '/uygulama']);
 
@@ -35,7 +35,7 @@ self.addEventListener('push', event => {
   event.waitUntil((async () => {
     if (typeof data.badge === 'number' && self.navigator?.setAppBadge) { try { data.badge ? await self.navigator.setAppBadge(data.badge) : await self.navigator.clearAppBadge(); } catch {} }
     await self.registration.showNotification(title, {
-      body: data.body || '', tag: 'vz' + (data.id || Date.now()), renotify: false, silent: !!data.silent,
+      body: data.body || '', tag: 'vz' + (data.id || Date.now()), renotify: true, silent: !!data.silent, vibrate: data.silent ? undefined : [180, 90, 180],
       icon: '/vetzimo-pwa-192.png', badge: '/vetzimo-pwa-192.png', timestamp: Date.now(),
       data: {href: typeof data.href === 'string' && data.href.startsWith('/') ? data.href : '/app', id: data.id, membership: data.membership || ''},
     });

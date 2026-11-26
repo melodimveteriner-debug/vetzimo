@@ -49,8 +49,9 @@ export function permissionState() {
   return Notification.permission === "default" ? "prompt" : Notification.permission;
 }
 
-const CHANNELS = [["appointments", "Randevular", 4], ["vaccines", "Aşı ve kontroller", 3], ["homeVisits", "Evde hizmet", 4], ["patients", "Hasta işlemleri", 3], ["labs", "Tetkik sonuçları", 4],
-  ["payments", "Ödeme ve tahsilat", 3], ["stock", "Stok uyarıları", 2], ["messages", "Mesajlar", 4], ["homecare", "Evden takip", 4], ["support", "Destek", 3], ["announcements", "Duyurular", 2], ["security", "Güvenlik", 5], ["system", "Sistem", 4]];
+// Tüm kanallar sesli ve ekranda belirir (önem 4 = yüksek, 5 = acil). Android kanal önemi sonradan değişmediği için kimlik "vzs_" yapıldı.
+const CHANNELS = [["appointments", "Randevular", 4], ["vaccines", "Aşı ve kontroller", 4], ["homeVisits", "Evde hizmet", 4], ["patients", "Hasta işlemleri", 4], ["labs", "Tetkik sonuçları", 4],
+  ["payments", "Ödeme ve tahsilat", 4], ["stock", "Stok uyarıları", 4], ["messages", "Mesajlar", 4], ["homecare", "Evden takip", 4], ["support", "Destek", 4], ["announcements", "Duyurular", 4], ["security", "Güvenlik", 5], ["system", "Sistem", 4]];
 
 async function registerNative(ask) {
   const Push = P("PushNotifications");
@@ -63,14 +64,15 @@ async function registerNative(ask) {
   store.set("push-perm", perm.receive === "granted" ? "granted" : perm.receive === "denied" ? "denied" : "prompt");
   if (perm.receive !== "granted") return false;
   if (platform === "android") for (const [id, name, importance] of CHANNELS) {
-    try { await Push.createChannel({id: "vz_" + id, name: tr(name), importance, visibility: id === "security" || id === "system" ? 1 : 0, sound: cfg?.sound && cfg.sound !== "default" && cfg.sound !== "silent" ? cfg.sound : undefined, vibration: true, lights: true}); } catch {}
+    try { await Push.deleteChannel?.({id: "vz_" + id}); } catch {}
+    try { await Push.createChannel({id: "vzs_" + id, name: tr(name), importance, visibility: id === "security" || id === "system" ? 1 : 0, sound: cfg?.sound && cfg.sound !== "default" && cfg.sound !== "silent" ? cfg.sound : undefined, vibration: true, lights: true}); } catch {}
   }
   await Push.removeAllListeners?.();
   Push.addListener("registration", async t => {
     try { await call("/api/app/device", {platform, provider: platform === "ios" ? "apns" : "fcm", token: t.value, sound: cfg?.sound, ...deviceInfo()}); } catch {}
   });
   Push.addListener("registrationError", e => report("Push kaydı: " + (e?.error || "")));
-  Push.addListener("pushNotificationReceived", n => { inAppToast(n.title, n.body, n.data?.href); refreshBadge(); });
+  Push.addListener("pushNotificationReceived", n => { inAppToast(n.title, n.body, n.data?.href); beep(); refreshBadge(); });
   Push.addListener("pushNotificationActionPerformed", a => open(a.notification?.data || {}));
   await Push.register();
   return true;
@@ -131,6 +133,22 @@ async function open(data) {
   const target = new URL(href, location.origin);
   if (target.pathname === location.pathname && !membership) location.hash = target.hash; else location.assign(target.pathname + target.search + target.hash);
   refreshBadge();
+}
+
+// Uygulama açıkken gelen bildirimde de kısa bir ses çalınır (cihaz sessizde değilse; kullanıcı "Sessiz" seçtiyse çalmaz).
+let beepCtx = null;
+function beep() {
+  if (cfg?.sound === "silent") return;
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext; if (!Ctx) return;
+    beepCtx ||= new Ctx(); if (beepCtx.state === "suspended") beepCtx.resume().catch(() => {});
+    const t0 = beepCtx.currentTime + .02;
+    for (const [at, f] of [[0, 660], [.15, 880]]) {
+      const o = beepCtx.createOscillator(), g = beepCtx.createGain();
+      o.frequency.value = f; g.gain.setValueAtTime(1e-4, t0 + at); g.gain.exponentialRampToValueAtTime(.2, t0 + at + .02); g.gain.exponentialRampToValueAtTime(1e-4, t0 + at + .18);
+      o.connect(g).connect(beepCtx.destination); o.start(t0 + at); o.stop(t0 + at + .2);
+    }
+  } catch {}
 }
 
 function inAppToast(title, body, href) {
