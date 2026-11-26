@@ -19,6 +19,7 @@ fresh test_core;      run core.php    env VETNET_TEST_DSN='mysql:host=127.0.0.1;
 fresh test_installer empty; run install.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_installer' php tests/install.php
 fresh test_roles empty;     run roles.php   env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_roles' php tests/roles.php
 fresh test_partial empty;  run partial-save.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_partial' php tests/partial-save.php
+run external-import.php php tests/external-import.php
 fresh test_triage empty;  run homecare-triage.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_triage' php tests/homecare-triage.php
 command -v node >/dev/null && run homecare-triage.mjs node tests/homecare-triage.mjs
 command -v node >/dev/null && run xray-rules.mjs node tests/xray-rules.mjs

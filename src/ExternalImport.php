@@ -14,7 +14,15 @@ final class ExternalImport
         'vaccineCatalog'=>['name'], 'followups'=>['title','date','patient'=>'patients','vaccine'=>'vaccineCatalog'],
         'stockLots'=>['product'=>'products','supplier'=>'suppliers','received','remaining'],
         'stockMoves'=>['product'=>'products','lot'=>'stockLots','date','delta'],
+        'appointments'=>['date','time','client'=>'clients','patient'=>'patients'],
+        'exams'=>['date','patient'=>'patients'],
+        'sales'=>['date','amount','items','client'=>'clients','patient'=>'patients'],
+        'collections'=>['date','amount','sale'=>'sales'],
     ];
+    /** Boş bırakılabilen bağlantılar (ör. müşterisiz perakende satış, kayıtsız randevu). */
+    private const OPTIONAL=['vaccine','supplier','client','patient'];
+    /** Mali kayıtlar değiştirilemez: aynı dosya tekrar yüklenirse mevcut kayıt korunur. */
+    private const IMMUTABLE=['sales','collections','stockMoves'];
 
     public static function merge(object $state, object $source,string $branch,bool $restore=false): array
     {
@@ -42,7 +50,7 @@ final class ExternalImport
                 $key=$id($kind,$raw->id);
                 if (isset($seen[$key])) throw new RuntimeException($where.': yinelenen kimlik.',422);
                 $seen[$key]=true;
-                if ($restore && isset($items[$key])) {
+                if (($restore || in_array($kind,self::IMMUTABLE,true)) && isset($items[$key])) {
                     if ($items[$key]->branch!==$branch) throw new RuntimeException($where.': yedek kaydı başka bir veri şubesine ait.',409);
                     $counts[$kind]['unchanged']++;
                     continue;
@@ -61,7 +69,7 @@ final class ExternalImport
                         continue;
                     }
                     $value=$row->$field ?? '';
-                    if ($value==='' && in_array($field,['vaccine','supplier'],true)) continue;
+                    if ($value==='' && in_array($field,self::OPTIONAL,true)) { $row->$field=''; continue; }
                     if (!$sourceId($value) || !isset($known[$target][$id($target,$value)])) {
                         throw new RuntimeException($where.': '.$field.' bağlantısı bulunamadı.',422);
                     }
@@ -74,6 +82,22 @@ final class ExternalImport
                         throw new RuntimeException($where.': yapılmış aşı için uygulama tarihi gerekli.',422);
                     }
                     $row->status=!empty($row->done)?'Tamamlandı':(($row->status ?? '')==='İptal'?'İptal':'Planlandı');
+                }
+                if ($kind==='appointments') {
+                    if (!preg_match('/\A([01]\d|2[0-3]):[0-5]\d\z/',$row->time)) throw new RuntimeException($where.': saat geçersiz.',422);
+                    if (!in_array($row->status ?? '',['Bekliyor','Muayenede','Tamamlandı','İptal','Gelmedi'],true)) $row->status='Bekliyor';
+                    if (($row->patient ?? '')!=='' && ($row->client ?? '')!=='' && ($known['patients'][$row->patient]->owner ?? '')!==$row->client) $row->patient='';
+                }
+                if ($kind==='exams') $row->status??='Tamamlandı';
+                if ($kind==='sales') {
+                    $row->paid??='0';
+                    $row->method??='Nakit';
+                    if (($row->patient ?? '')!=='' && ($known['patients'][$row->patient]->owner ?? '')!==($row->client ?? '')) $row->patient='';
+                    try { $lines=json_decode($row->items,false,8,JSON_THROW_ON_ERROR); } catch (\Throwable) { throw new RuntimeException($where.': satış kalemleri geçersiz.',422); }
+                    if (!is_array($lines)) throw new RuntimeException($where.': satış kalemleri geçersiz.',422);
+                    foreach ($lines as $line) if (!is_object($line) || !empty($line->product) || ($line->stock ?? 'Hayır')!=='Hayır') {
+                        throw new RuntimeException($where.': aktarılan satış kalemi stoktan düşmez; ürün bağlantısı kullanılamaz.',422);
+                    }
                 }
                 $prior=$items[$key] ?? null;
                 if ($prior && $prior->branch!==$branch) throw new RuntimeException($where.': şube uyuşmuyor.',409);

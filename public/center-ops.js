@@ -556,28 +556,59 @@ export async function mountCenterSuite(ui,session){
     }));
    return;
   }
-  const upload=field('backup','VetZimo JSON yedeği',{type:'file',accept:'.json,application/json'});
+  const upload=field('backup','VetZimo JSON yedeği veya aktarım parçaları',{type:'file',accept:'.json,application/json',multiple:true});
   const file=upload.querySelector('input');
   const result=el('div');
+  const names={clients:'Müşteriler',patients:'Hastalar',suppliers:'Tedarikçiler',products:'Ürünler ve hizmetler',
+   vaccineCatalog:'Aşı tanımları',followups:'Aşı kayıtları',stockLots:'Stok partileri',stockMoves:'Stok hareketleri',
+   appointments:'Randevular',exams:'Muayeneler',sales:'Satışlar',collections:'Tahsilatlar'};
   const form=makeForm([lookup,partner,branch,upload],'Önizle',async values=>{
    result.replaceChildren();
-   if(!file.files[0]||file.files[0].size>1250000)throw Error('En fazla 1,25 MB boyutunda JSON dosyası seçin.');
-   const data=JSON.parse(await file.files[0].text());
-   if(data.format==='vetnet-kolayvet-v1'){
+   const files=[...file.files].sort((a,b)=>a.name.localeCompare(b.name,'tr',{numeric:true}));
+   if(!files.length)throw Error('JSON dosyası seçin.');
+   if(files.some(item=>item.size>15000000))throw Error('Her dosya en fazla 15 MB olabilir.');
+   const parts=[];
+   for(const item of files){
+    let data;
+    try{data=JSON.parse(await item.text());}catch{throw Error(item.name+': JSON okunamadı.');}
+    parts.push({name:item.name,data});
+   }
+   if(parts.every(part=>part.data.format==='vetnet-kolayvet-v1')){
     if(!values.branch)throw Error('Hedef şubeyi seçin.');
     const path='external-import?'+new URLSearchParams({id:values.partner});
-    const payload={data,branch:values.branch};
-    const preview=await call(path,{...payload,preview:true});
-    const names={clients:'Müşteriler',patients:'Hastalar',suppliers:'Tedarikçiler',products:'Ürünler ve hizmetler',
-     vaccineCatalog:'Aşı tanımları',followups:'Aşı kayıtları',stockLots:'Stok partileri',stockMoves:'Stok hareketleri'};
-    result.append(table(['Kayıt türü','Yeni','Güncellenecek','Aynı'],Object.entries(preview.counts).map(([key,row])=>
-     [names[key],row.added,row.updated,row.unchanged])));
-    if(Object.values(preview.counts).some(row=>row.added||row.updated))result.append(button('Aktar veya güncelle',async()=>{
-     await call(path,{...payload,revision:preview.revision});
-     result.textContent='Aktarım kaydedildi.';
-    }));
+    const totals={};
+    for(const part of parts)for(const [key,rows] of Object.entries(part.data.records||{}))totals[key]=(totals[key]||0)+(Array.isArray(rows)?rows.length:0);
+    const first=await call(path,{data:parts[0].data,branch:values.branch,preview:true});
+    result.append(el('p',parts.length+' parça dosya okundu. İlk parça doğrulandı; diğer parçalar sırayla doğrulanıp aktarılır. Aynı dosyalar tekrar yüklenirse kayıtlar yinelenmez.'),
+     table(['Kayıt türü','Dosyalardaki kayıt'],Object.entries(totals).map(([key,count])=>[names[key]||key,count.toLocaleString('tr-TR')])));
+    const progress=el('div');
+    progress.setAttribute('role','status');
+    const run=button(parts.length>1?'Tüm parçaları sırayla aktar':'Aktar veya güncelle',async()=>{
+     run.disabled=true;
+     const sum={};
+     try{
+      for(const [index,part] of parts.entries()){
+       progress.textContent=(index+1)+' / '+parts.length+' · '+part.name+' aktarılıyor…';
+       const payload={data:part.data,branch:values.branch};
+       const preview=index===0&&first?first:await call(path,{...payload,preview:true});
+       await call(path,{...payload,revision:preview.revision});
+       for(const [key,row] of Object.entries(preview.counts))if(row.added||row.updated||row.unchanged){
+        sum[key]??={added:0,updated:0,unchanged:0};
+        for(const k of ['added','updated','unchanged'])sum[key][k]+=row[k];
+       }
+      }
+      progress.replaceChildren(el('p','Aktarım tamamlandı.'),table(['Kayıt türü','Yeni','Güncellendi','Aynı'],
+       Object.entries(sum).map(([key,row])=>[names[key]||key,row.added,row.updated,row.unchanged])));
+     }catch(error){
+      progress.textContent='Aktarım durdu: '+error.message+' Kaydedilen parçalar korunur; aynı dosyalarla tekrar başlatabilirsiniz.';
+      run.disabled=false;
+     }
+    });
+    result.append(run,progress);
     return;
    }
+   if(parts.length!==1)throw Error('VetZimo yedeğini tek dosya olarak seçin.');
+   const data=parts[0].data;
    const path='import?'+new URLSearchParams({id:values.partner});
    const {added}=await call(path,{backup:data,preview:true});
    result.append(el('p',added.clients+' yeni müşteri ve '+added.patients+' yeni hasta bulundu.'));
