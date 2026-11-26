@@ -6,13 +6,13 @@
 // Ettinger Textbook of Veterinary Internal Medicine. Kesin tanı, doz ve tedavi kararı hekimindir; ürün prospektüsü önceliklidir.
 import {interpretLabs, codeFor, LAB_REF, LAB_LABEL} from "./lab-interpret.js?v=20261125-r3";
 import {CASES} from "./vet-cases.js?v=2";
-import {symptomAnswer, extractSymptoms} from "./vet-symptoms.js?v=2";
+import {symptomAnswer, extractSymptoms} from "./vet-symptoms.js?v=3";
 
 const fold = s => String(s ?? "").toLocaleLowerCase("tr-TR").replaceAll("ı", "i").normalize("NFD").replace(/\p{M}/gu, "").replace(/[^a-z0-9.,/%\s-]/g, " ").replace(/\s+/g, " ").trim();
 const fmt = (v, d = 2) => Number.isFinite(v) ? new Intl.NumberFormat("tr-TR", {maximumFractionDigits: d}).format(v) : "—";
 const range = (a, b, d = 2) => a === b ? fmt(a, d) : fmt(a, d) + "–" + fmt(b, d);
 const SP_TR = {dog: "Köpek", cat: "Kedi"};
-const speciesOf = t => /\b(kedi\w*|cat|feline)\b/.test(t) ? "cat" : /\b(kopek\w*|dog|canine)\b/.test(t) ? "dog" : "";
+const speciesOf = t => /\b(kedi\w*|cat|feline)\b/.test(t) ? "cat" : /\b(kope[kg]\w*|dog|canine)\b/.test(t) ? "dog" : "";
 const weightOf = t => { const m = t.match(/(\d+(?:[.,]\d+)?)\s*(kg|kilo|kilogram)\b/); return m ? Number(m[1].replace(",", ".")) : NaN; };
 const NOTE = "Karar desteğidir; kesin tanı ve tedavi kararı hekime aittir. Cihazınızın referans aralığı önceliklidir.";
 const ASK = /\b(neden\w*|sebep\w*|olasi\w*|ayirici\w*|ayirt\w*|ddx|ne olabilir|ne demek|nedir|anlami\w*|yorum\w*|degerlendir\w*|tani\w*|yaklasim\w*|tedavi\w*)\b/;
@@ -38,7 +38,7 @@ function labValues(text, t, context) {
     seen.set(code, m[2].replace(",", "."));
   }
   if (!seen.size) return null;
-  const asked = ASK.test(t) || /\b(normal mi|yuksek mi|dusuk mu|kedi\w*|kopek\w*)\b/.test(t);
+  const asked = ASK.test(t) || /\b(normal mi|yuksek mi|dusuk mu|kedi\w*|kope[kg]\w*)\b/.test(t);
   if (seen.size < 2 && !asked) return null;
   // Tek değer + ilaç sorusu (ör. "glukoz 450 köpek insülin dozu") ilaç tarafına bırakılır.
   if (seen.size < 2 && /\b(doz|dozu|mg\/kg)\b/.test(t)) return null;

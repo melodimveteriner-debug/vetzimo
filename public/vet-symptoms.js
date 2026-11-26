@@ -151,6 +151,8 @@ export function symptomAnswer(text, {species = "", min = 1} = {}) {
     const hit = asked.filter(s => set.has(s));
     if (!hit.length) continue;
     let score = hit.reduce((a, s) => a + IDF(s) * (primary.has(s) ? 1.6 : 1), 0) / (1 + set.size / 25);
+    // Tek belirtide: belirti hastalığın ilk sıradaki (baskın) bulgusuysa öne çıkar
+    if (asked.length === 1 && extractSymptoms(String(c[4]).split(/[,;]/)[0]).includes(asked[0])) score *= 2;
     for (const [qa, ca] of GROUPS) if (qa.test(q) && ca.test(who)) score *= 1.5;
     scored.push({c, hit, score, cover: hit.length / asked.length});
   }
@@ -165,7 +167,7 @@ export function symptomAnswer(text, {species = "", min = 1} = {}) {
   return {
     text: "Bu belirtiler şu hastalıklarda görülebilir · " + who,
     stats: [["Değerlendirilen belirtiler", asked.join(", ")], ["İlk tetkik önerisi", [...new Set(top.map(x => firstClause(x.c[5])))].join(" · ")]],
-    items: list.map(x => [x.c[0], "Eşleşen: " + x.hit.join(", ").toLocaleLowerCase("tr-TR") + (x.c[2] === "both" ? "" : " · " + SP_TR[x.c[2]]), "ask:" + x.c[0] + " tedavisi"]),
+    items: list.map(x => [x.c[0], "Eşleşen: " + x.hit.join(", ").toLocaleLowerCase("tr-TR") + (x.c[2] === "both" ? "" : " · " + SP_TR[x.c[2]]), "ask:§" + x.c[0] + " tedavisi"]),
     note: "Sıralama, yazdığınız belirtilerin olgu kütüphanesindeki " + INDEX.length + " hastalıkla örtüşmesine göredir. Bir hastalığa dokunursanız belirti, tanı ve tedavi kartını açarım. Yaş, ırk, aşı durumu ve muayene bulgularını ekleyerek listeyi daraltın. Karar desteğidir; kesin tanı ve tedavi hekime aittir.",
   };
 }

@@ -4,7 +4,7 @@
 // normal yaşamsal değerler ve temel bakım uyarıları.
 // Kaynaklar: Carpenter's Exotic Animal Formulary, BSAVA Manuals of Rabbit / Rodent & Ferret / Psittacine Birds / Reptiles, Quesenberry & Carpenter.
 // Genel başvuru bilgisidir; kesin tanı ve tedavi kararı hekime aittir. Egzotiklerde ilaç kullanımı çoğunlukla prospektüs dışıdır.
-import {extractSymptoms} from "./vet-symptoms.js?v=2";
+import {extractSymptoms} from "./vet-symptoms.js?v=3";
 
 const fold = s => String(s ?? "").toLocaleLowerCase("tr-TR").replaceAll("ı", "i").normalize("NFD").replace(/\p{M}/gu, "").replace(/[^a-z0-9.,/%\s-]/g, " ").replace(/\s+/g, " ").trim();
 const num = s => Number(String(s).replace(",", "."));
@@ -208,7 +208,7 @@ function symptomCard(t, text, sp) {
   if (!scored.length) return null;
   return {text: "Bu belirtiler " + SP(sp).toLocaleLowerCase("tr-TR") + " türünde şu hastalıklarda görülebilir",
     stats: [["Değerlendirilen belirtiler", asked.join(", ")]],
-    items: scored.map(x => [x.c[0], "Eşleşen: " + x.hit.join(", ").toLocaleLowerCase("tr-TR"), "ask:" + SP(sp).split(" ")[0] + " " + x.c[0] + " tedavisi"]),
+    items: scored.map(x => [x.c[0], "Eşleşen: " + x.hit.join(", ").toLocaleLowerCase("tr-TR"), "ask:§" + SP(sp).split(" ")[0] + " " + x.c[0] + " tedavisi"]),
     note: "Egzotiklerde hastalıkların çoğu barınma ve beslenme hatasından kaynaklanır; ortam ısısı, UVB, diyet ve hijyeni mutlaka sorgulayın. Bir hastalığa dokunursanız belirti, tanı ve tedavi kartını açarım. Karar desteğidir; kesin tanı hekime aittir."};
 }
 
@@ -244,7 +244,7 @@ export function exoticAnswer(text) {
   // Türe özgü hastalık listesi
   if (/\b(hastalik\w*|sik gorulen|neler olur)\b/.test(t)) {
     const list = EXOTIC_CASES.filter(c => c[2].includes(sp));
-    return {text: SP(sp) + " · sık görülen hastalıklar", items: list.map(c => [c[0], c[4].split(",").slice(0, 3).join(","), "ask:" + SP(sp).split(" ")[0] + " " + c[0] + " tedavisi"]), note: "Bir hastalığa dokunun; belirti, tanı ve tedavi kartını açarım."};
+    return {text: SP(sp) + " · sık görülen hastalıklar", items: list.map(c => [c[0], c[4].split(",").slice(0, 3).join(","), "ask:§" + SP(sp).split(" ")[0] + " " + c[0] + " tedavisi"]), note: "Bir hastalığa dokunun; belirti, tanı ve tedavi kartını açarım."};
   }
   if (/\b(normal|ates|nabiz|solunum|vital|yasamsal|bakim\w*|beslen\w*|omur|kac yil|nasil bakilir|degerler\w*)\b/.test(t) || t.split(" ").length <= 3) return basicsCard(sp);
   return basicsCard(sp);

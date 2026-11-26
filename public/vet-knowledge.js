@@ -72,7 +72,7 @@ const DRUGS = [
   ["İnsülin (glargin / lente)", ["insulin", "glargin", "caninsulin", "lantus", "prozinc"], {dog: [0.25, 0.5, "IU/kg"], cat: [1, 1, "IU/kedi"]}, "SC · 12 saatte bir, yemekle · kedide başlangıç 1 IU/kedi (glukoz <360 mg/dL ise)", ["Hipoglisemi belirtilerini sahibine anlatın; doz değişikliğini glukoz eğrisine göre yapın."], []],
 ];
 
-const SPECIES = [["cat", /\b(kedi\w*|cat|feline|yavru kedi)\b/], ["dog", /\b(kopek\w*|dog|canine|kopegi|yavru kopek)\b/], ["rabbit", /\b(tavsan\w*|rabbit)\b/], ["ferret", /\b(gelincik|ferret)\b/], ["bird", /\b(kus|muhabbet|papagan|bird)\w*\b/]];
+const SPECIES = [["cat", /\b(kedi\w*|cat|feline|yavru kedi)\b/], ["dog", /\b(kope[kg]\w*|dog|canine|kopegi|yavru kopek)\b/], ["rabbit", /\b(tavsan\w*|rabbit)\b/], ["ferret", /\b(gelincik|ferret)\b/], ["bird", /\b(kus|muhabbet|papagan|bird)\w*\b/]];
 const SPECIES_TR = {dog: "Köpek", cat: "Kedi", rabbit: "Tavşan", ferret: "Gelincik", bird: "Kuş"};
 const speciesOf = t => SPECIES.find(([, re]) => re.test(t))?.[0] || "";
 const weightOf = t => { const m = t.match(/(\d+(?:[.,]\d+)?)\s*(kg|kilo|kilogram)\b/) || t.match(/(\d+(?:[.,]\d+)?)\s*(gr|gram)\b/); if (!m) return NaN; const v = num(m[1]); return /^g/.test(m[2]) ? v / 1000 : v; };

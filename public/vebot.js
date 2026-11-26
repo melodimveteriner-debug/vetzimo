@@ -5,10 +5,12 @@
 // Metinler Türkçe kalıp anahtarlarıdır; ui-copy.js bunları seçili dile çevirir.
 
 import {interpretLabs} from "./lab-interpret.js?v=20261125-r3";
-import {vetAnswer, KNOWLEDGE_EXAMPLES, KNOWLEDGE_STATS} from "./vet-knowledge.js?v=3";
-import {clinicalAnswer, CLINICAL_STATS} from "./vet-clinical.js?v=3";
-import {suggestCases, SYMPTOM_STATS} from "./vet-symptoms.js?v=2";
-import {exoticAnswer, EXOTIC_STATS} from "./vet-exotic.js?v=1";
+import {vetAnswer, KNOWLEDGE_EXAMPLES, KNOWLEDGE_STATS} from "./vet-knowledge.js?v=4";
+import {clinicalAnswer, CLINICAL_STATS} from "./vet-clinical.js?v=4";
+import {suggestCases, SYMPTOM_STATS} from "./vet-symptoms.js?v=3";
+import {exoticAnswer, EXOTIC_STATS, exoticSpecies} from "./vet-exotic.js?v=2";
+import {chatAnswer, stripGreeting, firstName, dayPart, HEALTH} from "./vet-chat.js?v=1";
+import {extractSymptoms} from "./vet-symptoms.js?v=3";
 
 const TZ = "Europe/Istanbul";
 const isoDay = new Intl.DateTimeFormat("en-CA", {timeZone:TZ, year:"numeric", month:"2-digit", day:"2-digit"});
@@ -497,7 +499,59 @@ export function createEngine(ctx) {
     });
   }
 
-  return function respond(text) {
+  // ── Sohbet ve konuşma hafızası ──
+  // Belirsiz sağlık sorusunda VeBot ek bilgi ister; kullanıcının sonraki kısa yanıtı ("kedi", "3 gündür, iştahı yok") önceki mesajla
+  // birleştirilip yeniden değerlendirilir. Hafıza yalnız bu oturumda ve cihazda tutulur, 10 dakika sonra unutulur.
+  let memo = null;
+  // Hitap: kullanıcının "adım …" diye söylediği ad (bu cihazda) › hesaptaki kişi adı (klinik adıysa kullanılmaz)
+  const NAME_KEY = "vebot-hitap";
+  const savedName = () => { try { return localStorage.getItem(NAME_KEY) || ""; } catch { return ""; } };
+  const rawUser = () => savedName() || (() => { try { return typeof ctx.user === "function" ? ctx.user() : ""; } catch { return ""; } })();
+  const userName = () => firstName(rawUser());
+  ctx.__name = rawUser;
+  const hasSpeciesWord = f => /\b(kedi\w*|kope[kg]\w*|cat|dog|yavru)\b/.test(f) || !!exoticSpecies(f);
+  const SYMPTOM_CHIPS = [["Kusma", "kusma"], ["İshal", "ishal"], ["İştahsızlık", "iştahsızlık"], ["Halsizlik", "halsizlik"], ["Öksürük", "öksürük"], ["Kaşıntı", "kaşıntı"], ["Topallık", "topallık"], ["İdrar sorunu", "idrar yapamıyor"]];
+  const SPECIES_CHIPS = [["Kedi", "kedi"], ["Köpek", "köpek"], ["Tavşan", "tavşan"], ["Kuş", "muhabbet kuşu"], ["Kobay", "kobay"], ["Sürüngen", "iguana"]];
+  const DETAIL_Q = ["Yaşı, cinsiyeti ve kısırlaştırılmış mı?", "Belirtiler ne zamandır var, artıyor mu?", "İştahı, su tüketimi, dışkı ve idrarı nasıl?", "Aşıları ve parazit uygulamaları güncel mi?", "Ateş, kilo, mukoza rengi gibi muayene bulguları var mı?"];
+  function clarify(kind, text, preview) {
+    const n = userName();
+    memo = {text, at: Date.now(), kind};
+    if (kind === "species") return answer(`Yardımcı olmak isterim${n ? " " + n : ""}. Daha doğru değerlendirebilmem için önce hangi hayvan olduğunu öğrenebilir miyim?`, {
+      items: [...DETAIL_Q.slice(0, 3).map(q => [q, "Bilirseniz ekleyin"]), ...(preview || [])],
+      links: SPECIES_CHIPS.map(([label, q]) => [label, "ask:" + q]),
+      note: "Türü ve birkaç belirtiyi yazmanız yeterli; önceki mesajınızla birlikte değerlendiririm."});
+    return answer(`Anlıyorum${n ? " " + n : ""}, size yardımcı olabilmem için birkaç belirti yazabilir misiniz?`, {
+      items: DETAIL_Q.map(q => [q, ""]),
+      links: SYMPTOM_CHIPS.map(([label, q]) => [label, "ask:" + q]),
+      note: "Örnek: “3 gündür kusuyor, iştahı yok, 5 yaşında kısır dişi”. Ne kadar ayrıntı verirseniz olası nedenleri o kadar iyi sıralarım."});
+  }
+  const withFollowUp = (res, few) => ({...res, note: (few
+    ? "Daha geniş bilgi verebilmem için birkaç ayrıntı rica edeyim" + (userName() ? ", " + userName() : "") + ": " + DETAIL_Q.join(" · ") + " Yanıtınızı yazdığınızda öncekiyle birlikte yeniden değerlendiririm. "
+    : "Yaş, süre, iştah ve muayene bulgularını eklerseniz listeyi daraltırım. ") + (res.note || "")});
+
+  return function respond(rawText) {
+    const direct = String(rawText).startsWith("§");
+    if (direct) rawText = String(rawText).slice(1);
+    if (!norm(rawText)) return help();
+    // 1) Günlük sohbet (selam, hal hatır, teşekkür, veda, kimlik, espri…)
+    const said = /^(?:benim\s+)?ad[ıi]m\s+([A-Za-zÇĞİÖŞÜçğıöşü]{2,20})/i.exec(String(rawText).trim()) || /^bana\s+([A-Za-zÇĞİÖŞÜçğıöşü]{2,20})\s+de\b/i.exec(String(rawText).trim());
+    if (said) {
+      const nm = said[1].charAt(0).toLocaleUpperCase("tr-TR") + said[1].slice(1).toLocaleLowerCase("tr-TR");
+      try { localStorage.setItem(NAME_KEY, nm); } catch {}
+      return answer(`Memnun oldum ${nm}! Bundan sonra size adınızla hitap edeceğim. Nasıl yardımcı olabilirim?`);
+    }
+    const chat = chatAnswer(rawText, {name: rawUser()});
+    if (chat) { memo = null; return answer(chat.text, {links: /yardımcı olabilirim|neye bakalım|Hazırım/.test(chat.text) ? [["Neler biliyorum?", "about:"]] : []}); }
+    let text = stripGreeting(rawText) || rawText;
+    // 2) Önceki soruya ek bilgi mi? (kısa, kendi başına klinik veri sorusu değil)
+    if (memo && !direct && Date.now() - memo.at < 600000) {
+      const f = norm(text);
+      const standalone = /\b(ciro|tahsilat|stok|randevu|musteri|fatura|satis|ozet|personel|web sitesi|nasil kur|doz\w*)\b/.test(f);
+      // Yeni bir hayvandan söz ediliyorsa yeni konudur (tür sorusuna verilen yanıt hariç)
+      const newSubject = memo.kind !== "species" && hasSpeciesWord(f);
+      if (!standalone && !newSubject && f.split(" ").length <= 18) text = memo.text + " " + text;
+    }
+    memo = null;
     const t = norm(text);
     if (!t) return help();
     // Hekim başvuru bilgisi (doz, aşı, referans, zehirlenme, ayırıcı tanı…); hasta adı geçiyorsa tür ve kilo kayıttan alınır.
@@ -513,7 +567,23 @@ export function createEngine(ctx) {
       const exo = exoticAnswer(pet && !/kedi|k[öo]pek/i.test(pet.species || "") && pet.species ? pet.species + " " + text : text);
       if (exo) return answer(exo.text, {...exo, urgent: exo.urgent || isUrgent(text)});
       const clinical = clinicalAnswer(text, petCtx);
-      if (clinical) return answer(clinical.text, {...clinical, urgent: clinical.urgent || isUrgent(text)});
+      const syms = extractSymptoms(text);
+      const speciesKnown = !!pet || hasSpeciesWord(t);
+      const symptomBased = clinical && /^(Bu belirtiler|Ayırıcı tanı)/.test(clinical.text);
+      // Belirti var ama tür yok → önce türü sor (genel olasılıkları da göster)
+      if ((symptomBased || (!clinical && syms.length)) && !speciesKnown && !isUrgent(text)) {
+        return clarify("species", text, symptomBased ? (clinical.items || []).slice(0, 3).map(([k]) => [k, "Genel olasılık"]) : []);
+      }
+      if (clinical) {
+        const res = {...clinical, urgent: clinical.urgent || isUrgent(text)};
+        if (symptomBased) { memo = {text, at: Date.now()}; return answer(clinical.text, withFollowUp(res, syms.length <= 1)); }
+        return answer(clinical.text, res);
+      }
+      // Sağlık sorunu anlatılıyor ama belirti yok ("kedim hasta", "köpeğim iyi değil") → belirtileri sor
+      if (HEALTH.test(t) && !syms.length && !/\b(doz\w*|asi takvim\w*|referans|zehir\w*)\b/.test(t)) {
+        const known0 = vetAnswer(text, petCtx);
+        if (!known0) return clarify(speciesKnown ? "symptoms" : "species", text);
+      }
       const known = vetAnswer(text, pet ? {species: /kedi/i.test(pet.species || "") ? "cat" : /k[öo]pek/i.test(pet.species || "") ? "dog" : /tav[şs]an/i.test(pet.species || "") ? "rabbit" : "", weight: pet.weight, name: pet.name} : {});
       if (known) return answer(known.text, known);
     }
@@ -695,14 +765,15 @@ export function mountVeBot(ctx) {
   function ask(question) {
     const text = String(question || "").trim().slice(0, 500);
     if (!text) return;
-    bubble("user", el("p", {textContent:text}));
+    bubble("user", el("p", {textContent:text.replace(/^§/, "")}));
     let result;
     try { result = respond(text); }
     catch (error) { console.error("VeBot", error); result = {text:"Bu soruyu şu anda yanıtlayamadım. Sayfayı yenileyip tekrar deneyin."}; }
     if (!result) {
       const close = suggestCases(text);
-      result = {text: close.length ? "Bunu tam olarak anlayamadım; şunlardan birini mi kastettiniz?" : "Bu soruya şimdilik kesin bir yanıt veremiyorum.",
-        items: close.map(name => [name, "Belirti, tanı ve tedavi kartını aç", "ask:" + name]),
+      const who = (() => { try { return firstName(ctx.__name ? ctx.__name() : ctx.user?.() || ""); } catch { return ""; } })();
+      result = {text: close.length ? "Bunu tam olarak anlayamadım" + (who ? " " + who : "") + "; şunlardan birini mi kastettiniz?" : "Bu konuda şimdilik kesin bir bilgim yok" + (who ? " " + who : "") + ", ama yardımcı olmak isterim. Biraz daha ayrıntı verebilir misiniz?",
+        items: close.map(name => [name, "Belirti, tanı ve tedavi kartını aç", "ask:§" + name]),
         note: "İpucu: hastalık adını (ör. “parvovirüs tedavisi”), belirtileri (ör. “köpekte öksürük, ateş, burun akıntısı”), ilaç ve kiloyu (ör. “4 kg kedi meloksikam dozu”) ya da klinik verisini (ör. “bugünkü ciro”) yazın. Bilgi tabanım düzenli güncellemelerle genişliyor; daha fazlasını öğrenmeye çalışıyorum.",
         links:[["Neler biliyorum?", "about:"]]};
     }
@@ -778,7 +849,8 @@ export function mountVeBot(ctx) {
       attach.hidden = !docsAllowed();
       if (!greeted) {
         greeted = true;
-        bubble("bot", renderAnswer({text:"Merhaba, ben VeBot. Kliniğinizle ilgili sorunuzu yazın veya sesle sorun.", note:"Kedi ve köpek hastalıkları, belirtilerden olası tanılar, ilaç dozları, zehirlenmeler ve klinik verileriniz hakkında soru sorabilirsiniz. Yanıtlar yalnızca bu cihazda hazırlanır; veriler dışarı gönderilmez.", links:[["Neler biliyorum?", "about:"]]}));
+        const nm = (() => { try { return firstName(ctx.__name ? ctx.__name() : ctx.user?.() || ""); } catch { return ""; } })();
+        bubble("bot", renderAnswer({text: dayPart() + (nm ? " " + nm : "") + ", ben VeBot. Hasta, ilaç, belirti ya da kliniğinizle ilgili her şeyi sorabilir, benimle sohbet de edebilirsiniz.", note:"Kedi ve köpek hastalıkları, belirtilerden olası tanılar, ilaç dozları, zehirlenmeler ve klinik verileriniz hakkında soru sorabilirsiniz. Yanıtlar yalnızca bu cihazda hazırlanır; veriler dışarı gönderilmez.", links:[["Neler biliyorum?", "about:"]]}));
       }
       requestAnimationFrame(() => input.focus({preventScroll:true}));
     } else {

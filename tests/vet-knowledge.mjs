@@ -3,6 +3,7 @@ import {vetAnswer} from "../public/vet-knowledge.js";
 import {clinicalAnswer} from "../public/vet-clinical.js";
 import {suggestCases, extractSymptoms} from "../public/vet-symptoms.js";
 import {exoticAnswer} from "../public/vet-exotic.js";
+import {chatAnswer, firstName, stripGreeting} from "../public/vet-chat.js";
 let fails = 0;
 const ok = (cond, name, extra) => { if (!cond) { fails++; console.error("KALDI", name, extra ? JSON.stringify(extra) : ""); } };
 const stat = (a, label) => (a?.stats || []).find(([k]) => k.includes(label))?.[1] || "";
@@ -89,6 +90,14 @@ ok(names(e)[0]?.startsWith("Metabolik kemik"), "iguana MBD", names(e));
 ok(exoticAnswer("psittakoz tedavisi")?.text.startsWith("Psittakoz"), "türsüz egzotik hastalık adı");
 ok(!extractSymptoms("muhabbet kuşu gagasında kabuk").includes("Kusma"), "kuş kelimesi kusma sayılmaz");
 ok(exoticAnswer("4 kg kedi meloksikam dozu") === null && exoticAnswer("köpekte öksürük ateş") === null, "kedi/köpek sorusu egzotiğe düşmez");
+
+// Günlük sohbet: adla hitap, klinik adı kişi adı sayılmaz, selam ayıklama, klinik soruları sohbete düşmez
+ok(firstName("Dr. Ayşe Yılmaz") === "Ayşe" && firstName("Örnek Veteriner Kliniği") === "", "hitap adı", [firstName("Dr. Ayşe Yılmaz"), firstName("Örnek Veteriner Kliniği")]);
+ok(/Ayşe/.test(chatAnswer("merhaba", {name: "Ayşe Kaya", hour: 9}).text), "selamda adla hitap");
+ok(chatAnswer("teşekkürler")?.text && chatAnswer("nasılsın")?.text && chatAnswer("görüşürüz")?.text, "temel sohbet");
+ok(chatAnswer("kedim kusuyor") === null && chatAnswer("bugünkü ciro") === null && chatAnswer("4 kg kedi meloksikam dozu") === null, "klinik soru sohbete düşmez");
+ok(stripGreeting("Merhaba VeBot, kedim kusuyor") === "kedim kusuyor" && stripGreeting("iyi değil kedim") === "iyi değil kedim", "selam ayıklama");
+ok(names(clinicalAnswer("köpeğim öksürüyor")).length && clinicalAnswer("köpeğim öksürüyor").text.includes("köpek"), "köpeğim (ğ) tür tanıma");
 
 if (fails) { console.error(fails + " test kaldı"); process.exit(1); }
 console.log("PASS hekim başvuru bilgisi: doz ve ürün hacmi, türe özgü uyarılar, aşı, referans, zehirlenme, ayırıcı tanı, sıvı/enerji, gebelik");
