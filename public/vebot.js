@@ -5,8 +5,9 @@
 // Metinler Türkçe kalıp anahtarlarıdır; ui-copy.js bunları seçili dile çevirir.
 
 import {interpretLabs} from "./lab-interpret.js?v=20261125-r3";
-import {vetAnswer, KNOWLEDGE_EXAMPLES} from "./vet-knowledge.js?v=2";
-import {clinicalAnswer} from "./vet-clinical.js?v=2";
+import {vetAnswer, KNOWLEDGE_EXAMPLES, KNOWLEDGE_STATS} from "./vet-knowledge.js?v=3";
+import {clinicalAnswer, CLINICAL_STATS} from "./vet-clinical.js?v=3";
+import {suggestCases, SYMPTOM_STATS} from "./vet-symptoms.js?v=1";
 
 const TZ = "Europe/Istanbul";
 const isoDay = new Intl.DateTimeFormat("en-CA", {timeZone:TZ, year:"numeric", month:"2-digit", day:"2-digit"});
@@ -491,7 +492,7 @@ export function createEngine(ctx) {
       items:[["“Bugünkü ciro ne kadar?” · “Bu ay en çok satılan ürün hangisi?”", ""], ["“Kritik stokta neler var?” · “SKT yaklaşan ürünler”", ""],
         ["“Yarınki randevular” · “Bugün kaç muayene yapıldı?”", ""], ["“Geciken aşılar” · “Açık bakiyesi olan müşteriler”", ""],
         ["“Pamuk’un son hemogramını özetle” · “Pamuk’un son ilaçları”", ""], ["“Yeni randevu” · “Günün özeti”", ""], ["Kullanım: “Web sitesi nasıl kurulur?” · “Instagram’ı nasıl bağlarım?” · “Personel nasıl eklenir?” · “e-Fatura nasıl kesilir?”", ""], ["Hekim bilgisi: " + KNOWLEDGE_EXAMPLES.slice(0, 6).join(" · "), ""], [KNOWLEDGE_EXAMPLES.slice(6).join(" · "), ""]],
-      note:"Yanıtlar yalnızca bu cihazda, görmeye yetkili olduğunuz kayıtlardan hazırlanır. Veriler dışarı gönderilmez.",
+      note:"Yanıtlar yalnızca bu cihazda, görmeye yetkili olduğunuz kayıtlardan hazırlanır. Veriler dışarı gönderilmez.", links:[["Neler biliyorum?", "about:"]],
     });
   }
 
@@ -508,7 +509,7 @@ export function createEngine(ctx) {
       const pet = named.length === 1 ? named[0] : null;
       const petCtx = pet ? {species: /kedi/i.test(pet.species || "") ? "cat" : /k[öo]pek/i.test(pet.species || "") ? "dog" : "", weight: pet.weight, name: pet.name} : {};
       const clinical = clinicalAnswer(text, petCtx);
-      if (clinical) return answer(clinical.text, clinical);
+      if (clinical) return answer(clinical.text, {...clinical, urgent: clinical.urgent || isUrgent(text)});
       const known = vetAnswer(text, pet ? {species: /kedi/i.test(pet.species || "") ? "cat" : /k[öo]pek/i.test(pet.species || "") ? "dog" : /tav[şs]an/i.test(pet.species || "") ? "rabbit" : "", weight: pet.weight, name: pet.name} : {});
       if (known) return answer(known.text, known);
     }
@@ -594,6 +595,54 @@ export function mountVeBot(ctx) {
   };
   const safeCan = name => { try { return !!ctx.can(name); } catch { return false; } };
 
+  log.addEventListener("click", event => {
+    const askBtn = event.target.closest("[data-vebot-ask]");
+    if (askBtn) { event.preventDefault(); ask(askBtn.dataset.vebotAsk); return; }
+    if (event.target.closest("[data-vebot-about]")) { event.preventDefault(); showAbout(); }
+  });
+
+  // "Neler biliyorum?" · ana ekranın üstünde açılan bilgi penceresi
+  function showAbout() {
+    document.querySelector(".vebot-about")?.remove();
+    const ex = q => { const b = el("button", {type:"button", className:"vebot-about-ex", textContent:q}); b.addEventListener("click", () => { dlg.close(); setOpen(true); ask(q); }); return b; };
+    const section = (title, lines, examples = []) => el("section", {className:"vebot-about-sec"}, el("h3", {textContent:title}),
+      el("ul", {}, ...lines.map(l => el("li", {textContent:l}))), examples.length ? el("div", {className:"vebot-about-exs"}, ...examples.map(ex)) : null);
+    const closeBtn = el("button", {type:"button", className:"icon-button vebot-about-close", textContent:"×"});
+    closeBtn.setAttribute("aria-label", "Kapat");
+    const dlg = el("dialog", {className:"vebot-about"},
+      el("header", {className:"vebot-about-head"}, el("span", {className:"vebot-avatar", innerHTML:icon}),
+        el("div", {}, el("h2", {textContent:"VeBot neler biliyor?"}), el("p", {textContent:"Tamamen cihazınızda çalışır; ücretsizdir, internete ya da ücretli bir servise soru göndermez."})), closeBtn),
+      el("div", {className:"vebot-about-body"},
+        section("Kedi ve köpek hastalıkları", [
+          (CLINICAL_STATS.cases || 0) + " hastalık için belirti, tanı, tedavi ve prognoz kartı",
+          SYMPTOM_STATS.symptoms + " belirtiden olası hastalıkları sıralama (birden çok belirtiyi birlikte değerlendirir; yaş, ırk ve cinsiyet ipuçlarını kullanır)",
+          "Tek belirtiye hazır ayırıcı tanı listeleri ve önerilen ilk tetkikler"],
+          ["Köpekte öksürük, ateş, burun akıntısı", "Erkek kedi idrar yapamıyor, kusma", "Parvovirüs tedavisi", "FIP belirtileri"]),
+        section("İlaç ve dozlar", [
+          (KNOWLEDGE_STATS.drugs + (CLINICAL_STATS.drugs || 0)) + "'i aşkın veteriner ve beşeri ilaç için kiloya göre doz, uygulama yolu ve uyarılar",
+          "Tablet / mL hesabı, kedi-köpek farkları ve kontrendikasyonlar"],
+          ["4 kg kedi meloksikam dozu", "10 kg köpek amoksisilin klavulanik 50 mg tablet"]),
+        section("Acil durum ve zehirlenmeler", [
+          KNOWLEDGE_STATS.toxins + " zehirlenme (çikolata, ksilitol, üzüm, zambak, permetrin, fare zehiri…) ve kiloya göre risk hesabı",
+          "KPR ilaç dozları, sıvı ve enerji ihtiyacı hesabı"],
+          ["20 kg köpek 100 g bitter çikolata yedi", "KPR adrenalin dozu"]),
+        section("Laboratuvar ve referanslar", [
+          "Hemogram, biyokimya ve kan gazı değerlerini yorumlama, anormallik nedenleri",
+          "Normal yaşamsal bulgular, aşı takvimleri, gebelik süresi ve doğum tarihi hesabı"],
+          ["Kedi ALT referans", "Kedi aşı takvimi"]),
+        section("Kliniğinizin verileri", [
+          "Ciro, tahsilat, kritik stok, SKT yaklaşan ürünler, randevular, muayeneler, geciken aşılar, açık bakiyeler",
+          "Hasta özeti, son tahliller ve ilaçlar; faturadan stok aktarma"],
+          ["Günün özeti", "Kritik stokta neler var?"]),
+        section("Uygulamayı kullanma", ["Web sitesi kurma, kanal bağlama, personel ekleme, e-Fatura gibi adım adım rehberler"], ["Web sitesi nasıl kurulur?"])),
+      el("footer", {className:"vebot-about-foot"}, el("p", {textContent:"Bilgi tabanım düzenli güncellemelerle genişliyor; her sürümde daha fazlasını öğrenmeye çalışıyorum. Yanıtlarım karar desteğidir; kesin tanı ve tedavi kararı hekime aittir."})));
+    closeBtn.addEventListener("click", () => dlg.close());
+    dlg.addEventListener("click", e => { if (e.target === dlg) dlg.close(); });
+    dlg.addEventListener("close", () => dlg.remove());
+    document.body.append(dlg);
+    dlg.showModal();
+  }
+
   function bubble(role, content) {
     const item = el("div", {className:"vebot-msg vebot-" + role}, content);
     log.append(item);
@@ -609,7 +658,8 @@ export function mountVeBot(ctx) {
     }
     if (result.items?.length) {
       box.append(el("ul", {className:"vebot-items"}, ...result.items.map(([label, meta, href]) => {
-        const main = href ? el("a", {href, textContent:label}) : el("span", {textContent:label});
+        const main = href && href.startsWith("ask:") ? el("button", {type:"button", className:"vebot-ask", textContent:label, dataset:{vebotAsk:href.slice(4)}})
+          : href ? el("a", {href, textContent:label}) : el("span", {textContent:label});
         return el("li", {}, main, meta ? el("small", {textContent:meta}) : null);
       })));
     } else if (result.empty && !result.stats?.some(([, value]) => value !== "0")) {
@@ -621,6 +671,10 @@ export function mountVeBot(ctx) {
     if (result.links?.length) {
       box.append(el("div", {className:"vebot-links"}, ...result.links.map(([label, href]) => href === "doc:pick"
         ? el("button", {type:"button", className:"button small", textContent:label, dataset:{vebotDoc:"1"}})
+        : href.startsWith("ask:")
+        ? el("button", {type:"button", className:"button small", textContent:label, dataset:{vebotAsk:href.slice(4)}})
+        : href === "about:"
+        ? el("button", {type:"button", className:"button small vebot-about-btn", textContent:label, dataset:{vebotAbout:"1"}})
         : href.startsWith("new:")
         ? el("button", {type:"button", className:"button small", textContent:label, dataset:{vebotNew:href.slice(4)}})
         : el("a", {className:"button small", href, textContent:label}))));
@@ -636,7 +690,11 @@ export function mountVeBot(ctx) {
     try { result = respond(text); }
     catch (error) { console.error("VeBot", error); result = {text:"Bu soruyu şu anda yanıtlayamadım. Sayfayı yenileyip tekrar deneyin."}; }
     if (!result) {
-      result = {text:"Bu soruyu yanıtlayamadım.", note:"Klinik verisi (ciro, tahsilat, stok, randevu, muayene, aşı, hasta özeti) ve hekim bilgisi (ilaç dozu, aşı takvimi, normal değerler, referans aralıkları, zehirlenmeler, ayırıcı tanı, sıvı/enerji, gebelik, KPR) sorularını yanıtlayabilirim. Örnek: “4 kg kedi meloksikam dozu”.", links:[]};
+      const close = suggestCases(text);
+      result = {text: close.length ? "Bunu tam olarak anlayamadım; şunlardan birini mi kastettiniz?" : "Bu soruya şimdilik kesin bir yanıt veremiyorum.",
+        items: close.map(name => [name, "Belirti, tanı ve tedavi kartını aç", "ask:" + name]),
+        note: "İpucu: hastalık adını (ör. “parvovirüs tedavisi”), belirtileri (ör. “köpekte öksürük, ateş, burun akıntısı”), ilaç ve kiloyu (ör. “4 kg kedi meloksikam dozu”) ya da klinik verisini (ör. “bugünkü ciro”) yazın. Bilgi tabanım düzenli güncellemelerle genişliyor; daha fazlasını öğrenmeye çalışıyorum.",
+        links:[["Neler biliyorum?", "about:"]]};
     }
     bubble("bot", renderAnswer(result));
   }
@@ -710,7 +768,7 @@ export function mountVeBot(ctx) {
       attach.hidden = !docsAllowed();
       if (!greeted) {
         greeted = true;
-        bubble("bot", renderAnswer({text:"Merhaba, ben VeBot. Kliniğinizle ilgili sorunuzu yazın veya sesle sorun.", note:"Yanıtlar yalnızca bu cihazda, görmeye yetkili olduğunuz kayıtlardan hazırlanır. Veriler dışarı gönderilmez."}));
+        bubble("bot", renderAnswer({text:"Merhaba, ben VeBot. Kliniğinizle ilgili sorunuzu yazın veya sesle sorun.", note:"Kedi ve köpek hastalıkları, belirtilerden olası tanılar, ilaç dozları, zehirlenmeler ve klinik verileriniz hakkında soru sorabilirsiniz. Yanıtlar yalnızca bu cihazda hazırlanır; veriler dışarı gönderilmez.", links:[["Neler biliyorum?", "about:"]]}));
       }
       requestAnimationFrame(() => input.focus({preventScroll:true}));
     } else {
@@ -730,7 +788,7 @@ export function mountVeBot(ctx) {
   const micOff = () => { mic.setAttribute("aria-pressed", "false"); mic.classList.remove("is-recording"); };
   // Modül önceden yüklenir: telefonda (özellikle iOS Safari) tanıyıcı, dokunuşla aynı anda başlatılmazsa izin vermez.
   let vcModule = null;
-  const vcReady = import("./voice-clinical.js?v=2").then(m => (vcModule = m)).catch(() => null);
+  const vcReady = import("./voice-clinical.js?v=3").then(m => (vcModule = m)).catch(() => null);
   async function quickListen() {
     const vc = vcModule || await vcReady;
     if (!vc?.browserSttAvailable()) return false;

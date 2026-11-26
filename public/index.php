@@ -1052,7 +1052,20 @@ try {
                 reply(['ok'=>true]);
             }
             if($action==='partners') {
-                $created=$center->create($actor,$body,$now);
+                // Yeni bayi: seçilirse hemen demo (deneme) dönemi başlar; böylece süre uyarısı ilk girişte görünür.
+                $demoDays=filter_var($body->demoDays ?? 0,FILTER_VALIDATE_INT,['options'=>['min_range'=>0,'max_range'=>365]]);
+                if ($demoDays===false) throw new RuntimeException('Demo süresi 0–365 gün olmalıdır.',422);
+                $demoPlan=is_string($body->plan ?? null)?$body->plan:'';
+                if ($demoDays>0 && !isset($commerce->catalog()[$demoPlan])) throw new RuntimeException('Demo paketi seçin.',422);
+                $db->beginTransaction();
+                try {
+                    $created=$center->create($actor,$body,$now);
+                    if ($demoDays>0) {
+                        $start=new DateTimeImmutable('today',new DateTimeZone('Europe/Istanbul'));
+                        $commerce->assign((object)['partnerId'=>$created['id'],'plan'=>$demoPlan,'kind'=>'trial','starts_on'=>$start->format('Y-m-d'),'ends_on'=>$start->modify('+'.($demoDays-1).' days')->format('Y-m-d')]);
+                    }
+                    $db->commit();
+                } catch (\Throwable $e) { if ($db->inTransaction()) $db->rollBack(); throw $e; }
                 $created['welcome']=Center::welcomeText($created['name'],$created['phone'],$origin.$created['link']);
                 $created['mail']='disabled';
                 try {

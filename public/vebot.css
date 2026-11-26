@@ -121,3 +121,24 @@
 }
 @media print{.vebot-doc{display:none!important}}
 @media print{.vebot-launcher,.vebot-panel{display:none!important}}
+/* Belirti → hastalık listesinde dokunulabilir hastalık adları */
+.vebot-ask{border:0;background:none;padding:0;font:inherit;font-weight:700;color:var(--theme-on,var(--theme-primary,#5b3fd6));text-align:left;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.vebot-ask:hover{opacity:.85}
+/* "Neler biliyorum?" penceresi (ana ekranın üstünde) */
+.vebot-about{width:min(760px,calc(100vw - 24px));max-height:min(86vh,900px);padding:0;border:0;border-radius:22px;background:var(--paper,#fff);color:var(--ink,#1b1640);box-shadow:0 30px 90px rgba(20,10,60,.35);overflow:hidden}
+.vebot-about::backdrop{background:rgba(15,10,40,.45);backdrop-filter:blur(3px)}
+.vebot-about[open]{display:flex;flex-direction:column}
+.vebot-about-head{display:flex;align-items:center;gap:12px;padding:18px 20px;color:#fff;background:linear-gradient(115deg,var(--theme-primary,#6a3df0),var(--theme-secondary,#c4306e))}
+.vebot-about-head h2{margin:0;font-size:1.25rem}.vebot-about-head p{margin:2px 0 0;font-size:.86rem;opacity:.92}
+.vebot-about-head .vebot-avatar{flex:none;display:grid;place-items:center;width:44px;height:44px;border-radius:14px;background:rgba(255,255,255,.18)}
+.vebot-about-close{margin-left:auto;color:#fff!important;background:rgba(255,255,255,.16)!important;border:0!important;font-size:1.4rem;width:38px;height:38px;border-radius:12px;cursor:pointer}
+.vebot-about-body{overflow:auto;padding:16px 20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:12px}
+.vebot-about-sec{padding:14px 16px;border-radius:16px;border:1px solid var(--line,#e4defa);background:var(--bg,#f7f5fe);min-width:0}
+.vebot-about-sec h3{margin:0 0 6px;font-size:1rem}
+.vebot-about-sec ul{margin:0;padding-left:1.1rem;display:grid;gap:4px;font-size:.88rem;line-height:1.45}
+.vebot-about-exs{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.vebot-about-ex{border:1px solid var(--line,#e4defa);background:var(--paper,#fff);color:inherit;border-radius:999px;padding:6px 11px;font:inherit;font-size:.8rem;font-weight:650;cursor:pointer;text-align:left}
+.vebot-about-ex:hover{border-color:var(--theme-primary,#6a3df0)}
+.vebot-about-foot{padding:12px 20px 16px;border-top:1px solid var(--line,#e4defa);font-size:.86rem;color:var(--muted,#544e72)}
+.vebot-about-foot p{margin:0}
+@media (max-width:560px){.vebot-about{border-radius:18px}.vebot-about-body{padding:12px}}

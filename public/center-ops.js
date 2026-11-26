@@ -629,8 +629,13 @@ export async function mountCenterSuite(ui,session){
   filter.addEventListener('change',()=>{clearTimeout(timer);draw();});
   const controls=el('div','',{className:'center-columns'});controls.append(search,state);content.append(controls,summary,results);
   const add=el('details');add.append(el('summary','+ Bayi oluştur'));
-  add.append(makeForm([field('name','Bayi / klinik adı',{maxLength:160}),field('phone','Yetkili cep telefonu',{type:'tel'}),field('email','Bayi e-postası',{type:'email'})],'Bayi oluştur',async values=>{
-   const result=await call('partners',values);await list();
+  let demoPlans=[];try{demoPlans=(await call('plans')).plans||[];}catch{}
+  const demoPlan=selectField('plan','Demo paketi',demoPlans.filter(p=>p.id!=='ucretsiz').map(p=>[p.id,p.name]));
+  const pro=demoPlans.find(p=>p.id==='pro');if(pro)demoPlan.querySelector('select').value='pro';
+  add.append(makeForm([field('name','Bayi / klinik adı',{maxLength:160}),field('phone','Yetkili cep telefonu',{type:'tel'}),field('email','Bayi e-postası',{type:'email'}),
+   demoPlan,field('demoDays','Demo süresi (gün) · 0 = demo başlatma, dönemi sonra tanımla',{type:'number',min:0,max:365,value:14}),
+   el('p','Demo süresi girilirse bayi ilk girişinden itibaren üstte kalan gün ve son tarih uyarısını görür.',{className:'muted'})],'Bayi oluştur',async values=>{
+   const result=await call('partners',{...values,demoDays:Number(values.demoDays||0)});await list();
    // Hoş geldin mesajı: kullanıcı adı + tek kullanımlık bağlantı (şifre belirleme ve VetZimo Kullanım Sözleşmesi imzası).
    const box=el('div','',{className:'center-welcome'});
    const text=el('textarea','',{rows:7,readOnly:true,value:result.welcome});

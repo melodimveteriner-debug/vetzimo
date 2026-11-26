@@ -5,7 +5,8 @@
 // Kaynaklar: Plumb's Veterinary Drug Handbook (genel aralıklar), BSAVA Small Animal Formulary, MSD Veterinary Manual,
 // Ettinger Textbook of Veterinary Internal Medicine. Kesin tanı, doz ve tedavi kararı hekimindir; ürün prospektüsü önceliklidir.
 import {interpretLabs, codeFor, LAB_REF, LAB_LABEL} from "./lab-interpret.js?v=20261125-r3";
-import {CASES} from "./vet-cases.js?v=1";
+import {CASES} from "./vet-cases.js?v=2";
+import {symptomAnswer, extractSymptoms} from "./vet-symptoms.js?v=1";
 
 const fold = s => String(s ?? "").toLocaleLowerCase("tr-TR").replaceAll("ı", "i").normalize("NFD").replace(/\p{M}/gu, "").replace(/[^a-z0-9.,/%\s-]/g, " ").replace(/\s+/g, " ").trim();
 const fmt = (v, d = 2) => Number.isFinite(v) ? new Intl.NumberFormat("tr-TR", {maximumFractionDigits: d}).format(v) : "—";
@@ -281,6 +282,12 @@ const DIFF = [
   [/\b(siyanoz|morarma dil|dil mor)/, "Siyanoz", ["Ağır hipoksemi: pulmoner ödem, pnömoni, plevral efüzyon, pnömotoraks, üst solunum yolu tıkanıklığı", "Sağdan sola şant (Fallot tetralojisi, ters akımlı PDA — farklı siyanoz)", "Methemoglobinemi (kahverengi mukoza — parasetamol kedide!)", "Periferik: aortik tromboemboli (kedi; bölgesel), şok"], "ACİL oksijen ve stres azaltma; SpO2/kan gazı, POCUS, toraks röntgeni (stabil olunca), ekokardiyografi, methemoglobin için kan rengi testi"],
   [/\b(kalp ufurum\w*|ufurum|murmur)/, "Kalp üfürümü", ["Köpek küçük ırk, yaşlı: miksomatöz mitral kapak hastalığı (MMVD; Cavalier KCS)", "Köpek büyük ırk: dilate kardiyomiyopati (sessiz olabilir), subaortik stenoz (Boxer, Newfoundland)", "Yavru: PDA (sürekli üfürüm), pulmonik stenoz, VSD, masum (fizyolojik) üfürüm — 4–5 aya kadar kaybolur", "Kedi: hipertrofik kardiyomiyopati (HCM — dinamik), dinamik sağ ventrikül çıkış obstrüksiyonu", "Ekstrakardiyak: anemi, ateş, hipertiroidi (fizyolojik akım üfürümü)"], "Ekokardiyografi (kesin tanı), toraks röntgeni (VHS, ödem), NT-proBNP, kan basıncı, T4 (kedi), EKG; MMVD B2 evresinde pimobendan"],
 ];
+function diffLoose(t) { // soru kalıbı olmadan da kısa belirti sorularında hazır listeyi kullan ("köpek topallıyor")
+  if (t.split(" ").length > 12) return null;
+  const row = DIFF.find(([re]) => re.test(t));
+  return row ? {text: "Ayırıcı tanı · " + row[1], items: row[2].map(d => [d, ""]), stats: [["Önerilen tetkikler", row[3]]],
+    note: "Liste sıklık ve önem sırasına göredir; öykü, yaş, ırk ve muayene bulgularıyla daraltın. Birden çok belirti yazarsanız (ör. “kedide kusma, ishal, iştahsızlık”) olası hastalıkları sıralarım. " + NOTE} : null;
+}
 function diffAnswer(t) {
   if (!ASK.test(t) && !/\b(nelerdir|ne yapmali|ne yapilir)\b/.test(t)) return null;
   const row = DIFF.find(([re]) => re.test(t));
@@ -430,8 +437,13 @@ export function clinicalAnswer(text, context = {}) {
   const species = speciesOf(t) || (context.species === "cat" || context.species === "dog" ? context.species : "");
   const lab = labValues(text, t, context) || panelAnswer(t, species) || gasGuide(t);
   if (lab) return lab;
-  // Belirti + "ayırıcı tanı / nedenleri" sorusunda önce ayırıcı tanı listesi; aksi halde hastalık kartı önce.
-  if (SYMPTOM_ASK.test(t)) return causesAnswer(t, species) || diffAnswer(t) || caseAnswer(t, species, context) || drugAnswer(t, species);
-  return caseAnswer(t, species, context) || causesAnswer(t, species) || diffAnswer(t) || drugAnswer(t, species);
+  // Birden çok belirti yazıldıysa (ör. "köpekte öksürük, ateş, burun akıntısı") olası hastalıklar belirti örtüşmesine göre sıralanır.
+  // Tek belirtide hazır ayırıcı tanı listesi; hastalık adı geçiyorsa hastalık kartı önce gelir.
+  const dose = /\b(doz\w*|mg\/kg|zehir\w*)\b/.test(t);
+  const nSym = dose ? 0 : extractSymptoms(text).length;
+  const multi = () => nSym >= 2 ? symptomAnswer(text, {species, min: 2}) : null;
+  const single = () => nSym >= 1 ? (diffLoose(t) || symptomAnswer(text, {species, min: 1})) : null;
+  if (SYMPTOM_ASK.test(t)) return multi() || causesAnswer(t, species) || diffAnswer(t) || single() || caseAnswer(t, species, context) || drugAnswer(t, species);
+  return caseAnswer(t, species, context) || multi() || causesAnswer(t, species) || diffAnswer(t) || drugAnswer(t, species) || single();
 }
-export const CLINICAL_STATS = {drugs: DRUGS.length, causes: CAUSES.length, differentials: DIFF.length};
+export const CLINICAL_STATS = {drugs: DRUGS.length, causes: CAUSES.length, differentials: DIFF.length, cases: CASES.length};

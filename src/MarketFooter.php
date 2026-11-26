@@ -14,7 +14,7 @@ final class MarketFooter
         if (!str_contains($html, '<footer')) return $html;
         $footer = self::render($company, $now);
         $html = preg_replace_callback('~<footer\b[^>]*>.*?</footer>~s', static fn() => $footer, $html, 1) ?? $html;
-        if (!str_contains($html, '/market-footer.css')) $html = str_replace('</head>', '<link rel="stylesheet" href="/market-footer.css?v=1"></head>', $html);
+        if (!str_contains($html, '/market-footer.css')) $html = str_replace('</head>', '<link rel="stylesheet" href="/market-footer.css?v=2"></head>', $html);
         return $html;
     }
 

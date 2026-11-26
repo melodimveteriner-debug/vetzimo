@@ -274,3 +274,4 @@ function toxinAnswer([name, , info, calc], t, species, weight, who) {
 
 /** Konu listesi (yardım ekranı için) */
 export const KNOWLEDGE_EXAMPLES = ["“4 kg kedi meloksikam dozu”", "“10 kg köpek amoksisilin klavulanik 50 mg tablet”", "“Kedi aşı takvimi”", "“Köpek normal nabız ve ateş”", "“Kedi ALT referans”", "“Kusma ayırıcı tanı”", "“5 kg kedi %8 dehidrasyon sıvı tedavisi”", "“20 kg köpek 100 g bitter çikolata yedi”", "“Zambak kedi zehirlenmesi”", "“Kedi gebelik süresi 1.11.2026”", "“KPR adrenalin dozu”"];
+export const KNOWLEDGE_STATS = {drugs: DRUGS.length, toxins: TOXINS.length, vaccines: Object.keys(VACCINES).length};

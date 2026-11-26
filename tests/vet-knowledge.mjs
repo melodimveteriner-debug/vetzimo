@@ -1,5 +1,7 @@
 // Hekim başvuru bilgisi: doz hesabı, türe özgü uyarılar, aşı, referans, zehirlenme hesapları, ayırıcı tanı, sıvı/enerji.
 import {vetAnswer} from "../public/vet-knowledge.js";
+import {clinicalAnswer} from "../public/vet-clinical.js";
+import {suggestCases, extractSymptoms} from "../public/vet-symptoms.js";
 let fails = 0;
 const ok = (cond, name, extra) => { if (!cond) { fails++; console.error("KALDI", name, extra ? JSON.stringify(extra) : ""); } };
 const stat = (a, label) => (a?.stats || []).find(([k]) => k.includes(label))?.[1] || "";
@@ -54,6 +56,23 @@ ok(items(a).includes("tahmini doğum 05.01.2027"), "gebelik tarihi", a);
 
 ok(vetAnswer("bugünkü ciro ne kadar") === null, "klinik veri sorusu başvuru bilgisine düşmez");
 ok(vetAnswer("yarınki randevular") === null, "randevu sorusu başvuru bilgisine düşmez");
+
+// Belirti → olası hastalık (birden çok belirti, tür, grup ipucu) ve yazım hatası önerisi
+const names = a => (a?.items || []).map(([k]) => k);
+let c = clinicalAnswer("köpekte öksürük, ateş, burun akıntısı");
+ok(c && c.text.startsWith("Bu belirtiler") && names(c).slice(0, 3).some(n => n.includes("distemper")), "çoklu belirti: distemper ilk üçte", names(c));
+c = clinicalAnswer("erkek kedi idrar yapamıyor, kusma");
+ok(names(c)[0]?.startsWith("Üretral tıkanıklık"), "erkek kedi idrar yapamıyor → üretral tıkanıklık", names(c));
+c = clinicalAnswer("büyük ırk köpek karnı şişti kusmaya çalışıyor salya");
+ok(names(c)[0]?.includes("GDV"), "GDV ilk sırada", names(c));
+c = clinicalAnswer("kanlı ishal köpek yavru");
+ok(names(c).slice(0, 2).some(n => n.startsWith("Parvovirüs")), "yavru + kanlı ishal → parvovirüs ilk ikide", names(c));
+c = clinicalAnswer("köpekte bel ağrısı ateş");
+ok(names(c).slice(0, 3).some(n => n.startsWith("Diskospondilit")), "bel ağrısı + ateş → diskospondilit", names(c));
+ok(!names(clinicalAnswer("kedide kusma ishal") || {}).some(n => /parvovir|distemper/i.test(n) && !/panl/i.test(n)), "kedi sorusunda köpeğe özgü hastalık yok");
+ok(extractSymptoms("ishal yok, kusma var").join() === "Kusma", "olumsuz belirti sayılmaz");
+ok(suggestCases("parvovros tedavsi")[0] === "Parvovirüs enteriti" && suggestCases("qwerty asdf").length === 0, "yazım hatası önerisi");
+ok(clinicalAnswer("bugünkü ciro") === null && clinicalAnswer("kritik stok") === null, "klinik veri sorusu belirti motoruna düşmez");
 
 if (fails) { console.error(fails + " test kaldı"); process.exit(1); }
 console.log("PASS hekim başvuru bilgisi: doz ve ürün hacmi, türe özgü uyarılar, aşı, referans, zehirlenme, ayırıcı tanı, sıvı/enerji, gebelik");
