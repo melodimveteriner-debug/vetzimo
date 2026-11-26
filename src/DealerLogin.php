@@ -11,7 +11,7 @@ final class DealerLogin
 {
     private const WINDOW_SECONDS = 900;
     private const MAX_ATTEMPTS = 10;
-    private const SESSION_SECONDS = 28800;
+    private const SESSION_SECONDS = 86400; // 24 saat
 
     public function __construct(private readonly PDO $database, private readonly string $rateSecret)
     {

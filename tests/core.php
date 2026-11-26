@@ -46,7 +46,8 @@ $cookies = fn(array $row): array => [
 ];
 check($sessions->resolve($cookies($a), $now)['partner_id'] === 'a', 'Wrong dealer resolved');
 check($sessions->resolve($cookies(['token'=>$a['token'],'device'=>$b['device']]), $now) === null, 'Wrong device accepted');
-check($sessions->resolve($cookies($a), $now+1801) === null, 'Idle session accepted');
+check($sessions->resolve($cookies($a), $now+86399) !== null, 'Session closed before 24 hours');
+check($sessions->resolve($cookies($a), $now+3*86400) === null, 'Expired session accepted');
 expectCode(403, fn() => $workspaces->read([], $now));
 check($workspaces->writeValidated($cookies($a), 'member-a', $now, 0, (object) ['version'=>1,'clients'=>[]]) === 1, 'Initial write failed');
 check($workspaces->read($cookies($b), $now)['revision'] === 0, 'Other clinic data visible');

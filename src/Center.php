@@ -6,7 +6,7 @@ use RuntimeException;
 final class Center
 {
     /** Merkez oturumu: giriş (2FA) sonrası 2 saat işlem yapılabilir, 2 saat hareketsizlikte oturum kapanır. */
-    public const REAUTH_WINDOW = 7200;
+    public const REAUTH_WINDOW = 86400; // merkez oturumu ve doğrulama kodu 24 saat geçerli
     public function __construct(private readonly PDO $db,private readonly array $config) {}
     public function login(object $input,string $ip,int $now,bool $explainOtp=false): ?array
     {
@@ -40,7 +40,7 @@ final class Center
             $this->db->prepare('INSERT INTO identity_session(token_hash,device_hash,account_id,account_version,membership_id,created,touched,expires,reauth_at) VALUES (?,?,?,?,NULL,?,?,?,?)')
                 ->execute([base64_encode(hash('sha256',$token,true)),base64_encode(hash('sha256',$device,true)),$account['id'],$account['version'],$now,$now,$now+self::REAUTH_WINDOW,$now]);
             $this->audit($account['id'],'center.login');
-            $this->db->commit();return ['token'=>$token,'device'=>$device,'age'=>3600,'destination'=>'/yonetim'];
+            $this->db->commit();return ['token'=>$token,'device'=>$device,'age'=>self::REAUTH_WINDOW,'destination'=>'/yonetim'];
         } catch(\Throwable $e){if($this->db->inTransaction())$this->db->rollBack();throw $e;}
     }
     /** Merkez departmanları: owner (tam yetki), support (yalnız destek), dealer (bayi departmanı: havale onayı, abonelik geçişi). */

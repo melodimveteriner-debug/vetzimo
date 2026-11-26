@@ -51,7 +51,9 @@ function marketAndPanelFavicon(string $html,string $assets): string {
 
 function sessionCookie(string $name, string $value, int $expires): void {
     setcookie($name, $value, [
-        'expires'=>$expires, 'path'=>'/', 'secure'=>true, 'httponly'=>true, 'samesite'=>'Strict',
+        // Lax: SMS, e-posta, bildirim veya başka uygulamadan gelen bağlantıyla açılınca oturum korunur.
+        // Değişiklik yapan istekler ayrıca Origin denetimiyle korunur (aşağıda).
+        'expires'=>$expires, 'path'=>'/', 'secure'=>true, 'httponly'=>true, 'samesite'=>'Lax',
     ]);
 }
 

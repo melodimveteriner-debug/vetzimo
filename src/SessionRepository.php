@@ -13,9 +13,9 @@ final class SessionRepository
 {
     public const SESSION_COOKIE = '__Host-vetnet-session';
     public const DEVICE_COOKIE = '__Host-vetnet-device';
-    private const IDLE_TIMEOUT = 1800;
-    // Merkez yönetici oturumu 2 saat hareketsizlikte kapanır (klinik oturumları 30 dakika).
-    private const CENTER_IDLE_TIMEOUT = 7200;
+    // Tüm oturumlar (klinik, bayi, hasta sahibi, merkez; tarayıcı, telefon, tablet, uygulama) 24 saat açık kalır.
+    private const IDLE_TIMEOUT = 86400;
+    private const CENTER_IDLE_TIMEOUT = 86400;
 
     public function __construct(private readonly PDO $database)
     {
