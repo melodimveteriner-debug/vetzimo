@@ -483,6 +483,7 @@ function iu(e){let t=Po(),{metrics:a,delta:i}=t,n={day:"Günlük",week:"Haftalı
       <input id="patientPhoto" type="file" accept="image/jpeg,image/png" aria-label="Hasta profil fotoğrafı">
     </label><div class="photo-footer"><p id="photoError" role="alert"></p>${Nt(Zt)?R("Fotoğrafı kaldır",'data-remove-photo="1"',"x","small"):""}</div></div>`,l=[["","Sadece kaydı oluştur"],["exams","Muayeneye geç"],["appointments","Randevu oluştur"],["vaccine-wizard","Aşı takvimi sihirbazına geç"]],o=`${R("İptal",`data-go="${t?"patient/"+p(t.id):"patients"}"`,"x")}
     <button class="button primary" type="submit" ${Ne==="readonly"?"disabled":""}>${me("check",18)} ${t?"Değişiklikleri kaydet":"Hasta Oluştur"}</button>
+    ${t?`<button class="button accent-button" type="submit" data-save-vaccine ${Ne==="readonly"?"disabled":""}>${me("syringe",18)} Aşı takvimi oluştur</button>${R("Aşı sihirbazını kullan",`data-go="vaccine-wizard/${p(t.id)}"`,"syringe")}`:""}
     ${t?"":`<button class="button accent-button" type="submit" data-save-vaccine ${Ne==="readonly"?"disabled":""}>${me("syringe",18)} Hasta Oluştur ve Aşı Takvimi Sihirbazına Geç</button>`}`;return`<div class="patient-heading"><span class="patient-paw">${me("paw",29)}</span><div><h1>${t?"Hasta Bilgilerini Düzenle":"Yeni Hasta Ekle"}</h1><p>${t?"Hasta kimliğini ve klinik uyarıları güncelleyin.":"Kliniğinize yeni bir hasta kaydı oluşturun."}</p></div></div>
   <form id="patientForm" data-patient-id="${p(e||"")}">${Zo("patients",t)}
     <section class="panel registration-card">
@@ -768,10 +769,10 @@ staffNames(){let n=new Set;for(let x of Y("sales"))x.clinician&&n.add(x.clinicia
 async saveRules(text){if(ue)throw Error(We("Önceki işlem sürüyor, lütfen bekleyin."));ue=!0;try{await Bt({...U,preferences:{...U.preferences,commissionRules:text}},{module:"Raporlar",action:"Prim oranları güncellendi"})}finally{ue=!1}}})}).catch(x=>{root.isConnected&&(root.textContent=x.message)})}
 
 // İş Takibi (tasks-board.js): görevler "tasks" listesinde; yeni kayıt geçerli şubeye yazılır, kim/ne zaman sunucuda işlenir.
-function vzTasks(root){if(!root)return;root.textContent=We("Yükleniyor…");import("./tasks-board.js?v=1").then(({mountTasksBoard})=>{if(!root.isConnected)return;
+function vzTasks(root){if(!root)return;root.textContent=We("Yükleniyor…");import("./tasks-board.js?v=2").then(({mountTasksBoard})=>{if(!root.isConnected)return;
 let list=()=>(U.tasks||[]).filter(t=>t.branch===Ge),pname=id=>id?W("patients",id)?.name||"":"";
 mountTasksBoard(root,{tr:We,list,me:()=>Pa(),toast:m=>be(m),canWrite:Ne!=="readonly"&&!S.subscriptionRestricted,patientName:pname,patientOwner:id=>W("patients",id)?.owner||"",
-staff(){let n=new Set;for(let t of list())t.assignee&&n.add(t.assignee);for(let a of Y("appointments").slice(0,3000))a.clinician&&n.add(a.clinician);Pa()&&n.add(Pa());return[...n].sort((a,b)=>a.localeCompare(b,"tr"))},
+isManager:()=>S.role==="dealer"||S.role==="branch"||S.memberRole==="branch"||S.memberRole==="dealer",staff(){let n=new Set;vzStaffRoster().forEach(x=>n.add(x));for(let u of Y("users"))u.name&&n.add(u.name);for(let t of list())t.assignee&&t.assignee!=="@team"&&n.add(t.assignee);Pa()&&n.add(Pa());return[...n].sort((a,b)=>a.localeCompare(b,"tr"))},
 searchPatients(q){let k=De(q||"");if(k.length<2)return[];let out=[];for(let p of Y("patients")){if(De(p.name).includes(k)){let o=p.owner?W("clients",p.owner)?.name:"";out.push({id:p.id,name:p.name,label:[p.name,p.species,o].filter(Boolean).join(" · ")});if(out.length>=8)break}}return out},
 async save(next,prior,action){if(ue)throw Error(We("Önceki işlem sürüyor, lütfen bekleyin."));ue=!0;try{let row={...next,branch:prior?.branch||Ge},rows=U.tasks||[];
 let st={...U,tasks:prior?rows.map(t=>t.id===row.id?row:t):[row,...rows]};await Bt(st,{module:"İş Takibi",action})}finally{ue=!1}}})}).catch(x=>{root.isConnected&&(root.textContent=x.message)})}
