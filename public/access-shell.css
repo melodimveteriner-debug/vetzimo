@@ -1,0 +1,102 @@
+/* Giriş ekranı · "Kilitli çalışma alanı": kullanıcı uygulamanın içindeymiş gibi hisseder. Arka planda uygulama kabuğu
+   (sol menü, arama, karşılama bandı, kartlar, günün akışı) bulanık durur; giriş kartı çalışma alanının kilidini açar.
+   Tüm renkler --access-* değişkenlerinden gelir (Prizma, Nebula ve varsayılan tema); telefon, tablet, bilgisayar uyumlu. */
+.login-surface:has(.access-locked) main{width:100%;max-width:none;padding:0}
+.login-surface:has(.access-locked) main>footer{width:min(1240px,100%);margin:0 auto;padding:14px max(16px,env(safe-area-inset-right)) calc(14px + env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));border-top:1px solid var(--access-line);text-align:center}
+.access-layout.access-locked{position:relative;display:grid;align-items:stretch;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr);gap:0;min-height:calc(100vh - 70px);min-height:calc(100dvh - 70px);isolation:isolate;overflow:hidden}
+.access-stage-wrap{grid-area:1/1;position:relative;display:flex;flex-direction:column;min-width:0;overflow:hidden;z-index:0;background:var(--access-bg)}
+.access-stage-wrap::after{content:"";position:absolute;inset:0;pointer-events:none;background:
+ radial-gradient(60% 70% at 50% 50%,color-mix(in srgb,var(--access-bg) 62%,transparent),transparent 78%),
+ linear-gradient(180deg,color-mix(in srgb,var(--access-bg) 20%,transparent),color-mix(in srgb,var(--access-bg) 55%,transparent));transition:opacity .9s ease}
+.access-stage{flex:1 0 auto;display:grid;grid-template-columns:250px minmax(0,1fr);filter:blur(3.5px) saturate(1.06);transform:scale(1.025);transform-origin:center;opacity:.92;transition:filter .9s ease,transform .9s ease,opacity .9s ease;user-select:none;pointer-events:none}
+.access-unlocking .access-stage{filter:blur(0);transform:scale(1);opacity:1}
+.access-unlocking .access-stage-wrap::after{opacity:.35}
+
+/* Sol menü (uygulamadaki gibi) */
+.access-rail{display:grid;align-content:start;gap:4px;padding:18px 12px;background:var(--access-card);border-right:1px solid var(--access-line)}
+.access-nav-label{margin:14px 10px 4px;color:var(--access-muted);font-size:.66rem;font-weight:800;letter-spacing:.12em}
+.access-nav-label:first-child{margin-top:2px}
+.access-nav-item{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:12px;color:var(--access-ink);font-size:.9rem;font-weight:650}
+.access-nav-item>svg{width:19px;height:19px;flex:none;color:var(--access-muted)}
+.access-nav-item>svg:last-child{width:14px;height:14px;margin-left:auto;opacity:.45}
+.access-nav-item.is-active{color:#fff;background:linear-gradient(115deg,var(--theme-primary,var(--access-brand)),var(--theme-secondary,var(--access-primary)));box-shadow:0 10px 22px color-mix(in srgb,var(--access-brand) 30%,transparent)}
+.access-nav-item.is-active>svg{color:#fff}
+
+/* Çalışma alanı */
+.access-board{display:grid;align-content:start;gap:18px;min-width:0;padding:22px clamp(16px,3vw,34px) 30px;background:var(--access-bg)}
+.access-search{display:flex;align-items:center;gap:10px;width:min(560px,100%);padding:11px 16px;border-radius:14px;background:var(--access-card);border:1px solid var(--access-line);color:var(--access-muted);font-size:.9rem}
+.access-search svg{width:18px;height:18px}.access-search kbd{margin-left:auto;padding:1px 7px;border-radius:6px;border:1px solid var(--access-line);font:inherit;font-size:.75rem}
+.access-hero{position:relative;overflow:hidden;padding:clamp(20px,3vw,32px);border-radius:24px;color:#fff;background:linear-gradient(115deg,var(--theme-primary,var(--access-brand)),var(--theme-secondary,var(--access-primary)));box-shadow:0 20px 44px color-mix(in srgb,var(--access-brand) 28%,transparent)}
+.access-hero::before{content:"";position:absolute;inset:-40% -10% auto auto;width:55%;aspect-ratio:1;border-radius:50%;background:radial-gradient(circle,#ffffff38,transparent 65%)}
+.access-hero p{margin:0 0 6px;font-size:.72rem;font-weight:800;letter-spacing:.16em;opacity:.85}
+.access-hero h2{margin:0;font-size:clamp(1.5rem,3.4vw,2.5rem);line-height:1.1;letter-spacing:-.03em}
+.access-hero>span{display:block;margin-top:6px;font-size:.9rem;opacity:.9}
+.access-pets{position:absolute;right:clamp(18px,4vw,48px);bottom:14px;display:flex;gap:10px;font-size:clamp(1.8rem,3.6vw,2.6rem)}
+.access-pets span{animation:access-bob 3.2s ease-in-out infinite}.access-pets span+span{animation-delay:-1.6s}
+.access-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.access-stat{position:relative;display:grid;gap:4px;padding:16px;border-radius:18px;background:var(--access-card);border:1px solid var(--access-line);overflow:hidden;animation:access-rise .7s ease both;animation-delay:calc(var(--i)*90ms)}
+.access-stat i{display:grid;place-items:center;width:36px;height:36px;border-radius:11px;background:var(--access-soft);color:var(--access-primary)}
+.access-stat i svg{width:19px;height:19px}
+.access-stat small{color:var(--access-muted);font-size:.78rem;font-weight:650}
+.access-stat b{color:var(--access-ink);font-size:1.45rem;letter-spacing:-.02em}
+.access-spark{width:100%;height:30px;margin-top:2px}
+.access-spark path{fill:none;stroke:var(--access-primary);stroke-width:2.4;stroke-linecap:round;stroke-dasharray:240;stroke-dashoffset:240;animation:access-draw 1.6s ease forwards;animation-delay:calc(var(--i)*120ms + .3s)}
+.access-agenda{display:grid;gap:8px;padding:18px;border-radius:20px;background:var(--access-card);border:1px solid var(--access-line)}
+.access-agenda h3{display:flex;align-items:center;gap:8px;margin:0 0 4px;color:var(--access-ink);font-size:1rem}
+.access-agenda h3 svg{width:18px;height:18px;color:var(--access-primary)}
+.access-agenda-row{display:grid;grid-template-columns:64px minmax(0,1fr) auto;align-items:center;gap:10px;padding:11px 13px;border-radius:13px;border:1px solid var(--access-line);color:var(--access-ink);font-size:.88rem}
+.access-agenda-row em{padding:3px 10px;border-radius:999px;font-size:.72rem;font-style:normal;font-weight:800;background:#dcfce7;color:#166534}
+.access-agenda-row em.is-new{background:#fef3c7;color:#92400e}
+
+/* Kilit kartı */
+.access-locked .access-form-column{grid-area:1/1;z-index:2;align-self:center;justify-self:center;width:min(440px,calc(100% - 32px));margin:clamp(20px,4vh,48px) 0;display:grid;gap:12px;animation:access-pop .6s cubic-bezier(.2,.8,.2,1) both}
+.access-lock{display:flex;align-items:center;gap:12px;justify-self:center;max-width:100%;padding:8px 16px 8px 8px;border-radius:999px;background:color-mix(in srgb,var(--access-card) 86%,transparent);border:1px solid var(--access-line);box-shadow:0 10px 30px color-mix(in srgb,var(--access-brand) 18%,transparent);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+.access-lock-icon{flex:none;display:grid;place-items:center;width:40px;height:40px;border-radius:50%;color:#fff;background:linear-gradient(135deg,var(--theme-primary,var(--access-brand)),var(--theme-secondary,var(--access-primary)));transition:background .5s}
+.access-lock-icon svg{width:21px;height:21px;overflow:visible}
+.access-lock-icon .access-shackle{transition:transform .5s cubic-bezier(.3,1.6,.5,1);transform-origin:16px 10px}
+.access-unlocking .access-lock-icon{background:linear-gradient(135deg,#16a34a,#0e9f9a)}
+.access-unlocking .access-shackle{transform:translateY(-3px) rotate(28deg)}
+.access-lock b{display:block;color:var(--access-primary);font-size:.68rem;font-weight:800;letter-spacing:.12em}
+.access-lock small{display:block;color:var(--access-ink);font-size:.82rem;font-weight:600;line-height:1.35}
+.access-locked #view{position:relative;padding:clamp(22px,4vw,32px);border-radius:26px;border:1px solid color-mix(in srgb,var(--access-line) 80%,transparent);background:color-mix(in srgb,var(--access-card) 93%,transparent);-webkit-backdrop-filter:blur(18px) saturate(1.2);backdrop-filter:blur(18px) saturate(1.2);box-shadow:0 30px 80px color-mix(in srgb,var(--access-brand) 26%,transparent),0 2px 0 #ffffff40 inset}
+.access-locked #view::before{content:"";position:absolute;inset:0 22px auto;height:3px;border-radius:0 0 4px 4px;background:linear-gradient(90deg,var(--theme-primary,var(--access-brand)),var(--theme-secondary,var(--access-primary)))}
+.access-locked #view button[type=submit]{border:0;border-radius:12px;min-height:48px;font-weight:800;color:#fff;background:linear-gradient(115deg,var(--theme-primary,var(--access-brand)),var(--theme-secondary,var(--access-primary)));box-shadow:0 12px 26px color-mix(in srgb,var(--access-brand) 32%,transparent);transition:transform .2s,box-shadow .2s}
+.access-locked #view button[type=submit]:hover{transform:translateY(-1px);box-shadow:0 16px 30px color-mix(in srgb,var(--access-brand) 40%,transparent)}
+.access-locked #view input{border-radius:12px}
+.access-trust{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;justify-content:center;gap:8px}
+.access-trust li{display:flex;align-items:center;gap:6px;padding:6px 11px;border-radius:999px;background:color-mix(in srgb,var(--access-card) 80%,transparent);border:1px solid var(--access-line);color:var(--access-muted);font-size:.75rem;font-weight:650;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.access-trust svg{width:14px;height:14px;color:var(--access-primary)}
+.access-locked+#status,.login-surface:has(.access-locked) #status{width:min(440px,calc(100% - 32px));margin:8px auto 0}
+
+@keyframes access-pop{from{opacity:0;transform:translateY(18px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes access-rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes access-draw{to{stroke-dashoffset:0}}
+@keyframes access-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+
+/* Tablet: menü yalnız simgeler */
+@media (max-width:1060px){
+ .access-stage{grid-template-columns:76px minmax(0,1fr)}
+ .access-rail{padding:16px 10px;justify-items:center}
+ .access-nav-label,.access-nav-item>span,.access-nav-item>svg:last-child{display:none}
+ .access-nav-item{padding:11px}
+ .access-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+/* Telefon: uygulama ekranı gibi; menü gizli, kart karşılama bandının altında */
+@media (max-width:720px){
+ .access-layout.access-locked{min-height:calc(100dvh - 64px)}
+ .access-stage{grid-template-columns:minmax(0,1fr);filter:blur(2.5px) saturate(1.05)}
+ .access-rail{display:none}
+ .access-board{padding:14px 14px 24px;gap:12px}
+ .access-search{display:none}
+ .access-hero{border-radius:20px}
+ .access-locked .access-form-column{align-self:start;margin-top:150px;width:calc(100% - 24px)}
+ .access-locked #view{border-radius:22px}
+ .access-agenda-row{grid-template-columns:52px minmax(0,1fr) auto;font-size:.82rem}
+}
+@media (max-width:380px){.access-lock small{font-size:.76rem}.access-trust li{font-size:.7rem}}
+@media (prefers-reduced-motion:reduce){
+ .access-stage,.access-stage-wrap::after,.access-lock-icon,.access-shackle,.access-locked #view button[type=submit]{transition:none}
+ .access-pets span,.access-stat,.access-locked .access-form-column{animation:none}
+ .access-spark path{animation:none;stroke-dashoffset:0}
+}
+@supports not (backdrop-filter:blur(1px)){.access-locked #view{background:var(--access-card)}}

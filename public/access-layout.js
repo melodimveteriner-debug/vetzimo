@@ -12,34 +12,64 @@ const icons={
 };
 const icon=name=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[name]}</svg>`;
 const screens={
-  phone:["KLİNİK ÇALIŞMA ALANI","Kliniğinizin günü tek ekranda","Hasta kayıtlarını, randevuları ve klinik işlerini size açılan çalışma alanından takip edin."],
-  center:["MERKEZ ÇALIŞMA ALANI","Bayi operasyonları tek ekranda","Bayileri, abonelikleri, tahsilatları ve destek taleplerini merkez panelinden yönetin."],
-  owner:["HASTA SAHİBİ PORTALI","Kliniğinizle bağlantıda kalın","Hayvanlarınızın aşı takvimini, randevularını ve kliniğinizin paylaştığı bilgileri görüntüleyin."],
+  phone:["KLİNİK ÇALIŞMA ALANI","Kliniğiniz","Genel Bakış"],
+  center:["MERKEZ ÇALIŞMA ALANI","VetZimo Merkez","Merkez Paneli"],
+  owner:["HASTA SAHİBİ PORTALI","Patili dostlarınız","Portalım"],
 };
-const features=[
-  ["calendar","Takvim ve takip","Randevular ve aşılar"],
-  ["layers","Kurum ve şube","Rolünüze uygun erişim"],
-  ["shield","Hesap işlemleri","Giriş ve şifre yenileme"],
-];
-
-function drawPreview(kind) {
-  const items=kind==="center"?["Bayi başvuruları","Abonelik dönemleri","Tahsilat takibi"]:
-    kind==="owner"?["Hayvanlarım","Aşı takvimi","Randevularım"]:["Bugünkü randevular","Hasta kayıtları","Aşı takvimi"];
-  return `<div class="access-art" aria-hidden="true">
-    <div class="access-orbit"></div>
-    <div class="access-mock">
-      <div class="access-mock-top"><span><i></i><i></i><i></i></span><b>VetZimo</b><small>${uiLabel("ÖRNEK")}</small></div>
-      <div class="access-mock-body">
-        <div class="access-mock-rail"><b>V</b><i></i><i></i><i></i><i></i></div>
-        <div class="access-mock-main"><div class="access-mock-caption">${uiLabel("GENEL BAKIŞ")}</div>
-          <div class="access-mock-title">${uiLabel(kind==="center"?"Merkez paneli":kind==="owner"?"Hasta sahibi paneli":"Klinik paneli")}</div>
-          ${items.map((text,index)=>`<div class="access-mock-row"><i>${icon(["calendar","layers","shield"][index])}</i><span>${uiLabel(text)}<b></b></span><em></em></div>`).join("")}
-        </div>
-      </div>
+const glyphs={
+  home:'<path d="M3 11 12 4l9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
+  calendar:icons.calendar,
+  inbox:'<path d="M3 13h5l1.5 3h5L16 13h5M5 5h14l2 8v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-6z"/>',
+  users:'<circle cx="9" cy="8" r="3.2"/><path d="M3 20c.7-3.4 3-5 6-5s5.3 1.6 6 5M16 11a3 3 0 1 0-1-5.8M21 19c-.4-2.4-1.8-3.8-3.7-4.4"/>',
+  paw:'<circle cx="6.5" cy="10" r="1.8"/><circle cx="10" cy="6" r="1.8"/><circle cx="14" cy="6" r="1.8"/><circle cx="17.5" cy="10" r="1.8"/><path d="M12 12c-2.8 0-5 3.2-5 5.3 0 1.5 1.2 2.2 2.6 2.2 1 0 1.6-.5 2.4-.5s1.4.5 2.4.5c1.4 0 2.6-.7 2.6-2.2 0-2.1-2.2-5.3-5-5.3z"/>',
+  syringe:'<path d="m18 2 4 4M17 7l-9.5 9.5L4 20M14 4l6 6M9 11l2 2M12 8l2 2"/>',
+  cart:'<circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2 3h3l2.6 12.2a2 2 0 0 0 2 1.6h7.9a2 2 0 0 0 1.9-1.5L21 8H6.2"/>',
+  box:'<path d="m21 8-9-5-9 5v8l9 5 9-5zM3 8l9 5 9-5M12 13v8"/>',
+  chart:'<path d="M4 20V10m6 10V4m6 16v-7m5 7H3"/>',
+  lock:'<rect x="4.5" y="10.5" width="15" height="10.5" rx="2.5"/><path class="access-shackle" d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/><path d="M12 15v2.5"/>',
+  shield:icons.shield,
+  search:'<circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/>',
+  bolt:'<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>',
+  devices:'<rect x="2" y="4" width="14" height="10" rx="1.5"/><path d="M6 18h6"/><rect x="17" y="8" width="5" height="12" rx="1.2"/>',
+};
+const glyph=name=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${glyphs[name]||icons[name]}</svg>`;
+const menus={
+  phone:[["ÇALIŞMA ALANI",[["home","Genel Bakış"],["calendar","Randevular"],["inbox","Gelen Kutusu"]]],["KLİNİK İŞLEMLERİ",[["users","Müşteriler"],["paw","Hastalar"],["syringe","Aşı Takvimi"]]],["TİCARİ İŞLEMLER",[["cart","Satışlar"],["box","Ürünler"],["chart","Raporlar"]]]],
+  center:[["YÖNETİM",[["home","Panel"],["users","Bayiler"],["box","Paketler ve satış"]]],["İŞLEMLER",[["cart","Ödemeler"],["chart","Finans ve raporlar"],["inbox","İletişim"]]]],
+  owner:[["PORTALIM",[["home","Genel Bakış"],["paw","Hayvanlarım"],["syringe","Aşı takvimi"],["calendar","Randevularım"],["shield","Onam formlarım"]]]],
+};
+const stats={
+  phone:[["calendar","Bugünkü randevular","12"],["paw","Kayıtlı hastalar","1.284"],["syringe","Yaklaşan aşılar","37"],["cart","Bugünkü satış","₺8.450"]],
+  center:[["users","Etkin bayiler","148"],["box","Abonelikler","132"],["cart","Bu ay tahsilat","₺96K"],["inbox","Yeni mesajlar","5"]],
+  owner:[["paw","Hayvanlarım","2"],["syringe","Yaklaşan aşı","1"],["calendar","Randevu","1"],["shield","Onam formu","0"]],
+};
+const agenda={
+  phone:[["09:30","Luna · Karma aşı","ok"],["11:00","Paşa · Kontrol muayenesi","ok"],["14:30","Boncuk · Web randevusu","new"]],
+  center:[["Bugün","3 yeni demo başvurusu","new"],["Bugün","2 havale bildirimi","ok"],["Yarın","5 abonelik yenilemesi","ok"]],
+  owner:[["Pzt","Luna · Kuduz aşısı","new"],["Cum","Paşa · Kontrol","ok"],["—","Aşı karnesi güncel","ok"]],
+};
+function greeting() {
+  const h=new Date().getHours();
+  return h<6?"İyi geceler":h<12?"Günaydın":h<18?"İyi günler":"İyi akşamlar";
+}
+function drawStage(kind) {
+  const [,clinicName,page]=screens[kind];
+  let date="";
+  try { date=new Date().toLocaleDateString(document.documentElement.lang||"tr-TR",{weekday:"long",day:"numeric",month:"long"}); } catch {}
+  const nav=menus[kind].map(([label,items])=>`<p class="access-nav-label">${uiLabel(label)}</p>${items.map(([g,t],i)=>`<span class="access-nav-item${label===menus[kind][0][0]&&i===0?" is-active":""}">${glyph(g)}<span>${uiLabel(t)}</span>${glyph("lock")}</span>`).join("")}`).join("");
+  const cards=stats[kind].map(([g,t,v],i)=>`<div class="access-stat" style="--i:${i}"><i>${glyph(g)}</i><small>${uiLabel(t)}</small><b>${v}</b><svg class="access-spark" viewBox="0 0 120 30" preserveAspectRatio="none"><path d="M0 24 C14 22 18 10 32 13 S52 26 66 17 S88 4 100 9 S114 14 120 6"/></svg></div>`).join("");
+  const rows=agenda[kind].map(([t,l,s])=>`<div class="access-agenda-row"><b>${t}</b><span>${uiLabel(l)}</span><em class="is-${s}">${uiLabel(s==="new"?"Yeni":"Onaylı")}</em></div>`).join("");
+  return `<div class="access-stage" aria-hidden="true">
+    <nav class="access-rail">${nav}</nav>
+    <div class="access-board">
+      <div class="access-search">${glyph("search")}<span>${uiLabel("Hasta, müşteri, telefon veya ürün…")}</span><kbd>/</kbd></div>
+      <section class="access-hero"><p>${uiLabel(page).toLocaleUpperCase("tr-TR")}</p><h2>${uiLabel(greeting())}${kind==="owner"?"":", "+uiLabel(clinicName)}</h2><span>${date}</span><div class="access-pets"><span>🐶</span><span>🐱</span></div></section>
+      <div class="access-stats">${cards}</div>
+      <section class="access-agenda"><h3>${glyph("calendar")}${uiLabel(kind==="center"?"Yapılacaklar":"Bugünün akışı")}</h3>${rows}</section>
     </div>
-    <div class="access-float">${icon(kind==="center"?"shield":"calendar")}</div>
   </div>`;
 }
+const trust=[["shield","Şifreli bağlantı"],["devices","Telefon, tablet ve bilgisayar"],["bolt","Saniyeler içinde açılır"]];
 
 export function mountAccessLayout(view,{appearance=defaultAppearance,kind="phone",clinic,captcha,allowLanguage=true}={}) {
   if (view.closest(".access-layout")) return;
@@ -79,21 +109,33 @@ export function mountAccessLayout(view,{appearance=defaultAppearance,kind="phone
     apply(select.value);
     try { localStorage.setItem(themeKey,select.value); } catch {}
   });
-  const [eyebrow,title,body]=screens[kind];
-  const aside=document.createElement("aside");
-  aside.className="access-aside";
-  aside.setAttribute("aria-label","VetZimo hakkında");
-  aside.innerHTML=`<div class="access-showcase">
-    <div class="access-showcase-copy"><p class="access-eyebrow"><span></span>${uiLabel(eyebrow)}</p><h2>${uiLabel(title)}</h2><p>${uiLabel(body)}</p><a href="/platform">${uiLabel("Platformu keşfedin")} ${icon("arrow")}</a></div>
-    ${drawPreview(kind)}
-    </div>
-    <div class="access-features">${features.map(([glyph,label,description])=>`<div class="access-feature"><i>${icon(glyph)}</i><div><strong>${uiLabel(label)}</strong><span>${uiLabel(description)}</span></div></div>`).join("")}</div>`;
+  const [eyebrow]=screens[kind];
+  wrapper.classList.add("access-locked");
+  const stage=document.createElement("div");
+  stage.className="access-stage-wrap";
+  stage.innerHTML=drawStage(kind);
   view.before(wrapper);
   const column=document.createElement("div");
   column.className="access-form-column";
-  column.append(view);
+  const badge=document.createElement("div");
+  badge.className="access-lock";
+  badge.innerHTML=`<span class="access-lock-icon">${glyph("lock")}</span><span><b>${uiLabel(eyebrow)}</b><small>${uiLabel("Çalışma alanınız hazır; devam etmek için kilidi açın.")}</small></span>`;
+  const chips=document.createElement("ul");
+  chips.className="access-trust";
+  chips.innerHTML=trust.map(([g,t])=>`<li>${glyph(g)}<span>${uiLabel(t)}</span></li>`).join("");
+  column.append(badge,view);
   if (captcha) column.append(captcha);
-  wrapper.append(column,aside);
+  column.append(chips);
+  wrapper.append(stage,column);
+  // Gönderimde kilit açılır ve arka plan netleşir; hata olursa geri kilitlenir.
+  view.addEventListener("submit",()=>{
+    wrapper.classList.add("access-unlocking");
+    clearTimeout(wrapper._lockTimer);
+    wrapper._lockTimer=setTimeout(()=>wrapper.classList.remove("access-unlocking"),6000);
+  },true);
+  const status=document.getElementById("status");
+  if (status) new MutationObserver(()=>{ if (status.dataset.tone==="error"&&status.textContent.trim()) wrapper.classList.remove("access-unlocking"); })
+    .observe(status,{attributes:true,childList:true,characterData:true,subtree:true});
   main.before(top);
   document.body.classList.add("login-surface");
 }
