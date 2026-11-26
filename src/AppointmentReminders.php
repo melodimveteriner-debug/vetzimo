@@ -68,6 +68,40 @@ final class AppointmentReminders
                 }
             }
         }
+        // Gebelik / doğum takibi: ultrason (30. gün), röntgen (45. gün), doğumdan 1 gün önce ve aylık parazit hatırlatmaları.
+        // Klinik kapatmadıkça açıktır; SMS/WhatsApp müşteri izni varsa gider, uygulama bildirimi her zaman gönderilir.
+        $setting='customerReminder_pregnancy_';
+        if (($prefs->{$setting.'mode'} ?? 'auto')==='auto' && class_exists(Pregnancy::class)) {
+            foreach ($state->_pregnancies ?? [] as $plan) {
+                if (!empty($plan['ended'])) continue;
+                $patient=$patients[$plan['patient']] ?? null;
+                if (!$patient) continue;
+                $branch=$branches[$patient->branch ?? ''] ?? null;
+                if (!$branch || ($branch->status ?? '')==='Pasif') continue;
+                $client=$clients[$patient->owner ?? ''] ?? null;
+                if (!$client) continue;
+                $phone=DealerLogin::normalizePhone($client->phone ?? '');
+                foreach (Pregnancy::milestones($plan) as [$milestone,$day]) {
+                    $due=$day.' 18:00';
+                    $date=DateTimeImmutable::createFromFormat('!Y-m-d H:i',$due,$zone);
+                    if (!$date) continue;
+                    $at=$date->getTimestamp();
+                    if ($at<=$now || $at>$now+10*3600) continue;
+                    $type=str_starts_with($milestone,'parasite')?'parasite':$milestone;
+                    $message=strtr($prefs->{$setting.$type.'_text'} ?? Pregnancy::TEMPLATES[$type],['{hasta}'=>$patient->name ?? '','{musteri}'=>$client->name ?? '','{klinik}'=>$branch->name ?: $clinic,'{tarih}'=>$date->format('d.m.Y')]);
+                    $parameters=[$patient->name ?? '',$date->format('d.m.Y'),$branch->name ?: $clinic];
+                    $base=['appointment'=>'preg:'.$patient->id.':'.$plan['mating'].':'.$milestone,'kind'=>'pregnancy','branch'=>$patient->branch,'due'=>$due,'phone'=>$phone,
+                        'email'=>$client->email ?? '','parameters'=>$parameters,'message'=>$message,'waTemplate'=>$prefs->{$setting.'waTemplate'} ?? '','birthday'=>false,
+                        'client'=>$client->id ?? '','title'=>['us'=>'Ultrason zamanı','xray'=>'Röntgen zamanı','birth'=>'Küçük patiler yakında','parasite'=>'Parazit uygulaması'][$type]];
+                    $jobs[]=$base+['channel'=>'app'];
+                    foreach (['sms','whatsapp'] as $channel) {
+                        if (($client->$channel ?? '')!=='Var' || !$phone) continue;
+                        if (($prefs->{$setting.$channel} ?? 'Evet')!=='Evet') continue;
+                        $jobs[]=$base+['channel'=>$channel];
+                    }
+                }
+            }
+        }
         usort($jobs, static fn(array $a,array $b): int => strcmp($a['due'],$b['due']));
         return $jobs;
     }
@@ -89,6 +123,8 @@ final class AppointmentReminders
             $gateway = class_exists(PhoneGateway::class) ? new PhoneGateway($this->db) : null;
             $routes = $gateway ? $gateway->routesAll() : [];
             foreach ($routes as $partner => $route) $connections[$partner] ??= [];
+            // Etkin gebelik takibi olan bayiler: uygulama bildirimi sağlayıcı olmadan da gider.
+            try { foreach ($this->db->query('SELECT DISTINCT partner_id FROM clinic_pregnancy WHERE ended IS NULL')->fetchAll(PDO::FETCH_COLUMN) as $partner) $connections[$partner] ??= []; } catch (\PDOException) {}
             foreach ($connections as $partner => $settings) {
                 $read->execute([$partner]);
                 $row = $read->fetch();
@@ -97,6 +133,7 @@ final class AppointmentReminders
                 if ((((new Commerce($this->db))->packageActor(['partner_id'=>$partner,'role'=>'dealer']))['packageFeatures']['reminders'] ?? true) === false) continue;
                 $state = $workspaces->load('partner:'.$partner)['state'];
                 if (!$state) continue;
+                if (class_exists(Pregnancy::class)) $state->_pregnancies = (new Pregnancy($this->db))->forPatients($partner);
                 // İmzalı müşteri onay formu varsa SMS/WhatsApp/e-posta izni olarak o esas alınır.
                 if (class_exists(ClientPermit::class)) (new ClientPermit($this->db))->overlay($partner, $state->clients ?? []);
                 // Telefon Bağlantısı'nda "SMS ve WhatsApp birlikte" açıksa otomatik hatırlatmalar iki kanaldan da gider.
@@ -111,6 +148,21 @@ final class AppointmentReminders
                 }
                 foreach (self::jobs($state, $row['name'], $now) as $job) {
                     if (microtime(true) > $deadline) return $stats;
+                    if ($job['channel']==='app') {
+                        // Hasta sahibi uygulamasına bildirim (Hasta sahibi hesabı varsa).
+                        $key = hash('sha256', json_encode([$partner,$job['appointment'],'app'], JSON_THROW_ON_ERROR));
+                        $exists->execute([$key]);
+                        if ($exists->fetchColumn() || !class_exists(AppHub::class)) continue;
+                        $claim->execute([$key]);
+                        $members=$this->db->prepare("SELECT m.id,m.account_id FROM identity_membership m JOIN identity_account a ON a.id=m.account_id AND a.blocked=0
+                            WHERE m.partner_id=? AND m.customer_id=? AND m.role='customer' AND m.status='active'");
+                        $members->execute([$partner,$job['client']]);
+                        $hub=new AppHub($this->db,[]);$sent=false;
+                        foreach ($members->fetchAll() as $m) $sent=$hub->notify($m['account_id'],$m['id'],'customer','vaccines',$job['title'],$job['message'],'/hasta-sahibi','preg:'.$key,$now) || $sent;
+                        $finish->execute([$sent?'accepted':'rejected','app',$key]);
+                        $stats[$sent?'accepted':'rejected']++;
+                        continue;
+                    }
                     $provider = $settings[$job['channel']] ?? null;
                     $email = $job['channel']==='email';
                     $viaPhone = !$email && $gateway && !empty($routes[$partner][$job['channel']]);

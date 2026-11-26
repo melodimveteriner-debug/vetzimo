@@ -9,14 +9,16 @@ if (PHP_SAPI !== 'cli') {
     exit(1);
 }
 $root = dirname(__DIR__);
-foreach (['Database', 'WorkspaceRepository', 'DealerLogin', 'Totp', 'Notifications', 'AppointmentReminders', 'BulkClinicMessages', 'ClinicAccess', 'Commerce', 'ClinicRecords', 'OmniInbox', 'PhoneGateway', 'ClientPermit', 'SiteLegal'] as $class) {
+foreach (['Database', 'WorkspaceRepository', 'DealerLogin', 'Totp', 'Notifications', 'AppointmentReminders', 'BulkClinicMessages', 'ClinicAccess', 'Commerce', 'ClinicRecords', 'OmniInbox', 'PhoneGateway', 'ClientPermit', 'SiteLegal', 'Pregnancy', 'AppHub'] as $class) {
     require_once $root . '/src/' . $class . '.php';
 }
 try {
     $config = require $root . '/config.php';
     $connections = $config['appointmentReminderConnections'] ?? [];
     $db = Database::connect($config['dsn'], $config['username'], $config['password']);
-    if ($connections === [] && (new VetNet\Cpanel\PhoneGateway($db))->routesAll() === []) exit(0);
+    $pregnant = 0;
+    try { $pregnant = (int)$db->query('SELECT COUNT(*) FROM clinic_pregnancy WHERE ended IS NULL')->fetchColumn(); } catch (PDOException) {}
+    if ($connections === [] && $pregnant === 0 && (new VetNet\Cpanel\PhoneGateway($db))->routesAll() === []) exit(0);
     $stats = (new AppointmentReminders($db))->run($connections, time(), new VetNet\Cpanel\Notifications($db,$config['encryptionKey'] ?? ''));
     (new VetNet\Cpanel\BulkClinicMessages($db,$config))->deliver();
     if ($stats['accepted'] || $stats['rejected'] || $stats['unknown']) {

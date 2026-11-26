@@ -53,6 +53,7 @@ fresh test_guide empty;   run clinic-guide.php env VETNET_TEST_DSN='mysql:host=1
 fresh test_legal empty;   run clinic-legal.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_legal' php tests/clinic-legal.php
 fresh test_contact empty; run site-contact.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_contact' php tests/site-contact.php
 fresh test_life empty;    run partner-lifecycle.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_life' php tests/partner-lifecycle.php
+run pregnancy.php php tests/pregnancy.php
 fresh test_paypkg empty;  run payments-packages.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_paypkg' php tests/payments-packages.php
 fresh test_center empty;   run center.php  env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_center' php tests/center.php
 if command -v node >/dev/null; then

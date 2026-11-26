@@ -12,7 +12,7 @@ use VetNet\Cpanel\SessionRepository;
 
 require_once dirname(__DIR__).'/src/StaffPlan.php';
 
-foreach (['AddonPackages','ClinicGuide','ClinicLegal','PartnerLifecycle','SiteContact','MarketFooter','MarketContactPage','AppHub','AppDownloads','DemoAuto','CenterContact','SubscriptionReminders','OwnerPayment','ClinicRecords','AppPush','DeviceHub','VisitTracker','ReviewLink','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','SaasPayment','DealerAgreement','CenterAnalytics','ClinicAlerts','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebThemeDemo','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','TeamTotp','WebInbox','MinistryBridge','SiteLegal','OmniInbox','PhoneGateway','ClientPermit','PrintTemplates','Support','Commerce','Appearance'] as $class) {
+foreach (['AddonPackages','ClinicGuide','ClinicLegal','PartnerLifecycle','SiteContact','MarketFooter','MarketContactPage','AppHub','AppDownloads','DemoAuto','CenterContact','SubscriptionReminders','OwnerPayment','ClinicRecords','AppPush','DeviceHub','VisitTracker','ReviewLink','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','SaasPayment','DealerAgreement','CenterAnalytics','ClinicAlerts','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebThemeDemo','Pregnancy','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','TeamTotp','WebInbox','MinistryBridge','SiteLegal','OmniInbox','PhoneGateway','ClientPermit','PrintTemplates','Support','Commerce','Appearance'] as $class) {
     require_once dirname(__DIR__) . '/src/' . $class . '.php';
 }
 
@@ -653,6 +653,19 @@ try {
         $body=input(4096);
         if (($body->op ?? '')==='notify') reply($pay->notifyBank($ownerActor,$body));
         reply($pay->start($ownerActor,$body,(string)($_SERVER['REMOTE_ADDR'] ?? ''),$origin,$now));
+    }
+    if ($path==='/api/clinic/pregnancy' && in_array($method,['GET','POST'],true)) {
+        $clinicActor=$workspaces->actor($_COOKIE,$now,$method==='POST');
+        $grant=ClinicAccess::modules($clinicActor)->patients ?? 'none';
+        if ($clinicActor['role']!=='dealer' && !in_array($grant,$method==='POST'?['write']:['read','write'],true)) throw new RuntimeException('Hasta erişiminiz yok.',403);
+        $pregnancy=new VetNet\Cpanel\Pregnancy($db);
+        if ($method==='GET') {
+            $ids=is_string($_GET['ids'] ?? null)?array_slice(explode(',',$_GET['ids']),0,200):[];
+            reply(['items'=>array_values($pregnancy->forPatients($clinicActor['partner_id'],$ids))]);
+        }
+        $body=input(2048);
+        if (!isset($body->action) && ($body->sex ?? '')!=='Dişi') throw new RuntimeException('Doğum takibi yalnızca dişi hastalar için eklenebilir.',422);
+        reply($pregnancy->save($clinicActor['partner_id'],(string)($body->patient ?? ''),(string)($body->species ?? ''),$body,'clinic',(string)($clinicActor['name'] ?? ''),$now));
     }
     if ($path==='/api/clinic/owner-payments' && in_array($method,['GET','POST'],true)) {
         $clinicActor=$workspaces->actor($_COOKIE,$now,$method==='POST');
@@ -1642,6 +1655,9 @@ try {
                         if ($error->getCode()!=='42S02') throw $error;
                     }
                 }
+                if (($portal['sections']['vaccines'] ?? false) || ($portal['sections']['appointments'] ?? false)) {
+                    $portal['pregnancies']=array_values((new VetNet\Cpanel\Pregnancy($db))->forPatients($actor['partner_id'],array_column($portal['pets'],'id')));
+                }
                 reply($portal);
             }
             if($action==='directory') reply($identity->directory($actor));
@@ -1649,6 +1665,18 @@ try {
         if($method==='POST') {
             $body=input($action==='share'?550000:18000);
             $scope=$_SERVER['HTTP_X_VETNET_SCOPE'] ?? '';
+            if($action==='pregnancy') {
+                // Hasta sahibi kendi kedi/köpeği için çiftleşme tarihi girer; takip ve hatırlatmalar başlar.
+                if(!hash_equals((string)($actor['membership_id'] ?? ''),$scope)) throw new RuntimeException('Oturum değişti. Sayfayı yenileyin.',409);
+                (new DealerLogin($db,$config['rateSecret']))->throttle('owner-pregnancy:'.$actor['membership_id'],$now);
+                $portal=$identity->portal($actor);
+                $pet=null;foreach($portal['pets'] as $candidate) if($candidate['id']===($body->patient ?? null)) $pet=$candidate;
+                if(!$pet) throw new RuntimeException('Hayvan bulunamadı.',404);
+                if(($pet['sex'] ?? '')!=='Dişi') throw new RuntimeException('Doğum takibi yalnızca dişi hastalar için eklenebilir.',422);
+                $action2=(string)($body->action ?? '');
+                if($action2!=='' && $action2!=='end') throw new RuntimeException('İşlem geçersiz.',422);
+                reply((new VetNet\Cpanel\Pregnancy($db))->save($actor['partner_id'],$pet['id'],(string)($pet['species'] ?? ''),$body,'owner',(string)$actor['name'],$now));
+            }
             if($action==='select') {
                 if(!is_string($body->membershipId ?? null)) throw new RuntimeException('Üyelik geçersiz.',422);
                 $identity->select($_COOKIE,$actor,$body->membershipId,$now); reply(['ok'=>true]);

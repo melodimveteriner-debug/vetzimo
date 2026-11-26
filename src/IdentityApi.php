@@ -614,7 +614,7 @@ final class IdentityApi
         $dataBranch=($branch->sharedWith ?? '') ?: $branch->id;
         $pets=[]; $ids=[];
         foreach($state->patients as $pet) if($pet->branch===$dataBranch && $pet->owner===$actor['customer_id']) {
-            $pets[]=array_intersect_key((array)$pet,array_flip(['id','name','species','breed','birth','photo'])); $ids[]=$pet->id;
+            $pets[]=array_intersect_key((array)$pet,array_flip(['id','name','species','breed','birth','photo','sex'])); $ids[]=$pet->id;
         }
         $modules=ClinicAccess::modules($actor);
         $sections=[]; foreach(ClinicAccess::CUSTOMER_SECTIONS as $key) $sections[$key]=($modules->$key ?? 'none')==='read';

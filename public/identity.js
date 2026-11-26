@@ -565,6 +565,22 @@ async function portal() {
   }
   pets.append(data.pets.length?petGrid:el("p",uiLabel("Bağlı hasta kaydı yok.")));
   overview.append(pets);
+  // Doğum takip cetveli: dişi kedi/köpek için hasta sahibi çiftleşme tarihini girer, klinik kaydı da burada görünür.
+  if (Array.isArray(data.pregnancies)) {
+    const eligible=data.pets.filter(row=>["Kedi","Köpek"].includes(row.species)&&row.sex==="Dişi");
+    if (eligible.length) import("./pregnancy-ui.js?v=2").then(({mountPregnancy})=>{
+      for (const row of eligible) {
+        const host=el("div","",{className:"owner-pregnancy"});
+        const current=data.pregnancies.find(p=>p.patient===row.id)||null;
+        if (current||session.scopeId) {
+          if (eligible.length>1) host.append(el("h3",row.name,{className:"owner-pregnancy-name"}));
+          const slot=el("div");host.append(slot);pets.append(host);
+          mountPregnancy(slot,{patient:row,owner:true,tr:uiLabel,canWrite:!!session.scopeId,load:()=>current,
+            save:async body=>(await api("pregnancy",{...body,patient:row.id},session.scopeId)).pregnancy||null});
+        }
+      }
+    }).catch(()=>{});
+  }
   if (session.scopeId) mountOwnerConsents({overview,panel,show,names,scope:session.scopeId,ownerName:data.name});
   if(data.homeCare===true&&names.size&&session.scopeId){
     const section=el("section","",{className:"identity-card"});
