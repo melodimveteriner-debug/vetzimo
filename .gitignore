@@ -1,14 +1,1 @@
-config.php
-config.php.bak
-__pycache__/
-*.pyc
-*.log
-error_log
-private/
-public/visit-road-data/
-public/voice-assets/
-public/eskisehir-roads-v1.json.gz
-# İndirme klasörü: kurulum dosyaları büyük olduğundan depoya girmez (bin/build-downloads.php üretir)
-public/download/*
-!public/download/.htaccess
-!public/download/manifest.json
+teslim/
