@@ -6,6 +6,7 @@ require __DIR__.'/../src/AppointmentReminders.php';
 use VetNet\Cpanel\{Pregnancy,AppointmentReminders};
 function ok(bool $c,string $m){if(!$c){fwrite(STDERR,"HATA: $m\n");exit(1);}}
 $p=Pregnancy::plan('2026-01-01','Köpek');
+ok($p['control']==='2026-03-12' && $p['vaccineFrom']==='2026-04-14','kontrol ve aşı başlangıcı');
 ok($p['us']==='2026-01-31' && $p['xray']==='2026-02-15' && $p['birth']==='2026-03-05','köpek planı');
 $c=Pregnancy::plan('2026-01-01','Kedi');
 ok($c['birth']==='2026-03-07' && $c['birthMin']==='2026-03-03' && $c['birthMax']==='2026-03-11','kedi planı');

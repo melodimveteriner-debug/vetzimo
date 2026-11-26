@@ -27,6 +27,7 @@ final class Pregnancy
             mating DATE NOT NULL, ended DATE NULL, source VARCHAR(12) NOT NULL DEFAULT \'clinic\', author VARCHAR(120) NOT NULL DEFAULT \'\',
             updated_at INT UNSIGNED NOT NULL, PRIMARY KEY (partner_id,patient_id), KEY mating_idx (mating)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci');
+        if (!$this->db->query("SHOW COLUMNS FROM clinic_pregnancy LIKE 'litter'")->fetch()) $this->db->exec('ALTER TABLE clinic_pregnancy ADD COLUMN litter TINYINT UNSIGNED NULL');
     }
 
     public static function today(): string
@@ -47,7 +48,7 @@ final class Pregnancy
         $parasite=[];
         for ($d=30;$d<$avg;$d+=30) $parasite[]=self::add($mating,$d);
         return ['mating'=>$mating,'species'=>$species,'days'=>$avg,'us'=>self::add($mating,30),'xray'=>self::add($mating,45),
-            'birth'=>$birth,'birthMin'=>self::add($mating,$min),'birthMax'=>self::add($mating,$max),'parasite'=>$parasite,
+            'birth'=>$birth,'control'=>self::add($birth,7),'vaccineFrom'=>self::add($birth,40),'birthMin'=>self::add($mating,$min),'birthMax'=>self::add($mating,$max),'parasite'=>$parasite,
             'hideAfter'=>self::add(self::add($mating,$max),self::KEEP_DAYS)];
     }
 
@@ -62,7 +63,7 @@ final class Pregnancy
     private static function row(array $r): array
     {
         $plan=self::plan($r['mating'],$r['species']);
-        return ['patient'=>$r['patient_id'],'ended'=>$r['ended'],'source'=>$r['source'],'author'=>$r['author']]+$plan;
+        return ['patient'=>$r['patient_id'],'ended'=>$r['ended'],'litter'=>isset($r['litter'])?(int)$r['litter']:null,'source'=>$r['source'],'author'=>$r['author']]+$plan;
     }
 
     /** Etkin (ve doğumdan sonra 30 günü geçmemiş) kayıtlar. $ids null ise bayinin tümü. Süresi geçenler silinir. */
@@ -109,7 +110,10 @@ final class Pregnancy
         }
         if ($action==='end') {
             $ended=isset($body->ended)?self::date($body->ended):self::today();
-            $this->db->prepare('UPDATE clinic_pregnancy SET ended=?,updated_at=? WHERE partner_id=? AND patient_id=?')->execute([$ended,$now,$partner,$patient]);
+            if ($ended>self::today()) throw new RuntimeException('Doğum tarihi ileri bir tarih olamaz.',422);
+            $litter=isset($body->litter)&&$body->litter!==''&&$body->litter!==null?(int)$body->litter:null;
+            if ($litter!==null && ($litter<1||$litter>20)) throw new RuntimeException('Yavru sayısı 1 ile 20 arasında olmalı.',422);
+            $this->db->prepare('UPDATE clinic_pregnancy SET ended=?,litter=?,updated_at=? WHERE partner_id=? AND patient_id=?')->execute([$ended,$litter,$now,$partner,$patient]);
             return ['pregnancy'=>$this->forPatients($partner,[$patient])[$patient] ?? null];
         }
         $mating=self::date($body->mating ?? null);
@@ -133,7 +137,7 @@ final class Pregnancy
     public const TEMPLATES = [
         'us'=>'{hasta} için ultrason zamanı geldi! 🐾 Küçük patileri ilk kez birlikte görelim. Bugün kliniğimizde sizi bekliyoruz; aylık iç-dış parazit uygulamasını da yapalım. {klinik}',
         'xray'=>'{hasta} için röntgen zamanı! Yavru sayısını görüp normal doğum mu sezaryen mi planlayalım. Randevunuz için bize ulaşın. {klinik}',
-        'birth'=>'Küçük patilerimiz yakında sizinle! 🐾 {hasta} için tahmini doğum yarın. Huzursuzluk, yuva yapma ya da 2 saati aşan sancıda hemen arayın. {klinik}',
+        'birth'=>'Küçük patilerimiz yakında sizinle! 🐾 {hasta} için tahmini doğum yarın. Huzursuzluk, yuva yapma ya da 2 saati aşan sancıda hemen arayın. Doğum sonrası kontrolü unutmayın; anne ve yavruları birlikte muayene edelim. {klinik}',
         'parasite'=>'{hasta} için aylık iç-dış parazit uygulaması zamanı. Gebelikte güvenli ürünle kliniğimizde uygulayalım. {klinik}',
     ];
 }
