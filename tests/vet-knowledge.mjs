@@ -2,6 +2,7 @@
 import {vetAnswer} from "../public/vet-knowledge.js";
 import {clinicalAnswer} from "../public/vet-clinical.js";
 import {suggestCases, extractSymptoms} from "../public/vet-symptoms.js";
+import {exoticAnswer} from "../public/vet-exotic.js";
 let fails = 0;
 const ok = (cond, name, extra) => { if (!cond) { fails++; console.error("KALDI", name, extra ? JSON.stringify(extra) : ""); } };
 const stat = (a, label) => (a?.stats || []).find(([k]) => k.includes(label))?.[1] || "";
@@ -73,6 +74,21 @@ ok(!names(clinicalAnswer("kedide kusma ishal") || {}).some(n => /parvovir|distem
 ok(extractSymptoms("ishal yok, kusma var").join() === "Kusma", "olumsuz belirti sayılmaz");
 ok(suggestCases("parvovros tedavsi")[0] === "Parvovirüs enteriti" && suggestCases("qwerty asdf").length === 0, "yazım hatası önerisi");
 ok(clinicalAnswer("bugünkü ciro") === null && clinicalAnswer("kritik stok") === null, "klinik veri sorusu belirti motoruna düşmez");
+
+// Egzotik hayvanlar: tür tanıma, doz (gram), türde tehlikeli ilaç, hastalık kartı, belirti eşleştirme; köpek/kedi sorularına karışmaz
+let e = exoticAnswer("35 g muhabbet kuşu enrofloksasin");
+ok(e && (e.stats || []).some(([k, v]) => k.includes("35 g") && v === "0,525–1,05 mg"), "kuş enrofloksasin 35 g toplam", e);
+e = exoticAnswer("kaplumbağaya ivermektin verilir mi");
+ok(e && JSON.stringify(e).includes("KULLANMAYIN"), "kaplumbağada ivermektin yasak", e);
+e = exoticAnswer("tavşana amoksisilin");
+ok(e && JSON.stringify(e).includes("AĞIZDAN VERMEYİN"), "tavşanda oral amoksisilin uyarısı", e);
+e = exoticAnswer("tavşan yemiyor dışkı yapmıyor");
+ok(names(e)[0]?.startsWith("GİS stazı"), "tavşan GİS stazı", names(e));
+e = exoticAnswer("iguana çenesi yumuşadı titriyor");
+ok(names(e)[0]?.startsWith("Metabolik kemik"), "iguana MBD", names(e));
+ok(exoticAnswer("psittakoz tedavisi")?.text.startsWith("Psittakoz"), "türsüz egzotik hastalık adı");
+ok(!extractSymptoms("muhabbet kuşu gagasında kabuk").includes("Kusma"), "kuş kelimesi kusma sayılmaz");
+ok(exoticAnswer("4 kg kedi meloksikam dozu") === null && exoticAnswer("köpekte öksürük ateş") === null, "kedi/köpek sorusu egzotiğe düşmez");
 
 if (fails) { console.error(fails + " test kaldı"); process.exit(1); }
 console.log("PASS hekim başvuru bilgisi: doz ve ürün hacmi, türe özgü uyarılar, aşı, referans, zehirlenme, ayırıcı tanı, sıvı/enerji, gebelik");

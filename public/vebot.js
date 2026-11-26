@@ -7,7 +7,8 @@
 import {interpretLabs} from "./lab-interpret.js?v=20261125-r3";
 import {vetAnswer, KNOWLEDGE_EXAMPLES, KNOWLEDGE_STATS} from "./vet-knowledge.js?v=3";
 import {clinicalAnswer, CLINICAL_STATS} from "./vet-clinical.js?v=3";
-import {suggestCases, SYMPTOM_STATS} from "./vet-symptoms.js?v=1";
+import {suggestCases, SYMPTOM_STATS} from "./vet-symptoms.js?v=2";
+import {exoticAnswer, EXOTIC_STATS} from "./vet-exotic.js?v=1";
 
 const TZ = "Europe/Istanbul";
 const isoDay = new Intl.DateTimeFormat("en-CA", {timeZone:TZ, year:"numeric", month:"2-digit", day:"2-digit"});
@@ -508,6 +509,9 @@ export function createEngine(ctx) {
       const named = findPatients(text);
       const pet = named.length === 1 ? named[0] : null;
       const petCtx = pet ? {species: /kedi/i.test(pet.species || "") ? "cat" : /k[öo]pek/i.test(pet.species || "") ? "dog" : "", weight: pet.weight, name: pet.name} : {};
+      // Egzotik hayvan (tavşan, kobay, kuş, sürüngen…) sorusu ya da kayıtlı hastanın türü egzotikse önce egzotik bilgi tabanı
+      const exo = exoticAnswer(pet && !/kedi|k[öo]pek/i.test(pet.species || "") && pet.species ? pet.species + " " + text : text);
+      if (exo) return answer(exo.text, {...exo, urgent: exo.urgent || isUrgent(text)});
       const clinical = clinicalAnswer(text, petCtx);
       if (clinical) return answer(clinical.text, {...clinical, urgent: clinical.urgent || isUrgent(text)});
       const known = vetAnswer(text, pet ? {species: /kedi/i.test(pet.species || "") ? "cat" : /k[öo]pek/i.test(pet.species || "") ? "dog" : /tav[şs]an/i.test(pet.species || "") ? "rabbit" : "", weight: pet.weight, name: pet.name} : {});
@@ -618,6 +622,12 @@ export function mountVeBot(ctx) {
           SYMPTOM_STATS.symptoms + " belirtiden olası hastalıkları sıralama (birden çok belirtiyi birlikte değerlendirir; yaş, ırk ve cinsiyet ipuçlarını kullanır)",
           "Tek belirtiye hazır ayırıcı tanı listeleri ve önerilen ilk tetkikler"],
           ["Köpekte öksürük, ateş, burun akıntısı", "Erkek kedi idrar yapamıyor, kusma", "Parvovirüs tedavisi", "FIP belirtileri"]),
+        section("Egzotik hayvanlar", [
+          EXOTIC_STATS.speciesNames.join(" · "),
+          EXOTIC_STATS.cases + " egzotik hastalık kartı (belirti, tanı, tedavi, prognoz) ve türe özgü belirti eşleştirme",
+          EXOTIC_STATS.drugs + " ilaç için türe göre doz (gram/kg ile toplam miktar ve mL), türde tehlikeli ilaçlar (ör. tavşanda ağızdan penisilin, kaplumbağada ivermektin)",
+          "Normal yaşamsal değerler, ömür, beslenme ve barınma uyarıları"],
+          ["Tavşan yemiyor dışkı yapmıyor", "35 g muhabbet kuşu enrofloksasin", "Kobay C vitamini dozu", "İguana çenesi yumuşadı titriyor", "Kaplumbağaya ivermektin verilir mi", "Papağan tüy yolma"]),
         section("İlaç ve dozlar", [
           (KNOWLEDGE_STATS.drugs + (CLINICAL_STATS.drugs || 0)) + "'i aşkın veteriner ve beşeri ilaç için kiloya göre doz, uygulama yolu ve uyarılar",
           "Tablet / mL hesabı, kedi-köpek farkları ve kontrendikasyonlar"],

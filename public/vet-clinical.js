@@ -6,7 +6,7 @@
 // Ettinger Textbook of Veterinary Internal Medicine. Kesin tanı, doz ve tedavi kararı hekimindir; ürün prospektüsü önceliklidir.
 import {interpretLabs, codeFor, LAB_REF, LAB_LABEL} from "./lab-interpret.js?v=20261125-r3";
 import {CASES} from "./vet-cases.js?v=2";
-import {symptomAnswer, extractSymptoms} from "./vet-symptoms.js?v=1";
+import {symptomAnswer, extractSymptoms} from "./vet-symptoms.js?v=2";
 
 const fold = s => String(s ?? "").toLocaleLowerCase("tr-TR").replaceAll("ı", "i").normalize("NFD").replace(/\p{M}/gu, "").replace(/[^a-z0-9.,/%\s-]/g, " ").replace(/\s+/g, " ").trim();
 const fmt = (v, d = 2) => Number.isFinite(v) ? new Intl.NumberFormat("tr-TR", {maximumFractionDigits: d}).format(v) : "—";
