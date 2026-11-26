@@ -85,6 +85,8 @@ final class CenterContact
         try {
             $n = new Notifications($this->db, $this->key);
             if (!$n->settings()['smtpEnabled'] || !filter_var($to, FILTER_VALIDATE_EMAIL)) return false;
+            // Merkezden giden tüm e-postaların altına şirket bilgileri ve telefon eklenir.
+            try { $text = rtrim($text)."\n\n".(new SiteContact($this->db, ''))->signature(); } catch (\Throwable) {}
             $n->send('smtp', $to, $subject, $text);
             return true;
         } catch (\Throwable $e) { error_log('VetZimo center mail: '.get_class($e)); return false; }
@@ -94,7 +96,7 @@ final class CenterContact
      * Yöneticiye uyarı: merkez paneli (uygulama bildirimi, ilgili departmanlar) + SMS + WhatsApp + e-posta.
      * $departments: uyarıyı panelde görecek merkez departmanları (owner her zaman görür).
      */
-    public function alert(string $title, string $body, string $href, string $key, int $now, array $departments = ['dealer']): void
+    public function alert(string $title, string $body, string $href, string $key, int $now, array $departments = ['dealer'], string $category = 'payments'): void
     {
         try {
             $hub = new AppHub($this->db);
@@ -102,7 +104,7 @@ final class CenterContact
             $q = $this->db->query("SELECT a.id,c.is_owner,COALESCE(c.department,'') dep FROM identity_account a JOIN identity_center c ON c.account_id=a.id WHERE a.kind='center' AND a.blocked=0");
             foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $r) {
                 if (!(int)$r['is_owner'] && !in_array($r['dep'], $departments, true)) continue;
-                $hub->notify($r['id'], '', 'center', 'payments', $title, $body, $href, $key, $now, $policies);
+                $hub->notify($r['id'], '', 'center', $category, $title, $body, $href, $key, $now, $policies);
             }
         } catch (\Throwable $e) { error_log('VetZimo center alert: '.get_class($e)); }
         $s = $this->settings();

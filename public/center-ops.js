@@ -21,11 +21,11 @@ export async function mountCenterSuite(ui,session){
   ['degisiklikler','Son Değişiklikler',()=>manage('releases')],
   ['yedekleme','Yedekleme',()=>backup(false)],['aktarim','Klinik Verisi İçe Aktar',()=>backup(true)],
   ['okc','Entegrasyonlar · ÖKC',()=>manage('okc')],['evde-hizmet','Evde Hizmet Paketleri',visitPackages],
-  ['merkez-iletisim','Merkez Bildirimleri',centerContact],['ekip','Merkez Ekibi',centerTeam]
+  ['iletisim','İletişim Mesajları',contactInbox],['merkez-iletisim','Merkez Bildirimleri',centerContact],['ekip','Merkez Ekibi',centerTeam]
  ];
  // Departman hesapları yalnız kendi bölümlerini görür (sunucu da aynı kuralı uygular).
  const department=session.department||'owner';
- const DEPARTMENT_TABS={support:['destek'],dealer:['odeme-kanallari','abonelikler','ek-paketler','odemeler']};
+ const DEPARTMENT_TABS={support:['destek','iletisim'],dealer:['odeme-kanallari','abonelikler','ek-paketler','odemeler']};
  if(DEPARTMENT_TABS[department]){const keep=tabs.filter(([k])=>DEPARTMENT_TABS[department].includes(k));tabs.splice(0,tabs.length,...keep);}
  const localizedTabs={genel:'overview',muhasebe:'accounting',raporlar:'reports',paketler:'pricing',basvurular:'demo',tema:'settings'};
  for (const item of tabs) item[1]=localizedTabs[item[0]] ? uiText(localizedTabs[item[0]],item[1]) : uiLabel(item[1]);
@@ -62,7 +62,7 @@ export async function mountCenterSuite(ui,session){
   ['Paketler ve satış',['paketler','ek-paketler','evde-hizmet']],
   ['Ödemeler',['odemeler','odeme-kanallari','magaza-banka']],
   ['Finans ve raporlar',['muhasebe','satislar','tahsilatlar','raporlar']],
-  ['İletişim ve bildirimler',['bildirimler','merkez-iletisim','duyurular','reklam']],
+  ['İletişim ve bildirimler',['iletisim','bildirimler','merkez-iletisim','duyurular','reklam']],
   ['Satış sitesi',['site','yasal','degisiklikler']],
   ['Uygulamalar ve entegrasyonlar',['uygulamalar','okc']],
   ['Sistem ve güvenlik',['tema','guvenlik','ekip','kayitlar','yedekleme','aktarim']],
@@ -74,7 +74,7 @@ export async function mountCenterSuite(ui,session){
   paketler:'Ücretsiz, Pro, Plus ve Kurumsal paketlerin özellik, modül, sınır ve fiyatları.','ek-paketler':'SMS, WhatsApp ve diğer sınırlı haklar için ek paketler; gizleme ve elle kredi.','evde-hizmet':'Evde hizmet paket şablonları.',
   odemeler:'Bayi ödeme bildirimleri ve onaylar.','odeme-kanallari':'PayTR kart ödemesi ayarı; abonelik ve ek paket siparişleri, havale onayı.','magaza-banka':'Havale/EFT ile satış için IBAN ve alıcı bilgisi.',
   muhasebe:'Tüm bayilerin kasa hareketleri.',satislar:'Bayilerin satışlarda aldığı ödemeler.',tahsilatlar:'Bayilerin ek tahsilatları.',raporlar:'Dönemsel mali özet.',
-  bildirimler:'E-posta (SMTP) ve bildirim kanalları.','merkez-iletisim':'Merkezin SMS/WhatsApp hattı ve yöneticiye giden uyarılar.',duyurular:'Bayi panelinde görünen duyurular.',reklam:'Bayi panelindeki tanıtım alanları.',
+  iletisim:'Satış sitesindeki iletişim formundan gelen mesajlar; buradan yazdığınız yanıt kişiye e-posta ile gider.',bildirimler:'E-posta (SMTP) ve bildirim kanalları.','merkez-iletisim':'Merkezin SMS/WhatsApp hattı ve yöneticiye giden uyarılar.',duyurular:'Bayi panelinde görünen duyurular.',reklam:'Bayi panelindeki tanıtım alanları.',
   site:'Satış sitesi sayfaları, metinler ve görseller.',yasal:'KVKK, gizlilik, kullanım şartları ve çerez metinleri.',degisiklikler:'Sürüm notları (Son değişiklikler).',
   uygulamalar:'Mobil/masaüstü uygulamalar, bildirim (push) anahtarları ve şablonlar.',okc:'Yazar kasa (ÖKC) entegrasyonları.',
   tema:'Yönetim paneli görünümü.',guvenlik:'Doğrulama, oturum ve güvenlik ayarları.',ekip:'Merkez ekip hesapları ve departmanlar.',kayitlar:'Yönetim işlem günlüğü.',yedekleme:'Klinik verisi yedeği.',aktarim:'Başka yazılımlardan klinik verisi içe aktarma.'};
@@ -117,20 +117,22 @@ export async function mountCenterSuite(ui,session){
  if(currentGroup[0]==='Paketler ve satış'&&department==='owner')subtabs.append(el('a','Bayi web siteleri',{href:'/yonetim/web-siteleri'}));
  main.append(top,...(subtabs.children.length>1?[subtabs]:[]),content);
  // Bayi ödeme uyarıları (havale bildirimi, kartla ödeme): yalnız merkez yöneticisine ve bayi departmanına.
- if(department!=='support')fetch('/api/app/notifications?unread=1&category=payments',{credentials:'same-origin'}).then(r=>r.ok?r.json():null).then(d=>{
+ const alertStrip=(category,label,fallback)=>fetch('/api/app/notifications?unread=1&category='+category,{credentials:'same-origin'}).then(r=>r.ok?r.json():null).then(d=>{
   const items=d?.items||[];if(!items.length)return;
   const strip=el('div','',{className:'center-alerts',role:'status'});
-  strip.append(el('strong','🔔 '+items.length+' ödeme uyarısı'));
+  strip.append(el('strong',label(items.length)));
   for(const i of items.slice(0,6)){
-   const a=el('a',i.title+' · '+i.body,{href:i.href||'/yonetim?tab=odeme-kanallari'});
+   const a=el('a',i.title+' · '+i.body,{href:i.href||fallback});
    a.addEventListener('click',()=>{fetch('/api/app/notifications',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-VeTNet-Scope':session.scopeId||''},body:JSON.stringify({action:'read',ids:[i.id]})}).catch(()=>{});});
    strip.append(a);
   }
   const done=el('button','Tümünü okundu say',{type:'button',className:'secondary'});
-  done.addEventListener('click',async()=>{await fetch('/api/app/notifications',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-VeTNet-Scope':session.scopeId||''},body:JSON.stringify({action:'readAll',category:'payments'})}).catch(()=>{});strip.remove();});
+  done.addEventListener('click',async()=>{await fetch('/api/app/notifications',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-VeTNet-Scope':session.scopeId||''},body:JSON.stringify({action:'readAll',category})}).catch(()=>{});strip.remove();});
   strip.append(done);
   main.insertBefore(strip,content);
  }).catch(()=>{});
+ if(department!=='support')alertStrip('payments',n=>'🔔 '+n+' ödeme uyarısı','/yonetim?tab=odeme-kanallari');
+ if(department==='owner'||department==='support')alertStrip('support',n=>'✉️ '+n+' yeni mesaj / destek bildirimi','/yonetim?tab=iletisim');
  shell.append(sidebar,main);
  view.append(shell,status);
  function visitPackages(){
@@ -931,6 +933,68 @@ export async function mountCenterSuite(ui,session){
   content.append(el('h3','Başvuru geçmişi'),paginate(history,rows=>table(['Zaman','Yönetici','İşlem','İç not'],rows.map(row=>[
    row.created_at,row.actor,row.trial_partner?'Deneme başlatıldı':stages[row.stage],row.note||'—'
   ]))));
+ }
+
+ // İletişim Mesajları: satış sitesi formu → liste, ayrıntı, e-posta ile yanıt (altına şirket imzası otomatik eklenir).
+ const contactStates={new:'Yeni',read:'Okundu',replied:'Yanıtlandı',archived:'Arşiv'};
+ const contactTime=t=>t?new Date(t*1000).toLocaleString('tr-TR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—';
+ const contactBadge=state=>el('span',contactStates[state]||state,{className:'vzct-badge is-'+state});
+ async function contactInbox(filter={status:'',q:''}){
+  const open=new URLSearchParams(location.search).get('mesaj');
+  if(open&&!contactInbox.opened){contactInbox.opened=true;return contactDetail(Number(open));}
+  const data=await call('contact-messages?'+new URLSearchParams(filter));
+  const chips=el('div','',{className:'vzct-chips',role:'tablist'});
+  const total=Object.entries(data.counts).filter(([k])=>k!=='archived').reduce((a,[,n])=>a+n,0);
+  for(const [key,label] of [['','Tümü ('+total+')'],['new','Yeni ('+(data.counts.new||0)+')'],['read','Okundu'],['replied','Yanıtlandı'],['archived','Arşiv']]){
+   const b=el('button',label,{type:'button',className:'vzct-chip'+(filter.status===key?' is-active':'')});
+   b.setAttribute('aria-pressed',String(filter.status===key));
+   b.addEventListener('click',()=>contactInbox({...filter,status:key}));chips.append(b);
+  }
+  const search=el('input','',{type:'search',placeholder:'Ad, e-posta, konu veya klinik ara',value:filter.q,className:'vzct-search'});
+  search.setAttribute('aria-label','Mesajlarda ara');
+  let timer;search.addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(()=>contactInbox({...filter,q:search.value.trim()}),350);});
+  const bar=el('div','',{className:'vzct-bar'});bar.append(chips,search);
+  const parts=[bar];
+  if(!data.smtp)parts.push(el('p','E-posta (SMTP) ayarı kapalı: yanıtlar gönderilemez. Bildirim Merkezi’nden SMTP bilgilerini girin.',{className:'vzct-warn'}));
+  parts.push(paginate(data.messages,rows=>table(['Durum','Tarih','Gönderen','Konu','Mesaj'],rows.map(m=>{
+   const who=el('button','',{type:'button',className:'vzct-who'});who.append(el('strong',m.name),el('small',m.email+(m.company?' · '+m.company:'')));
+   who.addEventListener('click',()=>contactDetail(m.id));
+   return [contactBadge(m.status),contactTime(m.created_at),who,m.subject,m.preview];
+  }))));
+  content.replaceChildren(...parts);
+  if(filter.q){search.focus();search.setSelectionRange(search.value.length,search.value.length);}
+ }
+ async function contactDetail(id){
+  const {message:m,replies,signature}=await call('contact-message?'+new URLSearchParams({id}));
+  const head=el('div','',{className:'vzct-head'});
+  const back=button('← Mesajlara dön',()=>contactInbox());
+  head.append(back,contactBadge(m.status));
+  const card=el('article','',{className:'vzct-card'});
+  const meta=el('dl','',{className:'vzct-meta'});
+  for(const [k,v,href] of [['Gönderen',m.name],['E-posta',m.email,'mailto:'+m.email],['Telefon',m.phone,m.phone?'tel:'+m.phone.replace(/[^0-9+]/g,''):''],['Klinik / işletme',m.company],['Tarih',contactTime(m.created_at)]]){
+   if(!v)continue;const dd=el('dd');dd.append(href?el('a',v,{href}):document.createTextNode(v));meta.append(el('dt',k),dd);
+  }
+  card.append(el('h3',m.subject),meta,el('div',m.message,{className:'vzct-body'}));
+  const thread=el('div','',{className:'vzct-thread'});
+  for(const r of replies){const item=el('article','',{className:'vzct-reply'});item.append(el('small','Yanıt · '+r.actor+' · '+contactTime(r.created_at)),el('div',r.body,{className:'vzct-body'}));thread.append(item);}
+  const subject=field('subject','Konu',{value:'Re: '+m.subject,maxLength:200});
+  const bodyLabel=el('label','Yanıtınız');const area=el('textarea','',{name:'body',rows:8,maxLength:8000,required:true,placeholder:'Merhaba '+m.name+',\n\n'});bodyLabel.append(area);
+  const sig=el('div','',{className:'vzct-sig'});sig.append(el('small','E-postanın altına otomatik eklenecek imza (Yasal Metinler › Şirket bilgileri):'),el('pre',signature));
+  const form=makeForm([subject,bodyLabel,sig],'Yanıtı e-posta ile gönder',async values=>{
+   await call('contact-reply',{id:m.id,subject:values.subject,body:values.body});
+   await contactDetail(m.id);status.textContent='Yanıt '+m.email+' adresine gönderildi.';
+  });
+  form.className='vzct-form';
+  const actions=el('div','',{className:'vzct-actions'});
+  const setState=(label,state,msg)=>button(label,async()=>{await call('contact-status',{id:m.id,status:state});status.textContent=msg;await contactInbox();});
+  actions.append(m.status==='archived'?setState('Arşivden çıkar','read','Mesaj arşivden çıkarıldı.'):setState('Arşivle','archived','Mesaj arşive taşındı.'),
+   setState('Okunmadı olarak işaretle','new','Mesaj okunmadı olarak işaretlendi.'));
+  const del=el('button','Sil',{type:'button',className:'vzct-delete'});let armed=false;
+  del.addEventListener('click',async()=>{if(!armed){armed=true;del.textContent='Kalıcı olarak silmek için tekrar tıklayın';return;}
+   try{await call('contact-delete',{id:m.id});status.textContent='Mesaj silindi.';await contactInbox();}catch(e){status.dataset.tone='error';status.textContent=e.message;}});
+  actions.append(del);
+  content.replaceChildren(head,card,...(replies.length?[el('h3','Gönderilen yanıtlar'),thread]:[]),el('h3','Yanıt yaz'),form,actions);
+  area.focus({preventScroll:true});
  }
  async function subscription(id,selectedPlan){
   const {terms,plans,day}=await call('subscription?'+new URLSearchParams({id}));

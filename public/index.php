@@ -12,7 +12,7 @@ use VetNet\Cpanel\SessionRepository;
 
 require_once dirname(__DIR__).'/src/StaffPlan.php';
 
-foreach (['AddonPackages','ClinicGuide','ClinicLegal','PartnerLifecycle','AppHub','AppDownloads','DemoAuto','CenterContact','SubscriptionReminders','OwnerPayment','ClinicRecords','AppPush','DeviceHub','VisitTracker','ReviewLink','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','SaasPayment','DealerAgreement','CenterAnalytics','ClinicAlerts','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','TeamTotp','WebInbox','MinistryBridge','SiteLegal','OmniInbox','PhoneGateway','ClientPermit','PrintTemplates','Support','Commerce','Appearance'] as $class) {
+foreach (['AddonPackages','ClinicGuide','ClinicLegal','PartnerLifecycle','SiteContact','MarketFooter','MarketContactPage','AppHub','AppDownloads','DemoAuto','CenterContact','SubscriptionReminders','OwnerPayment','ClinicRecords','AppPush','DeviceHub','VisitTracker','ReviewLink','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','SaasPayment','DealerAgreement','CenterAnalytics','ClinicAlerts','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','TeamTotp','WebInbox','MinistryBridge','SiteLegal','OmniInbox','PhoneGateway','ClientPermit','PrintTemplates','Support','Commerce','Appearance'] as $class) {
     require_once dirname(__DIR__) . '/src/' . $class . '.php';
 }
 
@@ -221,7 +221,9 @@ try {
             header('Cache-Control: no-cache');
             $marketDb = Database::connect($config['dsn'],$config['username'],$config['password']);
             $theme = (new VetNet\Cpanel\Appearance($marketDb))->read();
-            $html=(new VetNet\Cpanel\SiteLegal($marketDb))->page($legalSlug,marketAndPanelFavicon(file_get_contents($shellFile),$config['assets']));
+            $marketLegal=new VetNet\Cpanel\SiteLegal($marketDb);
+            $html=$marketLegal->page($legalSlug,marketAndPanelFavicon(file_get_contents($shellFile),$config['assets']));
+            $html=$marketLegal->applyFooter(VetNet\Cpanel\MarketFooter::apply($html,$marketLegal->company(),time()),time());
             $palette = htmlspecialchars($theme['palette'],ENT_QUOTES,'UTF-8');
             $html = preg_replace('~<html lang="tr"[^>]*>~', '<html lang="tr" data-site-palette="'.$palette.'" data-theme-lock="'.($theme['locked']?'true':'false').'" data-theme="'.($palette ?: 'classic').'">', $html, 1);
             echo VetNet\Cpanel\UiLocale::page($html,$config);
@@ -260,7 +262,10 @@ try {
             $html=preg_replace_callback('~<!-- vetnet-package-catalog -->.*?<!-- /vetnet-package-catalog -->~s',static fn()=>$cards,$html,1);
         }
         $html=str_replace(['VeTNeT','VETNET'],['VetZimo','VETZIMO'],$html);
-        $html=(new VetNet\Cpanel\SiteLegal($marketDb))->applyFooter($html,time());
+        $marketLegal=new VetNet\Cpanel\SiteLegal($marketDb);
+        if ($marketPath==='/platform/iletisim') $html=VetNet\Cpanel\MarketContactPage::apply($html,$marketLegal->company());
+        $html=VetNet\Cpanel\MarketFooter::apply($html,$marketLegal->company(),time());
+        $html=$marketLegal->applyFooter($html,time());
         $palette = htmlspecialchars($theme['palette'],ENT_QUOTES,'UTF-8');
         $html = preg_replace('~<html lang="tr"[^>]*>~', '<html lang="tr" data-site-palette="'.$palette.'" data-theme-lock="'.($theme['locked']?'true':'false').'" data-theme="'.($palette ?: 'classic').'">', $html, 1);
         echo VetNet\Cpanel\UiLocale::page($html,$config);
@@ -501,6 +506,14 @@ try {
     }
 
 
+    if ($path === '/api/site-contact/challenge' && $method === 'GET') {
+        header('Cache-Control: no-store');
+        reply((new VetNet\Cpanel\SiteContact($db,(string)$config['rateSecret']))->challenge($now));
+    }
+    if ($path === '/api/site-contact' && $method === 'POST') {
+        (new DealerLogin($db,$config['rateSecret']))->throttle('contact:'.($_SERVER['REMOTE_ADDR'] ?? ''),$now);
+        reply((new VetNet\Cpanel\SiteContact($db,(string)$config['rateSecret'],(string)($config['encryptionKey'] ?? '')))->submit(input(16000),(string)($_SERVER['REMOTE_ADDR'] ?? ''),$now));
+    }
     if ($path === '/api/saas/applications' && $method === 'POST') {
         (new DealerLogin($db,$config['rateSecret']))->throttle('sales:'.($_SERVER['REMOTE_ADDR'] ?? ''),$now);
         $application=(new VetNet\Cpanel\Commerce($db))->submit(input(16000),$config['rateSecret'],new VetNet\Cpanel\Notifications($db,$config['encryptionKey'] ?? ''));
@@ -746,12 +759,27 @@ try {
         // Departmanlar yalnız kendi işlemlerini yapar (sunucuda zorunlu); diğer her şey merkez sahibine aittir.
         $departmentActions=[
             'dealer'=>['GET'=>['saas-orders','paytr','subscriptions','plans','addons','partners','partner','appearance'],'POST'=>['saas-orders','subscription','subscription-upgrade','subscription-upgrade-end','reauth']],
-            'support'=>['GET'=>['appearance'],'POST'=>['reauth']],
+            'support'=>['GET'=>['appearance','contact-messages','contact-message'],'POST'=>['reauth','contact-reply','contact-status','contact-delete']],
         ];
         $allowedDepartments=array_keys(array_filter($departmentActions,static fn(array $m): bool=>in_array($action,$m[$method] ?? [],true)));
         $actor=$center->requireCenter($_COOKIE,$now,$method==='POST' && $action!=='reauth',$allowedDepartments);
         $commerce = new VetNet\Cpanel\Commerce($db);
         $management=new VetNet\Cpanel\CenterManagement($db,$center);
+        if (str_starts_with($action,'contact-')) {
+            $siteContact=new VetNet\Cpanel\SiteContact($db,(string)$config['rateSecret'],(string)($config['encryptionKey'] ?? ''));
+            $contactId=(int)($method==='GET' ? ($_GET['id'] ?? 0) : 0);
+            if ($method==='GET' && $action==='contact-messages') reply($siteContact->list((string)($_GET['status'] ?? ''),is_string($_GET['q'] ?? null)?$_GET['q']:'',$now));
+            if ($method==='GET' && $action==='contact-message') reply($siteContact->get($contactId));
+            if ($method==='POST') {
+                $body=input(20000);
+                $contactId=filter_var($body->id ?? null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]) ?: 0;
+                if (!$contactId) throw new RuntimeException('Mesaj seçin.',422);
+                if ($action==='contact-reply') { $r=$siteContact->reply($contactId,$body,(string)($actor['identifier'] ?? 'merkez'),$now); $center->audit($actor['account_id'],'contact.replied',(string)$contactId); reply($r); }
+                if ($action==='contact-status') { $siteContact->setStatus($contactId,is_string($body->status ?? null)?$body->status:''); reply(['ok'=>true]); }
+                if ($action==='contact-delete') { $siteContact->delete($contactId); $center->audit($actor['account_id'],'contact.deleted',(string)$contactId); reply(['ok'=>true]); }
+            }
+            throw new RuntimeException('İşlem bulunamadı.',404);
+        }
         if ($action==='legal' || $action==='legal-save' || $action==='legal-company' || $action==='legal-revision') {
             $legal=new VetNet\Cpanel\SiteLegal($db);
             if ($method==='GET' && $action==='legal') reply($legal->admin());
