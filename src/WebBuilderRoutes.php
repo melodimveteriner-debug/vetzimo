@@ -51,6 +51,7 @@ final class WebBuilderRoutes
     public static function handle(\PDO $db,array $config,DealerWorkspace $workspaces,SessionRepository $sessions,
         string $path,string $method,string $host,bool $external,int $now): never
     {
+        if (!$external && preg_match('~\A/web-tema(?:/|$)~',$path)) WebThemeDemo::handle($db,$config,$path,$method);
         $web=new WebBuilder($db,$config);
         $booking=new WebBooking($db,$web);
         $admin=new WebBuilderAdmin($web);

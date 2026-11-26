@@ -12,7 +12,7 @@ use VetNet\Cpanel\SessionRepository;
 
 require_once dirname(__DIR__).'/src/StaffPlan.php';
 
-foreach (['AddonPackages','ClinicGuide','ClinicLegal','PartnerLifecycle','SiteContact','MarketFooter','MarketContactPage','AppHub','AppDownloads','DemoAuto','CenterContact','SubscriptionReminders','OwnerPayment','ClinicRecords','AppPush','DeviceHub','VisitTracker','ReviewLink','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','SaasPayment','DealerAgreement','CenterAnalytics','ClinicAlerts','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','TeamTotp','WebInbox','MinistryBridge','SiteLegal','OmniInbox','PhoneGateway','ClientPermit','PrintTemplates','Support','Commerce','Appearance'] as $class) {
+foreach (['AddonPackages','ClinicGuide','ClinicLegal','PartnerLifecycle','SiteContact','MarketFooter','MarketContactPage','AppHub','AppDownloads','DemoAuto','CenterContact','SubscriptionReminders','OwnerPayment','ClinicRecords','AppPush','DeviceHub','VisitTracker','ReviewLink','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','SaasPayment','DealerAgreement','CenterAnalytics','ClinicAlerts','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebThemeDemo','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','TeamTotp','WebInbox','MinistryBridge','SiteLegal','OmniInbox','PhoneGateway','ClientPermit','PrintTemplates','Support','Commerce','Appearance'] as $class) {
     require_once dirname(__DIR__) . '/src/' . $class . '.php';
 }
 
@@ -325,7 +325,7 @@ try {
         reply(['items'=>$items]);
     }
     // Oluşturulan klinik siteleri (kendi alan adındakiler dahil) ve yönetim ekranları seçilen dilde açılır.
-    if ($externalWeb || preg_match('~\A/(?:web|siteler)/~',$path) || !$externalWeb && preg_match('~\A/(?:web-sitem(?:/.*)?|yonetim/web-siteleri|(?:clinic/|klinik/|yonetim/|hasta-sahibi/)?evde-hizmet(?:/takip)?)\z~D',$path)) {
+    if ($externalWeb || preg_match('~\A/(?:web|siteler|web-tema)/~',$path) || !$externalWeb && preg_match('~\A/(?:web-sitem(?:/.*)?|yonetim/web-siteleri|(?:clinic/|klinik/|yonetim/|hasta-sahibi/)?evde-hizmet(?:/takip)?)\z~D',$path)) {
         ob_start(static fn(string $html): string => stripos($html,'<!doctype html')===0
             ? VetNet\Cpanel\UiLocale::page($html,$config) : $html);
     }
@@ -493,7 +493,7 @@ try {
         (new VetNet\Cpanel\HomeVisitPages(new VetNet\Cpanel\HomeVisit($db,$config),$db))->handle($path,$method,$actor,$now);
     }
 
-    if ($externalWeb || preg_match('~\A(?:/(?:web|siteler)(?:/|$)|/web-sitem(?:/|$)|/yonetim/web-siteleri$|/api/web-builder/alerts$)~D',$path)) {
+    if ($externalWeb || preg_match('~\A(?:/(?:web|siteler|web-tema)(?:/|$)|/web-sitem(?:/|$)|/yonetim/web-siteleri$|/api/web-builder/alerts$)~D',$path)) {
         VetNet\Cpanel\WebBuilderRoutes::handle($db,$config,$workspaces,$sessions,$path,$method,$host,$externalWeb,$now);
     }
     $appearance = new VetNet\Cpanel\Appearance($db);

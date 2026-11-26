@@ -341,7 +341,7 @@ final class WebBuilderAdmin
     {
         $palette=preg_match('/\A[a-z]{3,12}\z/',self::$palette)?self::$palette:'';
         return '<!doctype html><html lang="tr"'.($palette!==''?' data-theme="'.$palette.'" class="builder-surface"':'').'><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'.
-            '<meta name="robots" content="noindex,nofollow"><title>'.self::e($title).' · VetZimo</title><link rel="stylesheet" href="/web-builder-admin.css?v=40">'.
+            '<meta name="robots" content="noindex,nofollow"><title>'.self::e($title).' · VetZimo</title><link rel="stylesheet" href="/web-builder-admin.css?v=41">'.
             ($palette!==''?'<link rel="stylesheet" href="/themes.css?v=20261126-r9"><link rel="stylesheet" href="/surface-themes.css?v=20261126-r5">':'').
             '<script src="/web-builder-admin.js?v=39" defer></script></head>'.
             '<body class="'.self::e(trim($class.(self::embedded()?' builder-embedded':''))).'">'.$contents.'</body></html>';
@@ -375,10 +375,10 @@ final class WebBuilderAdmin
     private function panel(array $actor,?array $site,array $d,string $tab,array $get,string $actions,array $submitted): string
     {
         if ($tab==='genel') {
-            if (!$site) return '<section class="welcome"><h2>Kliniğinizin web sitesini oluşturun</h2><p>Temanızı seçin, klinik bilgilerinizi ekleyin ve randevu taleplerini VetZimo’da alın.</p><a class="button" href="?tab=kurulum">Ücretsiz Web Siteni Oluştur</a></section>';
+            if (!$site) return '<section class="welcome"><h2>Kliniğinizin web sitesini oluşturun</h2><p>Temanızı seçin, klinik bilgilerinizi ekleyin ve randevu taleplerini VetZimo’da alın.</p><a class="button" href="?tab=kurulum">Ücretsiz Web Siteni Oluştur</a></section>'.WebThemeDemo::showcase(false);
             return '<section class="welcome"><h2>'.self::e($d['identity']['name']).'</h2><p>'.self::e($this->web->base($site)).'</p><p>'.
                 ($site['published']?'Yayında':'Taslak').' · '.self::e(WebBuilder::THEMES[$d['theme']][0]).' · '.self::e($site['updated_at']).
-                '</p><div class="controls"><a class="button" href="?tab=duzen">Siteyi düzenle</a><a class="button secondary" href="?tab=yayin">Önizle / Yayınla</a></div></section>'.$this->statistics($site);
+                '</p><div class="controls"><a class="button" href="?tab=duzen">Siteyi düzenle</a><a class="button secondary" href="?tab=yayin">Önizle / Yayınla</a></div></section>'.$this->statistics($site).WebThemeDemo::showcase(true);
         }
         if (in_array($tab,['kurulum','seo'],true)) {
             return $this->form($tab,$site,(!$site?self::fields(['slug'=>'Kısa site adresi'],$submitted,['slug']):'').
@@ -403,7 +403,7 @@ final class WebBuilderAdmin
             $options='';
             foreach (WebBuilder::THEMES as $key=>[$title,$a,$b]) {
                 $options.='<label class="theme-card '.$key.'"><input type="radio" name="theme" value="'.$key.'"'.($d['theme']===$key?' checked':'').
-                    '><img class="theme-sample" data-theme-preview="'.$key.'" src="/web-themes/'.$key.($d['palette']==='b'?'-b':'').'-preview.webp?v=40" alt="" width="800" height="520" loading="lazy"><strong>'.self::e($title).'</strong><small>A · '.self::e($a).'<br>B · '.self::e($b).'</small></label>';
+                    '><img class="theme-sample" data-theme-preview="'.$key.'" src="/web-themes/'.$key.($d['palette']==='b'?'-b':'').'-preview.webp?v=40" alt="" width="800" height="520" loading="lazy"><strong>'.self::e($title).'</strong><small>A · '.self::e($a).'<br>B · '.self::e($b).'</small><a class="theme-demo-link" href="/web-tema/'.$key.'" target="_blank" rel="noopener">Canlı demoyu incele ↗</a></label>';
             }
             return $this->form($tab,$site,'<fieldset class="wide themes"><legend>Tema</legend>'.$options.'</fieldset><fieldset class="wide controls"><legend>Renk kombinasyonu</legend>'.
                 '<label class="check"><input type="radio" name="palette" value="a"'.($d['palette']==='a'?' checked':'').'>A</label>'.

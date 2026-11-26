@@ -105,3 +105,42 @@ h1,h2,h3{line-height:1.16}h1{font-size:clamp(1.65rem,4vw,2.4rem);margin:0 0 20px
 .gallery-table{min-width:370px}
 .builder-language{margin-inline-start:auto}
 .builder-embedded{background:transparent}.builder-embedded .builder-bar{display:none}.builder-embedded .builder-layout{padding:0;width:100%}.builder-embedded .center-view{padding:8px 0}
+
+/* Tema vitrini (WebThemeDemo::showcase) */
+.theme-vitrine{margin-top:22px;display:grid;gap:26px}
+.tv-head h2,.tv-all-head h2{margin:2px 0 6px;font-size:clamp(1.25rem,2.6vw,1.7rem);text-wrap:balance}
+.tv-head p,.tv-all-head p{margin:0;color:var(--muted);max-width:68ch}
+.tv-eyebrow{margin:0;font-size:.74rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+.tv-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.tv-card{display:flex;flex-direction:column;min-width:0;background:var(--paper);border:1px solid var(--line);border-radius:18px;overflow:hidden;box-shadow:0 10px 30px rgba(40,20,80,.07);animation:tvRise .6s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i)*90ms);transition:transform .3s,box-shadow .3s}
+.tv-card:hover{transform:translateY(-4px);box-shadow:0 18px 40px rgba(40,20,80,.14)}
+.tv-shot{position:relative;display:block;aspect-ratio:16/10;overflow:hidden;background:var(--canvas)}
+.tv-shot img{width:100%;height:100%;object-fit:cover;object-position:top;display:block;transition:transform 6s ease-out}
+.tv-card:hover .tv-shot img{transform:scale(1.06) translateY(-3%)}
+.tv-tag{position:absolute;left:12px;bottom:12px;padding:5px 11px;border-radius:999px;background:rgba(18,12,40,.72);color:#fff;font-size:.8rem;font-weight:700;backdrop-filter:blur(6px)}
+.tv-body{display:flex;flex-direction:column;gap:8px;padding:16px 18px 18px;flex:1}
+.tv-body h3{margin:0;font-size:1.15rem}
+.tv-body p{margin:0;color:var(--muted);line-height:1.55}
+.tv-body ul{margin:2px 0 0;padding:0;list-style:none;display:flex;flex-wrap:wrap;gap:6px}
+.tv-body li{font-size:.78rem;font-weight:650;padding:4px 9px;border-radius:999px;background:var(--canvas);border:1px solid var(--line)}
+.tv-actions{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:auto;padding-top:8px}
+.tv-inspect{position:relative;display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 20px;border-radius:999px;color:#fff!important;text-decoration:none;font-weight:800;overflow:hidden;
+ background:linear-gradient(110deg,#5b3fd6,#e4479a,#5b3fd6);background-size:220% 100%;animation:tvFlow 4s linear infinite;box-shadow:0 10px 24px rgba(91,63,214,.35)}
+.tv-inspect::after{content:"";position:absolute;inset:0;background:linear-gradient(100deg,transparent 30%,rgba(255,255,255,.45) 50%,transparent 70%);transform:translateX(-120%);animation:tvShine 2.8s ease-in-out infinite}
+.tv-inspect i{font-style:normal;transition:transform .25s}
+.tv-inspect:hover i{transform:translateX(5px)}
+.tv-alt{font-size:.86rem;font-weight:700}
+.tv-all{padding:22px;border-radius:20px;background:linear-gradient(150deg,color-mix(in srgb,var(--accent) 10%,var(--paper)),var(--paper));border:1px solid var(--line)}
+.tv-features{list-style:none;margin:16px 0 0;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.tv-features li{display:flex;gap:10px;align-items:flex-start;padding:12px;border-radius:14px;background:var(--paper);border:1px solid var(--line);min-width:0;animation:tvRise .5s both;animation-delay:calc(var(--i)*40ms);transition:transform .2s}
+.tv-features li:hover{transform:translateY(-2px)}
+.tv-features span{flex:none;display:grid;place-items:center;width:36px;height:36px;border-radius:11px;background:var(--canvas);font-size:1.15rem}
+.tv-features div{display:grid;gap:2px;min-width:0}
+.tv-features strong{font-size:.92rem}.tv-features small{color:var(--muted);font-size:.8rem;line-height:1.4}
+@keyframes tvRise{from{opacity:0;transform:translateY(14px)}}
+@keyframes tvFlow{to{background-position:-220% 0}}
+@keyframes tvShine{60%,100%{transform:translateX(120%)}}
+@media(max-width:1000px){.tv-features{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:640px){.tv-grid,.tv-features{grid-template-columns:1fr}.tv-all{padding:16px}}
+@media(prefers-reduced-motion:reduce){.tv-card,.tv-features li,.tv-inspect,.tv-inspect::after{animation:none}.tv-shot img{transition:none}}
+.theme-demo-link{display:inline-block;margin-top:6px;font-size:.84rem;font-weight:750}
