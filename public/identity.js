@@ -476,22 +476,58 @@ function mountOwnerNotifications(toolbar,scope) {
   setInterval(refresh,25000);
 }
 
+const OWNER_ICONS={
+  overview:'<path d="M3 11l9-7 9 7"/><path d="M5 10v10h5v-6h4v6h5V10"/>',
+  visit:'<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M12 12v5M9.5 14.5h5"/>',
+  homecare:'<path d="M12 21s-7-4.4-9.3-9A5.3 5.3 0 0 1 12 6.6 5.3 5.3 0 0 1 21.3 12C19 16.6 12 21 12 21z"/><path d="M7 12h3l1.5-2.5L14 15l1.5-3H18"/>',
+  health:'<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9zM12 10v6M9 13h6"/>',
+  appointments:'<rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M8 3v4M16 3v4M3.5 10h17"/><path d="M8 14h3"/>',
+  notifications:'<path d="M18 16V11a6 6 0 1 0-12 0v5l-2 2h16z"/><path d="M10 20a2 2 0 0 0 4 0"/>',
+  account:'<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+  consents:'<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M8.5 16c1.5-2 2.5-2 3.5 0s2 2 3.5 0"/>',
+  phone:'<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/>',
+  paw:'<ellipse cx="6.5" cy="9.5" rx="2" ry="2.6"/><ellipse cx="10.5" cy="6" rx="2" ry="2.6"/><ellipse cx="15" cy="6.5" rx="2" ry="2.6"/><ellipse cx="18.5" cy="10.5" rx="1.9" ry="2.4"/><path d="M12.5 12c-3 0-6 3.5-6 6 0 1.8 1.6 2.6 3.2 2 1.2-.4 2-.6 2.8-.6s1.6.2 2.8.6c1.6.6 3.2-.2 3.2-2 0-2.5-3-6-6-6z"/>',
+  syringe:'<path d="M18 2l4 4M17 7l-9.5 9.5-3-3L14 4M15 5l4 4M7.5 16.5 3 21M10 11l2 2M12.5 8.5l2 2"/>',
+  wallet:'<rect x="3" y="6" width="18" height="14" rx="2.5"/><path d="M3 10h18M16 15h2"/>',
+  arrow:'<path d="M5 12h14M13 6l6 6-6 6"/>',
+};
+const ownerIcon=(name,size=20)=>`<svg aria-hidden="true" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${OWNER_ICONS[name]||""}</svg>`;
+
 async function portal() {
   const [data,session]=await Promise.all([api("portal"),api("session")]);
-  heading(uiLabel("Merhaba")+", "+data.name,[data.clinic.partner,data.clinic.branch].filter(Boolean).join(" · "));
+  if (!document.querySelector('link[href^="/owner-portal.css"]')) document.head.append(Object.assign(document.createElement("link"),{rel:"stylesheet",href:"/owner-portal.css?v=4"}));
+  document.documentElement.classList.add("owner-portal-page");
+  const hour=new Date().getHours();
+  const firstName=String(data.name||"").trim().split(/\s+/)[0]||data.name;
+  view.replaceChildren();
   view.classList.add("owner-dashboard");
+  const hero=el("header","",{className:"op-hero"});
+  const heroText=el("div","",{className:"op-hero-text"});
+  heroText.append(el("span",uiLabel("Hasta sahibi paneli"),{className:"op-eyebrow"}),
+    (()=>{const h=el("h1","",{id:"page-title"});const nm=el("span",firstName);nm.setAttribute("data-ui-preserve","");h.append(el("span",uiLabel(hour<12?"Günaydın":hour<18?"İyi günler":"İyi akşamlar")),", ",nm," 👋");return h;})(),
+    el("p",[data.clinic.partner,data.clinic.branch].filter(Boolean).join(" · "),{className:"op-hero-clinic"}));
+  const heroActions=el("div","",{className:"op-hero-actions"});
+  mountLanguageSelect(heroActions);
+  if (data.clinic.phone) {
+    const call=el("a","",{href:"tel:"+String(data.clinic.phone).replace(/\s/g,""),className:"op-call"});
+    call.innerHTML=ownerIcon("phone",18)+"<span></span>";call.querySelector("span").textContent=uiLabel("Kliniği ara");
+    heroActions.append(call);
+  }
+  hero.append(heroText,heroActions);
   const toolbar=el("nav","",{className:"owner-nav"});
   toolbar.setAttribute("aria-label",uiLabel("Hasta sahibi paneli"));
-  mountLanguageSelect(toolbar);
   const content=el("div","",{className:"owner-panels"});
-  view.append(toolbar,content);
+  view.append(hero,toolbar,content);
   const panels=new Map();
   let visitFrame;
   function panel(key,label) {
     if (panels.has(key)) return panels.get(key).body;
     const body=el("div","",{className:"owner-panel",id:"owner-"+key});
     body.hidden=true;
-    const button=el("button",uiLabel(label),{type:"button",className:"secondary"});
+    const button=el("button","",{type:"button",className:"secondary"});
+    button.innerHTML=ownerIcon(key)+"<span></span>";
+    button.querySelector("span").textContent=uiLabel(label);
+    button.dataset.key=key;
     button.setAttribute("aria-controls",body.id);
     button.addEventListener("click",()=>show(key));
     toolbar.append(button);
@@ -503,7 +539,7 @@ async function portal() {
     if (key==="visit"&&visitFrame&&!visitFrame.hasAttribute("src")) visitFrame.src=visitFrame.dataset.src;
     for (const [id,{button,body}] of panels) {
       body.hidden=id!==key;
-      if (id===key) button.setAttribute("aria-current","page");
+      if (id===key) { button.setAttribute("aria-current","page"); button.scrollIntoView?.({block:"nearest",inline:"center",behavior:"smooth"}); }
       else button.removeAttribute("aria-current");
     }
   }
@@ -532,15 +568,14 @@ async function portal() {
       resize();
     });
     visit.append(visitFrame);
-    const openVisit=el("button","Evde Hizmet talep et",{type:"button",className:"secondary"});
-    openVisit.addEventListener("click",()=>show("visit"));
-    overview.append(openVisit);
   }
   if(data.balanceCents!=null && Number.isSafeInteger(Number(data.balanceCents))){
     const value=Number(data.balanceCents);
     const amount=new Intl.NumberFormat(uiLanguage,{minimumFractionDigits:2,maximumFractionDigits:2}).format(Math.abs(value)/100);
-    const balance=el("section","",{className:"owner-balance"});
-    balance.append(el("h2",uiLabel("Bakiyem")),el("p",(value>0?"+":value<0?"−":"")+amount+" ₺"));
+    const balance=el("section","",{className:"owner-balance op-balance"+(value<0?" is-debt":"")});
+    const bIcon=el("span","",{className:"op-balance-icon"});bIcon.innerHTML=ownerIcon("wallet",22);
+    const bText=el("div");bText.append(el("h2",uiLabel("Bakiyem")),el("small",uiLabel(value<0?"Ödenmemiş tutar":value>0?"Hesabınızda alacak var":"Açık borcunuz yok")));
+    balance.append(bIcon,bText,el("p",(value>0?"+":value<0?"−":"")+amount+" ₺"));
     overview.append(balance);
   }
   // Borç ödeme: kliniğin kendi PayTR mağazası (kart) veya IBAN'ı (havale). Borç yoksa ya da klinik açmadıysa yalnız bilgi gösterilir.
@@ -549,17 +584,29 @@ async function portal() {
     import("./owner-pay.js?v=2").then(m=>m.mountOwnerPay(pay,{scope:session.scopeId,tr:uiLabel})).catch(()=>{});
   }
   const names=new Map(data.pets.map(row=>[row.id,row.name]));
-  const pets=el("section","",{className:"identity-card"});
-  pets.append(el("h2",uiLabel("Hayvanlarım")));
+  const pets=el("section","",{className:"identity-card op-pets"});
+  const petsHead=el("div","",{className:"op-section-head"});
+  petsHead.append(el("h2",uiLabel("Dostlarım")),el("span",String(data.pets.length),{className:"op-count"}));
+  pets.append(petsHead);
+  const todayIso=new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);
+  const ageText=birth=>{if(!/^\d{4}-\d{2}-\d{2}$/.test(birth||""))return"";const b=new Date(birth+"T12:00:00"),n=new Date();let m=(n.getFullYear()-b.getFullYear())*12+n.getMonth()-b.getMonth();if(n.getDate()<b.getDate())m--;if(m<0)return"";return m<12?m+" "+uiLabel("aylık"):Math.floor(m/12)+" "+uiLabel("yaşında");};
+  const nextVaccine=id=>(data.sections.vaccines?data.vaccines:[]).filter(v=>v.patient===id&&v.status!=="done").sort((a,b)=>String(a.scheduledAt).localeCompare(String(b.scheduledAt)))[0];
   const petGrid=el("div","",{className:"portal-pet-grid"});
   for (const row of data.pets) {
-    const portrait=petPortrait(row), card=el("article","",{className:"portal-pet"});
-    if (portrait) card.append(el("img","",{src:portrait.src,alt:portrait.label,loading:"lazy",width:64,height:64}));
+    const portrait=petPortrait(row), card=el("article","",{className:"portal-pet op-pet"});
+    card.dataset.species=row.species||"";
+    if (portrait) { const ring=el("span","",{className:"op-pet-photo"}); ring.append(el("img","",{src:portrait.src,alt:portrait.label,loading:"lazy",width:84,height:84})); card.append(ring); }
     const label=el("div");
     const name=el("h3",row.name);
     name.setAttribute("data-ui-preserve","");
-    label.append(name,el("p",[uiLabel(row.species),row.breed].filter(Boolean).join(" · ")));
-    if (portrait?.sample) label.append(el("small","Temsili görsel"));
+    label.append(name,el("p",[uiLabel(row.species),row.breed,ageText(row.birth)].filter(Boolean).join(" · ")));
+    const chips=el("div","",{className:"op-chips"});
+    if (row.sex) chips.append(el("span",(row.sex==="Dişi"?"♀ ":row.sex==="Erkek"?"♂ ":"")+uiLabel(row.sex),{className:"op-chip"}));
+    const nv=nextVaccine(row.id);
+    if (nv) chips.append(el("span","💉 "+nv.title+" · "+dateText(nv.scheduledAt),{className:"op-chip "+(nv.status==="late"?"is-late":nv.status==="soon"?"is-soon":"")}));
+    else if (data.sections.vaccines) { const ok=el("span","",{className:"op-chip is-ok"}); ok.append("✓ ",el("span",uiLabel("Aşıları güncel"))); chips.append(ok); }
+    if (chips.children.length) label.append(chips);
+    if (portrait?.sample) label.append(el("small",uiLabel("Temsili görsel"),{className:"op-sample"}));
     card.append(label);
     petGrid.append(card);
   }
@@ -734,6 +781,60 @@ async function portal() {
   if (params.get("bolum")==="bildirimler") panels.get("notifications").button.click();
   if (opened) document.getElementById("owner-record-"+params.get("kayit"))?.scrollIntoView({block:"center"});
   if (session.scopeId) mountOwnerNotifications(toolbar,session.scopeId);
+  const bell=toolbar.querySelector(".owner-bell");
+  if (bell) { const count=bell.querySelector(".owner-bell-count"); bell.textContent=""; bell.innerHTML=ownerIcon("notifications",20); bell.setAttribute("aria-label",uiLabel("Bildirimler")); if (count) bell.append(count); bell.classList.add("op-bell"); heroActions.prepend(bell); }
+  overview.prepend(ownerSummary(data,panels,show,names));
+}
+
+/** Genel bakış üst bölümü: özet kartları, yaklaşanlar ve hızlı işlemler. */
+function ownerSummary(data,panels,show,names) {
+  const wrap=el("div","",{className:"op-summary"});
+  const today=new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);
+  const appts=(data.sections.appointments?data.appointments:[]).filter(a=>a.date>=today&&!/İptal|Gelmedi/.test(a.status||"")).sort((a,b)=>(a.date+(a.time||"")).localeCompare(b.date+(b.time||"")));
+  const vacs=(data.sections.vaccines?data.vaccines:[]).filter(v=>v.status!=="done").sort((a,b)=>String(a.scheduledAt).localeCompare(String(b.scheduledAt)));
+  const late=vacs.filter(v=>v.status==="late").length;
+  const stat=(icon,label,value,sub,key,tone="")=>{
+    const b=el(key?"button":"div","",{className:"op-stat "+tone});
+    if (key) { b.type="button"; b.addEventListener("click",()=>show(key)); }
+    const i=el("span","",{className:"op-stat-icon"});i.innerHTML=ownerIcon(icon,22);
+    const t=el("div");t.append(el("small",uiLabel(label)),el("strong",value),el("span",sub));
+    b.append(i,t);
+    return b;
+  };
+  const stats=el("div","",{className:"op-stats"});
+  const a=appts[0];
+  stats.append(
+    stat("appointments","Sıradaki randevu",a?dateText(a.date)+(a.time?" · "+a.time:""):uiLabel("Planlı randevu yok"),a?[names.get(a.patient),a.service].filter(Boolean).join(" · "):uiLabel("Kliniğinizden kolayca randevu alın"),panels.has("appointments")?"appointments":"","tone-a"),
+    stat("syringe","Aşı ve parazit",vacs[0]?dateText(vacs[0].scheduledAt):uiLabel("Hepsi güncel"),vacs[0]?[names.get(vacs[0].patient),vacs[0].title].filter(Boolean).join(" · ")+(late?" · "+late+" "+uiLabel("gecikmiş"):""):uiLabel("Yaklaşan uygulama yok"),panels.has("health")?"health":"",late?"tone-late":"tone-b"),
+    stat("paw","Dostlarım",String(data.pets.length),uiLabel("kayıtlı hayvan"),"","tone-c"));
+  wrap.append(stats);
+  const quick=el("div","",{className:"op-quick"});
+  const action=(icon,label,fn,href)=>{const x=el(href?"a":"button","",{className:"op-action"});if(href)x.href=href;else{x.type="button";x.addEventListener("click",fn);}x.innerHTML=ownerIcon(icon,22)+"<span></span>";x.querySelector("span").textContent=uiLabel(label);quick.append(x);};
+  if (data.bookingUrl) action("appointments","Randevu al",null,data.bookingUrl);
+  else if (panels.has("appointments")) action("appointments","Randevularım",()=>show("appointments"));
+  if (panels.has("visit")) action("visit","Evde Hizmet talep et",()=>show("visit"));
+  if (panels.has("homecare")) action("homecare","Evden takip",()=>show("homecare"));
+  if (panels.has("health")) action("health","Sağlık kayıtları",()=>show("health"));
+  if (panels.has("consents")) action("consents","Onam formları",()=>show("consents"));
+  if (data.clinic.phone) action("phone","Kliniği ara",null,"tel:"+String(data.clinic.phone).replace(/\s/g,""));
+  wrap.append(el("h2",uiLabel("Hızlı işlemler"),{className:"op-h"}),quick);
+  const upcoming=[...appts.slice(0,3).map(r=>({d:r.date,t:r.time,icon:"appointments",title:r.service||uiLabel("Randevu"),pet:names.get(r.patient),tag:uiLabel("Randevu")})),
+    ...vacs.slice(0,4).map(v=>({d:v.scheduledAt,icon:"syringe",title:v.title,pet:names.get(v.patient),tag:uiLabel(v.status==="late"?"Gecikmiş":"Aşı"),late:v.status==="late"}))]
+    .sort((x,y)=>String(x.d).localeCompare(String(y.d))).slice(0,5);
+  if (upcoming.length) {
+    const list=el("ol","",{className:"op-upcoming"});
+    for (const u of upcoming) {
+      const li=el("li","",{className:u.late?"is-late":""});
+      const day=new Date(u.d+"T12:00:00");
+      const cal=el("span","",{className:"op-date"});
+      cal.append(el("b",String(day.getDate())),el("small",new Intl.DateTimeFormat(uiLanguage,{month:"short"}).format(day)));
+      const txt=el("div");txt.append(el("strong",u.title),el("span",[u.pet,u.t].filter(Boolean).join(" · ")));
+      li.append(cal,txt,el("em",u.tag));
+      list.append(li);
+    }
+    wrap.append(el("h2",uiLabel("Yaklaşanlar"),{className:"op-h"}),list);
+  }
+  return wrap;
 }
 
 function reauth(centerAccount) {

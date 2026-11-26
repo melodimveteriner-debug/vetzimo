@@ -1,0 +1,134 @@
+/* Hasta sahibi paneli: uygulama hissi veren, tema renklerine (Prizma, Orkide, Nebula ve otomatik) uyan profesyonel görünüm. */
+.owner-portal-page{--op-a:var(--theme-primary,#6a3df0);--op-b:var(--theme-secondary,#c4306e);--op-c:var(--theme-glow-c,#14c9b8);
+ --op-paper:var(--theme-paper,#fff);--op-ink:var(--theme-ink,#1b1640);--op-muted:var(--theme-muted,#5b5578);--op-line:var(--theme-line,#e6e1f7);
+ --op-tint:var(--theme-tint,#f1ecff);--op-work:var(--theme-work,#f7f5fe);--op-radius:20px;--op-shadow:0 1px 2px rgba(20,12,60,.05),0 12px 32px rgba(40,20,110,.08)}
+.owner-portal-page main:has(.owner-dashboard){max-width:1180px;width:100%;padding-inline:max(14px,env(safe-area-inset-left)) max(14px,env(safe-area-inset-right));box-sizing:border-box}
+.owner-portal-page #view.owner-dashboard{background:transparent;border:0;box-shadow:none;padding:0;max-width:none}
+.owner-dashboard{color:var(--op-ink)}
+
+/* Karşılama */
+.op-hero{position:relative;display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:18px;padding:clamp(22px,4vw,34px);border-radius:26px;overflow:hidden;color:#fff;isolation:isolate;
+ background:radial-gradient(120% 140% at 100% 0%,color-mix(in srgb,var(--op-c) 55%,transparent),transparent 55%),radial-gradient(90% 120% at 0% 100%,color-mix(in srgb,var(--op-b) 70%,transparent),transparent 60%),linear-gradient(125deg,var(--op-a),color-mix(in srgb,var(--op-a) 60%,var(--op-b)));
+ box-shadow:0 18px 44px color-mix(in srgb,var(--op-a) 35%,transparent)}
+.op-hero::before,.op-hero::after{content:"";position:absolute;z-index:-1;border-radius:50%;background:rgba(255,255,255,.12)}
+.op-hero::before{width:260px;height:260px;right:-60px;top:-110px;animation:opFloat 12s ease-in-out infinite}
+.op-hero::after{width:140px;height:140px;left:38%;bottom:-80px;animation:opFloat 9s ease-in-out infinite reverse}
+.op-hero-text{display:grid;gap:6px;min-width:0}
+.op-eyebrow{font-size:.74rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;opacity:.85}
+.op-hero h1{margin:0;color:#fff;font-size:clamp(1.55rem,3.6vw,2.3rem);line-height:1.15;text-wrap:balance}
+.op-hero-clinic{margin:0;opacity:.9;font-weight:600}
+.op-hero-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.op-hero-actions select,.op-hero-actions .language-select,.op-hero-actions button,.op-hero-actions a{min-height:42px}
+.op-call,.op-bell{display:inline-flex;align-items:center;gap:8px;padding:0 16px;border-radius:999px;border:1px solid rgba(255,255,255,.35)!important;background:rgba(255,255,255,.16)!important;color:#fff!important;font-weight:750;text-decoration:none;backdrop-filter:blur(8px);cursor:pointer;transition:background .2s,transform .2s}
+.op-call:hover,.op-bell:hover{background:rgba(255,255,255,.28)!important;transform:translateY(-1px)}
+.op-bell{position:relative;width:44px;padding:0;justify-content:center}
+.op-bell .owner-bell-count{position:absolute;top:-4px;right:-4px;min-width:18px;padding:1px 5px;border-radius:999px;background:#ef4444;color:#fff;font-size:.7rem;font-weight:800;border:2px solid #fff}
+.op-hero-actions .language-select,.op-hero-actions [class*=lang]{border-radius:999px}
+
+/* Sekmeler */
+.owner-portal-page .owner-nav{position:sticky;top:max(8px,env(safe-area-inset-top));z-index:20;display:flex;flex-wrap:nowrap;gap:6px;margin:16px 0 18px;padding:6px;overflow-x:auto;scrollbar-width:none;
+ border:1px solid var(--op-line);border-radius:18px;background:color-mix(in srgb,var(--op-paper) 88%,transparent);backdrop-filter:blur(14px);box-shadow:var(--op-shadow)}
+.owner-portal-page .owner-nav::-webkit-scrollbar{display:none}
+.owner-portal-page .owner-nav button.secondary{flex:1 0 auto;display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:46px;padding:0 11px;border:0;border-radius:13px;background:transparent;color:var(--op-muted);font-size:.9rem;font-weight:700;white-space:nowrap;transition:background .2s,color .2s}
+.owner-portal-page .owner-nav button.secondary:hover{background:var(--op-tint);color:var(--op-a)}
+.owner-portal-page .owner-nav button[aria-current]{background:linear-gradient(120deg,var(--op-a),var(--op-b));color:#fff;box-shadow:0 8px 20px color-mix(in srgb,var(--op-a) 35%,transparent)}
+.owner-portal-page .owner-nav .owner-bell:not(.op-bell){display:none}
+
+/* Bölümler */
+.owner-portal-page .owner-panel{gap:16px;animation:opIn .35s ease both}
+.owner-portal-page .owner-panel>.identity-card,.owner-portal-page .owner-panel>section.identity-card,.owner-portal-page .owner-panel>details.identity-card{margin:0;padding:clamp(16px,2.6vw,24px);border-radius:var(--op-radius);border:1px solid var(--op-line);background:var(--op-paper);box-shadow:var(--op-shadow)}
+.owner-portal-page .owner-panel h2{font-size:1.12rem;letter-spacing:-.01em}
+.op-h{margin:6px 2px 0;font-size:1.02rem!important;color:var(--op-ink)}
+.op-section-head{display:flex;align-items:center;gap:10px;margin-bottom:12px}.op-section-head h2{margin:0}
+.op-count{display:inline-grid;place-items:center;min-width:26px;height:26px;padding:0 8px;border-radius:999px;background:var(--op-tint);color:var(--op-a);font-weight:800;font-size:.82rem}
+
+/* Özet */
+.op-summary{display:grid;gap:12px}
+.op-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.op-stat{display:flex;align-items:center;gap:14px;min-width:0;padding:16px 18px;border-radius:var(--op-radius);border:1px solid var(--op-line);background:var(--op-paper);box-shadow:var(--op-shadow);color:inherit;font:inherit;text-align:left;transition:transform .2s,box-shadow .2s}
+button.op-stat{cursor:pointer}button.op-stat:hover{transform:translateY(-3px);box-shadow:0 18px 40px color-mix(in srgb,var(--op-a) 18%,transparent)}
+.op-stat>div{display:grid;gap:2px;min-width:0}
+.op-stat small{font-size:.74rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--op-muted)}
+.op-stat strong{font-size:1.15rem;overflow-wrap:anywhere}
+.op-stat span:not(.op-stat-icon){font-size:.84rem;color:var(--op-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.op-stat-icon{flex:none;display:grid;place-items:center;width:48px;height:48px;border-radius:15px;color:#fff;background:linear-gradient(135deg,var(--op-a),var(--op-b))}
+.op-stat.tone-b .op-stat-icon{background:linear-gradient(135deg,#0ea5a4,var(--op-c))}
+.op-stat.tone-c .op-stat-icon{background:linear-gradient(135deg,#f59e0b,#f97316)}
+.op-stat.tone-late .op-stat-icon{background:linear-gradient(135deg,#ef4444,#f97316)}
+.op-quick{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.op-action{display:flex;flex-direction:column;align-items:flex-start;gap:10px;min-height:96px;padding:14px 16px;border-radius:18px;border:1px solid var(--op-line);background:var(--op-paper);color:var(--op-ink)!important;font:inherit;font-weight:750;text-decoration:none;text-align:left;cursor:pointer;box-shadow:var(--op-shadow);transition:transform .2s,border-color .2s,background .2s}
+.op-action svg{padding:9px;box-sizing:content-box;border-radius:12px;background:var(--op-tint);color:var(--op-a)}
+.op-action:hover{transform:translateY(-3px);border-color:color-mix(in srgb,var(--op-a) 45%,var(--op-line))}
+.op-action:hover svg{background:linear-gradient(135deg,var(--op-a),var(--op-b));color:#fff}
+.op-upcoming{list-style:none;margin:0;padding:6px;display:grid;gap:4px;border-radius:var(--op-radius);border:1px solid var(--op-line);background:var(--op-paper);box-shadow:var(--op-shadow)}
+.op-upcoming li{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:14px;padding:10px 12px;border-radius:14px}
+.op-upcoming li:hover{background:var(--op-work)}
+.op-upcoming div{display:grid;min-width:0}.op-upcoming strong{overflow-wrap:anywhere}.op-upcoming div span{font-size:.84rem;color:var(--op-muted)}
+.op-date{display:grid;justify-items:center;width:50px;padding:6px 0;border-radius:12px;background:var(--op-tint);color:var(--op-a);line-height:1.05}
+.op-date b{font-size:1.25rem}.op-date small{font-size:.7rem;font-weight:800;text-transform:uppercase}
+.op-upcoming em{font-style:normal;font-size:.74rem;font-weight:800;padding:4px 10px;border-radius:999px;background:var(--op-tint);color:var(--op-a)}
+.op-upcoming li.is-late .op-date,.op-upcoming li.is-late em{background:#fee2e2;color:#b91c1c}
+
+/* Bakiye */
+.owner-portal-page .op-balance{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:14px;padding:18px 20px;border-radius:var(--op-radius);border:1px solid var(--op-line);background:var(--op-paper);box-shadow:var(--op-shadow)}
+.op-balance>div{display:grid;gap:2px}.op-balance h2{margin:0}.op-balance small{color:var(--op-muted)}
+.op-balance p{margin:0;font-size:1.45rem;font-weight:850;font-variant-numeric:tabular-nums}
+.op-balance-icon{display:grid;place-items:center;width:46px;height:46px;border-radius:14px;background:color-mix(in srgb,#16a34a 14%,transparent);color:#15803d}
+.op-balance.is-debt .op-balance-icon{background:#fee2e2;color:#b91c1c}.op-balance.is-debt p{color:#b91c1c}
+.owner-portal-page .owner-pay-slot>*{border-radius:var(--op-radius)!important;border-color:var(--op-line)!important;box-shadow:var(--op-shadow)}
+
+/* Dostlarım */
+.owner-portal-page .op-pets .portal-pet-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.op-pet{position:relative;display:flex;align-items:center;gap:14px;padding:14px;border-radius:18px;border:1px solid var(--op-line);background:linear-gradient(160deg,var(--op-work),var(--op-paper));transition:transform .2s,box-shadow .2s;overflow:hidden}
+.op-pet::after{content:"";position:absolute;right:-30px;bottom:-30px;width:110px;height:110px;border-radius:50%;background:color-mix(in srgb,var(--op-a) 7%,transparent)}
+.op-pet:hover{transform:translateY(-3px);box-shadow:var(--op-shadow)}
+.op-pet-photo{flex:none;display:block;padding:3px;border-radius:50%;background:conic-gradient(from 200deg,var(--op-a),var(--op-b),var(--op-c),var(--op-a))}
+.op-pet-photo img{display:block;width:76px;height:76px;border-radius:50%;object-fit:cover;border:3px solid var(--op-paper)}
+.op-pet>div{display:grid;gap:3px;min-width:0;z-index:1}
+.op-pet h3{margin:0;font-size:1.08rem}.op-pet p{margin:0;color:var(--op-muted);font-size:.86rem}
+.op-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px}
+.op-chip{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:999px;background:var(--op-tint);color:var(--op-a);font-size:.74rem;font-weight:750;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.op-chip.is-ok{background:color-mix(in srgb,#16a34a 13%,transparent);color:#15803d}
+.op-chip.is-soon{background:color-mix(in srgb,#f59e0b 16%,transparent);color:#b45309}
+.op-chip.is-late{background:#fee2e2;color:#b91c1c}
+.op-sample{font-size:.7rem;color:var(--op-muted);opacity:.8}
+
+/* Liste ve kayıtlar */
+.owner-portal-page .owner-appointment,.owner-portal-page .vaccine-portal-row,.owner-portal-page .owner-consent{border-radius:14px;border-color:var(--op-line);background:var(--op-paper);transition:box-shadow .2s}
+.owner-portal-page .owner-appointment:hover,.owner-portal-page .vaccine-portal-row:hover{box-shadow:var(--op-shadow)}
+.owner-portal-page .owner-status{background:var(--op-tint);color:var(--op-a)}
+.owner-portal-page details.identity-card>summary{cursor:pointer;font-weight:750}
+.owner-portal-page .owner-panel .button,.owner-portal-page .owner-panel button.secondary{border-radius:12px}
+
+@keyframes opIn{from{opacity:0;transform:translateY(8px)}}
+@keyframes opFloat{50%{transform:translate(-14px,12px)}}
+@media(max-width:860px){.op-stats{grid-template-columns:1fr}.op-stat strong{font-size:1.05rem}}
+@media(max-width:560px){
+ .op-hero{border-radius:22px;align-items:flex-start}.op-hero-actions{width:100%}.op-call{flex:1;justify-content:center}
+ .owner-portal-page .owner-nav{margin-inline:-2px;border-radius:16px}.owner-portal-page .owner-nav button.secondary{padding:0 12px;font-size:.84rem}
+ .op-quick{grid-template-columns:repeat(2,minmax(0,1fr))}.op-action{min-height:84px;padding:12px}
+ .owner-portal-page .op-balance{grid-template-columns:auto minmax(0,1fr)}.op-balance p{grid-column:1/-1;font-size:1.3rem}
+ .owner-portal-page .op-pets .portal-pet-grid{grid-template-columns:1fr}
+}
+@media(prefers-reduced-motion:reduce){.op-hero::before,.op-hero::after,.owner-portal-page .owner-panel{animation:none}}
+/* Genel buton stilinin (degrade) özet ve hızlı işlem kartlarını ezmesini engelle */
+.owner-portal-page button.op-stat,.owner-portal-page button.op-action{background:var(--op-paper)!important;color:var(--op-ink)!important;border:1px solid var(--op-line)!important;box-shadow:var(--op-shadow)!important;min-height:0;width:auto;justify-content:flex-start;font-weight:750}
+.owner-portal-page button.op-stat{display:flex}
+.owner-portal-page button.op-action{display:flex}
+.owner-portal-page button.op-stat:hover,.owner-portal-page button.op-action:hover{border-color:color-mix(in srgb,var(--op-a) 45%,var(--op-line))!important}
+.owner-portal-page section.owner-balance.op-balance{background:var(--op-paper)!important;border:1px solid var(--op-line)!important}
+.owner-portal-page .owner-pay-slot>*{background:var(--op-paper)!important;padding:clamp(16px,2.6vw,22px)!important}
+.op-pet::after{width:90px;height:90px;right:-34px;bottom:-34px;background:color-mix(in srgb,var(--op-a) 5%,transparent)}
+/* Koyu temalarda metin renkleri ve sağlık zaman çizelgesi */
+.op-upcoming strong,.op-stat strong,.op-pet h3,.op-balance h2,.op-balance p:not(.is-debt *),.op-action span{color:var(--op-ink)}
+.op-balance.is-debt p{color:#ef4444}
+.owner-portal-page .owner-panel h2,.owner-portal-page .owner-panel h3{color:var(--op-ink)}
+.owner-portal-page .health-timeline-list{border-inline-start:2px solid color-mix(in srgb,var(--op-a) 30%,var(--op-line))!important;padding-inline-start:16px}
+.owner-portal-page .health-timeline-item{position:relative;border-radius:14px!important;border:1px solid var(--op-line)!important;background:var(--op-paper)!important;transition:box-shadow .2s,transform .2s}
+.owner-portal-page .health-timeline-item::before{content:"";position:absolute;left:-23px;top:18px;width:10px;height:10px;border-radius:50%;background:linear-gradient(135deg,var(--op-a),var(--op-b));box-shadow:0 0 0 3px var(--op-paper)}
+.owner-portal-page .health-timeline-item:hover{box-shadow:var(--op-shadow);transform:translateX(2px)}
+.owner-portal-page .health-timeline-filters select,.owner-portal-page .owner-panel select,.owner-portal-page .owner-panel input:not([type=checkbox]):not([type=radio]){border-radius:12px;border-color:var(--op-line)}
+.owner-portal-page .owner-panel>.owner-app-settings,.owner-portal-page .owner-panel>.support,.owner-portal-page .owner-panel>.links{margin:0;padding:clamp(16px,2.6vw,24px);border-radius:var(--op-radius);border:1px solid var(--op-line);background:var(--op-paper);box-shadow:var(--op-shadow)}
+.owner-portal-page .owner-app-settings h2:first-child{margin-top:0}
+.owner-portal-page .owner-app-settings fieldset{border-radius:14px;border-color:var(--op-line)}
+.owner-portal-page .owner-panel>.links{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
