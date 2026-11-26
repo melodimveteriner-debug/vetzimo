@@ -33,10 +33,6 @@ function css() {
 .pg-step:first-child{transform:none;justify-items:start;text-align:left}.pg-step:last-child{transform:translateX(-100%);justify-items:end;text-align:right}
 .pg-step b{font-size:.76rem}.pg-step.done b{color:#16a34a}.pg-step.next b{color:var(--pg-a)}
 .pg-step span{opacity:.75}
-.pg-notes{display:flex;flex-wrap:wrap;gap:8px}
-.pg-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;font-size:.8rem;font-weight:600;background:var(--pg-soft);border:1px solid var(--pg-line)}
-.pg-chip.warn{background:color-mix(in srgb,#f59e0b 14%,transparent);border-color:color-mix(in srgb,#f59e0b 40%,transparent)}
-.pg-chip.ok{background:color-mix(in srgb,#16a34a 12%,transparent);border-color:color-mix(in srgb,#16a34a 35%,transparent)}
 .pg-actions{display:flex;flex-wrap:wrap;gap:8px}
 .pg-form{display:flex;flex-wrap:wrap;align-items:end;gap:8px}
 .pg-form label{display:grid;gap:4px;font-size:.82rem;font-weight:700}
@@ -44,11 +40,21 @@ function css() {
 .pg-start{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 14px;margin:12px 0 2px;padding:10px 14px;border-radius:14px;border:1px dashed var(--pg-line)}
 .pg-start p{margin:0;font-size:.86rem;opacity:.85}
 .pg-err{margin:0;color:#dc2626;font-weight:600;font-size:.85rem}
+.pg-btn{position:relative;overflow:hidden;display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 18px;border:0;border-radius:999px;color:#fff;font:inherit;font-size:.88rem;font-weight:800;letter-spacing:.01em;cursor:pointer;
+ background:linear-gradient(90deg,var(--pg-c),var(--pg-a),var(--pg-b),var(--pg-c));background-size:300% 100%;animation:pgFlow 6s linear infinite;box-shadow:0 8px 20px color-mix(in srgb,var(--pg-a) 30%,transparent);transition:transform .2s,box-shadow .2s}
+.pg-btn::after{content:"";position:absolute;inset:0;background:linear-gradient(100deg,transparent 30%,rgba(255,255,255,.45) 50%,transparent 70%);transform:translateX(-130%);animation:pgShine 3.4s ease-in-out infinite}
+.pg-btn:hover{transform:translateY(-2px);box-shadow:0 12px 26px color-mix(in srgb,var(--pg-a) 40%,transparent)}
+.pg-btn:disabled{opacity:.6;cursor:progress}
+.pg-btn-go{background-image:linear-gradient(90deg,#10b981,#06b6d4,#7c3aed,#10b981)}
+.pg-btn-soft{background:color-mix(in srgb,currentColor 7%,transparent);color:inherit;box-shadow:none;animation:none;border:1px solid var(--pg-line)}.pg-btn-soft::after{display:none}.pg-btn-soft:hover{box-shadow:none;background:color-mix(in srgb,#dc2626 10%,transparent);color:#b91c1c}
+@keyframes pgFlow{to{background-position:-300% 0}}
+@keyframes pgShine{60%,100%{transform:translateX(130%)}}
+.pg-start,.pg-form{--pg-a:#7c3aed;--pg-b:#ec4899;--pg-c:#06b6d4;--pg-line:color-mix(in srgb,currentColor 14%,transparent)}
 @keyframes pgWave{to{transform:translateX(-50%)}}
 @keyframes pgSlosh{0%,100%{transform:skewX(0) scaleY(1)}25%{transform:skewX(-6deg) scaleY(1.03)}50%{transform:skewX(0) scaleY(.98)}75%{transform:skewX(5deg) scaleY(1.02)}}
 @keyframes pgBubble{0%{transform:translateY(0);opacity:0}20%{opacity:.9}100%{transform:translateY(-30px);opacity:0}}
 @media(max-width:560px){.pg-steps{height:62px}.pg-step b{font-size:.68rem}.pg-step span{font-size:.66rem}}
-@media(prefers-reduced-motion:reduce){.pg-fill,.pg-fill svg,.pg-fill i{animation:none}.pg-fill{transition:none}}`;
+@media(prefers-reduced-motion:reduce){.pg-fill,.pg-fill svg,.pg-fill i,.pg-btn,.pg-btn::after{animation:none}.pg-fill{transition:none}}`;
   document.head.append(s);
 }
 
@@ -70,7 +76,7 @@ export function mountPregnancy(root, opts) {
     const form = el("form", "", {className: "pg-form"});
     const input = el("input", "", {type: "date", required: true, max: today(), value: initial});
     const label = el("label", tr("Çiftleşme tarihi")); label.append(input);
-    const ok = el("button", tr("Takibi başlat"), {type: "submit", className: "button primary small"});
+    const ok = el("button", "🐾 " + tr("Takibi başlat"), {type: "submit", className: "pg-btn pg-btn-go"});
     const err = el("p", "", {className: "pg-err", role: "alert"});
     form.append(label, ok, err);
     form.addEventListener("submit", async e => {
@@ -87,7 +93,7 @@ export function mountPregnancy(root, opts) {
       if (!canWrite || patient.sex !== "Dişi") return;
       const box = el("div", "", {className: "pg-start"});
       const p = el("p", "🐾 " + tr(owner ? "Dostunuz gebe mi? Çiftleşme tarihini girin; ultrason, röntgen ve doğum günlerini sizin için takip edelim." : "Gebelik takibi: çiftleşme tarihini girin, ultrason (30. gün), röntgen (45. gün) ve doğum tarihi otomatik hesaplansın."));
-      const open = el("button", tr("Gebelik takibini başlat"), {type: "button", className: "button small"});
+      const open = el("button", "🐾 " + tr("Gebelik takibini başlat"), {type: "button", className: "pg-btn"});
       open.addEventListener("click", () => { box.replaceChildren(startForm()); box.querySelector("input")?.focus(); });
       box.append(p, open);
       root.append(box);
@@ -132,29 +138,21 @@ export function mountPregnancy(root, opts) {
       steps.append(s);
     });
 
-    const notes = el("div", "", {className: "pg-notes"});
-    if (item.ended) notes.append(el("span", "🎉 " + tr("Doğum gerçekleşti") + ": " + fmt(item.ended) + " · " + tr("bu kart 30 gün sonra kaldırılır"), {className: "pg-chip ok"}));
-    else {
-      notes.append(el("span", left > 0 ? "⏳ " + left + " " + tr("gün kaldı") + " · " + fmt(item.birthMin) + "–" + fmt(item.birthMax) : left === 0 ? "🍼 " + tr("Doğum günü bugün!") : "🍼 " + tr("Doğum zamanı geldi; gecikme varsa kliniği arayın"), {className: "pg-chip"}));
-      const nextPar = (item.parasite || []).find(d => d >= now);
-      notes.append(el("span", "🪱 " + tr("Doğuma kadar aylık iç-dış parazit uygulaması") + (nextPar ? " · " + tr("sonraki") + ": " + fmt(nextPar) : ""), {className: "pg-chip warn"}));
-      notes.append(el("span", "🔔 " + tr(owner ? "Ultrason, röntgen ve doğumdan 1 gün önce hatırlatma gelecek" : "Ultrason, röntgen ve doğumdan 1 gün önce hasta sahibine SMS, WhatsApp ve uygulama bildirimi"), {className: "pg-chip"}));
-    }
-    card.append(top, tank, steps, notes);
+    card.append(top, tank, steps);
 
     if (canWrite) {
       const actions = el("div", "", {className: "pg-actions"});
       const err = el("p", "", {className: "pg-err", role: "alert"});
       const run = async body => { err.textContent = ""; try { item = await save(body); draw(); } catch (x) { err.textContent = x.message || tr("Kaydedilemedi."); } };
       if (!item.ended) {
-        const edit = el("button", tr("Tarihi düzenle"), {type: "button", className: "button small"});
+        const edit = el("button", "✎ " + tr("Tarihi düzenle"), {type: "button", className: "pg-btn"});
         edit.addEventListener("click", () => { actions.replaceChildren(startForm(item.mating)); });
-        const done = el("button", tr("Doğum gerçekleşti"), {type: "button", className: "button small"});
+        const done = el("button", "🍼 " + tr("Doğum gerçekleşti"), {type: "button", className: "pg-btn pg-btn-go"});
         done.addEventListener("click", () => run({action: "end"}));
         actions.append(edit, done);
       }
       if (!owner) {
-        const clear = el("button", tr("Takibi kaldır"), {type: "button", className: "button small ghost"});
+        const clear = el("button", "✕ " + tr("Takibi kaldır"), {type: "button", className: "pg-btn pg-btn-soft"});
         clear.addEventListener("click", () => { if (confirm(tr("Gebelik takibi kaldırılsın mı?"))) run({action: "clear"}); });
         actions.append(clear);
       }
