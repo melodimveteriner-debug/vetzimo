@@ -88,7 +88,7 @@
 @keyframes lp-bob{50%{transform:translateY(-10px)}}
 
 /* Kayan şerit */
-.lp-marquee{padding:1.3rem 0;border-block:1px solid var(--lp-line);background:color-mix(in srgb,var(--lp-card) 70%,transparent);overflow:hidden;mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent)}
+.lp-marquee{padding:1.3rem 0;border-block:1px solid var(--lp-line);background:color-mix(in srgb,var(--lp-card) 70%,transparent);overflow:hidden;-webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent)}
 .lp-track{display:flex;gap:.8rem;width:max-content;animation:lp-marq 42s linear infinite}
 .lp-marquee:hover .lp-track{animation-play-state:paused}
 .lp-track span{display:inline-flex;align-items:center;gap:.5rem;padding:.55rem 1rem;border-radius:99px;border:1px solid var(--lp-line);background:var(--lp-card);font-weight:650;font-size:.9rem;white-space:nowrap}
@@ -240,7 +240,12 @@
 @media (prefers-reduced-motion:reduce){
   .lp *,.lp *::before,.lp *::after{animation:none!important;transition:none!important}
   .lp [data-reveal]{opacity:1;transform:none}
-  .lp-track{flex-wrap:wrap;width:auto}
+  /* Hareketi Azalt / Düşük Güç Modu: şerit durur ama tek satır kalır, parmakla yana kaydırılır; döngü için eklenen ikinci kopya gizlenir. */
+  .lp-marquee{overflow-x:auto;overscroll-behavior-inline:contain;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .lp-marquee::-webkit-scrollbar{display:none}
+  .lp-track{flex-wrap:nowrap;width:max-content;padding-inline:1rem}
+  .lp-track span{scroll-snap-align:start}
+  .lp-track span[aria-hidden="true"]{display:none}
 }
 
 body:has(.lp) .site-header{position:sticky;top:0;z-index:30;background:color-mix(in srgb,var(--card) 82%,transparent);backdrop-filter:saturate(1.4) blur(14px)}
