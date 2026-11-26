@@ -146,7 +146,7 @@ document.addEventListener("click",async event=>{
       card.append(mk("h2","fd-title",txt(".intro h1")||link.querySelector("h3")?.textContent.trim()||""));
       const lead=txt(".intro p");if(lead)card.append(mk("p","fd-lead",lead));
       const shot=mk("figure","fd-shot"),img=new Image();
-      img.src="/market-shots/"+encodeURIComponent(slug)+".webp?v=1";img.alt=(txt(".intro h1")||"VetZimo")+" · VetZimo";img.loading="lazy";img.decoding="async";img.width=1200;img.height=750;
+      img.src="/market-shots/"+encodeURIComponent(slug)+".webp?v=2";img.alt=(txt(".intro h1")||"VetZimo")+" · VetZimo";img.loading="lazy";img.decoding="async";img.width=1200;img.height=750;
       img.addEventListener("error",()=>shot.remove(),{once:true});
       shot.append(img,mk("figcaption","","Gerçek VetZimo ekranı · örnek kurgusal verilerle"));card.append(shot);
       const detail=page.querySelector(".feature-detail");

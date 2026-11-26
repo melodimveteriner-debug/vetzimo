@@ -257,3 +257,11 @@ main:has(.owner-dashboard){max-width:1050px}
 @media (min-width:851px){.center-menu-toggle{display:none!important}}
 .center-nav-item.center-nav-section{display:block;font-weight:700;padding:10px 12px;margin:2px 0;border-radius:10px}
 .center-free{border-inline-start:4px solid #22c55e}.center-free p{line-height:1.5}.center-free .button{display:inline-block;text-decoration:none}
+/* Ek paketler yönetimi */
+.addon-group{border:1px solid var(--line,#ddd);border-radius:12px;padding:12px;margin:10px 0}
+.addon-group-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}.addon-group-head h4{margin:0}
+.addon-row{display:grid;grid-template-columns:minmax(160px,2fr) minmax(120px,1fr) minmax(100px,1fr) auto auto auto;gap:8px;align-items:center;padding:8px 0;border-top:1px dashed var(--line,#ddd)}
+.addon-row>input:last-child{grid-column:1/-1}.addon-row.is-off{opacity:.6}.addon-qty{display:flex;gap:6px;align-items:center}.addon-qty input{width:100%;min-width:0}
+.addon-credit{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,170px),1fr));gap:8px;align-items:end}
+@media(max-width:700px){.addon-row{grid-template-columns:1fr 1fr}.addon-row>input:first-child{grid-column:1/-1}}
+.addon-row .button.danger{background:#b42318;border-color:#b42318;color:#fff}

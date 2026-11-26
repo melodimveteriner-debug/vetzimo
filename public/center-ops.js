@@ -13,7 +13,7 @@ export async function mountCenterSuite(ui,session){
   ['genel','Genel Bakış',overview],['analiz','Gelişmiş Panel',analytics],['bayiler','Bayiler ve Yetkiler',list],
   ['muhasebe','Muhasebe',()=>finance('all')],['satislar','Satışlardan Alınan Ödemeler',()=>finance('sales')],
   ['tahsilatlar','Ek Tahsilatlar',()=>finance('collections')],['raporlar','Mali Raporlar',()=>finance('summary')],
-  ['basvurular','Demo İstek-Değerlendirme',crm],['paketler','Yazılım Paketleri',plans],
+  ['basvurular','Demo İstek-Değerlendirme',crm],['paketler','Yazılım Paketleri',plans],['ek-paketler','Ek Paketler',addonPackages],
   ['abonelikler','Bayi Abonelikleri',subscriptions],['destek','Destek Talepleri',support],
   ['uygulamalar','Uygulama Yönetimi',nativeApps],['tema','Ayarlar ve Tema',theme],['bildirimler','Bildirim Merkezi',notifications],['guvenlik','Güvenlik',security],['kayitlar','İşlem Günlüğü',audit],
   ['odemeler','Ödeme Onayları',()=>manage('payments')],['odeme-kanallari','Ödeme Kanalları',paymentChannels],['magaza-banka','Mağaza Havale Ayarları',()=>manage('shop_bank')],['site','Satış Sitesi Stüdyosu',marketEditor],['yasal','Yasal Metinler',legalDocs],
@@ -25,7 +25,7 @@ export async function mountCenterSuite(ui,session){
  ];
  // Departman hesapları yalnız kendi bölümlerini görür (sunucu da aynı kuralı uygular).
  const department=session.department||'owner';
- const DEPARTMENT_TABS={support:['destek'],dealer:['odeme-kanallari','abonelikler']};
+ const DEPARTMENT_TABS={support:['destek'],dealer:['odeme-kanallari','abonelikler','ek-paketler']};
  if(DEPARTMENT_TABS[department]){const keep=tabs.filter(([k])=>DEPARTMENT_TABS[department].includes(k));tabs.splice(0,tabs.length,...keep);}
  const localizedTabs={genel:'overview',muhasebe:'accounting',raporlar:'reports',paketler:'pricing',basvurular:'demo',tema:'settings'};
  for (const item of tabs) item[1]=localizedTabs[item[0]] ? uiText(localizedTabs[item[0]],item[1]) : uiLabel(item[1]);
@@ -57,7 +57,7 @@ export async function mountCenterSuite(ui,session){
  nav.append(el('p','VetZimo Yönetim',{className:'center-kicker'}),...(department==='support'||department==='dealer'?[el('small',department==='support'?'Destek departmanı':'Bayi departmanı')]:[]));
  const groups=[
   // Sıra: önce günlük iş (başvuru, bayi, ödeme onayı), sonra raporlar ve ayarlar.
-  ['Çalışma alanı',['genel','analiz','basvurular','bayiler','abonelikler','paketler']],
+  ['Çalışma alanı',['genel','analiz','basvurular','bayiler','abonelikler','paketler','ek-paketler']],
   ['Finans',['odemeler','tahsilatlar','satislar','muhasebe','raporlar']],
   ['Satış sitesi ve yayınlar',['site','evde-hizmet','duyurular','reklam','yasal','degisiklikler']],
   ['Uygulamalar ve destek',['destek','bildirimler','uygulamalar']],
@@ -194,6 +194,9 @@ export async function mountCenterSuite(ui,session){
   const m=await import('./center-analytics.js?v=3');
   await m.mountAnalytics(content,{call,el,status,openPartner:id=>detail(id)});
  }
+ async function addonPackages(){
+  const m=await import('./center-addons.js?v=1');await m.mountAddonAdmin(content,{call,el,status});
+ }
  async function paymentChannels(){
   // Abonelik satışı: kart (PayTR iFrame) ve havale. Kart ödemesi PayTR bildirimiyle otomatik onaylanır.
   const [cfg,{rows}]=await Promise.all([call('paytr'),call('saas-orders')]);
@@ -209,17 +212,17 @@ export async function mountCenterSuite(ui,session){
    await call('paytr',{enabled:values.enabled==='on',test:values.test==='on',merchantId:values.merchantId,key:values.key,salt:values.salt});
    status.textContent='Ödeme ayarları kaydedildi.';await paymentChannels();
   });
-  const labels={pending:'Ödeme bekleniyor',review:'Havale kontrolü',paid:'Ödendi · abonelik açıldı',failed:'Başarısız',rejected:'Reddedildi'};
-  const list=table(['Tarih','Bayi','Paket','Tutar','Yöntem','Durum','Dönem','İşlem'],rows.map(r=>[new Date(r.created_at*1000).toLocaleString('tr-TR'),r.partner_name||r.partner_id,r.plan_name+' · '+(r.period==='yearly'?'Yıllık':'Aylık'),currency(r.amount),
+  const labels={pending:'Ödeme bekleniyor',review:'Havale kontrolü',paid:'Ödendi',failed:'Başarısız',rejected:'Reddedildi'};
+  const list=table(['Tarih','Bayi','Paket','Tutar','Yöntem','Durum','Dönem','İşlem'],rows.map(r=>[new Date(r.created_at*1000).toLocaleString('tr-TR'),r.partner_name||r.partner_id,r.plan_name+(r.period==='addon'?'':' · '+(r.period==='yearly'?'Yıllık':'Aylık')),currency(r.amount),
    r.method==='card'?'Kredi kartı':'EFT / Havale',labels[r.status]||r.status,r.starts_on?r.starts_on+' → '+r.ends_on:'—',
    r.method==='bank'&&['pending','review'].includes(r.status)?(()=>{const box=el('div','',{className:'center-package-actions'});
     if(r.reference)box.append(el('small','Ref: '+r.reference));
     box.append(button('Tutarı doğruladım · onayla',async()=>{await call('saas-orders',{id:r.id,action:'approved',verified:true});await paymentChannels()}),
      button('Reddet',async()=>{await call('saas-orders',{id:r.id,action:'rejected'});await paymentChannels()}));return box})():'']));
-  if(department==='dealer'){content.replaceChildren(el('h3','Havale ve kart siparişleri'),el('p','Havale ile ödenen siparişlerde tutarı bankada doğrulayıp onaylayın; onayla birlikte bayinin paket dönemi açılır. Kartla ödemeler otomatik onaylanır.',{className:'muted'}),list);return;}
+  if(department==='dealer'){content.replaceChildren(el('h3','Havale ve kart siparişleri'),el('p','Havale ile ödenen siparişlerde tutarı bankada doğrulayıp onaylayın; onayla birlikte bayinin paket dönemi açılır veya ek paket kredisi tanımlanır. Kartla ödemeler otomatik onaylanır.',{className:'muted'}),list);return;}
   content.replaceChildren(el('h3','Kartla ödeme · PayTR'),guide,callback,form,
    el('p','Havale ile satış için "Mağaza Havale Ayarları" sekmesinden IBAN girin ve açın.',{className:'muted'}),
-   el('h3','Abonelik siparişleri'),list);
+   el('h3','Abonelik ve ek paket siparişleri'),list);
  }
  async function centerContact(){
   const m=await import('./center-team.js?v=2');await m.mountCenterContact(content,{call,el});

@@ -61,12 +61,12 @@ final class ClinicApi
             $limit=$actor['packageLimits'][$kind] ?? null;
             if ($limit===null) continue;
             $after=count((array)($submitted->$kind ?? [])); $before=count((array)($original->$kind ?? []));
-            if ($after>$before && $after>$limit) throw new RuntimeException('Paketinizin '.$label.' kaydı sınırına ulaşıldı ('.$limit.'). Daha fazla kayıt için paketinizi yükseltin.',422);
+            if ($after>$before && $after>$limit) throw new RuntimeException(ucfirst($label).' kaydı hakkınız bitmiştir ('.$limit.'). Devam etmek için Abonelik mağazası › Ek paketler bölümünden ek kayıt paketi alın veya paketinizi yükseltin.',422);
         }
         if($actor['role']==='dealer') {
             $rows=$submitted->branches ?? null;
             $branchLimit=max(1,$actor['packageLimits']['branches'] ?? 2);
-            if(!is_array($rows)||count($rows)<1||(count($rows)>$branchLimit&&count($rows)>count($original->branches ?? []))) throw new RuntimeException('Paketiniz en fazla '.$branchLimit.' şube tanımlamanıza izin veriyor.',422);
+            if(!is_array($rows)||count($rows)<1||(count($rows)>$branchLimit&&count($rows)>count($original->branches ?? []))) throw new RuntimeException('Şube hakkınız bitmiştir: paketiniz en fazla '.$branchLimit.' şubeye izin veriyor. Abonelik mağazası › Ek paketler bölümünden ek şube alabilirsiniz.',422);
             $ids=[];
             foreach($rows as $row) {
                 if(!is_object($row)||!is_string($row->id ?? null)||!preg_match(self::ID,$row->id)||isset($ids[$row->id])||!is_string($row->name ?? null)||trim($row->name)==='') throw new RuntimeException('Şube bilgisi geçersiz.',422);

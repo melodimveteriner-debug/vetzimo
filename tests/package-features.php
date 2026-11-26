@@ -2,7 +2,7 @@
 declare(strict_types=1);
 // Paket özellikleri ve aylık SMS/WhatsApp sınırı: paket kapatınca herkes için kapalı, personel izni ayrıca kapatabilir,
 // izin verilmemiş yeni özellik varsayılan açık, hasta sahibi portalı yeni bölümler, telefon kuyruğu aylık sınırı.
-use VetNet\Cpanel\{Database,Installer,DealerLogin,IdentityApi,ClinicAccess,Commerce,PhoneGateway};
+use VetNet\Cpanel\{Database,Installer,DealerLogin,IdentityApi,ClinicAccess,Commerce,PhoneGateway,AddonPackages,SaasPayment};
 require __DIR__.'/bootstrap.php';
 function ok(bool $value,string $message): void { if(!$value) throw new RuntimeException($message); }
 $db=Database::connect(getenv('VETNET_TEST_DSN'),'root','');
@@ -47,14 +47,42 @@ $gw->enqueue($partner,'sms','05551112233','Mesaj 1','manual','limit-1',0,$now);
 $gw->enqueue($partner,'sms','05551112233','Mesaj 2','manual','limit-2',0,$now);
 $gw->enqueue($partner,'sms','05551112233','Mesaj 2','manual','limit-2',0,$now); // aynı kayıt: sayılmaz, hata vermez
 try { $gw->enqueue($partner,'sms','05551112233','Mesaj 3','manual','limit-3',0,$now); throw new LogicException('Aylık SMS sınırı aşıldı'); }
-catch (RuntimeException $e) { ok($e->getCode()===429 && str_contains($e->getMessage(),'aylık SMS'),'Sınır hatası yanlış: '.$e->getMessage()); }
+catch (RuntimeException $e) { ok($e->getCode()===429 && str_contains($e->getMessage(),'SMS hakkınız bitmiştir'),'Sınır hatası yanlış: '.$e->getMessage()); }
 $gw->enqueue($partner,'whatsapp','05551112233','WA','manual','limit-wa',0,$now);
 $gw->enqueue($partner,'sms','05551112233','Test','test','limit-test',0,$now); // deneme mesajı engellenmez ama sayılır
 $u=$gw->monthlyUsage($partner,$now);
 ok($u['sms']['used']===3 && $u['sms']['limit']===2 && $u['whatsapp']['used']===1 && $u['whatsapp']['limit']===null,'Aylık kullanım yanlış: '.json_encode($u));
-// Gönderim geçmişi telefon hattından gidenleri gösterir (alıcı maskeli, içerik yok)
+// Gönderim geçmişi telefon hattından gidenleri gösterir (bayi yöneticisine: telefon, mesaj metni, tarih-saat)
 $h=$gw->history($partner,'sms');
-ok(count($h)===3 && $h[0]['masked_phone']==='+90 ••• ••• •• 33' && !isset($h[0]['body']) && in_array('test',array_column($h,'kind'),true),'Telefon gönderim geçmişi yanlış: '.json_encode($h));
+ok(count($h)===3 && $h[0]['phone']==='+905551112233' && $h[0]['body']==='Test' && preg_match('/\A\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\z/',$h[0]['created_at']) && in_array('test',array_column($h,'kind'),true) && count($gw->history($partner,''))===4,'Telefon gönderim geçmişi yanlış: '.json_encode($h));
 $today=$gw->usedSince($partner,$now-60);
 ok($today['sms']===3 && $today['whatsapp']===1,'Günlük kullanım yanlış');
+// Ek paket: aylık hak bitti → kredi yokken durur; kredi tanımlanınca devam eder; başarısız mesajın kredisi iade edilir
+$addon=new AddonPackages($db);
+ok($addon->balance($partner,'sms')===0,'Başlangıç kredisi sıfır değil');
+$addon->add($partner,'sms',2,'Test kredisi','test',$now);
+$gw->enqueue($partner,'sms','05551112233','Ekten 1','manual','limit-4',0,$now);
+$gw->enqueue($partner,'sms','05551112233','Ekten 1','manual','limit-4',0,$now); // tekrar: ikinci kez düşülmez
+ok($addon->balance($partner,'sms')===1,'Ek kredi düşülmedi / iki kez düşüldü: '.$addon->balance($partner,'sms'));
+$failed=$gw->enqueue($partner,'sms','05551112233','Ekten 2','manual','limit-5',0,$now);
+ok($addon->balance($partner,'sms')===0,'İkinci ek kredi düşülmedi');
+try { $gw->enqueue($partner,'sms','05551112233','Ekten 3','manual','limit-6',0,$now); throw new LogicException('Kredi bitince gönderim durmadı'); }
+catch (RuntimeException $e) { ok($e->getCode()===429,'Kredi bitti hatası yanlış'); }
+$db->prepare("UPDATE phone_outbox SET status='claimed',device_id='d',claimed_at=? WHERE id=?")->execute([$now,$failed]);
+(fn() => $this->finish($this->db->query('SELECT * FROM phone_outbox WHERE id='.(int)$failed)->fetch(PDO::FETCH_ASSOC),'failed','hata',$now))->call($gw);
+ok($addon->balance($partner,'sms')===1,'Başarısız mesajın kredisi iade edilmedi');
+(fn() => $this->finish($this->db->query('SELECT * FROM phone_outbox WHERE id='.(int)$failed)->fetch(PDO::FETCH_ASSOC),'failed','hata',$now))->call($gw);
+ok($addon->balance($partner,'sms')===1,'İade iki kez yapıldı');
+// Havale ile ek paket siparişi → yönetici onayı → kredi tanımlanır; kullanıcı ek paketi sınıra eklenir
+$db->prepare("INSERT INTO center_management(id,kind,payload) VALUES ('00000000000000000000000000000099','shop_bank',?)")->execute([json_encode(['enabled'=>'yes','beneficiary'=>'VetZimo','iban'=>'TR000000000000000000000000'])]);
+$pay=new SaasPayment($db,str_repeat('k',32));
+$o=$pay->addonOrder($actor+['name'=>'Bayi'],(object)['requestId'=>'11111111-2222-3333-4444-555555555555','packageId'=>'sms-1000','method'=>'bank'],'127.0.0.1','https://x',$now);
+ok($o['status']==='pending' && !str_contains($o['instruction'],'[ek:'),'Ek paket siparişi oluşmadı');
+$pay->review((object)['id'=>$o['id'],'action'=>'approved','verified'=>true],$now);
+ok($addon->balance($partner,'sms')===1001,'Onaylanan ek paket krediye dönmedi');
+try { $pay->review((object)['id'=>$o['id'],'action'=>'approved','verified'=>true],$now); throw new LogicException('Ödenen sipariş ikinci kez onaylandı'); } catch (RuntimeException) {}
+ok($addon->balance($partner,'sms')===1001,'Kredi iki kez tanımlandı');
+$addon->add($partner,'users',1,'Test','test-u',$now);
+ok($addon->raise($partner,['users'=>2,'branches'=>null])===['users'=>3,'branches'=>null],'Ek kullanıcı sınıra eklenmedi');
+ok(count($addon->ledger($partner))>=3 && $addon->ledger($partner)[0]['created_at']!=='','Kredi hareketleri listelenmedi');
 echo "PASS paket özellikleri: paket/rol/varsayılan izinleri, hasta sahibi bölümleri, aylık SMS/WhatsApp sınırı\n";

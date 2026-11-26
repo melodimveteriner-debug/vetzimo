@@ -170,7 +170,7 @@ final class IdentityApi
                 $q->execute([$actor['partner_id']]); $ids=$q->fetchAll(PDO::FETCH_COLUMN);
                 $cap=(new Commerce($this->db))->packageActor(['partner_id'=>$actor['partner_id']])['packageLimits']['users']??null;
                 if($cap!==null && count($ids)>=$cap && !in_array($account['id'],$ids,true)) {
-                    throw new RuntimeException('Paketinizdeki kullanıcı sınırı ('.$cap.') doldu. Kullanılmayan üyelikleri kapatın veya paketinizi yükseltin.',422);
+                    throw new RuntimeException('Kullanıcı hakkınız bitmiştir ('.$cap.'). Kullanılmayan üyelikleri kapatın veya Abonelik mağazası › Ek paketler bölümünden ek kullanıcı alın.',422);
                 }
             }
             $q=$this->db->prepare('SELECT id,status FROM identity_membership WHERE account_id=? AND partner_id=? AND role=? AND branch_id=? AND customer_id=?');

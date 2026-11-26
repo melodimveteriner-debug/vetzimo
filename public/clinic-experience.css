@@ -969,3 +969,7 @@ td,th,td :is(button,a,span,strong,small,b,em),th :is(button,a,span,strong,small)
   .module-nav a{white-space:nowrap;flex:0 0 auto;scroll-snap-align:start}
 }
 td [class*=badge],td [class*=status],td [class*=pill],td [class*=chip]{white-space:nowrap}
+/* Ek paketler (bayi mağazası) */
+.store-addons{margin-top:22px}.store-addon-head p{max-width:70ch}
+.store-addon-balances{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 4px}
+.store-addon-group{margin-top:16px}.store-addon-group>h3{margin:0 0 4px;font-size:1.05rem}

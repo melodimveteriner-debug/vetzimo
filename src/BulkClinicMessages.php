@@ -22,8 +22,9 @@ final class BulkClinicMessages
         $params=[$actor['partner_id'],$channel];
         $scope='';
         if ($actor['role']!=='dealer') { $scope=' AND branch_id=?'; $params[]=$actor['branch_id']; }
-        $q=$this->db->prepare("SELECT id,masked_phone,status,units,created_at,'bulk' AS kind,'' AS `by` FROM clinic_bulk_message
-            WHERE partner_id=? AND channel=?".$scope.' ORDER BY created_at DESC,id DESC LIMIT 200');
+        // Telefon hattından giden toplu mesajlar kuyruk kaydıyla (alıcı ve metinle) listelenir; burada yalnız sağlayıcıyla gidenler.
+        $q=$this->db->prepare("SELECT id,channel,client_id,masked_phone,status,units,created_at,'bulk' AS kind,'' AS `by` FROM clinic_bulk_message
+            WHERE partner_id=? AND channel=? AND units>0".$scope.' ORDER BY created_at DESC,id DESC LIMIT 200');
         $q->execute($params);
         $items=$q->fetchAll(PDO::FETCH_ASSOC);
         // Telefon hattından giden tekil mesajlar (hatırlatma, davet, gelen kutusu yanıtı, deneme) şubeye bağlı değildir; bayi yöneticisi görür.
@@ -137,8 +138,8 @@ final class BulkClinicMessages
                     $existing->execute([$id]);
                     if ($status=$existing->fetchColumn()) {
                         $result['status']=$status;
-                    } elseif ($units>$balance) {
-                        $result['reason']='Paketinizin aylık gönderim sınırı doldu.';
+                    } elseif (!$this->afford($partner,$channel,$viaPhone?1:$units,$balance,$id)) {
+                        $result['reason']=($channel==='sms'?'SMS':'WhatsApp').' hakkınız bitmiştir. Ek paket alarak gönderime devam edebilirsiniz.';
                     } else {
                         $job=['channel'=>$channel,'phone'=>$phone,'message'=>$filled,'parameters'=>$variables,
                             'iys'=>$iys,'waTemplate'=>$provider['bulkTemplate']??'', 'approvedBodyHash'=>hash('sha256',$body),'via'=>$viaPhone?'phone':'provider'];
@@ -146,7 +147,7 @@ final class BulkClinicMessages
                         $this->db->prepare('INSERT INTO clinic_bulk_message(id,partner_id,branch_id,data_branch,membership_id,channel,client_id,masked_phone,payload,units)
                             VALUES (?,?,?,?,?,?,?,?,?,?)')->execute([$id,$partner,$branch,$dataBranch,$actor['membership_id'],$channel,$client->id,
                                 '+90 ••• ••• •• '.substr($phone,-2),json_encode($job,JSON_THROW_ON_ERROR),$units]);
-                        $balance-=$units;
+                        $balance=max(0,$balance-($viaPhone?1:$units));
                         $result['status']='queued';
                     }
                 }
@@ -196,16 +197,33 @@ final class BulkClinicMessages
             $limits[]=['channel'=>$channel,'unlimited'=>$balance>=1000000000,'balance'=>$balance>=1000000000?null:$balance,'day_used'=>$dayUsed,'day_cap'=>$balance>=1000000000?null:$dayUsed+$balance,
                 'month_used'=>$monthUsed,'month_cap'=>$balance>=1000000000?null:$monthUsed+$balance,'enabled'=>$session[$channel]?1:0];
         }
-        $rows=[];
-        $counts=$this->db->prepare('SELECT channel,status,COUNT(*) AS count FROM clinic_bulk_message WHERE partner_id=? GROUP BY channel,status ORDER BY channel,status');
+        $addon=new AddonPackages($this->db);
+        $credits=$addon->balances($partner);
+        foreach ($limits as &$limit) $limit['credit']=$credits[$limit['channel']]??0;
+        unset($limit);
+        $rows=$addon->ledger($partner,50);
+        // Son gönderilen 50 mesaj: alıcı (ad uygulamada kayıtlı müşteriden eşlenir), telefon, metin, tarih-saat, durum.
+        $recent=(new PhoneGateway($this->db))->history($partner,'',50);
+        $counts=$this->db->prepare('SELECT channel,status,COUNT(*) AS count FROM clinic_bulk_message WHERE partner_id=? AND units>0 GROUP BY channel,status ORDER BY channel,status');
         $counts->execute([$partner]);
         $all=array_map(static fn($row)=>[...$row,'count'=>(int)$row['count']],$counts->fetchAll(PDO::FETCH_ASSOC));
         // Telefon hattından giden tekil mesajlar da özete girer.
         $phone=$this->db->prepare("SELECT channel,CASE status WHEN 'claimed' THEN 'sending' ELSE status END AS status,COUNT(*) AS count FROM phone_outbox
-            WHERE partner_id=? AND channel IN ('sms','whatsapp') AND source NOT IN ('center','bulk') GROUP BY 1,2 ORDER BY 1,2");
+            WHERE partner_id=? AND channel IN ('sms','whatsapp') AND source<>'center' GROUP BY 1,2 ORDER BY 1,2");
         $phone->execute([$partner]);
         foreach ($phone->fetchAll(PDO::FETCH_ASSOC) as $row) $all[]=[...$row,'count'=>(int)$row['count']];
-        return ['account'=>$account,'limits'=>$limits,'ledger'=>$rows,'counts'=>$all];
+        return ['account'=>$account,'limits'=>$limits,'ledger'=>$rows,'counts'=>$all,'recent'=>$recent,'credits'=>$credits];
+    }
+
+    /** Mesajın bedeli aylık haktan karşılanır; yetmeyen kısım ek krediden düşülür. Kredi de yetmezse hiçbiri düşülmez. */
+    private function afford(string $partner,string $channel,int $cost,int $balance,string $id): bool
+    {
+        if ($cost<=$balance) return true;
+        $addon=new AddonPackages($this->db);
+        $need=$cost-max(0,$balance);
+        if ($addon->balance($partner,$channel)<$need) return false;
+        for ($i=0;$i<$need;$i++) $addon->consume($partner,$channel,$need===1?'bulk:'.$id:'bulk:'.$id.':'.$i,time());
+        return true;
     }
 
     /** Kalan aylık gönderim hakkı: paketteki aylık sınır − bu ay telefon hattı ve sağlayıcıyla gönderilenler. Sınır yoksa sınırsız. */

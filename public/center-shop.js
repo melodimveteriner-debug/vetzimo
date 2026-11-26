@@ -5,7 +5,7 @@ import {termDate,termStatus} from "./saas-subscription.js";
 
 const money=value=>new Intl.NumberFormat("tr-TR",{style:"currency",currency:"TRY"}).format(value/100);
 const quantity=value=>new Intl.NumberFormat("tr-TR").format(value);
-const labels={pending:"Ödeme bekleniyor",review:"Havale kontrolünde",paid:"Ödendi · abonelik açıldı",failed:"Ödeme tamamlanmadı",rejected:"Reddedildi"};
+const labels={pending:"Ödeme bekleniyor",review:"Havale kontrolünde",paid:"Ödendi",failed:"Ödeme tamamlanmadı",rejected:"Reddedildi"};
 const categories={abonelik:{title:"Abonelik paketleri",short:"Abonelik"}};
 const periodLabel={monthly:"Aylık",yearly:"Yıllık"};
 const artwork=type=>{
@@ -16,7 +16,7 @@ const artwork=type=>{
 };
 
 // Abonelik mağazası: demo/denemeden pakete geçiş ve yenileme. Kredi kartı (PayTR, 3D Secure) ya da EFT/havale.
-// SMS ve WhatsApp kredisi satılmaz: mesajlar kliniğin kendi telefon hattından gider, aylık sınırı paket belirler.
+// SMS ve WhatsApp mesajları kliniğin kendi telefon hattından gider; aylık hakkı paket belirler, bitince ek paket kredisi kullanılır.
 export async function mountCreditShop(ui,{section=""}={}) {
   const {view,heading,el,field,selectField,makeForm,link,status}=ui;
   const data=await opsFetch("/api/saas/store");
@@ -97,6 +97,68 @@ export async function mountCreditShop(ui,{section=""}={}) {
   }
   drawToggle();drawCatalog();
   view.append(catalog,detail);
+
+  // Ek paketler: aylık hak bitince kullanılan SMS / WhatsApp kredisi ve diğer sınırlı haklar için artış paketleri.
+  const addons=el("section","",{className:"store-catalog store-addons",id:"ek-paketler"});
+  const addonDetail=el("section","",{className:"panel suite-panel store-checkout",hidden:true,tabIndex:-1});
+  const kinds=data.addonKinds||{};
+  const order=["sms","whatsapp","users","branches","patients","clients","storage","other"];
+  function drawAddons(){
+    const head=el("div","",{className:"store-addon-head"});
+    head.append(el("h2","Ek paketler"),el("p","Aylık SMS veya WhatsApp hakkınız bittiğinde gönderim durur; ek paket aldığınızda kaldığı yerden devam eder. Ek krediler süresizdir ve önce aylık hakkınız kullanılır.",{className:"suite-muted"}));
+    const bal=el("div","",{className:"store-addon-balances"});
+    for (const k of ["sms","whatsapp"]) bal.append(el("span",(kinds[k]||k)+" ek kredisi: "+quantity(data.addonBalances?.[k]||0),{className:"suite-pill"}));
+    for (const k of ["users","branches","patients","clients","storage"]) if (data.addonBalances?.[k]>0) bal.append(el("span",(kinds[k]||k)+" +"+quantity(data.addonBalances[k]),{className:"suite-pill"}));
+    head.append(bal);
+    const groups=el("div","",{className:"store-addon-groups"});
+    for (const kind of order) {
+      const rows=(data.addons||[]).filter(r=>r.kind===kind);
+      if (!rows.length) continue;
+      const group=el("div","",{className:"store-addon-group"});
+      group.append(el("h3",kinds[kind]||kind));
+      const grid=el("div","",{className:"store-packages"});
+      for (const row of rows) {
+        const card=el("article","",{className:"store-package store-"+(kind==="whatsapp"?"whatsapp":kind==="sms"?"sms":"abonelik")});
+        const mark=el("div","",{className:"store-package-mark"});mark.innerHTML=artwork(kind==="whatsapp"?"whatsapp":kind==="sms"?"sms":"abonelik");
+        card.append(mark,el("span","Ek paket · "+(kinds[kind]||kind),{className:"suite-pill"}),el("h3",row.name));
+        if (row.description) card.append(el("p",row.description,{className:"suite-muted"}));
+        const price=el("div","",{className:"store-price"});
+        price.append(el("strong",money(row.price)),el("small",row.vat==="excluded"?"+ KDV":"KDV dahil"));
+        card.append(price,click("Satın Alın",()=>{
+          if (methodsFor().length) addonCheckout(row);
+          else {status.textContent="Çevrim içi ödeme henüz açılmadı. Kart (PayTR) ve havale bilgileri VetZimo yönetimi tarafından tanımlandığında buradan ödeyebilirsiniz.";}
+        },true));
+        if (methodsFor().length) card.append(el("small",methodsFor().map(([,t])=>t).join(" · "),{className:"store-methods"}));
+        grid.append(card);
+      }
+      group.append(grid);groups.append(group);
+    }
+    if (!groups.childElementCount) groups.append(el("p","Şu anda satışta ek paket bulunmuyor.",{className:"suite-muted"}));
+    addons.replaceChildren(head,groups);
+  }
+  function addonCheckout(row){
+    const method=selectField("method","Ödeme yöntemi",methodsFor());
+    const top=el("header","",{className:"suite-toolbar"});
+    top.append(el("h2",row.name),click("Ek paketlere dön",()=>{addonDetail.hidden=true;addons.hidden=false;}));
+    const total=el("div","",{className:"store-checkout-total"});
+    total.append(el("span","Ödenecek toplam"),el("strong",money(row.amount)),el("small",row.vat==="excluded"?money(row.price)+" + %20 KDV":"KDV dahil"));
+    const requestId=crypto.randomUUID();
+    const form=makeForm([method,total],"Ödemeye geç",async values=>{
+      const r=await opsFetch("/api/saas/store/addon",{requestId,packageId:row.id,method:values.method},data.scopeId);
+      if (r.method==="card"&&r.iframe) {
+        const frame=el("iframe","",{src:r.iframe,className:"store-pay-frame",title:"PayTR güvenli ödeme",allow:"payment"});
+        frame.setAttribute("scrolling","yes");
+        addonDetail.replaceChildren(top,el("p","Kart bilgileriniz VetZimo'ya gelmez; ödeme PayTR'nin güvenli sayfasında 3D Secure ile yapılır. Ödeme onaylanınca kredi otomatik tanımlanır.",{className:"suite-muted"}),frame);
+        return;
+      }
+      await mountCreditShop(ui,{section:""});status.textContent="Ek paket siparişiniz oluşturuldu. Havale talimatı aşağıdaki siparişlerinizde; ödeme onaylanınca kredi tanımlanır.";
+    });
+    addonDetail.replaceChildren(top,form,el("p",row.kind==="sms"||row.kind==="whatsapp"?"Kredi, aylık hakkınız bittiğinde kullanılır ve süresizdir.":"Satın aldığınız artış paket sınırınıza eklenir.",{className:"suite-muted"}));
+    addonDetail.hidden=false;addons.hidden=true;addonDetail.scrollIntoView({block:"start"});addonDetail.focus({preventScroll:true});
+  }
+  drawAddons();
+  view.append(addons,addonDetail);
+  if (section==="ek-paket") setTimeout(()=>addons.scrollIntoView({block:"start"}),50);
   // Satış sitesindeki "Satın Alın" düğmesinden gelindiyse (#kredi-magazasi/paket-<kod>-<dönem>) seçilen paketin ödeme adımı doğrudan açılır.
   const wanted=/^paket-([a-z0-9][a-z0-9-]*?)-(monthly|yearly)$/.exec(section||"");
   if (wanted) {
@@ -117,7 +179,7 @@ export async function mountCreditShop(ui,{section=""}={}) {
     for (const row of visible) {
       const item=el("article","",{className:"shop-item store-order",tabIndex:-1});item.dataset.orderId=row.id;
       const top=el("header","",{className:"suite-toolbar"});
-      top.append(el("strong",row.plan_name+" · "+periodLabel[row.period]+" · "+money(row.amount)),el("span",labels[row.status]||row.status,{className:"suite-pill"}));
+      top.append(el("strong",row.plan_name+(row.period==="addon"?"":" · "+periodLabel[row.period])+" · "+money(row.amount)),el("span",labels[row.status]||row.status,{className:"suite-pill"}));
       item.append(top,el("small",(row.method==="bank"?"EFT / Havale":"Kredi kartı")+" · "+new Date(row.created_at*1000).toLocaleDateString("tr-TR")+" · Sipariş "+row.id.slice(0,10).toUpperCase()));
       if (row.status==="paid"&&row.starts_on) item.append(el("p",termDate(row.starts_on)+" — "+termDate(row.ends_on)));
       if (row.method==="bank"&&row.status==="pending") {
@@ -125,7 +187,7 @@ export async function mountCreditShop(ui,{section=""}={}) {
         pay.append(el("p",row.instruction));
         pay.append(makeForm([field("reference","Banka işlem referansı / dekont no",{maxLength:100})],"Ödeme bildirimi gönder",async values=>{
           await opsFetch("/api/saas/store/reference",{id:row.id,reference:values.reference},data.scopeId);
-          await mountCreditShop(ui,{section:""});status.textContent="Ödeme bildiriminiz alındı. Yönetici kontrolünden sonra aboneliğiniz açılır.";
+          await mountCreditShop(ui,{section:""});status.textContent=row.period==="addon"?"Ödeme bildiriminiz alındı. Yönetici kontrolünden sonra ek paket krediniz tanımlanır.":"Ödeme bildiriminiz alındı. Yönetici kontrolünden sonra aboneliğiniz açılır.";
         }));
         item.append(pay);
       }

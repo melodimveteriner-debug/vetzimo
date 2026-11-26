@@ -153,13 +153,13 @@ final class PhoneGateway
 
     /**
      * Verilen andan bu yana gönderilen SMS/WhatsApp sayısı: telefon hattından giden tüm mesajlar (hatırlatma, davet,
-     * gelen kutusu yanıtı, deneme) + toplu gönderimler. Toplu gönderimler kendi tablosundan bir kez sayılır;
+     * gelen kutusu yanıtı, deneme, toplu) + sağlayıcıyla giden toplu gönderimlerin kredisi (telefondan gidenin kredisi 0 yazılır);
      * VetZimo merkez hattının mesajları kliniğin hakkından düşmez.
      */
     public function usedSince(string $partner, int $since): array
     {
         $q = $this->db->prepare("SELECT channel,COUNT(*) FROM phone_outbox WHERE partner_id=? AND created_at>=? AND channel IN ('sms','whatsapp')
-            AND status NOT IN ('failed','cancelled','expired') AND source NOT IN ('center','bulk') GROUP BY channel");
+            AND status NOT IN ('failed','cancelled','expired') AND source<>'center' GROUP BY channel");
         $q->execute([$partner, $since]);
         $used = $q->fetchAll(PDO::FETCH_KEY_PAIR);
         $b = $this->db->prepare("SELECT channel,COALESCE(SUM(units),0) FROM clinic_bulk_message WHERE partner_id=? AND status<>'rejected' AND created_at>=? GROUP BY channel");
@@ -177,23 +177,32 @@ final class PhoneGateway
         if ($q->fetchColumn()) return;
         $usage = $this->monthlyUsage($partner, $now)[$channel];
         if ($usage['limit'] !== null && $usage['used'] >= $usage['limit']) {
-            throw new RuntimeException('Paketinizin aylık '.($channel === 'sms' ? 'SMS' : 'WhatsApp').' gönderim sınırına ulaşıldı ('.$usage['limit'].'). Sınırı yönetici panelinden paket ayarlarında artırabilirsiniz.', 429);
+            // Aylık hak bitti: satın alınmış ek krediden bir adet düşülür; o da yoksa gönderim durur.
+            if ((new AddonPackages($this->db))->consume($partner, $channel, $source.':'.mb_substr($ref, 0, 150), $now)) return;
+            $name = $channel === 'sms' ? 'SMS' : 'WhatsApp';
+            throw new RuntimeException($name.' hakkınız bitmiştir. Bu ayki '.$usage['limit'].' '.$name.' hakkınızın tamamı kullanıldı ve ek krediniz yok. Gönderime devam etmek için Muhasebe › Abonelik mağazası › Ek paketler bölümünden '.$name.' paketi alın.', 429);
         }
     }
 
-    /** Gönderim geçmişi: telefon hattından giden mesajlar (alıcı maskeli, içerik gösterilmez). */
+    /**
+     * Gönderim geçmişi: telefon hattından giden mesajlar (bayi yöneticisi görür): alıcı telefonu, mesaj metni, gönderen, tarih-saat.
+     * $channel boşsa SMS ve WhatsApp birlikte.
+     */
     public function history(string $partner, string $channel, int $limit = 200): array
     {
-        $q = $this->db->prepare("SELECT id,phone,status,source,source_ref,error,created_by,created_at FROM phone_outbox
-            WHERE partner_id=? AND channel=? AND source NOT IN ('center','bulk') ORDER BY created_at DESC,id DESC LIMIT ".max(1, min(500, $limit)));
-        $q->execute([$partner, $channel]);
+        $q = $this->db->prepare("SELECT id,channel,phone,body,status,source,source_ref,error,created_by,created_at,done_at FROM phone_outbox
+            WHERE partner_id=? AND ".($channel === '' ? "channel IN ('sms','whatsapp')" : 'channel=?')." AND source<>'center' ORDER BY created_at DESC,id DESC LIMIT ".max(1, min(500, $limit)));
+        $q->execute($channel === '' ? [$partner] : [$partner, $channel]);
         $map = ['queued' => 'queued', 'claimed' => 'sending', 'sent' => 'sent', 'unknown' => 'unknown', 'failed' => 'failed', 'expired' => 'expired', 'cancelled' => 'cancelled'];
         $out = [];
         foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $r) {
             $kind = $r['source'] === 'manual' ? explode(':', $r['source_ref'])[0] : $r['source'];
-            $out[] = ['id' => 'gw'.$r['id'], 'masked_phone' => '+90 ••• ••• •• '.substr(preg_replace('/\D+/', '', $r['phone']), -2),
+            $digits = preg_replace('/\D+/', '', $r['phone']);
+            $out[] = ['id' => 'gw'.$r['id'], 'channel' => $r['channel'], 'phone' => $r['phone'], 'masked_phone' => '+90 ••• ••• •• '.substr($digits, -2),
+                'body' => $r['body'], 'error' => $r['error'],
                 'status' => $map[$r['status']] ?? 'unknown', 'units' => in_array($r['status'], ['failed', 'cancelled', 'expired'], true) ? 0 : 1,
-                'kind' => $kind, 'by' => $r['created_by'], 'created_at' => gmdate('Y-m-d H:i:s', (int)$r['created_at'])];
+                'kind' => $kind, 'by' => $r['created_by'], 'created_at' => gmdate('Y-m-d H:i:s', (int)$r['created_at']),
+                'sent_at' => $r['done_at'] ? gmdate('Y-m-d H:i:s', (int)$r['done_at']) : null];
         }
         return $out;
     }
@@ -295,6 +304,9 @@ final class PhoneGateway
     {
         $this->db->prepare('UPDATE phone_outbox SET status=?,error=?,done_at=? WHERE id=?')->execute([$status, mb_substr($error, 0, 300, 'UTF-8'), $now, $row['id']]);
         $mapped = ['sent' => 'accepted', 'failed' => 'rejected', 'expired' => 'rejected', 'cancelled' => 'rejected'][$status] ?? 'unknown';
+        if (in_array($status, ['failed', 'expired', 'cancelled'], true) && in_array($row['channel'], ['sms', 'whatsapp'], true)) {
+            (new AddonPackages($this->db))->refund($row['partner_id'], $row['channel'], $row['source'].':'.mb_substr((string)$row['source_ref'], 0, 150), $now);
+        }
         try {
             if ($row['source'] === 'inbox') {
                 $this->db->prepare('UPDATE inbox_message SET status=?,error=? WHERE partner_id=? AND external_id=?')

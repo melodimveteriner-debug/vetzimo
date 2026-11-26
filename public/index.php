@@ -12,7 +12,7 @@ use VetNet\Cpanel\SessionRepository;
 
 require_once dirname(__DIR__).'/src/StaffPlan.php';
 
-foreach (['AppHub','AppDownloads','DemoAuto','CenterContact','SubscriptionReminders','OwnerPayment','ClinicRecords','AppPush','DeviceHub','VisitTracker','ReviewLink','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','SaasPayment','DealerAgreement','CenterAnalytics','ClinicAlerts','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','TeamTotp','WebInbox','MinistryBridge','SiteLegal','OmniInbox','PhoneGateway','ClientPermit','PrintTemplates','Support','Commerce','Appearance'] as $class) {
+foreach (['AddonPackages','AppHub','AppDownloads','DemoAuto','CenterContact','SubscriptionReminders','OwnerPayment','ClinicRecords','AppPush','DeviceHub','VisitTracker','ReviewLink','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','SaasPayment','DealerAgreement','CenterAnalytics','ClinicAlerts','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','TeamTotp','WebInbox','MinistryBridge','SiteLegal','OmniInbox','PhoneGateway','ClientPermit','PrintTemplates','Support','Commerce','Appearance'] as $class) {
     require_once dirname(__DIR__) . '/src/' . $class . '.php';
 }
 
@@ -566,7 +566,7 @@ try {
         echo $result;
         exit;
     }
-    if (in_array($path,['/api/saas/store','/api/saas/store/order','/api/saas/store/reference'],true)) {
+    if (in_array($path,['/api/saas/store','/api/saas/store/order','/api/saas/store/reference','/api/saas/store/addon'],true)) {
         // Abonelik mağazası: demo/denemeden pakete geçiş ve yenileme (kart: PayTR, havale: yönetici onayı).
         $actor=$workspaces->actor($_COOKIE,$now);
         if ($actor['role']!=='dealer') throw new RuntimeException('Bayi yöneticisi yetkisi gerekli.',403);
@@ -575,6 +575,9 @@ try {
         if ($method==='GET' && $path==='/api/saas/store') reply([
             'scopeId'=>$actor['membership_id'],'card'=>$methods['card'],'bank'=>$methods['bank'],'orders'=>$payment->orders($actor['partner_id']),
             'subscription'=>(new VetNet\Cpanel\Commerce($db))->subscription($actor['partner_id']),
+            'addons'=>array_values(array_filter((new VetNet\Cpanel\AddonPackages($db))->catalog(true),static fn($r)=>$r['amount']!==null)),
+            'addonKinds'=>array_map(static fn($k)=>$k[0],VetNet\Cpanel\AddonPackages::KINDS),
+            'addonBalances'=>(new VetNet\Cpanel\AddonPackages($db))->balances($actor['partner_id']),
             'plans'=>array_map(static fn($plan)=>$plan+['amounts'=>['monthly'=>VetNet\Cpanel\SaasPayment::amount($plan,'monthly'),'yearly'=>VetNet\Cpanel\SaasPayment::amount($plan,'yearly')],
                 'purchasable'=>($methods['card']||$methods['bank']) && (VetNet\Cpanel\SaasPayment::amount($plan,'monthly')!==null || VetNet\Cpanel\SaasPayment::amount($plan,'yearly')!==null)],
                 array_values((new VetNet\Cpanel\Commerce($db))->publishedCatalog())),
@@ -585,6 +588,7 @@ try {
             $body=input(4096);
             if ($path==='/api/saas/store/order') reply($payment->order($actor,$body,(string)($_SERVER['REMOTE_ADDR'] ?? ''),$origin,$now));
             if ($path==='/api/saas/store/reference') { $payment->reference($actor,$body); reply(['ok'=>true]); }
+            if ($path==='/api/saas/store/addon') reply($payment->addonOrder($actor,$body,(string)($_SERVER['REMOTE_ADDR'] ?? ''),$origin,$now));
         }
         throw new RuntimeException('Mağaza işlemi desteklenmiyor.',405);
     }
@@ -646,7 +650,7 @@ try {
         $center=new Center($db,$config);
         // Departmanlar yalnız kendi işlemlerini yapar (sunucuda zorunlu); diğer her şey merkez sahibine aittir.
         $departmentActions=[
-            'dealer'=>['GET'=>['saas-orders','paytr','subscriptions','plans','partners','partner','appearance'],'POST'=>['saas-orders','subscription','reauth']],
+            'dealer'=>['GET'=>['saas-orders','paytr','subscriptions','plans','addons','partners','partner','appearance'],'POST'=>['saas-orders','subscription','reauth']],
             'support'=>['GET'=>['appearance'],'POST'=>['reauth']],
         ];
         $allowedDepartments=array_keys(array_filter($departmentActions,static fn(array $m): bool=>in_array($action,$m[$method] ?? [],true)));
@@ -745,6 +749,7 @@ try {
             $saas=new VetNet\Cpanel\SaasPayment($db,(string)($config['encryptionKey'] ?? ''),$config);
             reply($action==='paytr'?$saas->settings()+['callback'=>$origin.'/api/saas/paytr/callback']:['rows'=>$saas->adminOrders()]);
         }
+        if ($method==='GET' && $action==='addons') reply(['packages'=>(new VetNet\Cpanel\AddonPackages($db))->catalog(),'kinds'=>array_map(static fn($k)=>$k[0],VetNet\Cpanel\AddonPackages::KINDS)]);
         if ($method==='GET' && $action==='plans') reply(['plans'=>array_values($commerce->catalog()),'termFields'=>VetNet\Cpanel\Commerce::TERMS,'featureFields'=>ClinicAccess::FEATURES]);
         if ($method==='GET' && $action==='subscriptions') reply(['terms'=>$db->query(
             'SELECT p.name,s.partner_id,s.plan_name,s.kind,s.starts_on,s.ends_on FROM clinic_subscription s JOIN partner_account p ON p.id=s.partner_id ORDER BY s.ends_on DESC,s.id DESC LIMIT 300'
@@ -786,7 +791,7 @@ try {
         if($method==='GET'&&$action==='audit') reply(['events'=>$db->query('SELECT action,target_id,created_at FROM center_audit ORDER BY id DESC LIMIT 100')->fetchAll()]);
         if($method==='POST') {
             if(!hash_equals($actor['account_id'],$_SERVER['HTTP_X_VETNET_SCOPE'] ?? '')) throw new RuntimeException('Yönetici oturumu değişti.',409);
-            $body=input(in_array($action,['announcements','ads','market','plans'],true) ? 185000 : 4096);
+            $body=input(in_array($action,['announcements','ads','market','plans','addons'],true) ? 185000 : 4096);
             if (isset(VetNet\Cpanel\CenterManagement::FIELDS[$action])) {
                 $management->write($action,$body,$actor);
                 reply(['ok'=>true]);
@@ -854,6 +859,20 @@ try {
                 if ($action==='paytr') reply($saas->saveSettings($body));
                 $saas->review($body,$now);
                 reply(['ok'=>true]);
+            }
+            if ($action==='addons') {
+                $result=(new VetNet\Cpanel\AddonPackages($db))->saveCatalog($body);
+                $center->audit($actor['account_id'],'addons.updated');
+                reply(['packages'=>$result]);
+            }
+            if ($action==='addon-credit') {
+                // Yönetici: bayiye elle ek kredi tanımlama / düşme (ör. kampanya, iade).
+                $kind=(string)($body->kind ?? ''); $delta=$body->delta ?? null; $partner=(string)($body->partnerId ?? '');
+                if (!isset(VetNet\Cpanel\AddonPackages::KINDS[$kind]) || !is_int($delta) || $delta===0 || abs($delta)>10000000 || !preg_match('/\A[A-Za-z0-9_-]{1,80}\z/',$partner)) throw new RuntimeException('Bayi, tür ve adet girin.',422);
+                $reason=trim((string)($body->reason ?? '')); if ($reason==='' || mb_strlen($reason)>200) throw new RuntimeException('Açıklama yazın.',422);
+                (new VetNet\Cpanel\AddonPackages($db))->add($partner,$kind,$delta,'Merkez: '.$reason,'admin:'.$now.':'.bin2hex(random_bytes(3)),$now,(string)($actor['name'] ?? 'Merkez'));
+                $center->audit($actor['account_id'],'addons.credit',$partner);
+                reply(['ok'=>true,'balances'=>(new VetNet\Cpanel\AddonPackages($db))->balances($partner)]);
             }
             if ($action==='plans' && ($body->delete ?? false)===true) {
                 $name=$commerce->deletePackage($body);

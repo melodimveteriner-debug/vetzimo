@@ -78,7 +78,7 @@ final class SaasPayment
     {
         $q = $this->db->prepare('SELECT id,plan_id,plan_name,period,amount,method,status,reference,instruction,starts_on,ends_on,created_at,paid_at FROM saas_order WHERE partner_id=? ORDER BY created_at DESC LIMIT 100');
         $q->execute([$partner]);
-        return array_map(static fn($r) => ['amount' => (int)$r['amount'], 'created_at' => (int)$r['created_at'], 'paid_at' => $r['paid_at'] === null ? null : (int)$r['paid_at']] + $r, $q->fetchAll(PDO::FETCH_ASSOC));
+        return array_map(static fn($r) => ['amount' => (int)$r['amount'], 'created_at' => (int)$r['created_at'], 'paid_at' => $r['paid_at'] === null ? null : (int)$r['paid_at'], 'instruction' => self::visible((string)$r['instruction'])] + $r, $q->fetchAll(PDO::FETCH_ASSOC));
     }
 
     /** Kart: PayTR ödeme sayfası jetonu döner; havale: talimat döner. Aynı istek kimliği tekrar gönderilirse aynı sipariş döner. */
@@ -112,6 +112,42 @@ final class SaasPayment
         return ['id' => $id, 'method' => $row['method'], 'status' => $row['status'], 'instruction' => $row['instruction']];
     }
 
+    /** Ek paket siparişi (SMS, WhatsApp, kullanıcı, şube, kayıt, depolama, diğer): kart (PayTR) veya havale. */
+    public function addonOrder(array $actor, object $b, string $ip, string $origin, int $now): array
+    {
+        $request = (string)($b->requestId ?? '');
+        $method = (string)($b->method ?? '');
+        if (!preg_match('/\A[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\z/', $request) || !in_array($method, ['card', 'bank'], true)) throw new RuntimeException('Sipariş bilgilerini kontrol edin.', 422);
+        $pkg = (new AddonPackages($this->db))->find((string)($b->packageId ?? ''));
+        $amount = $pkg ? AddonPackages::amount($pkg) : null;
+        if (!$pkg || $amount === null) throw new RuntimeException('Bu ek paket şu anda satışta değil.', 422);
+        $id = substr(hash('sha256', 'addon:'.$actor['partner_id'].':'.$request), 0, 32);
+        $q = $this->db->prepare('SELECT * FROM saas_order WHERE id=?');
+        $q->execute([$id]);
+        $row = $q->fetch(PDO::FETCH_ASSOC);
+        if (!$row) {
+            $bank = $this->bank();
+            if ($method === 'bank' && !$bank) throw new RuntimeException('Havale ile ödeme şu anda kapalı.', 422);
+            if ($method === 'card' && !$this->settings()['enabled']) throw new RuntimeException('Kartla ödeme şu anda kapalı.', 422);
+            $mark = ' [ek:'.$pkg['kind'].':'.$pkg['quantity'].']';
+            $text = $method === 'bank' ? mb_substr('Açıklamaya sipariş numarasını yazın: '.strtoupper(substr($id, 0, 10)).' · '.$bank, 0, 400 - strlen($mark)) : '';
+            $this->db->prepare('INSERT INTO saas_order(id,partner_id,plan_id,plan_name,period,amount,method,status,instruction,created_by,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
+                ->execute([$id, $actor['partner_id'], mb_substr('addon:'.$pkg['id'], 0, 32), mb_substr('Ek paket · '.$pkg['name'], 0, 120), 'addon', $amount, $method, 'pending',
+                    $text.$mark, mb_substr((string)($actor['name'] ?? ''), 0, 120), $now]);
+            $q->execute([$id]);
+            $row = $q->fetch(PDO::FETCH_ASSOC);
+        }
+        if ($row['plan_id'] !== mb_substr('addon:'.$pkg['id'], 0, 32)) throw new RuntimeException('Sipariş anahtarı başka bir paket için kullanılmış.', 409);
+        if ($row['method'] === 'card' && $row['status'] === 'pending') return ['id' => $id, 'method' => 'card', 'iframe' => $this->token($row, $actor, $ip, $origin)];
+        return ['id' => $id, 'method' => $row['method'], 'status' => $row['status'], 'instruction' => self::visible($row['instruction'])];
+    }
+
+    /** Talimattaki iç işaret ([ek:tür:adet]) bayiye gösterilmez. */
+    public static function visible(string $instruction): string
+    {
+        return trim((string)preg_replace('/\s*\[ek:[a-z]+:\d+\]\z/', '', $instruction));
+    }
+
     private function token(array $row, array $actor, string $ip, string $origin): string
     {
         $s = $this->settings(true);
@@ -120,7 +156,7 @@ final class SaasPayment
         $p = $q->fetch(PDO::FETCH_ASSOC) ?: ['name' => '', 'email' => '', 'phone' => ''];
         $email = filter_var($p['email'], FILTER_VALIDATE_EMAIL) ? $p['email'] : 'odeme@vetzimo.com';
         $amount = (string)$row['amount'];
-        $basket = base64_encode(json_encode([[$row['plan_name'].' · '.($row['period'] === 'yearly' ? 'Yıllık' : 'Aylık'), number_format($row['amount'] / 100, 2, '.', ''), 1]], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
+        $basket = base64_encode(json_encode([[$row['plan_name'].($row['period'] === 'addon' ? '' : ' · '.($row['period'] === 'yearly' ? 'Yıllık' : 'Aylık')), number_format($row['amount'] / 100, 2, '.', ''), 1]], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
         $test = $s['test'] ? '1' : '0';
         $hash = $s['merchantId'].$ip.$row['id'].$email.$amount.$basket.'0'.'0'.'TL'.$test;
         $fields = ['merchant_id' => $s['merchantId'], 'user_ip' => $ip, 'merchant_oid' => $row['id'], 'email' => $email, 'payment_amount' => $amount,
@@ -161,7 +197,7 @@ final class SaasPayment
             $r = $q->fetch(PDO::FETCH_ASSOC);
             if (!$r) return;
             $money = number_format(((int)$r['amount']) / 100, 2, ',', '.').' TL';
-            $body = ($r['name'] ?: 'Bayi').' · '.$r['plan_name'].' ('.($r['period'] === 'yearly' ? 'yıllık' : 'aylık').') · '.$money.' · '.$text;
+            $body = ($r['name'] ?: 'Bayi').' · '.$r['plan_name'].($r['period'] === 'addon' ? '' : ' ('.($r['period'] === 'yearly' ? 'yıllık' : 'aylık').')').' · '.$money.' · '.$text;
             (new CenterContact($this->db, $this->key))->alert($title, $body, '/yonetim?tab=odeme-kanallari', 'saas:'.$key, time(), ['dealer']);
         } catch (\Throwable $e) { error_log('VetZimo payment alert: '.get_class($e)); }
     }
@@ -191,7 +227,7 @@ final class SaasPayment
             }
             $this->db->commit();
         } catch (\Throwable $e) { if ($this->db->inTransaction()) $this->db->rollBack(); throw $e; }
-        if (isset($paidNow)) $this->alert($oid, 'Kartla ödeme alındı', 'PayTR ile ödendi; abonelik otomatik yenilendi.', 'card:'.$oid);
+        if (isset($paidNow)) $this->alert($oid, 'Kartla ödeme alındı', $row['period'] === 'addon' ? 'PayTR ile ödendi; ek paket kredisi otomatik tanımlandı.' : 'PayTR ile ödendi; abonelik otomatik yenilendi.', 'card:'.$oid);
         return 'OK';
     }
 
@@ -248,6 +284,11 @@ final class SaasPayment
      */
     private function activate(array $row, int $now): void
     {
+        if ($row['period'] === 'addon') {
+            (new AddonPackages($this->db))->grant($row, $now);
+            $this->db->prepare("UPDATE saas_order SET status='paid',paid_at=? WHERE id=?")->execute([$now, $row['id']]);
+            return;
+        }
         $tz = new \DateTimeZone('Europe/Istanbul');
         $today = (new \DateTimeImmutable('@'.$now))->setTimezone($tz)->setTime(0, 0);
         $todayS = $today->format('Y-m-d');

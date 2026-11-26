@@ -129,7 +129,9 @@ final class Commerce
         $terms=(array)($settings['terms'] ?? []);
         $actor['packageLimits']=['sms'=>self::limit($terms['sms'] ?? null),'whatsapp'=>self::limit($terms['whatsapp'] ?? null),
             'patients'=>self::limit($terms['patients'] ?? null),'clients'=>self::limit($terms['clients'] ?? null),
-            'users'=>self::limit($terms['users'] ?? null),'branches'=>self::limit($terms['branches'] ?? null)];
+            'users'=>self::limit($terms['users'] ?? null),'branches'=>self::limit($terms['branches'] ?? null),'storage'=>self::limit($terms['storage'] ?? null)];
+        // Satın alınan ek paketler (kullanıcı, şube, hasta, hasta sahibi kaydı, depolama) paket sınırına eklenir.
+        if (class_exists(AddonPackages::class) && !empty($actor['partner_id'])) $actor['packageLimits']=(new AddonPackages($this->db))->raise((string)$actor['partner_id'],$actor['packageLimits']);
         return $actor;
     }
 
