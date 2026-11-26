@@ -29,7 +29,7 @@ $life=new PartnerLifecycle($db);
 $r=$life->renewal($B);
 ok($r!==null && $r['state']==='ending' && $r['days']>=9 && $r['days']<=10,'30 günden az kalan abonelik uyarısı yok: '.json_encode($r));
 // ── yönetici ataması çakışan dönemi değiştirir; süreli deneme paketi bitince eski pakete döner
-$com=new Commerce($db); $d=fn(int $n)=>date('Y-m-d',strtotime(($n>=0?'+':'').$n.' days'));
+$com=new Commerce($db); $d=fn(int $n)=>(new DateTimeImmutable('today',new DateTimeZone('Europe/Istanbul')))->modify(($n>=0?'+':'').$n.' days')->format('Y-m-d');
 $db->beginTransaction(); $com->assign((object)['partnerId'=>$B,'plan'=>'pro','kind'=>'assigned','starts_on'=>$d(0),'ends_on'=>$d(40)],true); $db->commit();
 $t=$db->query("SELECT starts_on,ends_on FROM clinic_subscription WHERE partner_id='$B' ORDER BY starts_on")->fetchAll(PDO::FETCH_ASSOC);
 ok(count($t)===2 && $t[0]['ends_on']===$d(-1) && $t[1]['ends_on']===$d(40),'Çakışan dönem değiştirilmedi: '.json_encode($t));

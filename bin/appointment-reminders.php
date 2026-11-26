@@ -9,13 +9,15 @@ if (PHP_SAPI !== 'cli') {
     exit(1);
 }
 $root = dirname(__DIR__);
-foreach (['Database', 'WorkspaceRepository', 'DealerLogin', 'Totp', 'Notifications', 'AppointmentReminders', 'BulkClinicMessages', 'ClinicAccess', 'Commerce', 'ClinicRecords', 'OmniInbox', 'PhoneGateway', 'ClientPermit', 'SiteLegal', 'Pregnancy', 'AppHub'] as $class) {
+foreach (['Database', 'WorkspaceRepository', 'DealerLogin', 'Totp', 'Notifications', 'AppointmentReminders', 'BulkClinicMessages', 'ClinicAccess', 'Commerce', 'ClinicRecords', 'OmniInbox', 'PhoneGateway', 'ClientPermit', 'SiteLegal', 'Pregnancy', 'AppHub', 'DailyNote'] as $class) {
     require_once $root . '/src/' . $class . '.php';
 }
 try {
     $config = require $root . '/config.php';
     $connections = $config['appointmentReminderConnections'] ?? [];
     $db = Database::connect($config['dsn'], $config['username'], $config['password']);
+    // Günlük ekip notu: saati gelen kliniklerde personele anlık bildirim (sağlayıcı gerekmez).
+    try { (new VetNet\Cpanel\DailyNote($db))->fanout(time()); } catch (Throwable $e) { fwrite(STDERR, 'Günlük ekip notu gönderilemedi.'.PHP_EOL); }
     $pregnant = 0;
     try { $pregnant = (int)$db->query('SELECT COUNT(*) FROM clinic_pregnancy WHERE ended IS NULL')->fetchColumn(); } catch (PDOException) {}
     if ($connections === [] && $pregnant === 0 && (new VetNet\Cpanel\PhoneGateway($db))->routesAll() === []) exit(0);

@@ -12,7 +12,7 @@ use PDO;
  */
 final class ClinicAlerts
 {
-    private const KINDS = ['inbox', 'permit', 'job', 'phone', 'web', 'subscription', 'device', 'pregnancy'];
+    private const KINDS = ['inbox', 'permit', 'job', 'phone', 'web', 'subscription', 'device', 'pregnancy', 'daily'];
 
     public function __construct(private readonly PDO $db) {}
 
@@ -94,6 +94,10 @@ final class ClinicAlerts
             $items[] = ['key' => 'subscription:'.$end, 'kind' => 'subscription', 'tone' => 'warn', 'title' => 'Abonelik bitiyor',
                 'body' => 'VetZimo aboneliğiniz '.(new \DateTimeImmutable($end))->format('d.m.Y').' tarihinde bitiyor. Kesinti olmaması için yenileyin.', 'href' => '#kredi-magazasi', 'time' => $now, 'auto' => false];
         });
+        if (class_exists(DailyNote::class)) $safe(function () use (&$items, $actor, $now) {
+            $item = (new DailyNote($this->db))->alert($actor, $now);
+            if ($item) $items[] = $item;
+        });
         // Kişinin "tamamlandı" dediği uyarılar gösterilmez.
         $acked = [];
         try {
@@ -103,7 +107,7 @@ final class ClinicAlerts
         } catch (\PDOException) {}
         $items = array_values(array_filter($items, static fn($i) => !isset($acked[$i['key']])));
         usort($items, static fn($a, $b) => ['danger' => 0, 'warn' => 1, 'info' => 2, 'ok' => 3][$a['tone']] <=> ['danger' => 0, 'warn' => 1, 'info' => 2, 'ok' => 3][$b['tone']] ?: $b['time'] <=> $a['time']);
-        return ['items' => array_slice($items, 0, 40), 'count' => count($items)];
+        return ['items' => array_slice($items, 0, 40), 'count' => count($items), 'dailyEditable' => ($actor['role'] ?? '') === 'dealer'];
     }
 
     public function ack(array $actor, mixed $keys, int $now): void
