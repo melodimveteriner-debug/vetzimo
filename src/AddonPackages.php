@@ -103,7 +103,7 @@ final class AddonPackages
     {
         if ($this->hidden()) return false;
         $day = (new \DateTimeImmutable('now', new \DateTimeZone('Europe/Istanbul')))->format('Y-m-d');
-        $q = $this->db->prepare("SELECT plan_id FROM clinic_subscription WHERE partner_id=? AND starts_on<=? AND ends_on>=? AND kind<>'trial'");
+        $q = $this->db->prepare("SELECT plan_id FROM clinic_subscription WHERE partner_id=? AND starts_on<=? AND ends_on>=? AND kind NOT IN ('trial','upgrade')");
         $q->execute([$partner, $day, $day]);
         $catalog = (new Commerce($this->db))->catalog();
         foreach ($q->fetchAll(PDO::FETCH_COLUMN) as $plan) {

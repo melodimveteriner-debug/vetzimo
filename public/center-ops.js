@@ -953,18 +953,42 @@ export async function mountCenterSuite(ui,session){
   };
   start.addEventListener('input',updateEnd);years.addEventListener('change',updateEnd);
   const packageField=selectField('plan','Paket',plans.map(plan=>[plan.id,plan.name]));
-  if(selectedPlan)packageField.querySelector('select').value=selectedPlan;
+  const defaultPlan=selectedPlan||terms.find(term=>term.kind!=='upgrade'&&term.status==='active')?.plan_id;
+  if(defaultPlan)packageField.querySelector('select').value=defaultPlan;
+  const kinds={assigned:'Yönetici ataması',trial:'Deneme (demo)',paid:'Ödeme',upgrade:'Süreli deneme paketi'};
+  const liveUpgrade=terms.find(term=>term.kind==='upgrade'&&term.status!=='expired');
+  // Süreli deneme paketi: seçilen paket N gün kullanılır, süre dolunca bayi kendi paketine kendiliğinden döner.
+  const trialBox=el('section','',{className:'center-edit center-upgrade'});
+  trialBox.append(el('h3','Süreli deneme paketi oluştur'),
+   el('p','Bayi seçtiğiniz paketi yazdığınız gün kadar kullanır; süre dolunca otomatik olarak mevcut paketine geri döner. Kayıtları etkilenmez. Deneme, mevcut dönemin bitiş tarihini aşamaz.',{className:'muted'}));
+  if(liveUpgrade){
+   trialBox.append(el('p','Şu an: '+liveUpgrade.plan_name+' denemesi · '+liveUpgrade.starts_on+' → '+liveUpgrade.ends_on,{className:'center-upgrade-now'}),
+    button('Denemeyi şimdi bitir',async()=>{await call('subscription-upgrade-end',{partnerId:id});await subscription(id);status.textContent='Süreli deneme bitirildi; bayi kendi paketine döndü.';}));
+  }
+  const rankOf=plan=>plan?(Number.isInteger(plan.rank)?plan.rank*1e9:Number(plan.yearly??(plan.monthly!=null?plan.monthly*12:0))||0):0;
+  const baseTerm=terms.find(term=>term.kind!=='upgrade'&&term.status==='active');
+  const upper=baseTerm?plans.filter(plan=>rankOf(plan)>rankOf(plans.find(item=>item.id===baseTerm.plan_id))):[];
+  if(!baseTerm)trialBox.append(el('p','Bayinin etkin bir dönemi yok. Önce yukarıdan bir dönem tanımlayın; deneme bitince bu pakete dönülür.',{className:'muted'}));
+  else if(!upper.length)trialBox.append(el('p','Bayi zaten en üst paketi ('+baseTerm.plan_name+') kullanıyor; denenecek üst paket yok.',{className:'muted'}));
+  else trialBox.append(makeForm([selectField('plan','Denenecek üst paket (mevcut: '+baseTerm.plan_name+')',upper.map(plan=>[plan.id,plan.name])),
+   field('days','Süre (gün)',{type:'number',min:1,max:365,value:14})],
+   liveUpgrade?'Yeni denemeyi başlat (mevcut deneme biter)':'Süreli denemeyi başlat',async values=>{
+    const r=await call('subscription-upgrade',{...values,days:Number(values.days),partnerId:id});await subscription(id);
+    status.textContent=r.plan+' denemesi '+r.ends+' tarihine kadar tanımlandı; sonra '+r.returnsTo+' paketine dönülecek.';
+   }));
   content.replaceChildren(button('Bayiye dön',()=>detail(id)),el('h3','Paket ve abonelik'),
-   table(['Paket','Başlangıç','Bitiş','Durum'],terms.map(term=>[
-    term.plan_name,term.starts_on,term.ends_on,({active:'Etkin',expired:'Süresi doldu',scheduled:'Planlandı'})[term.status]
+   table(['Paket','Tür','Başlangıç','Bitiş','Durum'],terms.map(term=>[
+    term.plan_name,kinds[term.kind]||term.kind,term.starts_on,term.ends_on,({active:'Etkin',expired:'Süresi doldu',scheduled:'Planlandı'})[term.status]
    ])),
+   el('p','Yeni dönem kaydettiğinizde seçilen tarihlerle çakışan dönemler bu dönemle değiştirilir.',{className:'muted'}),
    makeForm([packageField,
     selectField('kind','Dönem türü',[['assigned','Yönetici ataması'],['trial','Deneme']]),
     years,start,end
    ],'Paketi ve dönemi kaydet',async ({years,...values})=>{
     await call('subscription',{...values,partnerId:id});await subscription(id);
     status.textContent='Abonelik dönemi kaydedildi.';
-   })
+   }),
+   trialBox
   );
  }
  const supportCall=(path='',body)=>opsFetch('/api/support'+path,body,session.scopeId);

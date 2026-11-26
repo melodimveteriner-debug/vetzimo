@@ -165,7 +165,7 @@ final class WebBuilder
     public function plan(string $partner): ?string
     {
         $day=self::today();
-        $value=$this->query('SELECT plan_id FROM clinic_subscription WHERE partner_id=? AND starts_on<=? AND ends_on>=? ORDER BY starts_on DESC,id DESC LIMIT 1',[$partner,$day,$day])->fetchColumn();
+        $value=$this->query('SELECT plan_id FROM clinic_subscription WHERE partner_id=? AND starts_on<=? AND ends_on>=? ORDER BY (kind=\'upgrade\') DESC,starts_on DESC,id DESC LIMIT 1',[$partner,$day,$day])->fetchColumn();
         return $value===false?null:(string)$value;
     }
     public function allowed(array $actor): bool

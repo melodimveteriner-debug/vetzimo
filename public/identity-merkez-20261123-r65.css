@@ -296,3 +296,4 @@ main:has(.owner-dashboard){max-width:1050px}
 .center-danger h3{margin:0 0 6px;color:#b42318}
 .center-danger ul{margin:8px 0 12px;padding-left:20px}
 .center-danger button.danger,.center-danger button[type=submit].danger{background:#dc2626;border-color:#dc2626;color:#fff}
+.center-upgrade{margin-top:18px;padding:16px 18px;border-radius:16px;border:1px solid color-mix(in srgb,#7c3aed 30%,transparent);background:color-mix(in srgb,#7c3aed 6%,transparent)}.center-upgrade h3{margin:0 0 4px}.center-upgrade-now{font-weight:700}

@@ -301,12 +301,12 @@ final class SaasPayment
         $q->execute([$row['partner_id'], $todayS]);
         $terms = $q->fetchAll(PDO::FETCH_ASSOC);
         $current = null;
-        foreach ($terms as $t) if ($t['kind'] !== 'trial' && $t['starts_on'] <= $todayS && $t['ends_on'] >= $todayS) $current = $t;
+        foreach ($terms as $t) if (!in_array($t['kind'], ['trial', 'upgrade'], true) && $t['starts_on'] <= $todayS && $t['ends_on'] >= $todayS) $current = $t;
         $upgrade = $current && $current['plan_id'] !== $row['plan_id'] && self::rank($newPlan) > self::rank($catalog[$current['plan_id']] ?? null);
         $start = $today;
         $bonus = 0;
         foreach ($terms as $t) {
-            if ($t['kind'] === 'trial') {
+            if ($t['kind'] === 'trial' || $t['kind'] === 'upgrade') {
                 if ($t['starts_on'] > $yesterday) $this->db->prepare('DELETE FROM clinic_subscription WHERE id=?')->execute([$t['id']]);
                 else $this->db->prepare('UPDATE clinic_subscription SET ends_on=? WHERE id=?')->execute([$yesterday, $t['id']]);
                 continue;

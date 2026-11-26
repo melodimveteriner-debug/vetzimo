@@ -118,7 +118,7 @@ final class VeBot
     {
         if (empty($this->config['enabled']) || (!$this->browserMode() && $this->model('chat')==='') || !in_array($actor['role'],self::ROLES,true)) return ['modes'=>[],'limit'=>0];
         $q=$this->db->prepare('SELECT p.rules FROM clinic_subscription s LEFT JOIN vebot_policy p ON p.plan_id=s.plan_id
-            WHERE s.partner_id=? AND s.starts_on<=? AND s.ends_on>=? ORDER BY s.starts_on DESC,s.id DESC LIMIT 1');
+            WHERE s.partner_id=? AND s.starts_on<=? AND s.ends_on>=? ORDER BY (s.kind=\'upgrade\') DESC,s.starts_on DESC,s.id DESC LIMIT 1');
         $q->execute([$actor['partner_id'],$this->day(),$this->day()]);
         $rules=json_decode((string)$q->fetchColumn(),true) ?: [];
         if (!in_array($actor['role'],$rules['roles'] ?? [],true) ||

@@ -28,6 +28,28 @@ $life=new PartnerLifecycle($db);
 // ── kalan gün uyarısı
 $r=$life->renewal($B);
 ok($r!==null && $r['state']==='ending' && $r['days']>=9 && $r['days']<=10,'30 günden az kalan abonelik uyarısı yok: '.json_encode($r));
+// ── yönetici ataması çakışan dönemi değiştirir; süreli deneme paketi bitince eski pakete döner
+$com=new Commerce($db); $d=fn(int $n)=>date('Y-m-d',strtotime(($n>=0?'+':'').$n.' days'));
+$db->beginTransaction(); $com->assign((object)['partnerId'=>$B,'plan'=>'pro','kind'=>'assigned','starts_on'=>$d(0),'ends_on'=>$d(40)],true); $db->commit();
+$t=$db->query("SELECT starts_on,ends_on FROM clinic_subscription WHERE partner_id='$B' ORDER BY starts_on")->fetchAll(PDO::FETCH_ASSOC);
+ok(count($t)===2 && $t[0]['ends_on']===$d(-1) && $t[1]['ends_on']===$d(40),'Çakışan dönem değiştirilmedi: '.json_encode($t));
+$threw=false; try { $com->assign((object)['partnerId'=>$B,'plan'=>'pro','kind'=>'trial','starts_on'=>$d(1),'ends_on'=>$d(5)]); } catch (RuntimeException) { $threw=true; }
+ok($threw,'Otomatik atamada çakışma denetimi kalktı');
+$plans=$com->catalog(); $upper=null; foreach ($plans as $id=>$pl) if (\VetNet\Cpanel\SaasPayment::rank($pl)>\VetNet\Cpanel\SaasPayment::rank($plans['pro'] ?? null)) { $upper=$id; break; }
+ok($upper!==null,'Üst paket bulunamadı');
+$threw=false; try { $com->upgradeTrial((object)['partnerId'=>$B,'plan'=>'ucretsiz','days'=>5]); } catch (RuntimeException) { $threw=true; }
+ok($threw,'Alt pakete süreli deneme açıldı');
+$u=$com->upgradeTrial((object)['partnerId'=>$B,'plan'=>$upper,'days'=>500 > 365 ? 365 : 5]);
+ok($u['ends']===$d(40),'Deneme temel dönemi aştı: '.json_encode($u));
+$u=$com->upgradeTrial((object)['partnerId'=>$B,'plan'=>$upper,'days'=>7]);
+ok($u['ends']===$d(6) && $u['returnsTo']==='Pro','Süreli deneme bitişi yanlış');
+ok((int)$db->query("SELECT COUNT(*) FROM clinic_subscription WHERE partner_id='$B' AND kind='upgrade' AND ends_on>='".$d(0)."'")->fetchColumn()===1,'Önceki deneme bitirilmedi');
+ok($com->subscription($B)['current']['plan_id']===$upper,'Deneme süresinde geçerli paket deneme paketi değil');
+$rn=$life->renewal($B); ok(($rn['upgrade']['plan'] ?? '')!=='' && ($rn['upgrade']['base'] ?? '')==='Pro','Deneme uyarısı yok: '.json_encode($rn));
+$db->exec("UPDATE clinic_subscription SET starts_on='".$d(-8)."',ends_on='".$d(-1)."' WHERE partner_id='$B' AND kind='upgrade'");
+ok($com->subscription($B)['current']['plan_id']==='pro','Deneme bitince eski pakete dönülmedi');
+$db->exec("DELETE FROM clinic_subscription WHERE partner_id='$B'");
+$db->prepare("INSERT INTO clinic_subscription(partner_id,plan_id,plan_name,kind,starts_on,ends_on) VALUES (?,?,?,?,?,?)")->execute([$B,'pro','Pro','paid',$d(-100),$d(10)]);
 $db->exec("DELETE FROM clinic_subscription WHERE partner_id='$A'");
 $db->prepare("INSERT INTO clinic_subscription(partner_id,plan_id,plan_name,kind,starts_on,ends_on) VALUES (?,?,?,?,?,?)")->execute([$A,'pro','Demo','trial',date('Y-m-d',strtotime('-3 days')),date('Y-m-d',strtotime('+11 days'))]);
 ok($life->renewal($A)['state']==='trial','Demo uyarısı yok');

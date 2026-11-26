@@ -26,7 +26,7 @@ final class SubscriptionReminders
                 (SELECT MIN(x.starts_on) FROM clinic_subscription x WHERE x.partner_id=s.partner_id AND x.ends_on>=?) AS chain_start,
                 (SELECT COUNT(*) FROM clinic_subscription y WHERE y.partner_id=s.partner_id AND y.kind IN ('paid','assigned')) AS paid_terms
             FROM clinic_subscription s JOIN partner_account p ON p.id=s.partner_id AND p.active=1
-            WHERE s.ends_on>=? AND s.ends_on=(SELECT MAX(z.ends_on) FROM clinic_subscription z WHERE z.partner_id=s.partner_id)");
+            WHERE s.kind<>'upgrade' AND s.ends_on>=? AND s.ends_on=(SELECT MAX(z.ends_on) FROM clinic_subscription z WHERE z.partner_id=s.partner_id AND z.kind<>'upgrade')");
         $rows->execute([$today, $today]);
         $contact = new CenterContact($this->db, $this->key);
         $sent = [];

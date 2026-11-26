@@ -745,7 +745,7 @@ try {
         $center=new Center($db,$config);
         // Departmanlar yalnız kendi işlemlerini yapar (sunucuda zorunlu); diğer her şey merkez sahibine aittir.
         $departmentActions=[
-            'dealer'=>['GET'=>['saas-orders','paytr','subscriptions','plans','addons','partners','partner','appearance'],'POST'=>['saas-orders','subscription','reauth']],
+            'dealer'=>['GET'=>['saas-orders','paytr','subscriptions','plans','addons','partners','partner','appearance'],'POST'=>['saas-orders','subscription','subscription-upgrade','subscription-upgrade-end','reauth']],
             'support'=>['GET'=>['appearance'],'POST'=>['reauth']],
         ];
         $allowedDepartments=array_keys(array_filter($departmentActions,static fn(array $m): bool=>in_array($action,$m[$method] ?? [],true)));
@@ -1003,9 +1003,21 @@ try {
             }
             if ($action==='subscription') {
                 $db->beginTransaction();
-                $commerce->assign($body);
-                $db->commit();
+                try { $commerce->assign($body, true); $db->commit(); } catch (\Throwable $e) { $db->rollBack(); throw $e; }
+                $center->audit($actor['account_id'],'subscription.assigned',(string)($body->partnerId ?? ''));
                 reply(['ok'=>true]);
+            }
+            if ($action==='subscription-upgrade') {
+                $db->beginTransaction();
+                try { $result=$commerce->upgradeTrial($body); $db->commit(); } catch (\Throwable $e) { $db->rollBack(); throw $e; }
+                $center->audit($actor['account_id'],'subscription.upgrade_trial',(string)($body->partnerId ?? ''));
+                reply(['ok'=>true]+$result);
+            }
+            if ($action==='subscription-upgrade-end') {
+                $partnerId=is_string($body->partnerId ?? null)?$body->partnerId:'';
+                $n=$commerce->endUpgrade($partnerId);
+                $center->audit($actor['account_id'],'subscription.upgrade_ended',$partnerId);
+                reply(['ok'=>true,'ended'=>$n]);
             }
             if ($action==='permissions') {
                 $center->savePermissions($actor,$body);

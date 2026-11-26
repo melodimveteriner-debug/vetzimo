@@ -301,7 +301,7 @@ final class Center
         $n = $one("SELECT COUNT(*) FROM clinic_support WHERE status='Açık'");
         if ($n) $add($out, 'support', 'urgent', 'Açık destek talebi', 'Yanıt bekleyen bayi talepleri.', $n, 'destek');
         $n = $one("SELECT COUNT(DISTINCT s.partner_id) FROM clinic_subscription s JOIN partner_account p ON p.id=s.partner_id AND p.active=1
-            WHERE s.kind<>'trial' AND s.ends_on BETWEEN ? AND ? AND NOT EXISTS (SELECT 1 FROM clinic_subscription x WHERE x.partner_id=s.partner_id AND x.starts_on>s.ends_on)", [$today, $soon]);
+            WHERE s.kind NOT IN ('trial','upgrade') AND s.ends_on BETWEEN ? AND ? AND NOT EXISTS (SELECT 1 FROM clinic_subscription x WHERE x.partner_id=s.partner_id AND x.starts_on>s.ends_on)", [$today, $soon]);
         if ($n) $add($out, 'renewals', 'warn', 'Aboneliği 30 gün içinde bitecek bayi', 'Yenileme planlanmamış; hatırlatma otomatik gider, isterseniz arayın.', $n, 'abonelikler');
         $n = $one("SELECT COUNT(DISTINCT s.partner_id) FROM clinic_subscription s JOIN partner_account p ON p.id=s.partner_id AND p.active=1
             WHERE s.kind='trial' AND s.ends_on BETWEEN ? AND ?", [$today, (new \DateTimeImmutable('today', $tz))->modify('+7 days')->format('Y-m-d')]);

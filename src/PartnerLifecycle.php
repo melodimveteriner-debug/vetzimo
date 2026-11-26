@@ -37,10 +37,26 @@ final class PartnerLifecycle
     /** Uygulama üst şeridi: demo veya bitişe 30 günden az kalan abonelik ya da saklama süresindeki bayi. */
     public function renewal(string $partner): ?array
     {
-        $terms = $this->terms($partner);
-        if (!$terms) return null;
         $today = self::today();
         $day = $today->format('Y-m-d');
+        $all = $this->terms($partner);
+        $terms = array_values(array_filter($all, static fn($t) => $t['kind'] !== 'upgrade'));
+        if (!$terms) return null;
+        $upgrade = null;
+        foreach ($all as $t) if ($t['kind'] === 'upgrade' && $t['starts_on'] <= $day && $t['ends_on'] >= $day) {
+            $upgrade = ['plan' => (string)$t['plan_name'], 'ends' => $t['ends_on'],
+                'days' => (int)$today->diff(new \DateTimeImmutable($t['ends_on'], new \DateTimeZone('Europe/Istanbul')))->days];
+        }
+        $result = $this->renewalOf($terms, $today, $day);
+        if ($upgrade) {
+            foreach ($terms as $t) if ($t['starts_on'] <= $day && $t['ends_on'] >= $day) { $upgrade['base'] = (string)$t['plan_name']; break; }
+            return ($result ?? ['state' => 'upgrade']) + ['upgrade' => $upgrade];
+        }
+        return $result;
+    }
+
+    private function renewalOf(array $terms, \DateTimeImmutable $today, string $day): ?array
+    {
         $live = array_values(array_filter($terms, static fn($t) => $t['ends_on'] >= $day));
         if ($live) {
             $end = max(array_column($live, 'ends_on'));
@@ -60,7 +76,7 @@ final class PartnerLifecycle
     /** Yönetici bayi kartı için saklama durumu. */
     public function retention(string $partner): array
     {
-        $terms = $this->terms($partner);
+        $terms = array_values(array_filter($this->terms($partner), static fn($t) => $t['kind'] !== 'upgrade'));
         if (!$terms) return ['state' => 'unmanaged'];
         $day = self::today()->format('Y-m-d');
         $end = $terms[0]['ends_on'];

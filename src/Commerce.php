@@ -154,7 +154,7 @@ final class Commerce
     {
         $day=(new \DateTimeImmutable('now',new \DateTimeZone('Europe/Istanbul')))->format('Y-m-d');
         $q=$this->db->prepare('SELECT p.settings FROM clinic_subscription s LEFT JOIN clinic_package_settings p ON p.plan_id=s.plan_id
-            WHERE s.partner_id=? AND s.starts_on<=? AND s.ends_on>=? ORDER BY s.starts_on DESC,s.id DESC LIMIT 1');
+            WHERE s.partner_id=? AND s.starts_on<=? AND s.ends_on>=? ORDER BY (s.kind=\'upgrade\') DESC,s.starts_on DESC,s.id DESC LIMIT 1');
         $q->execute([$actor['partner_id'],$day,$day]);
         $settings=json_decode((string)$q->fetchColumn(),true);
         if (isset($settings['modules'])) $actor['packageModules']=$settings['modules'];
@@ -358,7 +358,7 @@ final class Commerce
         }
     }
 
-    public function assign(object $body): void
+    public function assign(object $body, bool $replace = false): void
     {
         $partner = $this->field($body,'partnerId',80,true);
         $plan = $this->catalog()[$this->field($body,'plan',32,true)] ?? null;
@@ -371,24 +371,86 @@ final class Commerce
         $stmt = $this->db->prepare('SELECT id FROM partner_account WHERE id=? FOR UPDATE');
         $stmt->execute([$partner]);
         if (!$stmt->fetchColumn()) throw new RuntimeException('Bayi bulunamadı.',404);
-        $stmt = $this->db->prepare('SELECT id FROM clinic_subscription WHERE partner_id=? AND starts_on<=? AND ends_on>=? LIMIT 1');
+        $stmt = $this->db->prepare("SELECT id,starts_on,ends_on FROM clinic_subscription WHERE partner_id=? AND kind<>'upgrade' AND starts_on<=? AND ends_on>=? FOR UPDATE");
         $stmt->execute([$partner,$end,$start]);
-        if ($stmt->fetchColumn()) throw new RuntimeException('Bu tarihler mevcut bir dönemle çakışıyor.',409);
+        $overlap = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        if ($overlap && !$replace) throw new RuntimeException('Bu tarihler mevcut bir dönemle çakışıyor.',409);
+        // Yönetici ataması: seçilen aralıkla çakışan dönemler yeni dönemle değiştirilir (öncesi kırpılır, sonrası kaydırılır).
+        $before = (new \DateTimeImmutable($start))->modify('-1 day')->format('Y-m-d');
+        $after = (new \DateTimeImmutable($end))->modify('+1 day')->format('Y-m-d');
+        foreach ($overlap as $t) {
+            if ($t['starts_on'] < $start) $this->db->prepare('UPDATE clinic_subscription SET ends_on=? WHERE id=?')->execute([$before,$t['id']]);
+            elseif ($t['ends_on'] > $end) $this->db->prepare('UPDATE clinic_subscription SET starts_on=? WHERE id=?')->execute([$after,$t['id']]);
+            else $this->db->prepare('DELETE FROM clinic_subscription WHERE id=?')->execute([$t['id']]);
+        }
         $this->db->prepare('INSERT INTO clinic_subscription(partner_id,plan_id,plan_name,kind,starts_on,ends_on) VALUES(?,?,?,?,?,?)')
             ->execute([$partner,$plan['id'],$plan['name'],$kind,$start,$end]);
+        // Süreli deneme, temel dönemin bitişini aşamaz.
+        $q = $this->db->prepare("SELECT MAX(ends_on) FROM clinic_subscription WHERE partner_id=? AND kind<>'upgrade'");
+        $q->execute([$partner]);
+        $limit = (string)$q->fetchColumn();
+        $this->db->prepare("UPDATE clinic_subscription SET ends_on=? WHERE partner_id=? AND kind='upgrade' AND ends_on>?")->execute([$limit,$partner,$limit]);
+        $this->db->prepare("DELETE FROM clinic_subscription WHERE partner_id=? AND kind='upgrade' AND ends_on<starts_on")->execute([$partner]);
+    }
+
+    /**
+     * Süreli deneme paketi: bayi seçilen paketi N gün kullanır, süre dolunca kendi paketine (alttaki döneme) kendiliğinden döner.
+     * Ayrı 'upgrade' dönemi olarak tutulur; geçerli paket belirlenirken öncelik alır. Temel dönemin bitişini aşamaz.
+     */
+    public function upgradeTrial(object $body): array
+    {
+        $partner = $this->field($body,'partnerId',80,true);
+        $plan = $this->catalog()[$this->field($body,'plan',32,true)] ?? null;
+        $days = filter_var($body->days ?? null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1,'max_range'=>365]]);
+        if (!$plan) throw new RuntimeException('Denenecek paketi seçin.',422);
+        if (!$days) throw new RuntimeException('Deneme süresi 1–365 gün olmalıdır.',422);
+        $stmt = $this->db->prepare('SELECT id FROM partner_account WHERE id=? FOR UPDATE');
+        $stmt->execute([$partner]);
+        if (!$stmt->fetchColumn()) throw new RuntimeException('Bayi bulunamadı.',404);
+        $today = new \DateTimeImmutable('today',new \DateTimeZone('Europe/Istanbul'));
+        $day = $today->format('Y-m-d');
+        $q = $this->db->prepare("SELECT plan_id,plan_name,ends_on FROM clinic_subscription WHERE partner_id=? AND kind<>'upgrade' AND starts_on<=? AND ends_on>=? ORDER BY starts_on DESC,id DESC LIMIT 1");
+        $q->execute([$partner,$day,$day]);
+        $base = $q->fetch(PDO::FETCH_ASSOC);
+        if (!$base) throw new RuntimeException('Bayinin etkin bir paketi yok. Önce bir dönem tanımlayın; deneme bitince bu pakete dönülür.',422);
+        if ($base['plan_id'] === $plan['id']) throw new RuntimeException('Bayi zaten bu paketi kullanıyor; farklı bir paket seçin.',422);
+        if (SaasPayment::rank($plan) <= SaasPayment::rank($this->catalog()[$base['plan_id']] ?? null)) {
+            throw new RuntimeException('Süreli deneme yalnız bayinin mevcut paketinden ('.$base['plan_name'].') daha üst bir paket için açılabilir.',422);
+        }
+        $q = $this->db->prepare("SELECT MAX(ends_on) FROM clinic_subscription WHERE partner_id=? AND kind<>'upgrade' AND ends_on>=?");
+        $q->execute([$partner,$day]);
+        $limit = (string)$q->fetchColumn();
+        $end = $today->modify('+'.($days-1).' days')->format('Y-m-d');
+        if ($end > $limit) $end = $limit;
+        $this->endUpgrade($partner);
+        $this->db->prepare('INSERT INTO clinic_subscription(partner_id,plan_id,plan_name,kind,starts_on,ends_on) VALUES(?,?,?,?,?,?)')
+            ->execute([$partner,$plan['id'],$plan['name'],'upgrade',$day,$end]);
+        return ['plan'=>$plan['name'],'ends'=>$end,'returnsTo'=>$base['plan_name']];
+    }
+
+    /** Etkin veya planlanmış süreli denemeyi bitirir; bayi hemen kendi paketine döner. */
+    public function endUpgrade(string $partner): int
+    {
+        $day = (new \DateTimeImmutable('today',new \DateTimeZone('Europe/Istanbul')))->format('Y-m-d');
+        $yesterday = (new \DateTimeImmutable($day))->modify('-1 day')->format('Y-m-d');
+        $n = $this->db->prepare("DELETE FROM clinic_subscription WHERE partner_id=? AND kind='upgrade' AND starts_on>=?");
+        $n->execute([$partner,$day]);
+        $m = $this->db->prepare("UPDATE clinic_subscription SET ends_on=? WHERE partner_id=? AND kind='upgrade' AND ends_on>=?");
+        $m->execute([$yesterday,$partner,$day]);
+        return $n->rowCount()+$m->rowCount();
     }
 
     public function subscription(string $partner): array
     {
         $day = (new \DateTimeImmutable('now',new \DateTimeZone('Europe/Istanbul')))->format('Y-m-d');
-        $stmt = $this->db->prepare('SELECT id,plan_name,kind,starts_on,ends_on FROM clinic_subscription WHERE partner_id=? ORDER BY starts_on DESC,id DESC');
+        $stmt = $this->db->prepare("SELECT id,plan_id,plan_name,kind,starts_on,ends_on FROM clinic_subscription WHERE partner_id=? ORDER BY starts_on DESC,(kind='upgrade') DESC,id DESC");
         $stmt->execute([$partner]);
         $terms = $stmt->fetchAll(PDO::FETCH_ASSOC);
         $current = null;
         $scheduled = false;
         foreach ($terms as &$term) {
             $term['status'] = $term['starts_on'] > $day ? 'scheduled' : ($term['ends_on'] < $day ? 'expired' : 'active');
-            if ($term['status'] === 'active') $current = $term;
+            if ($term['status'] === 'active' && (!$current || ($term['kind'] === 'upgrade' && $current['kind'] !== 'upgrade'))) $current = $term;
             if ($term['status'] === 'scheduled') $scheduled = true;
         }
         unset($term);

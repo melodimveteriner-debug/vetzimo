@@ -82,7 +82,7 @@ final class CenterAnalytics
             if (isset($partners[$r['partner_id']])) $partners[$r['partner_id']]['members'][$r['role']] = (int)$r['n'];
         }
         $day = (new \DateTimeImmutable('@'.$now))->setTimezone(new \DateTimeZone('Europe/Istanbul'))->format('Y-m-d');
-        $q = $this->db->prepare('SELECT partner_id,plan_name,kind,ends_on FROM clinic_subscription WHERE starts_on<=? AND ends_on>=? ORDER BY starts_on');
+        $q = $this->db->prepare('SELECT partner_id,plan_name,kind,ends_on FROM clinic_subscription WHERE starts_on<=? AND ends_on>=? AND kind<>\'upgrade\' ORDER BY starts_on');
         $q->execute([$day, $day]);
         foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $r) if (isset($partners[$r['partner_id']])) { $partners[$r['partner_id']]['plan'] = $r['plan_name']; $partners[$r['partner_id']]['planKind'] = $r['kind']; $partners[$r['partner_id']]['endsOn'] = $r['ends_on']; }
         try { foreach ($this->db->query('SELECT DISTINCT partner_id FROM dealer_agreement')->fetchAll(PDO::FETCH_COLUMN) as $pid) if (isset($partners[$pid])) $partners[$pid]['agreement'] = true; } catch (\PDOException) {}
