@@ -45,7 +45,7 @@ final class FamilyPhotos
         return $s === '' ? '' : mb_convert_case(mb_strtolower($s, 'UTF-8'), MB_CASE_TITLE, 'UTF-8').' Ailesi';
     }
 
-    private function select(string $where, array $args, string $order = 'created_at DESC', int $limit = 60): array
+    private function select(string $where, array $args, string $order = 'created_at DESC', int|string $limit = 60): array
     {
         try {
             $q = $this->db->prepare('SELECT '.self::COLUMNS.' FROM clinic_family_photo WHERE '.$where.' ORDER BY '.$order.' LIMIT '.$limit);
@@ -71,11 +71,12 @@ final class FamilyPhotos
     public function list(array $actor, array $query): array
     {
         if (($actor['role'] ?? '') === 'customer') {
-            return ['items' => $this->select('membership_id=? AND status<>?', [$actor['membership_id'], 'rejected']), 'max' => self::MAX];
+            return ['items' => $this->select('partner_id=? AND client_id=? AND status<>?', [$actor['partner_id'], (string)($actor['customer_id'] ?? ''), 'rejected']), 'max' => self::MAX];
         }
         if (!self::staff($actor) || !ClinicAccess::allowed($actor, 'clients')) throw new RuntimeException('Hasta sahibi kayıtlarını görme yetkiniz yok.', 403);
         $args = [$actor['partner_id']];
         $client = is_string($query['client'] ?? null) ? $query['client'] : '';
+        if (($query['all'] ?? '') === '1') return $this->gallery($actor, $query);
         if ($client !== '') {
             $args[] = $client;
             $where = 'partner_id=? AND client_id=?';
@@ -84,12 +85,61 @@ final class FamilyPhotos
             $where = 'partner_id=? AND status=?';
         }
         $where .= self::branchClause($actor, $args);
-        return ['items' => $this->select($where, $args), 'canDecide' => ClinicAccess::allowed($actor, 'clients', true)];
+        return ['items' => $this->select($where, $args), 'canDecide' => ClinicAccess::allowed($actor, 'clients', true), 'max' => self::MAX];
+    }
+
+    /** Müşteriler › Aile Fotoğrafları: tüm aileler, durum süzgeci, arama (soyad/adlar/müşteri), sayfalama. */
+    private function gallery(array $actor, array $query): array
+    {
+        $per = max(6, min(60, (int)($query['per'] ?? 12)));
+        $page = max(1, (int)($query['page'] ?? 1));
+        $args = [$actor['partner_id']];
+        $where = 'partner_id=?'.self::branchClause($actor, $args);
+        $status = (string)($query['status'] ?? '');
+        if (in_array($status, ['pending', 'approved', 'rejected'], true)) { $where .= ' AND status=?'; $args[] = $status; }
+        if ($status === 'public') $where .= " AND status='approved' AND publish=1";
+        if ($status === 'private') $where .= ' AND publish=0';
+        $q = trim((string)($query['q'] ?? ''));
+        $clients = array_values(array_filter(array_map('strval', (array)($query['clients'] ?? [])), static fn($c) => preg_match('/\A[A-Za-z0-9_-]{1,80}\z/', $c)));
+        if ($q !== '') {
+            $like = '%'.addcslashes(mb_substr($q, 0, 60), '%_\\').'%';
+            $where .= ' AND (surname LIKE ? OR caption LIKE ?'.($clients ? ' OR client_id IN ('.implode(',', array_fill(0, count(array_slice($clients, 0, 200)), '?')).')' : '').')';
+            array_push($args, $like, $like, ...array_slice($clients, 0, 200));
+        }
+        try {
+            $c = $this->db->prepare('SELECT COUNT(*) FROM clinic_family_photo WHERE '.$where); $c->execute($args); $total = (int)$c->fetchColumn();
+        } catch (PDOException $e) { if ($e->getCode() !== '42S02') throw $e; $total = 0; }
+        $pa = [$actor['partner_id']];
+        $pendingWhere = "partner_id=? AND status='pending'".self::branchClause($actor, $pa);
+        $pending = 0;
+        try { $pq = $this->db->prepare('SELECT COUNT(*) FROM clinic_family_photo WHERE '.$pendingWhere); $pq->execute($pa); $pending = (int)$pq->fetchColumn(); } catch (PDOException) {}
+        $pages = max(1, (int)ceil($total / $per)); $page = min($page, $pages);
+        $items = $total ? $this->select($where, $args, "FIELD(status,'pending','approved','rejected'), created_at DESC", $per.' OFFSET '.(($page - 1) * $per)) : [];
+        return ['items' => $items, 'total' => $total, 'page' => $page, 'pages' => $pages, 'per' => $per, 'pending' => $pending,
+            'canDecide' => ClinicAccess::allowed($actor, 'clients', true), 'max' => self::MAX];
     }
 
     public function upload(array $actor, object $body, int $now): array
     {
-        if (($actor['role'] ?? '') !== 'customer') throw new RuntimeException('Aile fotoğrafını hasta sahibi ekler.', 403);
+        // Hasta sahibi kendi ailesi için ekler (klinik onayına düşer); bayi, şube yöneticisi ve personel (hasta sahibi yazma
+        // yetkisiyle) müşteri kartından ekler — klinik eklediği için doğrudan onaylıdır. Sınır müşteri başına 3'tür.
+        $customer = ($actor['role'] ?? '') === 'customer';
+        if (!$customer && !(self::staff($actor) && ClinicAccess::allowed($actor, 'clients', true))) throw new RuntimeException('Aile fotoğrafı eklemek için hasta sahibi yazma yetkisi gerekir.', 403);
+        $client = $customer ? (string)($actor['customer_id'] ?? '') : (is_string($body->client ?? null) ? $body->client : '');
+        if (!preg_match('/\A[A-Za-z0-9_-]{1,80}\z/', $client)) throw new RuntimeException('Hasta sahibi seçin.', 422);
+        $branch = (string)($actor['branch_id'] ?? '');
+        $membership = $customer ? (string)$actor['membership_id'] : '';
+        if (!$customer) {
+            $slice = (new ClinicRecords($this->db))->slice('partner:'.$actor['partner_id'], ['clients' => [$client]]);
+            $row = null;
+            foreach ($slice?->clients ?? [] as $c) if (($c->id ?? '') === $client) $row = $c;
+            if (!$row) throw new RuntimeException('Hasta sahibi bulunamadı.', 404);
+            $branch = (string)($row->branch ?? '');
+            if (($actor['role'] ?? '') !== 'dealer' && $branch !== (string)($actor['branch_id'] ?? '')) throw new RuntimeException('Bu hasta sahibi başka şubeye kayıtlı.', 403);
+            $m = $this->db->prepare("SELECT id FROM identity_membership WHERE partner_id=? AND role='customer' AND customer_id=? AND status<>'revoked' LIMIT 1");
+            $m->execute([$actor['partner_id'], $client]);
+            $membership = (string)($m->fetchColumn() ?: '');
+        }
         $surname = trim(preg_replace('/\s+/u', ' ', (string)($body->surname ?? '')));
         $caption = trim(preg_replace('/\s+/u', ' ', (string)($body->caption ?? '')));
         if ($surname === '' || mb_strlen($surname) > 40 || !preg_match('/\A[\p{L}][\p{L}\'’ .-]*\z/u', $surname)) throw new RuntimeException('Soyadınızı yazın (yalnız harf).', 422);
@@ -104,25 +154,25 @@ final class FamilyPhotos
         self::ensure($this->db);
         $this->db->beginTransaction();
         try {
-            // Aynı anda gönderilen yüklemeler sınırı aşamasın diye üyelik satırı kilitlenir.
-            $this->db->prepare('SELECT id FROM identity_membership WHERE id=? FOR UPDATE')->execute([$actor['membership_id']]);
-            $count = $this->db->prepare("SELECT COUNT(*) FROM clinic_family_photo WHERE membership_id=? AND status<>'rejected'");
-            $count->execute([$actor['membership_id']]);
+            // Aynı anda gönderilen yüklemeler (hasta sahibi + ekip) sınırı aşamasın diye bayi satırı kilitlenir.
+            $this->db->prepare('SELECT id FROM partner_account WHERE id=? FOR UPDATE')->execute([$actor['partner_id']]);
+            $count = $this->db->prepare("SELECT COUNT(*) FROM clinic_family_photo WHERE partner_id=? AND client_id=? AND status<>'rejected'");
+            $count->execute([$actor['partner_id'], $client]);
             if ((int)$count->fetchColumn() >= self::MAX) throw new RuntimeException('En fazla '.self::MAX.' aile fotoğrafı ekleyebilirsiniz. Yenisi için birini silin.', 422);
             $id = bin2hex(random_bytes(16));
-            $this->db->prepare('INSERT INTO clinic_family_photo(id,partner_id,branch_id,membership_id,client_id,surname,caption,publish,status,mime,image,created_at)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')->execute([$id, $actor['partner_id'], (string)($actor['branch_id'] ?? ''), $actor['membership_id'],
-                (string)($actor['customer_id'] ?? ''), $surname, $caption, $body->publish ? 1 : 0, 'pending', $m[1], $bytes, $now]);
+            $this->db->prepare('INSERT INTO clinic_family_photo(id,partner_id,branch_id,membership_id,client_id,surname,caption,publish,status,mime,image,created_at,decided_at,decided_by)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)')->execute([$id, $actor['partner_id'], $branch, $membership, $client, $surname, $caption, $body->publish ? 1 : 0,
+                $customer ? 'pending' : 'approved', $m[1], $bytes, $now, $customer ? null : $now, $customer ? '' : (string)($actor['name'] ?? '')]);
             $this->db->commit();
         } catch (\Throwable $e) { if ($this->db->inTransaction()) $this->db->rollBack(); throw $e; }
-        return $this->list($actor, []);
+        return $this->list($actor, $customer ? [] : ['client' => $client]);
     }
 
     /** Hasta sahibi kendi fotoğrafını, klinik (hasta sahibi yazma izniyle) herhangi birini siler. */
     public function delete(array $actor, string $id): array
     {
         $args = [$id, $actor['partner_id']];
-        if (($actor['role'] ?? '') === 'customer') { $where = 'id=? AND partner_id=? AND membership_id=?'; $args[] = $actor['membership_id']; }
+        if (($actor['role'] ?? '') === 'customer') { $where = 'id=? AND partner_id=? AND client_id=?'; $args[] = (string)($actor['customer_id'] ?? ''); }
         elseif (self::staff($actor) && ClinicAccess::allowed($actor, 'clients', true)) $where = 'id=? AND partner_id=?'.self::branchClause($actor, $args);
         else throw new RuntimeException('Fotoğrafı silme yetkiniz yok.', 403);
         try { $q = $this->db->prepare('DELETE FROM clinic_family_photo WHERE '.$where); $q->execute($args); }
@@ -149,7 +199,7 @@ final class FamilyPhotos
     {
         if (!preg_match('/\A[a-f0-9]{32}\z/', $id)) return null;
         try {
-            $q = $this->db->prepare('SELECT partner_id,branch_id,membership_id,status,publish,mime,image FROM clinic_family_photo WHERE id=?');
+            $q = $this->db->prepare('SELECT partner_id,branch_id,membership_id,client_id,status,publish,mime,image FROM clinic_family_photo WHERE id=?');
             $q->execute([$id]);
             $r = $q->fetch(PDO::FETCH_ASSOC);
         } catch (PDOException) { return null; }
@@ -157,7 +207,7 @@ final class FamilyPhotos
         $public = $r['status'] === 'approved' && (bool)$r['publish'];
         if ($public) return [$r['mime'], $r['image'], true];
         if ($partner !== null || !$actor || ($actor['partner_id'] ?? '') !== $r['partner_id'] || $r['status'] === 'rejected' && ($actor['role'] ?? '') === 'customer') return null;
-        if (($actor['role'] ?? '') === 'customer') return $actor['membership_id'] === $r['membership_id'] ? [$r['mime'], $r['image'], false] : null;
+        if (($actor['role'] ?? '') === 'customer') return (string)($actor['customer_id'] ?? '') === $r['client_id'] ? [$r['mime'], $r['image'], false] : null;
         if (!self::staff($actor) || !ClinicAccess::allowed($actor, 'clients')) return null;
         if (($actor['role'] ?? '') !== 'dealer' && $r['branch_id'] !== (string)($actor['branch_id'] ?? '')) return null;
         return [$r['mime'], $r['image'], false];

@@ -35,7 +35,9 @@ ok(fails(fn()=>$f->upload($owner,(object)['surname'=>'Yılmaz123','publish'=>tru
 ok(fails(fn()=>$f->upload($owner,(object)['surname'=>'Yılmaz','image'=>jpeg(1)],$now),422),'Paylaşım sorusu yanıtsız kabul edildi');
 ok(fails(fn()=>$f->upload($owner,(object)['surname'=>'Yılmaz','publish'=>true,'image'=>'data:image/svg+xml;base64,PHN2Zz4='],$now),422),'SVG kabul edildi');
 ok(fails(fn()=>$f->upload($owner,(object)['surname'=>'Yılmaz','publish'=>true,'image'=>'data:image/jpeg;base64,'.base64_encode(str_repeat('x',5000))],$now),422),'Sahte JPEG kabul edildi');
-ok(fails(fn()=>$f->upload($dealer,(object)['surname'=>'Yılmaz','publish'=>true,'image'=>jpeg(1)],$now),403),'Bayi hasta sahibi adına yükledi');
+ok(fails(fn()=>$f->upload($dealer,(object)['surname'=>'Yılmaz','publish'=>true,'image'=>jpeg(1)],$now),422),'Bayi müşteri seçmeden yükledi');
+ok(fails(fn()=>$f->upload($dealer,(object)['client'=>'yok-musteri','surname'=>'Yılmaz','publish'=>true,'image'=>jpeg(1)],$now),404),'Olmayan müşteriye yüklendi');
+ok(fails(fn()=>$f->upload($staffRead,(object)['client'=>'c1','surname'=>'Yılmaz','publish'=>true,'image'=>jpeg(1)],$now),403),'Okuma yetkili personel yükledi');
 
 // 3 sınırı
 $f->upload($owner,(object)['surname'=>'yılmaz','caption'=>'Ayşe ve Pamuk','publish'=>true,'image'=>jpeg(1)],$now);
