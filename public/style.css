@@ -1648,3 +1648,7 @@ td.dealer-message-body{min-width:16em;max-width:28em;font-size:.88rem}td.dealer-
 .sl-side #saleBalance>div,.sl-side #saleBeforeDiscount>div,.sl-side #saleTotals>div{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
 .sl-side #saleBalance dd{font-weight:800;font-size:1.05rem;margin:0}
 @media (max-width:700px){.billing .barcode-entry.sl-search{grid-template-columns:1fr 1fr}.billing .sl-search input#saleBarcode{grid-column:1/-1}}
+.sl-appdisc{display:flex;gap:10px;align-items:center;padding:10px 12px;margin:0 0 10px;border-radius:12px;background:#e3f6ee;color:#0b5c43;border:1px solid #bfe7d3;cursor:pointer}
+.sl-appdisc input{width:20px;height:20px;flex:none}
+.sl-appdisc span{display:grid}
+.sl-appdisc small{font-size:.8rem}

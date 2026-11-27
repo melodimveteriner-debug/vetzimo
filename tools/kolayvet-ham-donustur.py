@@ -29,6 +29,22 @@ def s(v):
     return '' if t in ('-', 'null', 'None', 'undefined') else re.sub(r'\s+', ' ', t)
 
 
+def stamp(v):
+    """KolayVET tarih-saatini ISO UTC zaman damgasına çevirir (Türkiye saati UTC+3); saat yoksa boş döner."""
+    t = s(v)
+    m = re.match(r'(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?', t) or re.match(r'(\d{2})[./-](\d{2})[./-](\d{4})[ T](\d{2}):(\d{2})(?::(\d{2}))?', t)
+    if not m:
+        return ''
+    g = m.groups()
+    y, mo, d = (g[0], g[1], g[2]) if len(g[0]) == 4 else (g[2], g[1], g[0])
+    try:
+        import datetime as _dt
+        local = _dt.datetime(int(y), int(mo), int(d), int(g[3]), int(g[4]), int(g[5] or 0))
+    except ValueError:
+        return ''
+    return (local - _dt.timedelta(hours=3)).strftime('%Y-%m-%dT%H:%M:%S.000Z')
+
+
 def iso(v):
     """KolayVET tarihlerini YYYY-AA-GG yapar; geçersiz/0000 tarihleri boş döner."""
     t = s(v)
@@ -268,7 +284,7 @@ def main():
             lines.append({'name': s(it['name'])[:200], 'quantity': q, 'price': from_cents(price), 'vat': '0', 'taxMode': 'KDV Dahil',
                           'stock': 'Hayır', **({'discountAmount': from_cents(disc)} if disc and disc <= price * int(q) else {})})
             gross += price * int(q) - (disc if disc and disc <= price * int(q) else 0)
-        sale = {'id': 's-' + sid, 'date': d, 'amount': from_cents(amount), 'paid': '0', 'method': 'Nakit',
+        sale = {'id': 's-' + sid, 'date': d, 'createdAt': stamp(x.get('date')), 'amount': from_cents(amount), 'paid': '0', 'method': 'Nakit',
                 'client': cid if cid in clients else '', 'detail': s(x.get('name'))[:200] or 'KolayVET satışı'}
         if lines and len(lines) <= 30 and gross == amount:
             sale['items'] = json.dumps(lines, ensure_ascii=False)
@@ -316,7 +332,7 @@ def main():
         d = max(iso(t.get('received_date')) or iso(t.get('date')) or sale['date'], sale['date'])
         paid[oid] += amt
         last_method[oid] = method_map.get(s(t.get('payment_method')), 'Diğer')
-        rec['collections'].append({k: v for k, v in {'id': 't-' + s(t.get('id')), 'sale': 's-' + oid, 'date': d,
+        rec['collections'].append({k: v for k, v in {'id': 't-' + s(t.get('id')), 'sale': 's-' + oid, 'date': d, 'createdAt': stamp(t.get('date') or t.get('created_at')),
                                                      'amount': from_cents(amt), 'method': last_method[oid], 'notes': s(t.get('notes'))}.items() if v != ''})
     # Kaynakta indirim satış tutarından düşülmemiş satışlar: tahsilat toplamı = tutar − indirim ise satış indirimli tutarla alınır.
     for oid, (sale, total, lines, gross, cands) in list(sales.items()):

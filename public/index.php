@@ -1707,6 +1707,7 @@ try {
                 reply(['image'=>(new VetNet\Cpanel\Pregnancy($db))->photo($actor['partner_id'],$petId,(string)($_GET['kind'] ?? ''))]);
             }
             if($action==='directory') reply($identity->directory($actor));
+            if($action==='app-usage') reply((new VetNet\Cpanel\AppUsage($db))->report($actor,$now));
             if($action==='role-presets') reply(['presets'=>$identity->rolePresets($actor)]);
         }
         if($method==='POST') {
@@ -1742,7 +1743,19 @@ try {
             if(in_array($action,['permissions','revoke','edit','delete'],true)) { $identity->manage($actor,$scope,$action,$body,$now); reply(['ok'=>true]); }
             if($action==='role-presets') reply($identity->saveRolePreset($actor,$scope,$body,$now));
             if($action==='role-presets-apply') reply(['updated'=>$identity->applyRolePreset($actor,$scope,$body,$now)]);
+            if($action==='app-discount') {
+                if(!hash_equals((string)($actor['membership_id'] ?? ''),$scope)) throw new RuntimeException('Oturum değişti. Sayfayı yenileyin.',409);
+                reply((new VetNet\Cpanel\AppUsage($db))->saveDiscount($actor,$body,$now));
+            }
         }
+    }
+    if ($path === '/api/clinic/app-discount' && $method === 'GET') {
+        // Satış ekranı: uygulamayı kullanan hasta sahiplerine bayinin tanımladığı indirim.
+        $actor=$workspaces->actor($_COOKIE,$now);
+        if(!ClinicAccess::allowed($actor,'sales')) throw new RuntimeException('Bu bölüm için yetkiniz bulunmuyor.',403);
+        $usage=new VetNet\Cpanel\AppUsage($db);
+        $discount=$usage->discount((string)$actor['partner_id']);
+        reply($discount+['clients'=>$discount['enabled']?$usage->appClients((string)$actor['partner_id']):[]]);
     }
     if ($path === '/api/clinic/esmm' && in_array($method,['GET','POST'],true)) {
         $write = $method === 'POST';

@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 namespace VetNet\Cpanel;
+require_once __DIR__.'/AppUsage.php';
 
 require_once __DIR__.'/AppHub.php';
 use PDO;
@@ -82,6 +83,7 @@ final class DealerLogin
             return null;
         }
         (new AppHub($this->database))->securityLogin($account['id'],$account['membership_id'],$account['role'],(string)($_SERVER['HTTP_USER_AGENT'] ?? ''),$now);
+        AppUsage::record($this->database,(string)$account['membership_id'],(string)($_SERVER['HTTP_USER_AGENT'] ?? ''),$now,true);
 
         return ['token' => $token, 'device' => $device, 'age' => self::SESSION_SECONDS, 'partner_id'=>$account['partner_id'], 'destination'=>$account['role']==='customer'?'/hasta-sahibi':'/clinic'];
     }

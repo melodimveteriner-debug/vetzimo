@@ -1,5 +1,5 @@
 import {clinicFetch} from "./access.js?v=20261127-r66";
-import {mountClinicAccounts} from "./clinic-accounts-ui.js?v=r75";
+import {mountClinicAccounts} from "./clinic-accounts-ui.js?v=r77";
 import {mountTemplates} from "./clinic-tools-ui.js?v=2";
 import {mountCreditShop} from "./center-shop.js?v=7";
 import {opsFetch} from "./center-ops.js";

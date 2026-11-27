@@ -1081,3 +1081,37 @@ td [class*=badge],td [class*=status],td [class*=pill],td [class*=chip]{white-spa
 .vz-biz-card>span{display:grid;place-items:center;width:44px;height:44px;border-radius:14px;background:var(--accent,#5b43c2);color:#fff;flex:none}
 .vz-biz-card div{display:grid;gap:2px;flex:1;min-width:0}.vz-biz-card small{opacity:.78}
 .vz-balance .button{margin-left:8px}
+/* Personel ekranı · Uygulamayı kullananlar (hasta sahipleri) */
+.ca-usage{display:grid;gap:14px;min-width:0}.ca-usage>*{min-width:0}.ca-usage .suite-table{overflow-x:auto;max-width:100%}
+.ca-usage-head h2{margin:0}
+.ca-usage-cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.ca-usage-card{display:grid;gap:2px;text-align:left;padding:14px;border-radius:14px;border:1px solid var(--line,#e3e0f0);background:#f6f4ff;color:#2b2160;cursor:pointer;font:inherit;min-width:0}
+.ca-usage-card strong{font-size:1.7rem;line-height:1.1}
+.ca-usage-card small{font-weight:750}
+.ca-usage-card span{font-size:.8rem;opacity:.8}
+.ca-usage-card.ok{background:#e3f6ee;color:#0b5c43}
+.ca-usage-card.mid{background:#eaf1ff;color:#20479e}
+.ca-usage-card.low{background:#fdebef;color:#8c2240}
+.ca-usage-card[aria-pressed=true]{outline:3px solid color-mix(in srgb,var(--accent,#5b43c2) 45%,transparent);outline-offset:1px}
+.ca-usage-chips,.ca-usage-chans{display:flex;flex-wrap:wrap;gap:6px}
+.ca-chip{display:inline-flex;align-items:center;padding:3px 10px;border-radius:999px;font-size:.78rem;font-weight:750;background:#efedf7;color:#3b3360}
+.ca-ch-android{background:#e2f5e9;color:#16663a}
+.ca-ch-ios{background:#eceef2;color:#22262e}
+.ca-ch-macos{background:#e9eefb;color:#2b4aa0}
+.ca-ch-windows{background:#e3f1fd;color:#0c5aa6}
+.ca-ch-linux{background:#fff3df;color:#8a5200}
+.ca-ch-web{background:#f3e9ff;color:#6a2fb3}
+.ca-ch-none{background:#f4f4f6;color:#7b7a85}
+.ca-usage-portal{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:center;padding:10px 14px;border-radius:12px;background:#faf7ff;border:1px dashed #d9cdf6;font-size:.88rem}
+.ca-usage-discount{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;padding:12px 14px;border-radius:14px;border:1px solid #d7ecdf;background:#f2fbf6}
+.ca-usage-discount p{flex-basis:100%;margin:0;font-size:.82rem}
+.ca-switch{display:inline-flex;gap:8px;align-items:center;font-weight:750;cursor:pointer}
+.ca-switch input{width:20px;height:20px}
+.ca-percent{display:inline-flex;align-items:center;border:1px solid var(--line,#e3e0f0);border-radius:10px;background:#fff;overflow:hidden}
+.ca-percent span{padding:0 10px;font-weight:800;color:#0b5c43}
+.ca-percent input{width:90px;border:0;min-height:38px}
+.ca-usage-tools{display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;align-items:center}
+.ca-usage-search{min-height:40px;min-width:min(260px,100%);flex:0 1 300px}
+.ca-usage td small{display:block;opacity:.7;font-size:.76rem}
+@media (max-width:900px){.ca-usage-cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:420px){.ca-usage-cards{grid-template-columns:1fr}.ca-usage-search{flex-basis:100%}}

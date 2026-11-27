@@ -177,7 +177,7 @@ export async function mountClinicAccounts(ui,params) {
     const title=el("div");
     title.append(el("h2",row.name||row.phone,{tabIndex:-1}),el("p",[roles[row.role],data.branches.find(item=>item.id===row.branch_id)?.name,memberStatus[row.status]].filter(Boolean).join(" · "),{className:"suite-muted"}));
     const back=el("button","Üyelik listesine dön",{type:"button",className:"button"});
-    back.addEventListener("click",()=>{details.parentElement.previousElementSibling.hidden=false;details.parentElement.replaceChildren();});
+    back.addEventListener("click",()=>{const host=details.parentElement;host.parentElement?.querySelectorAll("[data-member-list]").forEach(x=>{x.hidden=false;});host.replaceChildren();});
     top.append(title,back);details.append(top);
     const controls=el("div","",{className:"links"});
     if (row.status!=="revoked") {
@@ -303,6 +303,76 @@ export async function mountClinicAccounts(ui,params) {
     return panel;
   }
 
+  // Hasta sahipleri: uygulama (iOS, Android, Mac, Windows) ve hasta sahibi portalı (tarayıcı) kullanımı + uygulama indirimi.
+  async function appUsage(box,data,openMember,resendTools) {
+    box.replaceChildren(el("h2","Uygulamayı kullananlar"),el("p","Yükleniyor…",{className:"suite-muted"}));
+    const rep=await api("app-usage");
+    const S=rep.summary, L=rep.labels, fmt=t=>t?new Intl.DateTimeFormat("tr-TR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}).format(new Date(t*1000)):"—";
+    const ago=t=>{if(!t)return "";const d=Math.floor((Date.now()/1000-t)/86400);return d<=0?"bugün":d===1?"dün":d+" gün önce";};
+    const head=el("div","",{className:"ca-usage-head"});
+    head.append(el("div","",{}),el("p","Hasta sahibi hesapları, uygulama ve portal kullanımı. Uygulama: iPhone/iPad, Android, Mac ve Windows uygulamaları. Hasta sahibi portalı: telefon veya bilgisayar tarayıcısından girenler (ayrı raporlanır).",{className:"suite-muted"}));
+    head.firstChild.append(el("h2","Uygulamayı kullananlar"));
+    const pct=(n,t)=>t?Math.round(n*100/t)+"%":"0%";
+    const cards=el("div","",{className:"ca-usage-cards"});
+    const card=(label,value,sub,cls,filter)=>{const c=el("button","",{type:"button",className:"ca-usage-card "+(cls||"")});c.append(el("small",label),el("strong",String(value)),el("span",sub));c.dataset.usageFilter=filter;return c;};
+    cards.append(card("Hasta sahibi hesabı",S.accounts,S.pending+" aktivasyon bekliyor","","all"),
+      card("Uygulamayı kullanan",S.app,pct(S.app,S.accounts)+" · iOS, Android, Mac, Windows","ok","app"),
+      card("Yalnız portal (tarayıcı)",S.portalOnly,pct(S.portalOnly,S.accounts)+" · uygulamaya davet edin","mid","portal"),
+      card("Hiç giriş yapmamış",S.never,pct(S.never,S.accounts)+" · uygulamayı kullanmıyor","low","never"));
+    const chips=el("div","",{className:"ca-usage-chips"});
+    for (const [k,label] of Object.entries(L)) if (k!=="web"&&(k!=="linux"||S.channels[k])) chips.append(el("span",label+": "+(S.channels[k]||0),{className:"ca-chip ca-ch-"+k}));
+    chips.append(el("span","Son 30 günde aktif: "+S.active30,{className:"ca-chip"}));
+    // Hasta sahibi portalı ayrı rapor
+    const portal=el("div","",{className:"ca-usage-portal"});
+    portal.append(el("strong","Hasta sahibi portalı raporu"),el("span","Tarayıcıdan giren: "+S.portal.users),el("span","Toplam portal girişi: "+S.portal.logins),el("span","Son 30 günde portalı kullanan: "+S.portal.active30));
+    // İndirim (bayi)
+    const disc=el("form","",{className:"ca-usage-discount"});
+    const on=el("input","",{type:"checkbox",checked:!!rep.discount.enabled});const onL=el("label","",{className:"ca-switch"});onL.append(on,el("span","Uygulamayı kullananlara satış indirimi"));
+    const per=el("input","",{type:"number",min:"0",max:"100",step:"0.5",value:String(rep.discount.percent||""),inputMode:"decimal",placeholder:"%"});
+    const perL=el("label","",{className:"ca-percent"});perL.append(el("span","%"),per);
+    const save=el("button","İndirimi kaydet",{type:"submit",className:"button small primary"});
+    const out=el("small","",{className:"suite-muted",role:"status"});
+    disc.append(onL,perL,save,el("p","Açık olduğunda iOS, Android, Mac veya Windows uygulamasını kullanan hasta sahibinin satışında bu oran genel indirim olarak önerilir ve uygulanır (satış ekranında kaldırılabilir). Uygulamayı teşvik etmek için kullanın.",{className:"suite-muted"}),out);
+    disc.addEventListener("submit",async e=>{e.preventDefault();save.disabled=true;out.textContent="";try{const r=await api("app-discount",{enabled:on.checked,percent:Number(per.value||0)});on.checked=r.enabled;per.value=String(r.percent||"");out.textContent=r.enabled?"Kaydedildi: uygulama kullanıcılarına %"+r.percent+" indirim açık.":"Kaydedildi: uygulama indirimi kapalı.";}catch(er){out.textContent=er.message;}finally{save.disabled=false;}});
+    // Liste
+    let filterValue="all", term="";
+    const tabs=el("div","",{className:"suite-tabs ca-usage-tabs"});
+    for (const [k,label] of [["all","Tümü"],["app","Uygulama"],["portal","Yalnız portal"],["never","Hiç girmedi"]]) {const b=el("button",label,{type:"button",className:"button small"});b.dataset.usageFilter=k;tabs.append(b);}
+    const search=el("input","",{type:"search",placeholder:"Ad veya telefon",className:"ca-usage-search"});
+    const list=el("div");
+    const chan=r=>{const w=el("div","",{className:"ca-usage-chans"});for(const k of Object.keys(r.channels))w.append(el("span",L[k]||k,{className:"ca-chip ca-ch-"+k,title:(L[k]||k)+" · "+(r.channels[k].logins||0)+" giriş · son kullanım "+fmt(r.channels[k].lastSeen)}));if(!w.childElementCount)w.append(el("span","Kullanmıyor",{className:"ca-chip ca-ch-none"}));return w;};
+    const draw=()=>{
+      for (const b of tabs.children) b.setAttribute("aria-pressed",String(b.dataset.usageFilter===filterValue));
+      for (const c of cards.children) c.setAttribute("aria-pressed",String(c.dataset.usageFilter===filterValue));
+      const q=term.trim().toLocaleLowerCase("tr-TR");
+      const rows=rep.members.filter(r=>(filterValue==="all"||filterValue==="app"&&r.app||filterValue==="portal"&&!r.app&&r.portal||filterValue==="never"&&!r.app&&!r.portal)&&(!q||[r.name,r.phone].some(v=>v?.toLocaleLowerCase("tr-TR").includes(q))));
+      list.replaceChildren(paginate(rows,visible=>{
+        if(!visible.length) return el("p","Bu seçimde hasta sahibi yok.",{className:"suite-muted"});
+        const wrap=el("div","",{className:"suite-table"}),table=el("table"),hr=table.createTHead().insertRow(),body=table.createTBody();
+        for (const h of ["Hasta sahibi","Kullandığı","Son giriş","Toplam giriş","Son kullanım","İşlemler"]) hr.append(el("th",h,{scope:"col"}));
+        for (const r of visible) {
+          const tr=body.insertRow();
+          tr.insertCell().append(el("strong",r.name||r.phone),...(r.name?[el("small",r.phone)]:[]),...(r.status==="pending"?[el("span","Aktivasyon bekliyor",{className:"suite-pill"})]:[]));
+          tr.insertCell().append(chan(r));
+          tr.insertCell().append(el("span",fmt(r.lastLogin)),el("small",ago(r.lastLogin)));
+          tr.insertCell().append(el("strong",String(r.logins||0)));
+          tr.insertCell().append(el("span",fmt(r.lastSeen)),el("small",ago(r.lastSeen)));
+          const cell=tr.insertCell(),bt=el("button","Yetkileri düzenle",{type:"button",className:"button small"});
+          const member=data.members.find(m=>m.id===r.id);
+          bt.addEventListener("click",()=>member&&openMember(member));cell.append(bt);
+          if(member&&member.status==="pending") cell.append(resendTools(member));
+        }
+        wrap.append(table);return wrap;
+      },15));
+    };
+    tabs.addEventListener("click",e=>{const b=e.target.closest("[data-usage-filter]");if(b){filterValue=b.dataset.usageFilter;draw();}});
+    cards.addEventListener("click",e=>{const b=e.target.closest("[data-usage-filter]");if(b){filterValue=b.dataset.usageFilter;draw();}});
+    search.addEventListener("input",()=>{term=search.value;draw();});
+    const tools=el("div","",{className:"ca-usage-tools"});tools.append(tabs,search);
+    box.replaceChildren(head,cards,chips,portal,disc,tools,list);
+    draw();
+  }
+
   let searchValue="",roleValue="",branchValue="",statusValue="";
   async function management() {
     const [session,data,presets]=await Promise.all([api("session"),api("directory"),api("role-presets").catch(()=>null)]);
@@ -322,7 +392,7 @@ export async function mountClinicAccounts(ui,params) {
     const detail=el("div");
     const list=el("div");
     const filters=el("div","",{className:"suite-form suite-filters"});
-    const role=selectField("member-role","Rol",[["","Tüm roller"],...availableRoles],false);
+    const role=selectField("member-role","Rol",[["","Tüm roller"],...availableRoles.filter(([key])=>key!=="customer")],false);
     const branch=selectField("member-branch","Şube",[["","Tüm şubeler"],...data.branches.map(row=>[row.id,row.name])],false);
     const state=selectField("member-state","Durum",[["","Tüm durumlar"],...Object.entries(memberStatus)],false);
     const search=field("member-search","Ad veya telefon",{type:"search",value:searchValue,required:false});
@@ -330,7 +400,8 @@ export async function mountClinicAccounts(ui,params) {
     roleSelect.value=roleValue;branchSelect.value=branchValue;stateSelect.value=statusValue;
     branch.hidden=activeBranches(data).length===1;
     filters.append(search,...(data.quotas.userCap?[role]:[]),...(data.quotas.branchCap?[branch]:[]),state);
-    for (const [key,label] of availableRoles) {
+    const staffRoles=availableRoles.filter(([key])=>key!=="customer");
+    for (const [key,label] of staffRoles) {
       const active=data.members.filter(row=>row.role===key&&row.status==="active").length;
       const pending=data.members.filter(row=>row.role===key&&row.status==="pending").length;
       const card=el("button","",{type:"button",className:"panel suite-metric"});
@@ -380,7 +451,7 @@ export async function mountClinicAccounts(ui,params) {
       searchValue=search.querySelector("input").value;
       const term=searchValue.trim().toLocaleLowerCase("tr-TR");
       for (const card of metrics.children) card.setAttribute("aria-pressed",String(roleValue===card.dataset.role));
-      const found=data.members.filter(row=>(!roleValue||row.role===roleValue)&&(!branchValue||row.branch_id===branchValue)&&
+      const found=data.members.filter(row=>row.role!=="customer"&&(!roleValue||row.role===roleValue)&&(!branchValue||row.branch_id===branchValue)&&
         (!statusValue||row.status===statusValue)&&(!term||[row.name,row.phone].some(value=>value?.toLocaleLowerCase("tr-TR").includes(term))));
       list.replaceChildren(paginate(found,visible=>{
         if (!visible.length) return el("p","Bu seçimde üyelik bulunamadı.",{className:"suite-muted"});
@@ -394,7 +465,7 @@ export async function mountClinicAccounts(ui,params) {
           tr.insertCell().append(el("span",memberStatus[row.status]||row.status,{className:"suite-pill"}));
           const button=el("button",row.status==="revoked"?"Görüntüle":"Yetkileri düzenle",{type:"button",className:"button small"});
           button.addEventListener("click",()=>{
-            catalog.hidden=true;detail.replaceChildren(memberCard(row,data));
+            catalog.hidden=true;usage.hidden=true;detail.replaceChildren(memberCard(row,data));
             detail.querySelector("h2").focus({preventScroll:true});detail.scrollIntoView({block:"start"});
           });
           const cell=tr.insertCell();cell.append(button);
@@ -405,9 +476,13 @@ export async function mountClinicAccounts(ui,params) {
     }
     filters.addEventListener("input",render);
     filters.addEventListener("change",render);
-    catalog.append(el("h2","Kurum üyelikleri"),filters,list);
-    view.append(tools,reauth(session.previewReauth),metrics,invitation,...(data.quotas.userCap&&presets?[presetPanel(data)]:[]),catalog,detail,brandForm(data.partnerId));
+    catalog.append(el("h2","Kurum üyelikleri"),el("p","Klinik ekibi: şube yöneticileri ve personel. Hasta sahibi hesapları aşağıda, Uygulamayı kullananlar bölümündedir.",{className:"suite-muted"}),filters,list);
+    catalog.dataset.memberList="1";
+    const usage=el("section","",{className:"panel suite-panel ca-usage"});usage.dataset.memberList="1";
+    const openMember=row=>{catalog.hidden=true;usage.hidden=true;detail.replaceChildren(memberCard(row,data));detail.querySelector("h2").focus({preventScroll:true});detail.scrollIntoView({block:"start"});};
+    view.append(tools,reauth(session.previewReauth),metrics,invitation,...(data.quotas.userCap&&presets?[presetPanel(data)]:[]),...(data.quotas.userCap?[catalog]:[]),usage,detail,brandForm(data.partnerId));
     render();
+    appUsage(usage,data,openMember,resendTools).catch(e=>usage.replaceChildren(el("h2","Uygulamayı kullananlar"),el("p",e.message,{className:"suite-muted"})));
   }
 
   await management();

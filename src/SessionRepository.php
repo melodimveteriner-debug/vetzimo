@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 namespace VetNet\Cpanel;
+require_once __DIR__.'/AppUsage.php';
 
 use PDO;
 
@@ -68,6 +69,8 @@ final class SessionRepository
                 sessionCookie(self::DEVICE_COOKIE, $device, $expires);
             }
             $session['expires'] = $expires;
+            // Hasta sahibinin uygulama/portal kullanımı (son kullanım; dakikada en fazla bir kez).
+            if (($session['role'] ?? '') === 'customer') AppUsage::record($this->database, (string) $session['membership_id'], (string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), $now, false);
         }
 
         return $session;
