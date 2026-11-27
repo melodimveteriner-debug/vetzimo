@@ -10,7 +10,7 @@ final class ClinicAccess
         'patients'=>['patients','weights','exams','labs','treatments','prescriptions','stays','surgeries'],
         'followups'=>['followups','vaccineCatalog'],'sales'=>['sales'],
         'products'=>['products','suppliers','purchases','stockLots','stockMoves'],
-        'expenses'=>['expenses','collections','payments'],'reports'=>[],
+        'collections'=>['collections'],'expenses'=>['expenses','payments'],'reports'=>[],
         'messages'=>['messages','templates'],'support'=>[],'esmm'=>[],
         'overviewClients'=>[],'overviewPatients'=>[],
     ];
@@ -28,6 +28,21 @@ final class ClinicAccess
     /** Hasta sahibi portalında gösterilebilecek bölümler. Yeni bölümler (evden takip, borç, belgeler) varsayılan olarak açıktır. */
     public const CUSTOMER_SECTIONS = ['vaccines','appointments','shares','exam','lab','xray','homeCare','balance','documents'];
     public const CUSTOMER_DEFAULT_ON = ['homeCare','balance','documents'];
+
+    /**
+     * Bir işin olmazsa olmazları: satış yapan kişi kataloğu ve müşteriyi görmeden satış giremez; satışın
+     * tahsilatı (Tahsilat izni) eski kayıtlarda Muhasebe veya Satış izninden türetilir. Açıkça verilen daha yüksek
+     * izin hiçbir zaman düşürülmez; açıkça "Kapalı" seçilmiş Tahsilat izni korunur.
+     */
+    private static function implied(object $modules): void
+    {
+        $rank=['none'=>0,'read'=>1,'write'=>2];
+        $at=static fn(string $key)=>$rank[$modules->$key ?? 'none'] ?? 0;
+        $raise=static function(string $key,string $to) use($modules,$rank,$at): void { if ($at($key)<$rank[$to]) $modules->$key=$to; };
+        if (!isset($modules->collections)) $modules->collections=array_search(max($at('expenses'),$at('sales')),$rank,true);
+        if ($at('sales')>=1) { $raise('products','read'); $raise('clients','read'); }
+        if ($at('collections')>=1) $raise('sales','read');
+    }
 
     /** Özellik erişimi: paket kapatmışsa kimse kullanamaz; bayi yöneticisi pakete kadar, şube/personel kendi izni kadar (izin yoksa açık). */
     public static function feature(array $actor,string $key,bool $write=false): bool
@@ -89,6 +104,7 @@ final class ClinicAccess
     public static function modules(array $actor): object
     {
         $modules=json_decode($actor['modules'] ?? '{}',false,32,JSON_THROW_ON_ERROR);
+        if (in_array($actor['role'] ?? '',['branch','staff'],true)) self::implied($modules);
         foreach ($actor['packageModules'] ?? [] as $key=>$cap) {
             if ($actor['role']==='dealer' || $cap==='none') $modules->$key=$cap;
             elseif ($cap==='read' && ($modules->$key ?? '')==='write') $modules->$key='read';

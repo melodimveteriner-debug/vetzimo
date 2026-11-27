@@ -301,11 +301,18 @@ final class IdentityApi
      * Şablonda belirtilmeyen her izin KAPALI sayılır (açıkça verilmeyen yetki yoktur).
      */
     public const PRESET_DEFAULTS = [
-        'reception'=>['Danışma / Resepsiyon',['appointments'=>'write','clients'=>'write','patients'=>'read','followups'=>'write','sales'=>'read','messages'=>'read','overviewClients'=>'read','overviewPatients'=>'read',
+        'branch-manager'=>['Şube yöneticisi (şubede tam yetki)',['appointments'=>'write','clients'=>'write','patients'=>'write','followups'=>'write','sales'=>'write','collections'=>'write','products'=>'write','expenses'=>'write','reports'=>'read','messages'=>'write','support'=>'write','overviewClients'=>'read','overviewPatients'=>'read',
+            'overviewSales'=>'read','deletePatients'=>'write','deleteClients'=>'write','deleteAppointments'=>'write','deleteProducts'=>'write','deleteSales'=>'write','deleteCollections'=>'write','deleteCash'=>'write','deleteNotes'=>'write','deleteMessages'=>'write','deleteTemplates'=>'write','deleteHomeVisit'=>'write',
+            'smsSend'=>'write','whatsappSend'=>'write','smsHistory'=>'read','whatsappHistory'=>'read','backup'=>'read','spreadsheet'=>'write','cashCorrect'=>'write',
+            'inbox'=>'write','phoneGateway'=>'write','reminders'=>'write','bulkMessages'=>'write','permits'=>'write','consents'=>'write','edocs'=>'write','bridge'=>'write','icu'=>'write','surgery'=>'write','homeCare'=>'write','homeVisit'=>'write',
+            'webSite'=>'write','onlineBooking'=>'write','vebot'=>'write','voice'=>'write','xray'=>'write','dicom'=>'write','labAi'=>'write','calculators'=>'write','taskBoard'=>'write','commission'=>'read','debtReminders'=>'write','bulkPrice'=>'write','invoiceImport'=>'write','okc'=>'write','devices'=>'write']],
+        'sales-desk'=>['Satış / tezgâh personeli',['sales'=>'write','collections'=>'write','clients'=>'write','patients'=>'read','appointments'=>'read','products'=>'read','followups'=>'read','overviewClients'=>'read','overviewPatients'=>'read',
+            'okc'=>'write','permits'=>'write','debtReminders'=>'write','taskBoard'=>'write','vebot'=>'write','voice'=>'write','inbox'=>'read']],
+        'reception'=>['Danışma / Resepsiyon',['appointments'=>'write','clients'=>'write','patients'=>'read','followups'=>'write','sales'=>'read','collections'=>'read','messages'=>'read','overviewClients'=>'read','overviewPatients'=>'read',
             'inbox'=>'write','permits'=>'write','consents'=>'write','reminders'=>'read','onlineBooking'=>'write','homeVisit'=>'read','taskBoard'=>'write','vebot'=>'write','voice'=>'write']],
-        'clinical'=>['Klinik personeli (hekim)',['appointments'=>'write','clients'=>'read','patients'=>'write','followups'=>'write','sales'=>'write','products'=>'read','reports'=>'read','overviewClients'=>'read','overviewPatients'=>'read',
+        'clinical'=>['Klinik personeli (hekim)',['appointments'=>'write','clients'=>'write','patients'=>'write','followups'=>'write','sales'=>'write','collections'=>'write','products'=>'read','reports'=>'read','overviewClients'=>'read','overviewPatients'=>'read',
             'inbox'=>'read','consents'=>'write','bridge'=>'write','icu'=>'write','surgery'=>'write','homeCare'=>'write','homeVisit'=>'write','xray'=>'write','dicom'=>'write','labAi'=>'write','calculators'=>'write','devices'=>'write','taskBoard'=>'write','vebot'=>'write','voice'=>'write']],
-        'cashier'=>['Kasa personeli',['sales'=>'write','expenses'=>'write','clients'=>'read','patients'=>'read','appointments'=>'read','products'=>'read','reports'=>'read','overviewSales'=>'read',
+        'cashier'=>['Kasa personeli',['sales'=>'write','collections'=>'write','expenses'=>'write','clients'=>'read','patients'=>'read','appointments'=>'read','products'=>'read','reports'=>'read','overviewSales'=>'read',
             'okc'=>'write','edocs'=>'write','debtReminders'=>'write','taskBoard'=>'write']],
         'inventory'=>['Stok sorumlusu',['products'=>'write','sales'=>'read','reports'=>'read','invoiceImport'=>'write','bulkPrice'=>'write','taskBoard'=>'write']],
     ];
@@ -318,6 +325,8 @@ final class IdentityApi
     private static function presetGrants(array $values): array
     {
         $keys=[...array_keys(ClinicAccess::MODULES),...array_unique(array_values(ClinicAccess::ACTION_GRANTS)),...array_keys(ClinicAccess::FEATURES)];
+        // Tahsilat ayrı izin oldu: eski şablonda yoksa Muhasebe veya Satış izninin yükseği verilir (satış yapan tahsilat alabilir).
+        if (!isset($values['collections'])) { $r=['none'=>0,'read'=>1,'write'=>2]; $values['collections']=array_search(max($r[$values['expenses'] ?? 'none'] ?? 0,$r[$values['sales'] ?? 'none'] ?? 0),$r,true); }
         $out=[];
         foreach ($keys as $key) {
             $value=$values[$key] ?? 'none';
@@ -340,7 +349,12 @@ final class IdentityApi
             // Hiç kaydedilmemişse hazır şablonlar gösterilir; bayi ilk düzenlemede kendi kopyasını oluşturur.
             return array_map(fn($id)=>['id'=>$id,'label'=>self::PRESET_DEFAULTS[$id][0],'modules'=>self::presetGrants(self::PRESET_DEFAULTS[$id][1]),'custom'=>false],array_keys(self::PRESET_DEFAULTS));
         }
-        return array_map(static fn($r)=>['id'=>$r['id'],'label'=>$r['label'],'modules'=>self::presetGrants(json_decode($r['modules'],true) ?: []),'custom'=>true],$rows);
+        $out=array_map(static fn($r)=>['id'=>$r['id'],'label'=>$r['label'],'modules'=>self::presetGrants(json_decode($r['modules'],true) ?: []),'custom'=>true],$rows);
+        // Sonradan eklenen hazır şablonlar (şube yöneticisi, satış personeli) kendi listesini kaydetmiş bayide de görünür.
+        $have=array_column($out,'id');
+        foreach (['branch-manager','sales-desk'] as $id) if (!in_array($id,$have,true))
+            $out[]=['id'=>$id,'label'=>self::PRESET_DEFAULTS[$id][0],'modules'=>self::presetGrants(self::PRESET_DEFAULTS[$id][1]),'custom'=>false];
+        return $out;
     }
     /** Şablon kaydet / sil. Bayi yöneticisi; ilk değişiklikte hazır şablonlar bayinin kendi listesine kopyalanır. */
     public function saveRolePreset(array $actor,string $scope,object $input,int $now): array

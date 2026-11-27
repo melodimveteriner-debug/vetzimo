@@ -246,8 +246,10 @@ final class DealerWorkspace
         foreach($requested as $key=>$value) {
             if($key==='activity') continue;
             if(!ClinicAccess::allowed($actor,$key,true)) {
-                if(!property_exists($visible,$key) || $value != $visible->$key) throw new RuntimeException('Bu alanı değiştirme yetkiniz yok.',403);
-                continue;
+                $same=property_exists($visible,$key) && $value == $visible->$key;
+                if($same) continue;
+                // Satış ve reçete kaydı stoğu düşer: ürün/stok yazma izni olmayan kişi yalnız bu stok etkisini yazabilir.
+                if(!self::stockEffect($key,(array)($visible->$key ?? []),is_array($value)?$value:[],$actor)) throw new RuntimeException('Bu alanı değiştirme yetkiniz yok.',403);
             }
             if(!is_array($value)) throw new RuntimeException('Kayıt listesi geçersiz.',422);
             $outside=array_values(array_filter($original->$key,fn($r)=>$r->branch!==$dataId));
@@ -256,6 +258,40 @@ final class DealerWorkspace
             $next->$key=[...$value,...$outside];
         }
         return $next;
+    }
+    /**
+     * Satış (Satış izni) veya reçete (Hasta izni) kaydının zorunlu stok etkisi mi? Ürünlerde yalnız stok sayısı, stok
+     * partilerinde yalnız giren/kalan miktar değişebilir (yeni parti yalnız "Önceki stok bakiyesi" açılış partisi olabilir),
+     * stok hareketlerine yalnız yetkili kaynaktan yeni satır eklenebilir; fiyat, ad, alış ve silme yapılamaz.
+     */
+    private static function stockEffect(string $key,array $before,array $after,array $actor): bool
+    {
+        if (!in_array($key,['products','stockLots','stockMoves'],true)) return false;
+        $sources=[];
+        if (ClinicAccess::allowed($actor,'sales',true)) $sources[]='Satış';
+        if (ClinicAccess::allowed($actor,'prescriptions',true)) $sources[]='Reçete';
+        if (!$sources) return false;
+        $old=[]; foreach ($before as $row) if (is_object($row) && is_string($row->id ?? null)) $old[$row->id]=$row;
+        $strip=static function(object $row,array $fields): array { $a=(array)$row; foreach ($fields as $f) unset($a[$f]); ksort($a); return $a; };
+        $seen=[];
+        foreach ($after as $row) {
+            if (!is_object($row) || !is_string($row->id ?? null)) return false;
+            $seen[$row->id]=true;
+            $prev=$old[$row->id] ?? null;
+            if ($key==='products') {
+                if (!$prev || $strip($row,['stock','updatedAt'])!=$strip($prev,['stock','updatedAt'])) return false;
+                if (!is_numeric((string)($row->stock ?? '0'))) return false;
+            } elseif ($key==='stockLots') {
+                if ($prev) { if ($strip($row,['received','remaining'])!=$strip($prev,['received','remaining'])) return false; }
+                elseif (($row->id ?? '')!=='initial-'.($row->product ?? '') || ($row->reason ?? '')!=='Önceki stok bakiyesi' || ($row->buy ?? '')!=='') return false;
+                if (!is_numeric((string)($row->remaining ?? '')) || (float)$row->remaining<0) return false;
+            } else {
+                if ($prev) { if ($row!=$prev) return false; }
+                elseif (!in_array((string)($row->source ?? ''),$sources,true) || !is_numeric((string)($row->delta ?? ''))) return false;
+            }
+        }
+        foreach (array_keys($old) as $id) if (!isset($seen[$id])) return false;
+        return true;
     }
     private function checkChanges(object $original,object $next,array $actor): void
     {
@@ -275,7 +311,8 @@ final class DealerWorkspace
     public function actor(array $cookies, int $now, bool $forUpdate = false): array
     {
         $actor = $this->sessions->resolve($cookies, $now, $forUpdate);
-        if ($actor === null || !in_array($actor['role'],['dealer','branch','staff'],true)) {
+        if ($actor === null) throw new RuntimeException('Oturumunuzun süresi doldu veya başka bir yerden çıkış yapıldı. Girdiğiniz bilgiler kaybolmasın diye bu sekmeyi kapatmadan yeni sekmede /app adresinden giriş yapın, sonra burada tekrar Kaydet\'e basın.', 401);
+        if (!in_array($actor['role'],['dealer','branch','staff'],true)) {
             throw new RuntimeException('Bu çalışma alanına erişim yetkiniz yok.', 403);
         }
 

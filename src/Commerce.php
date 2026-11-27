@@ -157,7 +157,15 @@ final class Commerce
             WHERE s.partner_id=? AND s.starts_on<=? AND s.ends_on>=? ORDER BY (s.kind=\'upgrade\') DESC,s.starts_on DESC,s.id DESC LIMIT 1');
         $q->execute([$actor['partner_id'],$day,$day]);
         $settings=json_decode((string)$q->fetchColumn(),true);
-        if (isset($settings['modules'])) $actor['packageModules']=$settings['modules'];
+        if (isset($settings['modules'])) {
+            $actor['packageModules']=$settings['modules'];
+            // Tahsilat ayrı modül oldu; eski paketlerde Muhasebe veya Satış hangisi açıksa o düzeyde gelir.
+            if (!isset($actor['packageModules']['collections'])) {
+                $rank=['none'=>0,'read'=>1,'write'=>2];
+                $level=max($rank[$settings['modules']['expenses'] ?? 'none'] ?? 0,$rank[$settings['modules']['sales'] ?? 'none'] ?? 0);
+                $actor['packageModules']['collections']=array_search($level,$rank,true);
+            }
+        }
         if (isset($settings['capabilities']) && is_array($settings['capabilities'])) $actor['packageFeatures']=array_map(static fn($v)=>$v===true,$settings['capabilities']);
         $terms=(array)($settings['terms'] ?? []);
         $actor['packageLimits']=['sms'=>self::limit($terms['sms'] ?? null),'whatsapp'=>self::limit($terms['whatsapp'] ?? null),

@@ -12,7 +12,7 @@ const featureNames={inbox:"Sohbet (tüm kanallar)",phoneGateway:"Telefon bağlan
   icu:"Yoğun bakım panosu",surgery:"Ameliyat modülü",homeCare:"Evden takip",homeVisit:"Eve hizmet",webSite:"Web sitesi ve web mesajları",onlineBooking:"Web randevu",
   vebot:"VeBot asistan",voice:"Sesli komut",xray:"Röntgen yapay zekâ yorumu",dicom:"DICOM görüntüleyici",labAi:"Laboratuvar yorum desteği",calculators:"Klinik hesaplayıcılar",
   taskBoard:"İş takibi panosu",commission:"Prim raporu",debtReminders:"Borç hatırlatma",bulkPrice:"Toplu fiyat ve Excel",invoiceImport:"Faturadan stok",okc:"Yazar kasa (ÖKC)"};
-const moduleNames={esmm:"e-SMM portal erişimi",appointments:"Randevu görüntüleme ve düzenleme",clients:"Müşteriler ve belgeler",patients:"Hastalar ve muayeneler",followups:"Aşı ve takip",sales:"Satışlar",products:"Ürünler ve stok",expenses:"Kasa ve muhasebe görüntüleme ve düzenleme",reports:"Raporları görüntüleme",messages:"Mesajlar",support:"Destek",overviewClients:"Genel Bakış · Tüm Kayıtlı Müşteriler",overviewPatients:"Genel Bakış · Tüm Kayıtlı Hastalar"};
+const moduleNames={esmm:"e-SMM portal erişimi",appointments:"Randevu görüntüleme ve düzenleme",clients:"Müşteriler ve belgeler",patients:"Hastalar ve muayeneler",followups:"Aşı ve takip",sales:"Satışlar (ürün kataloğu ve müşteri seçimi dahil; satışın stok düşümü kendiliğinden yapılır)",collections:"Tahsilat alma ve tahsilat listesi",products:"Ürünler, alış ve stok yönetimi",expenses:"Kasa, gider ve tedarikçi ödemeleri",reports:"Raporları görüntüleme",messages:"Mesajlar",support:"Destek",overviewClients:"Genel Bakış · Tüm Kayıtlı Müşteriler",overviewPatients:"Genel Bakış · Tüm Kayıtlı Hastalar"};
 
 
 export async function mountClinicAccounts(ui,params) {
@@ -46,6 +46,7 @@ export async function mountClinicAccounts(ui,params) {
   const customerDefaults={homeCare:"read",balance:"read",documents:"read"};
 
   function moduleFields(current={},customer=false) {
+    if (!customer && current && current.collections===undefined) { const r={none:0,read:1,write:2},n=["none","read","write"]; current={...current,collections:n[Math.max(r[current.expenses]||0,r[current.sales]||0)]}; }
     return permissionMatrix({el,selectField,modules:customer?customerSections:{...moduleNames,...actionNames,...featureNames},current:customer?{...customerDefaults,...current}:{...Object.fromEntries(Object.keys(featureNames).map(k=>[k,"write"])),...current},
       readOnly:customer,initial:customer?"read":"none",title:customer?"Hasta sahibi portalı":"Modül erişim tablosu",
       presets:customer?{}:Object.fromEntries(presetList.map(item=>[item.id,{label:item.label,values:item.modules}])),

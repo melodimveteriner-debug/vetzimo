@@ -80,4 +80,37 @@ $rep=(new VetNet\Cpanel\BusinessReport($db))->build($identity->actor($dealer,$no
 ok($rep['kpi']['revenue']===18000 && $rep['kpi']['count']===2 && $rep['kpi']['writeOffs']===5000 && $rep['debt']['total']===3000,'analiz toplamları: '.json_encode([$rep['kpi']['revenue'],$rep['kpi']['writeOffs'],$rep['debt']['total']]));
 ok(!VetNet\Cpanel\BusinessReport::allowed($accActor),'ciro izni olmayan personel analizi görmemeli');
 rejected(403,fn()=>(new VetNet\Cpanel\BusinessReport($db))->build($accActor,'2026-11-01','2026-11-30',null),'analiz yetkisiz personele kapalı olmalı');
+// 7) Satış yapan personel: stok takipli ürün satışı (stok düşümü) ve tahsilat; fiyat/manuel stok/kasa yasak.
+//    Hekim (yalnız hasta yazma): reçete stok düşümü olur, satış kaynaklı stok hareketi olmaz.
+$d=$work->read($dealer,$now); $st=$d['state'];
+$st->products[]=(object)['id'=>'pr1','branch'=>'merkez','name'=>'Aktif karbon','category'=>'İlaç','price'=>'250','stock'=>'5','sku'=>'AK1'];
+$st->stockLots[]=(object)['id'=>'lot1','branch'=>'merkez','product'=>'pr1','received'=>'5','remaining'=>'5','expiry'=>'','serial'=>'','reason'=>'Alış','date'=>'2026-11-01','supplier'=>'','supplierName'=>'','buy'=>'100','sell'=>'250'];
+$st->stockMoves[]=(object)['id'=>'m-in','branch'=>'merkez','product'=>'pr1','lot'=>'lot1','date'=>'2026-11-01','delta'=>'5','reason'=>'Alış','source'=>'Alış','balance'=>'5'];
+$api->save($dealer,$scope,$now,(object)['revision'=>$d['revision'],'state'=>$st]);
+$presetMods=array_values(array_filter($identity->rolePresets($identity->actor($dealer,$now)),fn($p)=>$p['id']==='sales-desk'))[0]['modules'];
+ok(in_array('branch-manager',array_column($identity->rolePresets($identity->actor($dealer,$now)),'id'),true),'şube yöneticisi şablonu olmalı');
+$link3=$identity->invite($fresh,$scope,(object)['phone'=>'05551000045','name'=>'Tezgah','role'=>'staff','branchId'=>'merkez','customerId'=>'','method'=>'in-person','verifiedInPerson'=>true,'modules'=>(object)$presetMods],$now)['link'];
+$identity->redeem((object)['token'=>substr($link3,strrpos($link3,'/')+1),'password'=>'Tez-secret-4242'],$now);
+$desk=$cookies($login->signIn('05551000045','Tez-secret-4242','192.0.2.43',$now)); $deskActor=$identity->actor($desk,$now);
+ok(ClinicAccess::allowed($deskActor,'collections',true) && ClinicAccess::allowed($deskActor,'products') && !ClinicAccess::allowed($deskActor,'products',true) && !ClinicAccess::allowed($deskActor,'expenses'),'satış personeli: tahsilat yazar, kataloğu görür, stok/kasa yönetemez');
+$pv=$work->visibleFor($deskActor)['state']; $prod=array_values(array_filter($pv->products,fn($p)=>$p->id==='pr1'))[0]; $lot=array_values(array_filter($pv->stockLots,fn($l)=>$l->id==='lot1'))[0];
+$sale=['id'=>'ds1','branch'=>'merkez','client'=>'c1','date'=>'2026-11-27','amount'=>'250','paid'=>'200','detail'=>'Aktif karbon','method'=>'Kart',
+  'items'=>json_encode([['product'=>'pr1','name'=>'Aktif karbon','quantity'=>'1','price'=>'250','vat'=>'0','taxMode'=>'KDV Dahil','stock'=>'Evet']]),'stockAllocations'=>json_encode([['lot1','pr1',1]])];
+$sell=fn(array $extra)=>(object)['revision'=>$work->read($desk,$now)['revision'],'patch'=>json_decode(json_encode(['sales'=>['prepend'=>[$sale],'update'=>[],'append'=>[]]]+$extra))];
+$move=fn(string $src,string $id)=>['id'=>$id,'branch'=>'merkez','product'=>'pr1','lot'=>'lot1','date'=>'2026-11-27','delta'=>'-1','reason'=>$src,'source'=>$src,'balance'=>'4'];
+rejected(403,fn()=>$api->save($desk,$deskActor['membership_id'],$now,$sell(['products'=>['update'=>[['price'=>'1']+(array)$prod],'prepend'=>[],'append'=>[]]])),'satış personeli ürün fiyatı değiştirmemeli');
+rejected(403,fn()=>$api->save($desk,$deskActor['membership_id'],$now,$sell(['stockMoves'=>['prepend'=>[$move('Manuel giriş','m0')],'update'=>[],'append'=>[]]])),'satış personeli manuel stok hareketi yazmamalı');
+$api->save($desk,$deskActor['membership_id'],$now,$sell(['products'=>['update'=>[['stock'=>'4']+(array)$prod],'prepend'=>[],'append'=>[]],'stockLots'=>['update'=>[['remaining'=>'4']+(array)$lot],'prepend'=>[],'append'=>[]],
+  'stockMoves'=>['prepend'=>[$move('Satış','m1')],'update'=>[],'append'=>[]],'collections'=>['prepend'=>[['id'=>'dc1','branch'=>'merkez','sale'=>'ds1','date'=>'2026-11-27','amount'=>'50','method'=>'Nakit','notes'=>'']],'update'=>[],'append'=>[]]]));
+$after=$work->read($dealer,$now)['state'];
+ok(array_values(array_filter($after->products,fn($p)=>$p->id==='pr1'))[0]->stock==='4' && count(array_filter($after->stockMoves,fn($m)=>$m->id==='m1'))===1 && count(array_filter($after->collections,fn($c)=>$c->id==='dc1'))===1,'satış, stok düşümü ve tahsilat birlikte kaydedilmeli');
+$link4=$identity->invite($fresh,$scope,(object)['phone'=>'05551000046','name'=>'Hekim','role'=>'staff','branchId'=>'merkez','customerId'=>'','method'=>'in-person','verifiedInPerson'=>true,'modules'=>(object)['patients'=>'write','clients'=>'read','products'=>'read']],$now)['link'];
+$identity->redeem((object)['token'=>substr($link4,strrpos($link4,'/')+1),'password'=>'Hek-secret-4242'],$now);
+$vet=$cookies($login->signIn('05551000046','Hek-secret-4242','192.0.2.44',$now)); $vetActor=$identity->actor($vet,$now);
+$vp=$work->visibleFor($vetActor)['state']; $prod=array_values(array_filter($vp->products,fn($p)=>$p->id==='pr1'))[0]; $lot=array_values(array_filter($vp->stockLots,fn($l)=>$l->id==='lot1'))[0];
+$rx=fn(string $src,string $id)=>(object)['revision'=>$work->read($vet,$now)['revision'],'patch'=>json_decode(json_encode(['products'=>['update'=>[['stock'=>'3']+(array)$prod],'prepend'=>[],'append'=>[]],
+  'stockLots'=>['update'=>[['remaining'=>'3']+(array)$lot],'prepend'=>[],'append'=>[]],'stockMoves'=>['prepend'=>[['balance'=>'3']+$move($src,$id)],'update'=>[],'append'=>[]]]))];
+rejected(403,fn()=>$api->save($vet,$vetActor['membership_id'],$now,$rx('Satış','m2')),'satış izni olmayan hekim satış stok hareketi yazmamalı');
+$api->save($vet,$vetActor['membership_id'],$now,$rx('Reçete','m3'));
+ok(count(array_filter($work->read($dealer,$now)['state']->stockMoves,fn($m)=>$m->id==='m3'))===1,'hekim reçete stok düşümünü kaydedebilmeli');
 echo "permissions ok\n";
