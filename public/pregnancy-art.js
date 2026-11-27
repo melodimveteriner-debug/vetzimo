@@ -71,6 +71,81 @@ function fetus(p, sp, {s = 1, skin = "skin", lid = true, claws = false, whisk = 
   </g>`;
 }
 
+// ── Gerçekçi geç dönem fetüs ve yeni doğan (yan yatmış, kıvrık). Tüy dokusu feTurbulence ile, ıslaklık parlama ve damlalarla.
+function pupDefs(p, sp) {
+  const cat = sp === "Kedi";
+  const c = cat ? {base: "#9c958e", dark: "#5f5852", light: "#d9d4ce", skin: "#f2b5ad"} : {base: "#c79a6b", dark: "#7a4d2a", light: "#ecd2b2", skin: "#f3b1a6"};
+  return {c, defs: `<defs>
+    <radialGradient id="${p}pf" cx="45%" cy="35%" r="75%"><stop offset="0" stop-color="${c.light}"/><stop offset=".55" stop-color="${c.base}"/><stop offset="1" stop-color="${c.dark}"/></radialGradient>
+    <radialGradient id="${p}pk" cx="45%" cy="35%" r="80%"><stop offset="0" stop-color="#ffe1da"/><stop offset=".6" stop-color="${c.skin}"/><stop offset="1" stop-color="#cf7f78"/></radialGradient>
+    <linearGradient id="${p}bel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f7c6be" stop-opacity="0"/><stop offset="1" stop-color="#f4a9a0" stop-opacity=".85"/></linearGradient>
+    <linearGradient id="${p}shade" x1="0" y1="0" x2="0" y2="1"><stop offset=".45" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".32"/></linearGradient>
+    <filter id="${p}fz" x="-10%" y="-10%" width="120%" height="120%"><feTurbulence type="fractalNoise" baseFrequency="1.4" numOctaves="2" seed="4" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="2.6" xChannelSelector="R" yChannelSelector="G"/></filter>
+    <filter id="${p}tex" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="2.2 .9" numOctaves="3" seed="9"/><feColorMatrix values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -1.4 1.05"/></filter>
+    <filter id="${p}cloth" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="2"/><feColorMatrix values="0 0 0 0 .55  0 0 0 0 .5  0 0 0 0 .45  0 0 0 .18 0"/></filter>
+    <filter id="${p}bl" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="1.1"/></filter>
+    <clipPath id="${p}bodyc"><path d="${BODY}"/><path d="${cat ? HEAD_CAT : HEAD_DOG}"/></clipPath>
+  </defs>`};
+}
+const BODY = "M45 57 C53 44 78 43 90 52 C102 61 102 85 89 94 C77 102 55 101 46 90 C39 81 39 66 45 57Z";
+const HEAD_CAT = "M21 59 C20 45 34 38 46 41 C58 45 61 61 55 72 C49 83 30 83 24 73 C21 68 21 64 21 59Z";
+const HEAD_DOG = "M23 56 C24 43 38 38 48 42 C59 46 61 61 55 72 C50 81 37 82 30 78 C24 76 17 73 16 67 C16 62 19 58 23 56Z";
+
+function realPup(p, sp, {wet = true, fetal = false} = {}) {
+  const cat = sp === "Kedi", {c, defs} = pupDefs(p, sp);
+  const fur = fetal ? `url(#${p}pk)` : `url(#${p}pf)`, edge = fetal ? "#c4766f" : c.dark;
+  const head = cat ? HEAD_CAT : HEAD_DOG;
+  // Tüy telleri: gövde boyunca, kafada ileri doğru (geç fetüste seyrek ve ince)
+  const n = fetal ? 70 : 190, rr = R(n * 3, cat ? 7 : 11);
+  const strands = Array.from({length: n}, (_, i) => {
+    const onHead = i % 4 === 0, x = onHead ? 24 + rr[i] * 30 : 46 + rr[i] * 56, y = onHead ? 46 + rr[i + n] * 30 : 52 + rr[i + n] * 44;
+    const a = onHead ? Math.PI * (0.95 + rr[i + 2 * n] * .2) : Math.PI * (0.02 + (y - 70) / 160 + rr[i + 2 * n] * .1), L = fetal ? 1.6 : 2.4 + rr[i + 2 * n] * 2.4;
+    const col = rr[i + 2 * n] > .55 ? c.dark : c.light;
+    return `<path d="M${x.toFixed(1)} ${y.toFixed(1)} q${(Math.cos(a) * L * .5).toFixed(1)} ${(Math.sin(a) * L * .5 - .6).toFixed(1)} ${(Math.cos(a) * L).toFixed(1)} ${(Math.sin(a) * L).toFixed(1)}" stroke="${fetal ? "#fff" : col}" stroke-width="${fetal ? .35 : .55}" opacity="${fetal ? .35 : .55}" fill="none"/>`;
+  }).join("");
+  // Islak tüy kümeleri (koyu, birbirine yapışmış tutamlar)
+  const clumps = wet && !fetal ? [[50, 56, 12, -5], [62, 51, 14, -3], [76, 52, 13, 2], [88, 58, 10, 8], [56, 66, 12, 1], [70, 64, 14, 3], [84, 70, 10, 10], [30, 48, 9, 8], [40, 45, 9, 12]]
+    .map(([x, y, l, d]) => `<path d="M${x} ${y} q${l / 2} ${d / 2 - 2} ${l} ${d}" stroke="${c.dark}" stroke-width="1.6" stroke-linecap="round" fill="none" opacity=".5"/><path d="M${x + 1} ${y + 1.4} q${l / 2} ${d / 2 - 2} ${l - 1} ${d}" stroke="${c.light}" stroke-width=".7" fill="none" opacity=".55"/>`).join("") : "";
+  const tabby = cat && !fetal ? `<g stroke="#4a433d" stroke-width="2.6" fill="none" stroke-linecap="round" opacity=".5" filter="url(#${p}fz)">
+      <path d="M58 50 q-3 9 1 17"/><path d="M68 48 q-2 10 2 19"/><path d="M79 51 q-1 10 3 18"/><path d="M89 57 q0 9 3 15"/><path d="M36 44 l2 6 M42 42 l1 6 M30 47 l3 5"/></g>` : "";
+  const ear = cat ? `<path d="M41 43 q6 -6 12 -1 q-1 5 -6 6 q-4 0 -6 -5z" fill="${fur}" stroke="${edge}" stroke-width=".8"/><path d="M44 43.5 q4 -3 7 0 q-2 2.5 -4 2.6z" fill="#e7a3a5" opacity=".75"/>`
+    : `<path d="M45 45 c5 -2 9 2 8 8 c-1 4 -4 5 -6 3 c-2 -2 -3 -7 -2 -11z" fill="${fetal ? fur : c.dark}" stroke="${edge}" stroke-width=".7" opacity=".92"/><path d="M46.5 47 c3 0 5 3 4.5 6" stroke="#000" stroke-width=".6" fill="none" opacity=".25"/>`;
+  const nose = cat ? `<path d="M17.5 64.5 l3.4 -.4 l-1.5 2.4z" fill="#d88a91"/><path d="M19.3 66.6 q-1 2.6 -3.4 2.4 M19.3 66.6 q1 2.6 3.6 2.6" stroke="#8b5a5a" stroke-width=".7" fill="none"/>`
+    : `<ellipse cx="16.4" cy="65.4" rx="3.2" ry="2.6" fill="${fetal ? "#b9776f" : "#2b2523"}"/><ellipse cx="15.5" cy="64.6" rx="1" ry=".6" fill="#fff" opacity=".5"/><path d="M16.6 68.2 q2.6 3 7.6 2.2" stroke="#7a4d3a" stroke-width=".8" fill="none"/>`;
+  const muzzle = cat ? `<ellipse cx="25" cy="67" rx="7.5" ry="6" fill="${fur}" opacity=".9"/>` : `<ellipse cx="22" cy="67" rx="8" ry="6.6" fill="${fur}" opacity=".95"/>`;
+  const whisk = !fetal ? `<g fill="${c.dark}" opacity=".6">${(cat ? [[23, 66], [25, 68], [22.5, 69], [26, 65.5]] : [[20, 66], [22, 68], [19.5, 69], [23, 65.5]]).map(([x, y]) => `<circle cx="${x}" cy="${y}" r=".55"/>`).join("")}</g>` : "";
+  const paw = (x, y, r) => `<g transform="translate(${x} ${y}) rotate(${r})"><ellipse rx="5.2" ry="3.6" fill="${fur}" stroke="${edge}" stroke-width=".7"/><ellipse cx="-1" cy="1" rx="2" ry="1.4" fill="#f0a4a8"/>${[-3.2, -1.2, 1, 3].map(t => `<circle cx="${t}" cy="-1.6" r=".85" fill="#f0a4a8"/>`).join("")}</g>`;
+  const tail = cat ? "M96 69 C110 73 110 92 95 98" : "M97 71 C105 73 105 82 99 86";
+  const drops = wet && !fetal ? [[58, 50, 1.4], [74, 49, 1.1], [92, 64, 1.3], [34, 50, 1], [48, 76, 1.2], [80, 92, 1], [20, 92, 1.6], [104, 100, 1.4], [30, 98, 1.1]]
+    .map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="#dbeafe" opacity=".55"/><circle cx="${x - r * .35}" cy="${y - r * .35}" r="${r * .35}" fill="#fff" opacity=".9"/>`).join("") : "";
+  const membrane = wet && !fetal ? `<path d="M78 82 C86 76 98 78 102 86 C100 94 90 98 82 95 C77 92 76 87 78 82Z" fill="#c7d2fe" opacity=".28"/><path d="M80 82 C87 78 96 80 100 86" stroke="#fff" stroke-width=".8" fill="none" opacity=".7"/>` : "";
+  return `${defs}
+    <ellipse cx="60" cy="100" rx="46" ry="7" fill="#000" opacity=".16" filter="url(#${p}bl)"/>
+    <path d="${tail}" stroke="${edge}" stroke-width="${cat ? 5.4 : 6.4}" stroke-linecap="round" fill="none"/><path d="${tail}" stroke="${fur}" stroke-width="${cat ? 4 : 5}" stroke-linecap="round" fill="none" filter="url(#${p}fz)"/>
+    <g filter="url(#${p}fz)"><path d="${BODY}" fill="${fur}" stroke="${edge}" stroke-width=".8"/></g>
+    ${fetal ? `<path d="${BODY}" fill="url(#${p}pf)" opacity=".3"/>` : ""}
+    <path d="${BODY}" fill="url(#${p}shade)"/>
+    <ellipse cx="66" cy="93" rx="19" ry="6.5" fill="url(#${p}bel)"/>
+    <path d="M65 97 q3 5 -1 10" stroke="#c7646d" stroke-width="3.4" stroke-linecap="round" fill="none"/><path d="M65 97 q3 5 -1 10" stroke="#f2a6a6" stroke-width="1.2" fill="none"/>
+    <g filter="url(#${p}fz)"><ellipse cx="87" cy="83" rx="13" ry="10" fill="${fur}" stroke="${edge}" stroke-width=".7" transform="rotate(-18 87 83)"/></g>
+    ${paw(75, 98, -12)}
+    <path d="M50 78 C45 83 42 87 40 90" stroke="${edge}" stroke-width="7.6" stroke-linecap="round" fill="none"/><path d="M50 78 C45 83 42 87 40 90" stroke="${fur}" stroke-width="6.4" stroke-linecap="round" fill="none"/>
+    ${paw(38, 91, 18)}
+    <g transform="translate(40 64) scale(1.14) translate(-40 -64)">
+    <g filter="url(#${p}fz)"><path d="${head}" fill="${fur}" stroke="${edge}" stroke-width=".8"/></g>
+    ${fetal ? `<path d="${head}" fill="url(#${p}pf)" opacity=".28"/>` : ""}
+    <path d="${head}" fill="url(#${p}shade)" opacity=".7"/>
+    ${muzzle}${nose}${whisk}
+    <ellipse cx="${cat ? 36 : 37}" cy="57.5" rx="5.6" ry="3.6" fill="#000" opacity=".12"/>
+    <path d="M${cat ? 31.5 : 32.5} 57.5 q4.5 2.6 9 -.2" stroke="#3b2a26" stroke-width="1.2" stroke-linecap="round" fill="none"/>
+    </g>
+    ${tabby}
+    <g clip-path="url(#${p}bodyc)"><rect width="120" height="120" filter="url(#${p}tex)" opacity="${fetal ? .25 : .55}"/>${strands}${clumps}</g>
+    ${wet ? `<path d="M50 52 C64 43 84 46 95 57" stroke="#fff" stroke-width="2.6" stroke-linecap="round" fill="none" opacity=".45" filter="url(#${p}bl)"/><path d="M22 52 C26 46 32 43 38 43" stroke="#fff" stroke-width="2" fill="none" opacity=".4" filter="url(#${p}bl)"/>` : ""}
+    <g transform="translate(40 64) scale(1.14) translate(-40 -64)">${ear}</g>
+    ${membrane}${drops}`;
+}
+
 const STAGES = [
   // 0 Döllenme: zigot (zona pellucida, iki pronükleus, kutup cisimciği, çevrede spermler)
   (p) => `${[[14, 24, 30], [102, 92, 210], [18, 96, 330]].map(([x, y, r]) => `<g transform="translate(${x} ${y}) rotate(${r})"><ellipse rx="3.2" ry="2.2" fill="#e2e8f0" stroke="#64748b" stroke-width=".8"/><path d="M3 0 q5 -3 9 0 t9 0" fill="none" stroke="#94a3b8" stroke-width=".9"/></g>`).join("")}
@@ -126,23 +201,24 @@ const STAGES = [
   (p, sp) => `<circle cx="60" cy="60" r="52" fill="url(#${p}xr)"/><g opacity=".55">${fetus(p, sp, {s: 1.02, skin: "skin2", claws: true})}</g>
     <g clip-path="url(#${p}clip)">${fetus(p, sp, {s: 1.02, bones: true, skin: "skin2"}).replace(/fill="url\(#[^)]+\)"/g, 'fill="none"').replace(/stroke="#b4615a"/g, 'stroke="#94a3b8"')}</g>
     <circle cx="60" cy="60" r="52" fill="none" stroke="#38bdf8" stroke-opacity=".5" stroke-width="1.4"/>`,
-  // 9 Tüyler ve hareket: türe göre tüy ve kulak
-  (p, sp) => `${sac(p)}${placenta(p)}${cord(64, 74, 96, 70, 98, 46)}${fetus(p, sp, {s: 1.06, claws: true, whisk: true, furry: true, ears: sp === "Kedi" ? "cat" : "dog"})}`,
+  // 9 Tüyler ve hareket: kese içinde gerçek oranlı geç fetüs; ince seyrek tüyler, pembe deri, kaynaşmış gözler
+  (p, sp) => `${sac(p)}${placenta(p)}${cord(64, 100, 108, 80, 100, 46)}
+    ${R(24, 8).map((v, k) => `<circle cx="${(18 + R(24, 9)[k] * 84).toFixed(1)}" cy="${(22 + v * 76).toFixed(1)}" r="${(0.5 + v * .8).toFixed(1)}" fill="#fff" opacity=".5"/>`).join("")}
+    <g transform="translate(60 64) scale(.78) translate(-60 -72)">${realPup(p, sp, {wet: true, fetal: true})}</g>`,
 ];
 
 /** Aşama çizimi (SVG metni). i: 0–10; size: piksel. Son aşama gerçek yavru fotoğrafıdır. */
 export function devArt(i, species, size = 32, {pulse = false} = {}) {
   const p = "pa" + (++seq) + "_";
   if (i >= STAGES.length) {
-    // Doğuma hazır / yeni doğan: battaniye üzerinde kıvrılmış, gözleri kapalı yavru
-    const blanket = species === "Kedi" ? ["#e0e7ff", "#a5b4fc"] : ["#fce7f3", "#f9a8d4"];
+    // Yeni doğan: havlu üzerinde ıslak, gözleri kapalı, kulakları katlı, göbek kordonu kalıntılı yavru
+    const towel = species === "Kedi" ? ["#eef2ff", "#c7d2fe"] : ["#fff7ed", "#fed7aa"];
     return `<svg viewBox="0 0 120 120" width="${size}" height="${size}" aria-hidden="true">${defs(p, species)}
-      <g clip-path="url(#${p}clip)"><rect width="120" height="120" fill="${blanket[0]}"/>
-      ${Array.from({length: 9}, (_, k) => `<path d="M-10 ${k * 15} Q30 ${k * 15 - 8} 60 ${k * 15} T130 ${k * 15}" fill="none" stroke="${blanket[1]}" stroke-width="5" opacity=".45"/>`).join("")}
-      <ellipse cx="62" cy="96" rx="46" ry="10" fill="#000" opacity=".12"/>
-      ${fetus(p, species, {s: 1.16, claws: true, whisk: true, furry: true, ears: species === "Kedi" ? "cat" : "dog"})}
-      <path d="M86 26 q4 -4 8 0 M94 18 q3 -3 6 0" fill="none" stroke="#7c3aed" stroke-width="1.4" stroke-linecap="round" opacity=".55"/><text x="96" y="16" font-size="9" fill="#7c3aed" opacity=".6">z</text></g>
+      <g clip-path="url(#${p}clip)"><rect width="120" height="120" fill="${towel[0]}"/><rect width="120" height="120" filter="url(#${p}cloth)"/>
+      ${Array.from({length: 7}, (_, k) => `<path d="M-10 ${8 + k * 17} Q30 ${k * 17} 60 ${8 + k * 17} T130 ${8 + k * 17}" fill="none" stroke="${towel[1]}" stroke-width="6" opacity=".45"/>`).join("")}
+      <g transform="translate(60 62) scale(.84) translate(-58 -72)">${realPup(p, species, {wet: true})}</g></g>
       <circle cx="60" cy="60" r="52" fill="none" stroke="url(#${p}plac)" stroke-width="2.5"/></svg>`;
   }
+
   return `<svg viewBox="0 0 120 120" width="${size}" height="${size}" aria-hidden="true"${pulse ? ' class="pa-pulse"' : ""}>${defs(p, species)}${STAGES[i](p, species)}</svg>`;
 }

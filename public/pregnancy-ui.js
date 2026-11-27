@@ -1,4 +1,4 @@
-import {devArt} from "./pregnancy-art.js?v=1";
+import {devArt} from "./pregnancy-art.js?v=2";
 // Doğum takip cetveli: klinik hasta dosyasında ve hasta sahibi panelinde ortak kullanılır.
 // Çiftleşme tarihinden itibaren günler ilerledikçe bardaktaki su gibi çalkalanarak dolan bir çubuk gösterir;
 // 30. gün ultrason, 45. gün röntgen (normal doğum / sezaryen kararı) ve tahmini doğum işaretlenir.
