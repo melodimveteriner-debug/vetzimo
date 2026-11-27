@@ -150,9 +150,12 @@ final class DealerWorkspace
             throw new RuntimeException('Silinecek kaydı ve silme onayını kontrol edin.',422);
         }
 
+        // Oturum ve yetki işlem dışında doğrulanır; ardından çalışma alanı satırı kilitlenir. Böylece aynı anda
+        // silen ekranlar birbirini "kayıtlar güncellendi" hatasıyla düşürmez, sırayla güncel sürüm üzerinde çalışır
+        // (kilitli okuma tutarlı okumadan önce yapıldığı için yükleme en son kaydedilen durumu görür).
+        $actor = $this->actor($cookies, $now);
         $this->database->beginTransaction();
         try {
-            $actor = $this->actor($cookies, $now, true);
             if (!ClinicAccess::deleteAllowed($actor,$collection)) {
                 throw new RuntimeException('Bu işlem için ilgili modülde yazma ve silme yetkisi gerekir.',403);
             }
@@ -161,10 +164,14 @@ final class DealerWorkspace
             }
             $partner = $actor['partner_id'];
             $workspace = 'partner:'.$partner;
+            $lock = $this->database->prepare('SELECT revision FROM clinic_workspace WHERE user_id=? FOR UPDATE');
+            $lock->execute([$workspace]);
+            $head = (int)$lock->fetchColumn();
             $current = $this->workspaces->load($workspace);
-            if ($current['revision'] !== $revision) {
+            if ($head < 1 || $current['revision'] !== $head || $revision > $head) {
                 throw new RuntimeException('Kayıtlar güncellendi. Sayfayı yenileyip tekrar deneyin.',409);
             }
+            $revision = $head;
 
             $state = $current['state'];
             $source=$collection==='initialPayments'?'sales':$collection;
@@ -192,6 +199,9 @@ final class DealerWorkspace
             $this->database->prepare('INSERT INTO clinic_audit(partner_id,account_id,action,revision) VALUES (?,?,?,?)')
                 ->execute([$partner, $actor['account_id'], $audit, $saved]);
             $this->database->commit();
+            // Hafif yanıt: istemci yalnız değişen satırları değişiklik günlüğünden (?since=) çeker; büyük klinikte
+            // tüm çalışma alanını (onlarca MB) geri göndermek silmeyi saniyelerce bekletiyordu.
+            if (($input->light ?? null) === true) return ['revision'=>$saved,'since'=>$revision];
             return ['revision'=>$saved,'state'=>ClinicAccess::visible($state,$actor)];
         } catch (\Throwable $error) {
             if ($this->database->inTransaction()) $this->database->rollBack();

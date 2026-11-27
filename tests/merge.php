@@ -24,6 +24,18 @@ if(($argv[1]??'')==='worker'){
     }
     echo $conflicts; exit(0);
 }
+// Alt süreç: eski (başlangıçta okunan) revizyonla, hafif yanıtla kayıt siler; hiçbiri 409 almamalı.
+if(($argv[1]??'')==='deleter'){
+    [$rev,$token,$device]=[(int)$argv[2],$argv[3],$argv[4]];
+    $db=Database::connect($dsn,'root',''); $work=new DealerWorkspace($db);
+    $who=[SessionRepository::SESSION_COOKIE=>$token,SessionRepository::DEVICE_COOKIE=>$device];
+    $actor=(new IdentityApi($db))->actor($who,time());
+    foreach(array_slice($argv,5) as $id){
+        $r=$work->deleteRecord($who,$actor['membership_id'],time(),(object)['revision'=>$rev,'collection'=>'clients','id'=>$id,'confirm'=>true,'light'=>true]);
+        if(isset($r['state']) || !is_int($r['revision']) || $r['since']!==$r['revision']-1) { fwrite(STDERR,'hafif yanıt yanlış: '.json_encode($r)); exit(1); }
+    }
+    exit(0);
+}
 
 $db=Database::connect($dsn,'root','');
 (new Installer($db,dirname(__DIR__)))->install('Merge Test','05551000031','merge@example.test','Merge-test-secret-42');
@@ -102,3 +114,14 @@ $made=array_filter($clients,fn($r)=>preg_match('/\Am\d{5}\z/',$r->id));
 ok(count($made)===100,'eşzamanlı kayıtta kayıp: '.count($made).'/100');
 ok(count(array_unique(array_column($clients,'id')))===count($clients),'yinelenen kayıt olmamalı');
 printf("merge ok · 100 eşzamanlı eski-revizyon kaydı %.1fs, %d yeniden deneme\n",microtime(true)-$t,$conflicts);
+
+// 8) Silme: 8 süreç aynı anda, aynı eski revizyonla, 5'er kayıt siler → 40'ı da silinir, hata yok; günlük her silmeyi verir
+$stale=$repo->revision($workspace);$ids=array_values(array_map(fn($r)=>$r->id,$made));$procs=[];$pipes=[];$t=microtime(true);
+for($w=0;$w<8;$w++){ $procs[$w]=proc_open([PHP_BINARY,__FILE__,'deleter',(string)$stale,$signed['token'],$signed['device'],...array_slice($ids,$w*5,5)],[1=>['pipe','w'],2=>['pipe','w']],$p,null,['VETNET_TEST_DSN'=>$dsn]); $pipes[$w]=$p; }
+foreach($procs as $w=>$proc){ $err=stream_get_contents($pipes[$w][2]); ok(proc_close($proc)===0,"silme süreci $w: $err"); }
+$left=array_column((new ClinicRecords($db))->collections($workspace,['clients'])->clients,'id');
+ok(!array_intersect(array_slice($ids,0,40),$left) && count(array_intersect($ids,$left))===60,'eşzamanlı silmede eksik/fazla: '.count(array_intersect($ids,$left)));
+$log=ClinicChanges::between($db,$workspace,$stale,$repo->revision($workspace),ClinicChanges::READ_WINDOW);
+ok(count(array_intersect_key($log['clients']??[],array_flip(array_map(fn($i)=>'@'.$i,array_slice($ids,0,40)))))===40 || count(array_intersect_key($log['clients']??[],array_flip(array_slice($ids,0,40))))===40,'değişiklik günlüğü silmeleri vermeli: '.json_encode(array_slice(array_keys($log['clients']??[]),0,3)));
+ok($repo->revision($workspace)===$stale+40,'her silme bir revizyon olmalı');
+printf("silme ok · 8 süreç × 5 eşzamanlı eski-revizyon silmesi %.1fs\n",microtime(true)-$t);
