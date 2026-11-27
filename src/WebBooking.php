@@ -285,6 +285,7 @@ final class WebBooking
             ($visitor['email'] && !filter_var($visitor['email'],FILTER_VALIDATE_EMAIL)) || ($post['consent']??'')!=='yes') {
             throw new RuntimeException('Ad, telefon, hayvan bilgisi, ziyaret nedeni ve aydınlatma onayı gerekli.',422);
         }
+        (new WorkspaceRepository($this->db))->ensureAppendLog();
         $this->db->beginTransaction();
         try {
             $current=$this->web->site($partner,true);

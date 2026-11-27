@@ -8,7 +8,11 @@ import {parseDICOM} from "../bridge-agent/device-parsers.mjs";
 const ok = (v, m) => { if (!v) { console.error("FAIL", m); process.exit(1); } };
 const home = fs.mkdtempSync(path.join(os.tmpdir(), "vz-dev-")), dir = path.join(home, "sonuclar"); fs.mkdirSync(dir);
 const results = [], files = {};
-const base = 46000 + Math.floor(Math.random() * 1000);
+// Boş portları işletim sistemi verir (rastgele port, yükte giden bağlantıların geçici portlarıyla çakışabiliyordu).
+const freePort = () => new Promise(r => { const srv = net.createServer().listen(0, "127.0.0.1", () => { const {port} = srv.address(); srv.close(() => r(port)); }); });
+let base = await freePort(); for (let i = 0; i < 50; i++) { const next = await freePort(); if (next === base + 1) break; base = next; }
+const pair = async () => { for (let i = 0; i < 200; i++) { const p = await freePort(); const ok = await new Promise(r => { const t = net.createServer().once("error", () => r(false)).listen(p + 1, "127.0.0.1", () => t.close(() => r(true))); }); if (ok) return p; } return base; };
+base = await pair();
 const devices = [
   {id: "a".repeat(32), name: "Hemogram", kind: "hematology", connection: "tcp", settings: {port: base}, active: true},
   {id: "b".repeat(32), name: "Biyokimya", kind: "biochemistry", connection: "folder", settings: {path: dir}, active: true},
@@ -19,7 +23,10 @@ const upload = async (id, i, total, name, type, bytes) => { (files[id] ||= []).p
 const hub = createDevices({api, upload, home, log: () => {}, folderMs: 300});
 await hub.refresh();
 await new Promise(r => setTimeout(r, 300));
-const talk = (port, chunks, until) => new Promise((res, rej) => {
+// Dinleyici yükte geç açılabilir: bağlantı reddedilirse kısa aralıklarla yeniden dener (sabit bekleme yarışı yok).
+const ready = async port => { for (let i = 0; i < 50; i++) { const ok = await new Promise(r => { const c = net.connect(port, "127.0.0.1"); c.on("connect", () => { c.destroy(); r(true); }); c.on("error", () => r(false)); }); if (ok) return; await new Promise(r => setTimeout(r, 100)); } };
+const talk = async (port, chunks, until) => { await ready(port); return talkNow(port, chunks, until); };
+const talkNow = (port, chunks, until) => new Promise((res, rej) => {
   const s = net.connect(port, "127.0.0.1"); let got = Buffer.alloc(0);
   let done = false; s.on("data", d => { got = Buffer.concat([got, d]); if (!done && until(got)) { done = true; setTimeout(() => { s.end(); res(got); }, 400); } });
   s.on("error", rej); s.on("connect", async () => { for (const c of chunks) { s.write(c); await new Promise(r => setTimeout(r, 30)); } });

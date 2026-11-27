@@ -51,6 +51,33 @@ final class WorkspaceRepository
         return (int)$directory->fetchColumn() === 0 && $this->records->migrated($workspaceId);
     }
 
+    /** Ekleme günlüğü tablosu: işlem (transaction) dışında çağrılmalı (CREATE TABLE açık işlemi onaylar). */
+    public function ensureAppendLog(): void
+    {
+        $this->database->exec('CREATE TABLE IF NOT EXISTS clinic_append_log (
+            workspace_id VARCHAR(120) NOT NULL, revision INT UNSIGNED NOT NULL, collection VARCHAR(40) NOT NULL, record_id VARCHAR(80) NOT NULL,
+            PRIMARY KEY (workspace_id, revision)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci');
+    }
+
+    /**
+     * Aradaki revizyonların hepsi yalnız tek kayıt eklemesiyse (web randevu talebi), eklenen kimlikleri döndürür
+     * (koleksiyon => [kimlik => true]); aksi halde null. Personelin eski revizyona dayanan kısmi kaydını güvenle taşımak için.
+     */
+    public function appendsBetween(string $workspaceId, int $from, int $to): ?array
+    {
+        if ($to <= $from || $to - $from > 200) return null;
+        try {
+            $q = $this->database->prepare('SELECT collection, record_id FROM clinic_append_log WHERE workspace_id=? AND revision>? AND revision<=?');
+            $q->execute([$workspaceId, $from, $to]);
+            $rows = $q->fetchAll(PDO::FETCH_NUM);
+        } catch (PDOException) { return null; }
+        if (count($rows) !== $to - $from) return null;
+        $ids = [];
+        foreach ($rows as [$collection, $id]) $ids[$collection][$id] = true;
+        return $ids;
+    }
+
     public function append(string $workspaceId, int $revision, string $collection, object $row): ?int
     {
         if (!$this->appendable($workspaceId)) return null;
@@ -62,6 +89,13 @@ final class WorkspaceRepository
             if ($bump->rowCount() !== 1 || !$this->records->append($workspaceId, $collection, $row)) {
                 if ($own) $this->database->rollBack();
                 return null;
+            }
+            try {
+                $this->database->prepare('INSERT INTO clinic_append_log(workspace_id,revision,collection,record_id) VALUES (?,?,?,?)')
+                    ->execute([$workspaceId, $revision + 1, $collection, (string)$row->id]);
+                if (($revision + 1) % 100 === 0) $this->database->prepare('DELETE FROM clinic_append_log WHERE workspace_id=? AND revision<?')->execute([$workspaceId, $revision - 400]);
+            } catch (PDOException $error) {
+                if ($error->getCode() !== '42S02') throw $error; // günlük tablosu yoksa yalnız otomatik taşıma devre dışı kalır
             }
             if ($own) $this->database->commit();
             return $revision + 1;

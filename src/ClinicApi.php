@@ -42,6 +42,9 @@ final class ClinicApi
             throw new RuntimeException('Kayıt biçimi geçersiz.', 422);
         }
         $actor = $this->workspaces->actor($cookies,$now);
+        // Arada yalnız web sitesinden yeni randevu eklendiyse kısmi kayıt güncel revizyona taşınır (personel "Kayıt alanı
+        // güncellendi" hatası görmez); yama eklenen kayıtlara dokunuyorsa veya başka bir değişiklik varsa 409 korunur.
+        if (property_exists($request,'patch')) $request->revision = $this->workspaces->rebase($actor,$request->revision,$request->patch);
         $current = $this->workspaces->readForUpdateRequest($actor,$scope,$request->revision,
             property_exists($request,'patch') ? $request->patch : null);
         if ($request->revision !== $current['revision']) {

@@ -41,6 +41,24 @@ final class DealerWorkspace
         return $this->workspaces->load($workspace);
     }
 
+    public function rebase(array $actor, int $revision, mixed $patch): int
+    {
+        if (!$patch instanceof \stdClass) return $revision;
+        $workspace = 'partner:'.$actor['partner_id'];
+        $current = $this->workspaces->revision($workspace);
+        if ($current <= $revision) return $revision;
+        $appended = $this->workspaces->appendsBetween($workspace, $revision, $current);
+        if ($appended === null) return $revision;
+        foreach ($patch as $collection => $ops) {
+            if (!isset($appended[$collection])) continue;
+            if (!$ops instanceof \stdClass || isset($ops->replace)) return $revision;
+            foreach (['update','prepend','append'] as $kind) foreach ((array)($ops->$kind ?? []) as $row) {
+                if (is_object($row) && isset($appended[$collection][(string)($row->id ?? '')])) return $revision;
+            }
+        }
+        return $current;
+    }
+
     /**
      * Internal persistence boundary. Domain validation, audit, and subscription
      * checks must run in the caller before exposing a workspace write API.

@@ -21,6 +21,7 @@ fresh test_roles empty;     run roles.php   env VETNET_TEST_DSN='mysql:host=127.
 fresh test_partial empty;  run partial-save.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_partial' php tests/partial-save.php
 run external-import.php php tests/external-import.php
 fresh test_scale;  run scale.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_scale' php -d memory_limit=1G tests/scale.php
+fresh test_conc;  run concurrency.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_conc' php tests/concurrency.php
 fresh test_triage empty;  run homecare-triage.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_triage' php tests/homecare-triage.php
 command -v node >/dev/null && run homecare-triage.mjs node tests/homecare-triage.mjs
 command -v node >/dev/null && run xray-rules.mjs node tests/xray-rules.mjs
