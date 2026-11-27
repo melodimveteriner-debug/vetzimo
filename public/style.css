@@ -1581,3 +1581,70 @@ td.dealer-message-body{min-width:16em;max-width:28em;font-size:.88rem}td.dealer-
 .sp-avatar{flex:none;display:inline-grid;place-items:center;width:26px;height:26px;border-radius:50%;background:#dcfce7;color:#15803d}
 .sp-avatar svg{width:17px;height:17px;fill:currentColor}
 .sp-avatar.sp-f{background:#fce7f3;color:#be185d}.sp-avatar.sp-m{background:#dbeafe;color:#1d4ed8}
+/* Satış ekranı (arayarak ekleme, kompakt kalemler, sağda sabit özet) */
+.sale-v2 .sl-meta{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;grid-column:1/-1;min-width:0}
+.sale-v2 .sl-meta .form-field{margin:0;min-width:0}
+.sl-wrap{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:16px;align-items:start;padding:14px}
+.sl-main{min-width:0}
+.sl-side{position:sticky;top:calc(var(--record-menu-top,72px) + 10px);margin:0}
+.sl-side .invoice-summary{width:100%}
+.sl-head{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;margin-bottom:10px}
+.sl-head strong{font-size:1.05rem}
+.sl-head small{display:block;color:#6b6880;font-size:.82rem;margin-top:2px}
+.sl-count{font-weight:800;font-size:.82rem;color:var(--accent);white-space:nowrap}
+.sl-search{position:relative;display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0}
+.sl-search input#saleBarcode{flex:1 1 240px;min-width:0;min-height:48px;padding:0 14px 0 42px;font-size:1.02rem;border-radius:13px;border:1.5px solid var(--line);background:#fff}
+.sl-search input#saleBarcode:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 18%,transparent);outline:0}
+.sl-search-ico{position:absolute;left:14px;top:15px;opacity:.55;pointer-events:none;line-height:0}
+.sl-suggest{position:absolute;z-index:40;top:54px;left:0;right:0;margin:0;padding:6px;list-style:none;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 22px 44px -20px #291d5b59;max-height:min(380px,55vh);overflow:auto}
+.sl-suggest li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 14px;padding:9px 12px;border-radius:10px;cursor:pointer}
+.sl-suggest li[aria-selected=true],.sl-suggest li[data-sale-pick]:hover{background:color-mix(in srgb,var(--accent) 11%,#fff)}
+.sl-o-name{font-weight:750;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sl-suggest b{grid-row:1/3;grid-column:2;align-self:center;font-variant-numeric:tabular-nums}
+.sl-o-meta{display:flex;gap:8px;font-size:.78rem;color:#6b6880;flex-wrap:wrap;min-width:0}
+.sl-o-meta em{font-style:normal;font-weight:750;padding:0 8px;border-radius:999px;background:#e8f0ff;color:#2350b0}
+.sl-o-meta em.svc{background:#efe9ff;color:#5b43c2}
+.sl-o-meta .out{color:#b4233c;font-weight:750}
+.sl-suggest .sl-o-none{display:block;color:#6b6880;cursor:default}
+#barcodeFeedback{flex-basis:100%;font-size:.8rem;color:#6b6880;min-height:1em}
+#saleLines{display:grid;gap:8px;margin-top:8px}
+.sl-empty{padding:22px 16px;border:1.5px dashed var(--line);border-radius:14px;text-align:center;color:#6b6880;margin:0;background:#fff}
+.invoice-line.sl-line{padding:0;margin:0;border-radius:14px;transition:border-color .2s,box-shadow .2s}
+.sl-line.sl-flash{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 22%,transparent)}
+.sl-line.sl-low{border-color:#e7a3b0}
+.sl-line.sl-low .sl-sub{color:#b4233c}
+.sl-row{display:grid;grid-template-columns:minmax(0,1fr) auto 132px 112px 36px;grid-template-areas:"t q p s x";gap:10px;align-items:center;padding:7px 10px}
+.sl-toggle{grid-area:t;display:flex;gap:10px;align-items:center;background:none;border:0;padding:4px;text-align:left;min-width:0;cursor:pointer;color:inherit;font:inherit;min-height:0}
+.sl-no{flex:0 0 26px;height:26px;border-radius:8px;display:grid;place-items:center;font-size:.76rem;font-weight:800;background:color-mix(in srgb,var(--accent) 12%,#fff);color:var(--accent)}
+.sl-title{min-width:0;display:grid;flex:1}
+.sl-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sl-sub{font-size:.76rem;color:#6b6880;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sl-chev{opacity:.5;transition:transform .2s}
+.sl-open .sl-chev{transform:rotate(180deg)}
+.sl-qty{grid-area:q;display:flex;align-items:center;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff}
+.sl-qty button{width:34px;min-height:40px;border:0;background:transparent;font-size:1.15rem;cursor:pointer;color:inherit;padding:0}
+.sl-qty button:hover{background:color-mix(in srgb,var(--accent) 10%,#fff)}
+.sl-qty input{width:54px;min-height:40px;border:0;border-radius:0;text-align:center;padding:0;font-weight:700;-moz-appearance:textfield;appearance:textfield}
+.sl-qty input::-webkit-inner-spin-button,.sl-qty input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.sl-price{grid-area:p;display:grid;gap:2px;margin:0;min-width:0}
+.sl-price span{font-size:.7rem;color:#6b6880;white-space:nowrap}
+.sl-price input{width:100%;min-height:36px}
+.sl-total{grid-area:s;text-align:right;font-variant-numeric:tabular-nums;font-size:1rem;white-space:nowrap}
+.sl-remove{grid-area:x;width:34px;height:34px;min-height:0;padding:0;border-radius:10px;border:0;background:transparent;font-size:1.35rem;line-height:1;cursor:pointer;color:#b4233c}
+.sl-remove:hover{background:#fde8ec}
+.sl-detail{display:none;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;padding:8px 12px 12px;border-top:1px dashed var(--line)}
+.sl-open .sl-detail{display:grid}
+.sl-detail label{display:grid;gap:4px;font-size:.78rem;min-width:0}
+.sl-detail input,.sl-detail select{width:100%;max-width:100%;min-height:40px}
+.sale-v2 .sl-note{margin-top:12px}
+.sale-v2 .sl-note input{min-height:42px}
+@media (max-width:1100px){.sale-v2 .sl-meta{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:1000px){.sl-wrap{grid-template-columns:1fr}.sl-side{position:static}}
+@media (max-width:700px){.sale-v2 .sl-meta{grid-template-columns:repeat(2,minmax(0,1fr))}.sl-wrap{padding:10px}.sl-row{grid-template-columns:auto minmax(0,1fr) auto;grid-template-areas:"t t x" "q p s";gap:8px}.sl-detail{grid-template-columns:1fr 1fr}.sl-search .button{flex:1 1 auto}}
+@media (max-width:420px){.sale-v2 .sl-meta{grid-template-columns:1fr}.sl-detail{grid-template-columns:1fr}}
+.billing .barcode-entry.sl-search{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:8px}
+.billing .sl-search input#saleBarcode{width:100%;max-width:none;flex:none}
+.billing .sl-search #barcodeFeedback{grid-column:1/-1}
+.sl-side #saleBalance>div,.sl-side #saleBeforeDiscount>div,.sl-side #saleTotals>div{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.sl-side #saleBalance dd{font-weight:800;font-size:1.05rem;margin:0}
+@media (max-width:700px){.billing .barcode-entry.sl-search{grid-template-columns:1fr 1fr}.billing .sl-search input#saleBarcode{grid-column:1/-1}}
