@@ -19,6 +19,8 @@ try {
     require_once dirname(__DIR__).'/src/CronGuard.php'; VetNet\Cpanel\CronGuard::begin($db,'appointment-reminders');
     // Günlük ekip notu: saati gelen kliniklerde personele anlık bildirim (sağlayıcı gerekmez).
     try { (new VetNet\Cpanel\DailyNote($db))->fanout(time()); } catch (Throwable $e) { fwrite(STDERR, 'Günlük ekip notu gönderilemedi.'.PHP_EOL); }
+    // Abonelik hatırlatmaları ve süresi dolan oturum temizliği: ayrı cron satırı yoksa günde bir kez buradan başlar.
+    VetNet\Cpanel\CronGuard::runDailyJobs($db, $root);
     $pregnant = 0;
     try { $pregnant = (int)$db->query('SELECT COUNT(*) FROM clinic_pregnancy WHERE ended IS NULL')->fetchColumn(); } catch (PDOException) {}
     if ($connections === [] && $pregnant === 0 && (new VetNet\Cpanel\PhoneGateway($db))->routesAll() === []) exit(0);

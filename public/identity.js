@@ -285,6 +285,7 @@ function login(mode="login") {
 }
 
 async function logout() {
+  try{indexedDB.deleteDatabase("vetzimo-cache");localStorage.removeItem("vz-ws-scope");}catch{}
   await api("logout",{});
   location.assign(center?"/yonetim":"/app");
 }
@@ -758,7 +759,7 @@ async function portal() {
   // Bildirim merkezi ve uygulama ayarları (bildirim tercihleri, cihazlar, biyometrik kilit, hesap silme)
   const inbox=panel("notifications","Bildirimler");
   let inboxReady=false;
-  panels.get("notifications").button.addEventListener("click",()=>{if(inboxReady)return;inboxReady=true;import("./notification-hub.js?v=3").then(m=>m.mountNotificationHub(inbox,{tr:uiLabel,onSettings:()=>show("account")}));});
+  panels.get("notifications").button.addEventListener("click",()=>{if(inboxReady)return;inboxReady=true;import("./notification-hub.js?v=4").then(m=>m.mountNotificationHub(inbox,{tr:uiLabel,onSettings:()=>show("account")}));});
   const account=panel("account","Hesabım");
   account.append(change);
   const appSettings=el("section","",{className:"owner-app-settings"});

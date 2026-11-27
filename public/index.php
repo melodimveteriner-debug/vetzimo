@@ -384,6 +384,9 @@ try {
         }
         if (!$actor) throw new RuntimeException('Oturum doğrulanamadı.',401);
         if (($actor['kind']??'')==='phone') $actor=(new IdentityApi($db))->actor($_COOKIE,$now);
+        // Aynı tarayıcıda başka sekme farklı üyeliğe geçtiyse eski sekme o üyeliğin bildirimlerini okuyamaz.
+        if ($method==='GET' && ($_SERVER['HTTP_X_VETNET_SCOPE']??'')!=='' && !hash_equals((string)(($actor['kind']??'')==='center'?$actor['account_id']:$actor['membership_id']),$_SERVER['HTTP_X_VETNET_SCOPE']))
+            throw new RuntimeException('Çalışma alanı oturumu değişti.',409);
         if ($method==='POST' && ($actor['kind']??'')==='phone' && !hash_equals((string)$actor['membership_id'],$_SERVER['HTTP_X_VETNET_SCOPE']??''))
             throw new RuntimeException('Çalışma alanı oturumu değişti.',409);
         if ($method==='POST' && ($actor['kind']??'')==='center' && !hash_equals((string)$actor['account_id'],$_SERVER['HTTP_X_VETNET_SCOPE']??''))
@@ -1870,6 +1873,9 @@ try {
             'partnerId'=>$actor['partner_id'],'partnerName'=>$actor['partner_name'],'multipleBranches'=>$multipleBranches,'name'=>$actor['name'],'author'=>$actor['name'],
         ];
         };
+        // Yavaş bağlantı: tarayıcıdaki kopyanın revizyonundan bu yana yalnız değişenler gönderilir.
+        if (isset($_GET['since'],$_GET['sig'],$_GET['scope']) && hash_equals((string)$actor['membership_id'],(string)$_GET['scope'])
+            && (new VetNet\Cpanel\WorkspaceStream($db))->delta($actor,$session,(int)$_GET['since'],(string)$_GET['sig'])) exit;
         // Büyük kliniklerde kayıtlar veritabanından doğrudan akıtılır (bellek kullanımı sabit).
         if ((new VetNet\Cpanel\WorkspaceStream($db))->send($actor,$session)) exit;
         $data=$workspaces->visibleFor($actor);

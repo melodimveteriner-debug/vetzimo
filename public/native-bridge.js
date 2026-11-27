@@ -11,7 +11,8 @@ let cfg = null, scope = "";
 const tr = s => (window.vzT ? window.vzT(s) : s);
 
 async function call(path, body) {
-  const r = await fetch(path, body ? {method: "POST", credentials: "same-origin", headers: {"Content-Type": "application/json", "X-VeTNet-Scope": scope}, body: JSON.stringify(body)} : {credentials: "same-origin"});
+  const r = await fetch(path, body ? {method: "POST", credentials: "same-origin", headers: {"Content-Type": "application/json", "X-VeTNet-Scope": scope}, body: JSON.stringify(body)} : {credentials: "same-origin", headers: scope ? {"X-VeTNet-Scope": scope} : {}});
+  if (r.status === 409 && !body) { location.reload(); throw Error(""); }
   const d = await r.json().catch(() => ({}));
   if (!r.ok) { const e = Error(d.error || "İşlem tamamlanamadı."); e.status = r.status; throw e; }
   return d;
@@ -186,7 +187,7 @@ async function biometricGate() {
   document.body.append(cover);
   const unlock = async () => { try { await Bio.authenticate({reason: tr("VetZimo'yu açmak için doğrulayın"), cancelTitle: tr("Vazgeç"), allowDeviceCredential: true}); cover.remove(); } catch {} };
   cover.querySelector("button").addEventListener("click", unlock);
-  cover.querySelector("[data-out]").addEventListener("click", async e => { e.preventDefault(); try { await fetch("/api/identity/logout", {method: "POST", credentials: "same-origin", headers: {"X-VeTNet-Scope": scope}}); } catch {} location.assign("/app"); });
+  cover.querySelector("[data-out]").addEventListener("click", async e => { e.preventDefault(); try { indexedDB.deleteDatabase("vetzimo-cache"); localStorage.removeItem("vz-ws-scope"); } catch {} try { await fetch("/api/identity/logout", {method: "POST", credentials: "same-origin", headers: {"X-VeTNet-Scope": scope}}); } catch {} location.assign("/app"); });
   unlock();
 }
 export async function setBiometric(on) {

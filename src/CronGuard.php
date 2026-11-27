@@ -33,6 +33,29 @@ final class CronGuard
         });
     }
 
+    /**
+     * Günlük görevler cPanel'e ayrı cron satırı eklenmese de çalışsın: sık çalışan bir görev, son çalışması 22 saatten
+     * eski olan günlük görevi (gönderim saatleri içindeyse) ayrı bir PHP süreci olarak bir kez başlatır. Görevin kendi
+     * kilidi olduğundan cron satırı da eklenmişse iki kez çalışmaz.
+     */
+    public static function runDailyJobs(PDO $db, string $root, ?int $now = null): void
+    {
+        $now ??= time();
+        $hour = (int)(new \DateTimeImmutable('@'.$now))->setTimezone(new \DateTimeZone('Europe/Istanbul'))->format('G');
+        $jobs = ['expire-access-records' => [0, 24], 'subscription-reminders' => [9, 20]];
+        if (!function_exists('proc_open')) return;
+        $php = PHP_BINARY !== '' && !str_contains(basename(PHP_BINARY), 'cgi') && !str_contains(basename(PHP_BINARY), 'fpm') ? PHP_BINARY : 'php';
+        foreach ($jobs as $job => [$from, $to]) {
+            if ($hour < $from || $hour >= $to || !is_file($root.'/bin/'.$job.'.php')) continue;
+            try {
+                $q = $db->prepare('SELECT started_at FROM cron_heartbeat WHERE job=?'); $q->execute([$job]);
+                if ($now - (int)$q->fetchColumn() < 22 * 3600) continue;
+            } catch (PDOException) { continue; }
+            $p = @proc_open([$php, $root.'/bin/'.$job.'.php'], [0 => ['pipe', 'r'], 1 => ['file', '/dev/null', 'a'], 2 => ['file', '/dev/null', 'a']], $pipes, $root);
+            if (is_resource($p)) { fclose($pipes[0]); proc_close($p); }
+        }
+    }
+
     public static function finish(string $status = 'ok', ?string $detail = null): void
     {
         if (!self::$db || self::$done) return;

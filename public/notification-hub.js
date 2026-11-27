@@ -8,7 +8,8 @@ export async function mountNotificationHub(root, {tr = s => s, onSettings} = {})
   if (!document.querySelector(`link[href="${STYLE}"]`)) document.head.append(Object.assign(document.createElement("link"), {rel: "stylesheet", href: STYLE}));
   let scope = "", filter = "all", category = "", items = [], more = false, cats = [];
   const call = async (path, body) => {
-    const r = await fetch(path, body ? {method: "POST", credentials: "same-origin", headers: {"Content-Type": "application/json", "X-VeTNet-Scope": scope}, body: JSON.stringify(body)} : {credentials: "same-origin"});
+    const r = await fetch(path, body ? {method: "POST", credentials: "same-origin", headers: {"Content-Type": "application/json", "X-VeTNet-Scope": scope}, body: JSON.stringify(body)} : {credentials: "same-origin", headers: scope ? {"X-VeTNet-Scope": scope} : {}});
+  if (r.status === 409 && !body) { location.reload(); throw Error(""); }
     const d = await r.json().catch(() => ({})); if (!r.ok) throw Error(d.error || tr("İşlem tamamlanamadı.")); return d;
   };
   try { const c = await call("/api/app/config"); scope = c.scope; cats = c.categories; } catch (e) { root.replaceChildren(h("p", "nh-error", e.message)); return; }

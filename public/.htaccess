@@ -6,6 +6,9 @@ ErrorDocument 502 /oops.html
 ErrorDocument 503 /oops.html
 DirectoryIndex index.php
 RewriteEngine On
+# Sürüm etiketli (?v=...) statik dosyalar değişmez: tarayıcı bir yıl saklar, her açılışta yeniden sormaz (yavaş hatlarda büyük kazanç).
+RewriteCond %{QUERY_STRING} (?:^|&)v=
+RewriteRule \.(?:js|mjs|css|json|webp|png|jpe?g|svg|gif|ico|woff2?|ttf|wasm)$ - [E=VZ_IMMUTABLE:1]
 RewriteRule "(^|/)(?:\.git|\.svn|\.env(?:\.[^/]*)?)(/|$)" - [F,END,NC]
 <FilesMatch "(?i)(?:\.(?:bak|sql|orig|swp)|~)$">
     Require all denied
@@ -48,3 +51,17 @@ RewriteRule ^ index.php [END]
 <FilesMatch "(?i)^(?:error_log|php\.ini|\.user\.ini|php_errorlog)$">
     Require all denied
 </FilesMatch>
+
+# Önbellek: sürümlü dosyalar 1 yıl (değişince adresi değişir); sürümsüz kod/stil her açılışta kısa doğrulama (304),
+# sürümsüz görsel ve yazı tipleri 7 gün. Sayfalar ve API (PHP) kendi no-store başlığını gönderir.
+<IfModule mod_headers.c>
+    <FilesMatch "(?i)\.(?:js|mjs|css|json|wasm)$">
+        Header set Cache-Control "no-cache" env=!VZ_IMMUTABLE
+        Header set Cache-Control "public, max-age=31536000, immutable" env=VZ_IMMUTABLE
+    </FilesMatch>
+    <FilesMatch "(?i)\.(?:webp|png|jpe?g|svg|gif|ico|woff2?|ttf)$">
+        Header set Cache-Control "public, max-age=604800" env=!VZ_IMMUTABLE
+        Header set Cache-Control "public, max-age=31536000, immutable" env=VZ_IMMUTABLE
+    </FilesMatch>
+</IfModule>
+

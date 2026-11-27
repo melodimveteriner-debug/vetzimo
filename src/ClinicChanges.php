@@ -19,6 +19,8 @@ final class ClinicChanges
     public const ALL = '*';
     /** Taşınabilecek en uzun aralık (revizyon). */
     public const WINDOW = 200;
+    /** Tarayıcı önbelleğini güncellemek için okunabilecek en uzun aralık (yalnız okuma; yazma birleştirmesi WINDOW ile sınırlı). */
+    public const READ_WINDOW = 3000;
     /** Bir yazımda bundan fazla satır değişirse koleksiyon "tümü" olarak işaretlenir. */
     private const ROW_LIMIT = 3000;
 
@@ -60,7 +62,7 @@ final class ClinicChanges
                 $insert->execute([$workspace, $revision, substr((string)$collection, 0, 40), substr((string)$id, 0, 80)]);
             }
             if ($revision % 50 === 0) {
-                $db->prepare('DELETE FROM clinic_change_log WHERE workspace_id=? AND revision<?')->execute([$workspace, $revision - 2 * self::WINDOW]);
+                $db->prepare('DELETE FROM clinic_change_log WHERE workspace_id=? AND revision<?')->execute([$workspace, $revision - self::READ_WINDOW - 50]);
             }
         } catch (PDOException $error) {
             if ($error->getCode() !== '42S02') throw $error;
@@ -71,9 +73,9 @@ final class ClinicChanges
      * ($from, $to] aralığındaki tüm değişiklikler; aralıkta günlüğü olmayan revizyon varsa null.
      * @return array<string,array<string,true>>|null
      */
-    public static function between(PDO $db, string $workspace, int $from, int $to): ?array
+    public static function between(PDO $db, string $workspace, int $from, int $to, int $window = self::WINDOW): ?array
     {
-        if ($to <= $from || $to - $from > self::WINDOW) return null;
+        if ($to <= $from || $to - $from > $window) return null;
         try {
             $q = $db->prepare('SELECT revision, collection, record_id FROM clinic_change_log WHERE workspace_id=? AND revision>? AND revision<=?');
             $q->execute([$workspace, $from, $to]);

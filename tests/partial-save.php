@@ -84,7 +84,17 @@ foreach ([['hekim',$dealer],['personel',$staff]] as [$label,$who]) {
     $streamed=ob_get_clean();
     $data=$work->visibleFor($who_actor);
     $expected=json_encode($data+['session'=>$session($data['state'])],JSON_UNESCAPED_UNICODE);
-    ok(json_decode($streamed,true)===json_decode($expected,true),"$label: akıtılan veri eski yoldan farklı");
+    $got=json_decode($streamed,true);
+    ok(($got['session']['cacheSig'] ?? '')===WorkspaceStream::signature($who_actor),"$label: önbellek imzası yok");
+    unset($got['session']['cacheSig']);
+    ok($got===json_decode($expected,true),"$label: akıtılan veri eski yoldan farklı");
+    // Yalnız değişenler: aynı revizyonda boş delta; yanlış imza tam yüklemeye düşer (false).
+    ob_start();
+    ok((new WorkspaceStream($db))->delta($who_actor,$session,(int)$got['revision'],WorkspaceStream::signature($who_actor)),"$label: delta kullanılmadı");
+    $d=json_decode(ob_get_clean(),true);
+    ok($d['delta']===true && $d['rows']===[] && $d['removed']===[] && $d['revision']===$got['revision'],"$label: boş delta yanlış");
+    ob_start(); $wrong=(new WorkspaceStream($db))->delta($who_actor,$session,(int)$got['revision'],'yanlis'); ob_end_clean();
+    ok(!$wrong && !$db->inTransaction(),"$label: yanlış imzalı delta kabul edildi");
     ok(!$db->inTransaction(),"$label: okuma işlemi açık kaldı");
 }
 echo "PASS seçici kaydetme $checked senaryoda tam yolla aynı karar ve aynı sonuç (hekim ve personel, şube yalıtımı, kontrol randevusu, tahsilat bakiyesi, sıra); akıtılan açılış verisi eski yolla aynı\n";

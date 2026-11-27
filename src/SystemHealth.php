@@ -75,7 +75,13 @@ final class SystemHealth
         $known = array_column($jobs, null, 'job');
         foreach (self::JOBS as $job => $interval) {
             $row = $known[$job] ?? null;
-            if (!$row) { $add('Zamanlanmış görev: '.$job, 'hiç çalışmadı', 'warn', 'cPanel › Cron işlerine bu görevi ekleyin (kurulum rehberindeki satır).'); continue; }
+            if (!$row) {
+                $daily = in_array($job, ['subscription-reminders', 'expire-access-records'], true);
+                $add('Zamanlanmış görev: '.$job, 'henüz çalışmadı', $daily ? 'ok' : 'warn', $daily
+                    ? 'Günlük görev; ayrı cron satırı gerekmez, randevu hatırlatma görevi gün içinde kendisi başlatır.'
+                    : 'cPanel › Cron işlerine bu görevi ekleyin (kurulum rehberindeki satır).');
+                continue;
+            }
             $last = (int)($row['finished_at'] ?? 0) ?: (int)$row['started_at'];
             $late = $now - $last > 2 * $interval;
             $stuck = $row['status'] === 'running' && $now - (int)$row['started_at'] > 3600;
