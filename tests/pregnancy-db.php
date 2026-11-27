@@ -23,8 +23,11 @@ $forbidden=function(callable $f,string $m){try{$f();}catch(RuntimeException $e){
 $forbidden(fn()=>$p->save('pt','p1','Köpek',(object)['action'=>'check','kind'=>'us','count'=>5],'owner','Sahip',$now),'hasta sahibi kontrol sonucu girmemeli');
 $r=$p->save('pt','p1','Köpek',(object)['action'=>'check','kind'=>'us','date'=>(new DateTimeImmutable('-10 days'))->format('Y-m-d'),'count'=>5,'heart'=>'heard','fluid'=>'Normal','note'=>'İyi'],'clinic','Dr',$now);
 ok($r['pregnancy']['checks']['us']['count']===5 && $r['pregnancy']['expected']===5,'ultrason sonucu ve beklenen sayı');
-$r=$p->save('pt','p1','Köpek',(object)['action'=>'check','kind'=>'xray','count'=>7,'heart'=>'','fluid'=>'Az'],'clinic','Dr',$now);
-ok($r['pregnancy']['expected']===7 && $r['pregnancy']['checks']['xray']['fluid']==='Az','röntgen sayısı öncelikli');
+$r=$p->save('pt','p1','Köpek',(object)['action'=>'check','kind'=>'xray','count'=>3,'pelvis'=>'4,5','heads'=>['3.2','4.6',''],'breech'=>1,'note'=>'Sezaryen hazırlığı'],'clinic','Dr',$now);
+$x=$r['pregnancy']['checks']['xray'];
+ok($r['pregnancy']['expected']===3 && $x['pelvis']===4.5 && $x['heads']===[3.2,4.6,null] && $x['breech']===1 && $x['note']==='Sezaryen hazırlığı' && !isset($x['fluid']),'röntgen: pelvis, kafa çapları, ters yavru, not');
+rejected(fn()=>$p->save('pt','p1','Köpek',(object)['action'=>'check','kind'=>'xray','count'=>2,'breech'=>3],'clinic','Dr',$now),'ters yavru toplamı geçmemeli');
+rejected(fn()=>$p->save('pt','p1','Köpek',(object)['action'=>'check','kind'=>'xray','count'=>2,'pelvis'=>'40'],'clinic','Dr',$now),'pelvis sınırı');
 rejected(fn()=>$p->save('pt','p1','Köpek',(object)['action'=>'check','kind'=>'us','fluid'=>'Çok'],'clinic','Dr',$now),'geçersiz amnion değeri reddedilmeli');
 $png='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
 $forbidden(fn()=>$p->save('pt','p1','Köpek',(object)['action'=>'photo','kind'=>'us','image'=>$png],'owner','Sahip',$now),'hasta sahibi ultrason fotoğrafı eklememeli');

@@ -128,7 +128,7 @@ function css() {
 .pg-mini{min-height:32px;padding:0 12px;font-size:.78rem}
 .pg-cform{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.pg-cform label{display:grid;gap:3px;font-size:.78rem;font-weight:700;min-width:0}
 .pg-cform input,.pg-cform select,.pg-cform textarea{min-height:36px;padding:6px 10px;border-radius:10px;border:1px solid var(--pg-line);font:inherit;background:transparent;color:inherit;min-width:0}
-.pg-cform .wide{grid-column:1/-1}.pg-cform textarea{min-height:60px;resize:vertical}
+.pg-cform .wide{grid-column:1/-1}.pg-heads{grid-template-columns:repeat(auto-fill,minmax(130px,1fr))}.pg-check dd .pg-pill{margin:0 2px 2px 0}.pg-cform textarea{min-height:60px;resize:vertical}
 .pg-seg{display:flex;flex-wrap:wrap;gap:4px}.pg-seg button{flex:1;min-height:34px;border-radius:10px;border:1px solid var(--pg-line);background:transparent;color:inherit;font:inherit;font-size:.78rem;font-weight:700;cursor:pointer}
 .pg-seg button[aria-pressed=true]{background:linear-gradient(135deg,var(--pg-a),var(--pg-b));color:#fff;border-color:transparent}
 .pg-mem{display:grid;gap:6px;justify-items:center;padding:8px 0 4px}
@@ -281,9 +281,24 @@ export function mountPregnancy(root, opts) {
         const row = (t, v) => { dl.append(el("dt", tr(t))); const dd = el("dd"); typeof v === "string" ? dd.textContent = v : dd.append(v); dl.append(dd); };
         row("Tarih", fmt(c.date));
         row("Yavru sayısı", c.count === null || c.count === undefined ? "—" : String(c.count));
-        row("Kalp atışları", c.heart ? el("span", c.heart === "heard" ? "♥ " + tr("Duyuldu") : "✕ " + tr("Duyulmadı"), {className: "pg-pill " + (c.heart === "heard" ? "ok" : "bad")}) : "—");
-        row("Amnion sıvısı", c.fluid ? el("span", tr(c.fluid), {className: "pg-pill " + (c.fluid === "Normal" ? "ok" : "mid")}) : "—");
+        if (kind === "xray") {
+          const cm = v => v === null || v === undefined || v === "" ? "—" : String(v).replace(".", ",") + " cm";
+          row("Canalis pelvis", cm(c.pelvis));
+          const heads = (c.heads || []).filter(h => h !== null && h !== undefined);
+          if (heads.length) { const list = el("span"); (c.heads || []).forEach((h, k) => { if (h === null || h === undefined) return;
+            const risk = c.pelvis && h >= c.pelvis; list.append(el("span", (k + 1) + ". " + cm(h), {className: "pg-pill " + (risk ? "bad" : "ok")}), document.createTextNode(" ")); });
+            row("Yavru kafa çapları", list); }
+          row("Ters yavru", c.breech === null || c.breech === undefined ? "—" : el("span", String(c.breech), {className: "pg-pill " + (c.breech ? "mid" : "ok")}));
+        } else {
+          row("Kalp atışları", c.heart ? el("span", c.heart === "heard" ? "♥ " + tr("Duyuldu") : "✕ " + tr("Duyulmadı"), {className: "pg-pill " + (c.heart === "heard" ? "ok" : "bad")}) : "—");
+          row("Amnion sıvısı", c.fluid ? el("span", tr(c.fluid), {className: "pg-pill " + (c.fluid === "Normal" ? "ok" : "mid")}) : "—");
+        }
         card.append(dl);
+        if (kind === "xray") {
+          const big = c.pelvis ? (c.heads || []).filter(h => h && h >= c.pelvis).length : 0;
+          if (big) card.append(el("p", "⚠️ " + big + " " + tr("yavrunun kafa çapı pelvis kanalına eşit veya büyük: doğum güçlüğü / sezaryen riski."), {className: "pg-err"}));
+          if (c.breech) card.append(el("p", "↕ " + c.breech + " " + tr("yavru ters (makat) konumda; doğumda dikkat.")));
+        }
         if (c.note) card.append(el("p", "📝 " + c.note));
       }
       box.append(card);
@@ -309,10 +324,20 @@ export function mountPregnancy(root, opts) {
     if (c.date) { const del = el("button", "✕ " + tr("Sonucu sil"), {type: "button", className: "pg-btn pg-btn-soft pg-mini"});
       del.addEventListener("click", async () => { try { item = await save({action: "check", kind, remove: true}); draw(); } catch (x) { err.textContent = x.message; } }); bar.append(del); }
     const err = el("p", "", {className: "pg-err wide", role: "alert"});
-    form.append(lab("Kontrol tarihi", date), lab("Görülen yavru sayısı", count), lab("Canlılık", heart, "wide"), lab("Amnion sıvısı miktarı", fluid, "wide"), lab("Not", note, "wide"), bar, err);
+    const pelvis = el("input", "", {type: "number", min: 0.5, max: 20, step: 0.1, inputMode: "decimal", value: c.pelvis ?? "", placeholder: "4,5"});
+    const breech = el("input", "", {type: "number", min: 0, max: 20, inputMode: "numeric", value: c.breech ?? "", placeholder: "0"});
+    const heads = el("div", "", {className: "pg-cform wide pg-heads"});
+    const drawHeads = () => { const n = Math.max(0, Math.min(20, parseInt(count.value, 10) || 0)), old = [...heads.querySelectorAll("input")].map(x => x.value);
+      heads.replaceChildren(...Array.from({length: n}, (_, k) => lab(k + 1 + ". " + tr("yavru kafa çapı (cm)"), el("input", "", {type: "number", min: 0.3, max: 15, step: 0.1, inputMode: "decimal", value: old[k] ?? c.heads?.[k] ?? "", placeholder: "3,2"})))); };
+    if (kind === "xray") { count.addEventListener("input", drawHeads); drawHeads();
+      form.append(lab("Kontrol tarihi", date), lab("Yavru sayısı", count), lab("Canalis pelvis (cm)", pelvis), lab("Ters yavru sayısı", breech), heads, lab("Not", note, "wide"), bar, err);
+    } else form.append(lab("Kontrol tarihi", date), lab("Görülen yavru sayısı", count), lab("Canlılık", heart, "wide"), lab("Amnion sıvısı miktarı", fluid, "wide"), lab("Not", note, "wide"), bar, err);
     form.addEventListener("submit", async e => {
       e.preventDefault(); ok.disabled = true; err.textContent = "";
-      try { item = await save({action: "check", kind, date: date.value, count: count.value === "" ? null : count.value, heart: heart.value, fluid: fluid.value, note: note.value}); draw(); }
+      const base = {action: "check", kind, date: date.value, count: count.value === "" ? null : count.value};
+      const body = kind === "xray" ? {...base, pelvis: pelvis.value || null, breech: breech.value === "" ? null : breech.value, heads: [...heads.querySelectorAll("input")].map(x => x.value || null), note: note.value}
+        : {...base, heart: heart.value, fluid: fluid.value, note: note.value};
+      try { item = await save(body); draw(); }
       catch (x) { err.textContent = x.message || tr("Kaydedilemedi."); ok.disabled = false; }
     });
     return form;

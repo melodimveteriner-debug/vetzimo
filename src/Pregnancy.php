@@ -167,7 +167,23 @@ final class Pregnancy
             if (!in_array($fluid,['','Az','Normal','Fazla'],true)) throw new RuntimeException('Amnion sıvısı seçimi geçersiz.',422);
             $checks=$cur['checks'];
             if (!empty($body->remove)) unset($checks[$kind]);
-            else $checks[$kind]=['date'=>$date,'count'=>$count,'heart'=>$heart,'fluid'=>$fluid,'note'=>mb_substr(trim((string)($body->note ?? '')),0,300,'UTF-8'),'by'=>mb_substr($author,0,120)];
+            elseif ($kind==='us') $checks[$kind]=['date'=>$date,'count'=>$count,'heart'=>$heart,'fluid'=>$fluid,'note'=>mb_substr(trim((string)($body->note ?? '')),0,300,'UTF-8'),'by'=>mb_substr($author,0,120)];
+            else {
+                // Röntgen: yavru sayısı, pelvis kanalı (cm), her yavrunun kafa çapı (cm) ve ters (makat) gelen yavru sayısı.
+                $cm=static function($v,float $min,float $max,string $label): ?float {
+                    if ($v===null||$v==='') return null;
+                    $n=is_numeric(str_replace(',','.',(string)$v))?round((float)str_replace(',','.',(string)$v),1):null;
+                    if ($n===null||$n<$min||$n>$max) throw new RuntimeException($label.' '.str_replace('.',',',(string)$min).' ile '.str_replace('.',',',(string)$max).' cm arasında olmalı.',422);
+                    return $n;
+                };
+                $pelvis=$cm($body->pelvis ?? null,0.5,20,'Canalis pelvis');
+                $heads=[];
+                foreach (is_array($body->heads ?? null)?array_slice($body->heads,0,20):[] as $h) $heads[]=$cm($h,0.3,15,'Yavru kafa çapı');
+                if ($count!==null && count($heads)>$count) $heads=array_slice($heads,0,$count);
+                $breech=isset($body->breech)&&$body->breech!==''&&$body->breech!==null?(int)$body->breech:null;
+                if ($breech!==null && ($breech<0||$breech>20||($count!==null&&$breech>$count))) throw new RuntimeException('Ters yavru sayısı toplam yavru sayısını geçemez.',422);
+                $checks[$kind]=['date'=>$date,'count'=>$count,'pelvis'=>$pelvis,'heads'=>$heads,'breech'=>$breech,'note'=>mb_substr(trim((string)($body->note ?? '')),0,300,'UTF-8'),'by'=>mb_substr($author,0,120)];
+            }
             // Beklenen yavru sayısı: röntgen (iskelet sayımı) varsa o, yoksa ultrason sayısı.
             $expected=$checks['xray']['count'] ?? $checks['us']['count'] ?? $cur['expected'];
             if ($expected===0) $expected=null;
