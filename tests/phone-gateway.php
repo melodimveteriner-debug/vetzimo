@@ -148,6 +148,13 @@ ok($db->query("SELECT status FROM inbox_message WHERE direction='out' ORDER BY i
 $wa=(object)['app'=>'whatsapp','key'=>'nwa1234567','name'=>'+90 532 999 88 77','text'=>'Selam','at'=>$now];
 $gw->sync($device,(object)['apps'=>[$wa]],$now+1307,$inbox);
 ok((bool)$db->query("SELECT 1 FROM inbox_conversation WHERE contact_key='+905329998877'")->fetchColumn(),'WhatsApp numarası kişi anahtarı olmadı');
+// Telefonda adıyla kayıtlı kişi: bildirimde numara yok; yanıt müşteri kartındaki numaraya WhatsApp olarak gider (kopyala-aç değil)
+$gw->sync($device,(object)['apps'=>[(object)['app'=>'whatsapp','key'=>'nwa7654321','name'=>'cem er','text'=>'Aşı günü ne zaman?','at'=>$now]]],$now+1308,$inbox);
+$wn=array_values(array_filter($inbox->list($actor,["channel"=>"whatsapp"],$now+1309)["items"],fn($c)=>$c['name']==='cem er'));
+ok(count($wn)===1,'Adla gelen WhatsApp konuşması oluşmadı');
+$inbox->act($actor,(object)['action'=>'reply','id'=>$wn[0]['id'],'text'=>'Yarın 10:00.'],$now+1310);
+$last=$db->query("SELECT channel,phone FROM phone_outbox ORDER BY id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+ok($last['channel']==='whatsapp' && $last['phone']==='+905443334455','Adla kayıtlı kişiye yanıt müşteri numarasına WhatsApp olarak gitmedi: '.json_encode($last));
 
 // Bağlantılı tek kişilik SMS'ler telefon hattı açıkken kuyruğa girer: müşteri onay formu, onam, ödeme talebi,
 // şube yöneticisi / personel / hasta sahibi daveti ve tekrar daveti.

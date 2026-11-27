@@ -531,6 +531,33 @@ final class OmniInbox
         return $id === false ? null : (int)$id;
     }
 
+    /** Sohbetin bağlı olduğu müşteri kartının ya da adı birebir tek bir müşteriyle eşleşen kartın cep numarası (+90…); yoksa boş. */
+    private function clientPhone(string $partner, string $clientId, string $name): string
+    {
+        $set = $this->setId($partner);
+        if ($set === null) return '';
+        $phones = [];
+        if ($clientId !== '') {
+            $q = $this->db->prepare("SELECT record_data FROM clinic_record WHERE set_id=? AND collection='clients' AND row_key=?");
+            $q->execute([$set, $clientId]);
+            $rows = $q->fetchAll(PDO::FETCH_COLUMN);
+        } else {
+            $name = trim(preg_replace('/\s+/u', ' ', $name) ?? '');
+            if (mb_strlen($name, 'UTF-8') < 3) return '';
+            $q = $this->db->prepare("SELECT record_data FROM clinic_record WHERE set_id=? AND collection='clients' AND CONVERT(record_data USING utf8mb4) COLLATE utf8mb4_turkish_ci LIKE ? LIMIT 20");
+            $q->execute([$set, '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], mb_substr(json_encode($name, JSON_UNESCAPED_UNICODE), 1, -1, 'UTF-8')).'%']);
+            $rows = $q->fetchAll(PDO::FETCH_COLUMN);
+        }
+        $key = static fn(string $v) => mb_strtolower(trim(preg_replace('/\s+/u', ' ', $v) ?? ''), 'UTF-8');
+        foreach ($rows as $json) {
+            $c = json_decode((string)$json, true);
+            if (!is_array($c) || ($clientId === '' && $key((string)($c['name'] ?? '')) !== $key($name))) continue;
+            $phone = DealerLogin::normalizePhone((string)($c['phone'] ?? ''));
+            if ($phone !== '') $phones[$phone] = true;
+        }
+        return count($phones) === 1 ? (string)array_key_first($phones) : '';
+    }
+
     /** Telefonun son 10 hanesi veya e-posta ile müşteri kartı arar; birden fazla eşleşmede bağlamaz. */
     public function matchClient(string $partner, string $kind, string $contact, string $handle): string
     {
@@ -857,6 +884,9 @@ final class OmniInbox
             // Telefon bildiriminden gelen konuşma: WhatsApp'ta numara biliniyorsa doğrudan, diğerlerinde telefonda "kopyala ve aç" ile yanıtlanır.
             $gateway = new PhoneGateway($this->db);
             if ($template) throw new RuntimeException('Bu kanalda şablon gerekmez; mesajı doğrudan yazın.', 422);
+            // Kişi telefonda adıyla kayıtlıysa bildirimde numara görünmez: bağlı müşteri kartından ya da adı birebir tek müşteriyle
+            // eşleşiyorsa o kartın numarasından gönderilir (otomatik modda bilgisayardaki WhatsApp Web ile, elle dokunmadan).
+            if ($kind === 'whatsapp' && !str_starts_with($to, '+')) $to = $this->clientPhone((string)$conv['partner_id'], (string)($conv['client_id'] ?? ''), (string)($conv['contact_name'] ?? '')) ?: $to;
             if ($kind === 'whatsapp' && str_starts_with($to, '+') && $gateway->route($conv['partner_id'], 'whatsapp')) return 'gw:'.$gateway->enqueue($conv['partner_id'], 'whatsapp', $to, $text, 'inbox', 'm'.$messageId, 0, $now, null, $by);
             if (!$gateway->route($conv['partner_id'], 'app')) throw new RuntimeException('Telefon Bağlantısı sayfasında "Uygulama mesajlarını aktar" kapalı veya bağlı telefon yok.', 422);
             return 'gw:'.$gateway->enqueue($conv['partner_id'], 'app', $kind, $text, 'inbox', 'm'.$messageId, 0, $now, null, $by);

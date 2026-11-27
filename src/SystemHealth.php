@@ -81,7 +81,7 @@ final class SystemHealth
             $stuck = $row['status'] === 'running' && $now - (int)$row['started_at'] > 3600;
             $add('Zamanlanmış görev: '.$job, ($row['status'] === 'error' ? 'hata · ' : '').date('d.m.Y H:i', $last).(isset($row['seconds']) ? ' · '.$row['seconds'].' sn' : ''),
                 $row['status'] === 'error' || $stuck ? 'bad' : ($late ? 'warn' : 'ok'),
-                $stuck ? 'Görev bir saattir bitmedi; sunucu süre sınırını ve hata günlüğünü kontrol edin.' : ($late ? 'Görev beklenenden uzun süredir çalışmadı; cron ayarını kontrol edin.' : ($row['status'] === 'error' ? 'Son çalışma hata verdi; hata günlüğünü kontrol edin.' : 'Düzenli çalışıyor.')));
+                $stuck ? 'Görev bir saattir bitmedi; sunucu süre sınırını ve hata günlüğünü kontrol edin.' : ($late ? 'Görev beklenenden uzun süredir çalışmadı; cron ayarını kontrol edin.' : ($row['status'] === 'error' ? 'Son çalışma hata verdi'.(($row['last_error'] ?? '') !== '' ? ': '.$row['last_error'] : '; hata günlüğünü kontrol edin.') : 'Düzenli çalışıyor.')));
         }
 
         // Büyüyen klinikler (arşiv eşiği ve tarayıcı yükü)

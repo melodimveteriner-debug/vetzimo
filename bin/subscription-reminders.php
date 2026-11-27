@@ -20,7 +20,7 @@ try {
     if (!in_array('--dry', $argv, true)) { $sweep = (new VetNet\Cpanel\PartnerLifecycle($db))->sweep(time()); foreach ($sweep['closed'] as $id) fwrite(STDOUT, 'süre bitti · giriş kapatıldı · '.$id.PHP_EOL); foreach ($sweep['purged'] as $id) fwrite(STDOUT, '30 günlük saklama doldu · veriler silindi · '.$id.PHP_EOL); }
     exit(0);
 } catch (Throwable $error) {
-    if (class_exists('VetNet\\Cpanel\\CronGuard')) VetNet\Cpanel\CronGuard::finish('error',isset($error)&&$error instanceof Throwable?get_class($error):null);
+    if (class_exists('VetNet\\Cpanel\\CronGuard')) VetNet\Cpanel\CronGuard::finish('error',isset($error)&&$error instanceof Throwable?mb_substr(get_class($error).': '.$error->getMessage(),0,240):null);
     fwrite(STDERR, 'VetZimo abonelik hatırlatmaları çalıştırılamadı ('.get_class($error).').'.PHP_EOL);
     exit(1);
 }

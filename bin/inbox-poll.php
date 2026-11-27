@@ -18,7 +18,7 @@ try {
     if ($stats['messages'] || $stats['errors']) fwrite(STDOUT, json_encode($stats, JSON_THROW_ON_ERROR).PHP_EOL);
     exit($stats['errors'] ? 1 : 0);
 } catch (Throwable $error) {
-    if (class_exists('VetNet\\Cpanel\\CronGuard')) VetNet\Cpanel\CronGuard::finish('error',isset($error)&&$error instanceof Throwable?get_class($error):null);
+    if (class_exists('VetNet\\Cpanel\\CronGuard')) VetNet\Cpanel\CronGuard::finish('error',isset($error)&&$error instanceof Throwable?mb_substr(get_class($error).': '.$error->getMessage(),0,240):null);
     fwrite(STDERR, 'VetZimo gelen kutusu e-posta denetimi çalıştırılamadı ('.get_class($error).': '.$error->getMessage().').'.PHP_EOL);
     exit(1);
 }

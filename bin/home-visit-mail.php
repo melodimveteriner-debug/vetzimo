@@ -76,7 +76,7 @@ try {
         if ($error->getCode()!=='42S02') throw $error;
     }
 } catch (Throwable $error) {
-    if (class_exists('VetNet\\Cpanel\\CronGuard')) VetNet\Cpanel\CronGuard::finish('error',isset($error)&&$error instanceof Throwable?get_class($error):null);
+    if (class_exists('VetNet\\Cpanel\\CronGuard')) VetNet\Cpanel\CronGuard::finish('error',isset($error)&&$error instanceof Throwable?mb_substr(get_class($error).': '.$error->getMessage(),0,240):null);
     fwrite(STDERR,'Evde Hizmet e-posta kuyruğu çalıştırılamadı ('.get_class($error).').'.PHP_EOL);
     exit(1);
 }

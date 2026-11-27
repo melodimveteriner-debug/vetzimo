@@ -12,7 +12,7 @@ $root=dirname(__DIR__);
 require $root.'/src/Database.php';
 $configPath=getenv('VETNET_CPANEL_CONFIG')?:$root.'/config.php';
 if (!is_file($configPath)) {
-    if (class_exists('VetNet\\Cpanel\\CronGuard')) VetNet\Cpanel\CronGuard::finish('error',isset($error)&&$error instanceof Throwable?get_class($error):null);
+    if (class_exists('VetNet\\Cpanel\\CronGuard')) VetNet\Cpanel\CronGuard::finish('error',isset($error)&&$error instanceof Throwable?mb_substr(get_class($error).': '.$error->getMessage(),0,240):null);
     fwrite(STDERR,"VetZimo: yapılandırma bulunamadı.\n");
     exit(1);
 }
@@ -35,7 +35,7 @@ try {
         }
     }
 } catch (Throwable $error) {
-    if (class_exists('VetNet\\Cpanel\\CronGuard')) VetNet\Cpanel\CronGuard::finish('error',isset($error)&&$error instanceof Throwable?get_class($error):null);
+    if (class_exists('VetNet\\Cpanel\\CronGuard')) VetNet\Cpanel\CronGuard::finish('error',isset($error)&&$error instanceof Throwable?mb_substr(get_class($error).': '.$error->getMessage(),0,240):null);
     fwrite(STDERR,'VetZimo: erişim kayıtları temizlenemedi ('.get_class($error).").\n");
     exit(1);
 }

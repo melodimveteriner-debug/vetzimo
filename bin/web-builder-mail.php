@@ -67,7 +67,7 @@ try {
             [$now+min(86400,120*2**min(10,(int)$job['notify_attempts'])),$sent,$failure,$job['partner_id'],$job['id']]);
     }
 } catch (Throwable $error) {
-    if (class_exists('VetNet\\Cpanel\\CronGuard')) VetNet\Cpanel\CronGuard::finish('error',isset($error)&&$error instanceof Throwable?get_class($error):null);
+    if (class_exists('VetNet\\Cpanel\\CronGuard')) VetNet\Cpanel\CronGuard::finish('error',isset($error)&&$error instanceof Throwable?mb_substr(get_class($error).': '.$error->getMessage(),0,240):null);
     fwrite(STDERR,'Web randevusu e-posta kuyruğu çalıştırılamadı ('.get_class($error).').'.PHP_EOL);
     exit(1);
 }

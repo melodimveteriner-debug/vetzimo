@@ -29,7 +29,7 @@ try {
     }
     exit($stats['rejected'] || $stats['unknown'] ? 1 : 0);
 } catch (Throwable $error) {
-    if (class_exists('VetNet\\Cpanel\\CronGuard')) VetNet\Cpanel\CronGuard::finish('error',isset($error)&&$error instanceof Throwable?get_class($error):null);
+    if (class_exists('VetNet\\Cpanel\\CronGuard')) VetNet\Cpanel\CronGuard::finish('error',isset($error)&&$error instanceof Throwable?mb_substr(get_class($error).': '.$error->getMessage(),0,240):null);
     fwrite(STDERR, 'VetZimo randevu hatırlatmaları çalıştırılamadı (' . get_class($error) . '). PHP cURL, bağlantı ayarları ve 019 numaralı SQL dosyasını kontrol edin.' . PHP_EOL);
     exit(1);
 }
