@@ -737,6 +737,7 @@ final class HomeVisit
             'date'=>substr($slot['starts'],0,10),'time'=>substr($slot['starts'],11,5),'endTime'=>substr($slot['ends'],11,5),'status'=>$status,
             'service'=>'Evde Hizmet','client'=>$row['customer_id'],'patient'=>$row['patient_id'],
             'clinician'=>$roster[$slot['clinician']]['name']??'','notes'=>'Evde hizmet başvurusu: '.$row['id']];
+        $original=clone $state;
         $items=array_column($state->appointments??[],null,'id');
         if ($status==='Onaylandı') {
             foreach ($items as $other) {
@@ -750,7 +751,7 @@ final class HomeVisit
         $record->createdBy='Evde Hizmet';
         $items[$id]=$record;
         $state->appointments=array_values($items);
-        if (!$this->workspaces->save('partner:'.$row['partner_id'],$data['revision'],$state)) throw new RuntimeException('Takvim güncellendi. Tekrar deneyin.',409);
+        if (!$this->workspaces->save('partner:'.$row['partner_id'],$data['revision'],$state,$original)) throw new RuntimeException('Takvim güncellendi. Tekrar deneyin.',409);
     }
 
     private function clinicalRecord(array $row,array $actor,array $post): array

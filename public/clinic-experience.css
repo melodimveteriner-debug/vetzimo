@@ -985,3 +985,65 @@ td [class*=badge],td [class*=status],td [class*=pill],td [class*=chip]{white-spa
 .vz-pg-gap{padding:0 4px;color:var(--muted,#6b6585)}
 .vz-pg-size{display:flex;align-items:center;gap:6px;font-size:.85rem;color:var(--muted,#6b6585)}.vz-pg-size select{padding:5px 8px;border-radius:8px;border:1px solid var(--line,#ddd8ea);font:inherit;background:var(--paper,#fff);color:inherit}
 @media(max-width:640px){.vet-pages.vz-pager{justify-content:center}.vz-pg-info{order:2}.vz-pg-size{order:3}}
+/* Hasta dosyası › Klinik kayıtlar: iç boşluk ve profesyonel zaman çizelgesi (patient-records.js) */
+.record-section-history>:not(.panel-head){margin-inline:16px}
+.record-section-history>:last-child{margin-bottom:16px}
+.record-section-history .patient-profile-more>summary{padding:4px 0;color:var(--muted,#5b6475);font-size:.92rem}
+.pr-records{display:grid;gap:14px;min-width:0}
+.pr-compare{display:grid;gap:8px;padding:12px 14px;border:1px solid var(--line,#d9dce4);border-radius:14px;background:var(--paper,#fff)}
+.pr-compare-dates{color:var(--muted,#5b6475);font-size:.85rem}
+.pr-compare-values{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
+.pr-compare-cell{display:grid;gap:2px;padding:8px 10px;border-radius:10px;background:color-mix(in srgb,var(--ink,#1b1f2a) 4%,transparent)}
+.pr-compare-cell small{color:var(--muted,#5b6475)}
+.pr-compare-cell span{font-size:.8rem;color:var(--muted,#5b6475)}
+.pr-compare-cell.up b{color:#c2410c}.pr-compare-cell.down b{color:#0f766e}
+.pr-toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.pr-chips{display:flex;flex-wrap:wrap;gap:6px;min-width:0}
+.pr-chip{--hue:var(--brand,#6d5df5);display:inline-flex;align-items:center;gap:7px;padding:6px 11px;border-radius:999px;border:1px solid var(--line,#d9dce4);background:var(--paper,#fff)!important;color:var(--ink,#1b1f2a)!important;font:600 .86rem/1.2 inherit;cursor:pointer;box-shadow:none!important}
+.pr-chip b{min-width:20px;padding:1px 6px;border-radius:999px;background:color-mix(in srgb,var(--hue) 14%,transparent);color:var(--hue);font-size:.76rem;text-align:center}
+.pr-chip[aria-pressed="true"]{border-color:var(--hue);background:color-mix(in srgb,var(--hue) 12%,var(--paper,#fff))!important;color:var(--hue)!important}
+.pr-search{flex:0 1 240px;min-width:0;padding:8px 12px;border-radius:10px;border:1px solid var(--line,#d9dce4);background:var(--paper,#fff);color:var(--ink,#1b1f2a)}
+.pr-status{margin:-4px 0 0;color:var(--muted,#5b6475);font-size:.85rem}
+.pr-status:empty{display:none}
+.pr-group-head{display:flex;align-items:center;gap:8px;margin:2px 0 8px}
+.pr-group-head h3{margin:0;font-size:.82rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted,#5b6475)}
+.pr-count{padding:1px 8px;border-radius:999px;background:color-mix(in srgb,#2f7de1 14%,transparent);color:#2f7de1;font-size:.76rem;font-weight:700}
+.pr-upcoming:empty{display:none}
+.pr-upcoming{padding:12px;border-radius:14px;background:linear-gradient(135deg,color-mix(in srgb,#2f7de1 8%,transparent),color-mix(in srgb,#6d5df5 6%,transparent));border:1px dashed color-mix(in srgb,#2f7de1 35%,transparent)}
+.pr-upcoming-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px}
+.pr-timeline{display:grid;gap:16px}
+.pr-month-list{position:relative;display:grid;gap:6px}
+.pr-month-list::before{content:"";position:absolute;inset-block:6px;inset-inline-start:69px;width:2px;background:var(--line,#d9dce4);border-radius:2px}
+.pr-item{--hue:#7a7f8c;position:relative;display:grid;grid-template-columns:52px 32px minmax(0,1fr) auto;align-items:start;gap:0 10px;padding:10px 12px 10px 6px;border-radius:12px;border:1px solid transparent;background:transparent;transition:background .15s,border-color .15s}
+.pr-item[role="button"]{cursor:pointer}
+.pr-item[role="button"]:hover,.pr-item:focus-visible{background:color-mix(in srgb,var(--hue) 6%,var(--paper,#fff));border-color:color-mix(in srgb,var(--hue) 28%,transparent);outline:none}
+.pr-item.compact{grid-template-columns:46px 28px minmax(0,1fr) auto;background:var(--paper,#fff);border-color:var(--line,#d9dce4)}
+.pr-date{display:grid;justify-items:center;line-height:1.05;color:var(--ink,#1b1f2a)}
+.pr-date b{font-size:1.25rem;font-variant-numeric:tabular-nums}
+.pr-date span{font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;color:var(--muted,#5b6475)}
+.pr-dot{position:relative;z-index:1;display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:color-mix(in srgb,var(--hue) 14%,var(--paper,#fff));color:var(--hue);box-shadow:0 0 0 3px var(--paper,#fff)}
+.pr-item.compact .pr-dot{width:26px;height:26px}
+.pr-body{display:grid;gap:3px;min-width:0}
+.pr-head{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;min-width:0}
+.pr-head strong{font-size:.98rem;color:var(--ink,#1b1f2a);overflow-wrap:anywhere}
+.pr-type{font-size:.74rem;font-weight:700;color:var(--hue)}
+.pr-pill{padding:2px 8px;border-radius:999px;font-size:.72rem;font-weight:700;background:color-mix(in srgb,var(--ink,#1b1f2a) 7%,transparent);color:var(--muted,#5b6475)}
+.pr-pill.done{background:color-mix(in srgb,#16a34a 14%,transparent);color:#15803d}
+.pr-pill.planned{background:color-mix(in srgb,#2f7de1 14%,transparent);color:#1d64c4}
+.pr-pill.late{background:color-mix(in srgb,#f59e0b 18%,transparent);color:#b45309}
+.pr-pill.cancel{background:color-mix(in srgb,#dc2626 13%,transparent);color:#b91c1c}
+.pr-meta{color:var(--muted,#5b6475);font-size:.82rem;overflow-wrap:anywhere}
+.pr-summary{margin:2px 0 0;color:var(--ink,#1b1f2a);font-size:.88rem;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.pr-item.expanded .pr-summary{display:block}
+.pr-link{justify-self:start;padding:0!important;border:0!important;background:none!important;color:var(--brand-link,#5b47d6)!important;font:600 .82rem inherit;cursor:pointer;box-shadow:none!important}
+.pr-go{align-self:center;font-size:1.4rem;line-height:1;color:var(--muted,#9aa1ad)}
+.pr-empty{display:grid;gap:4px;justify-items:center;padding:28px 12px;border:1px dashed var(--line,#d9dce4);border-radius:14px;color:var(--muted,#5b6475);text-align:center}
+.pr-more{justify-self:center}
+@media (max-width:560px){
+ .record-section-history>:not(.panel-head){margin-inline:12px}
+ .pr-search{flex:1 1 100%}
+ .pr-month-list::before{inset-inline-start:57px}
+ .pr-item{grid-template-columns:42px 28px minmax(0,1fr) auto;gap:0 8px;padding-inline:4px 8px}
+ .pr-dot{width:26px;height:26px}
+ .pr-upcoming-list{grid-template-columns:1fr}
+}

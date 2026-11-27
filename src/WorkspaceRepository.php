@@ -40,6 +40,37 @@ final class WorkspaceRepository
         return $this->records->collections($workspaceId, $collections) ?? $this->load($workspaceId)['state'];
     }
 
+    /**
+     * Tek kayıt ekleme (web randevu talebi gibi): tüm klinik belleğe alınmaz ve yeniden yazılmaz. Revizyon değişmişse
+     * veya çalışma alanı eski biçimdeyse null döner; çağıran tam yola geçer.
+     */
+    public function appendable(string $workspaceId): bool
+    {
+        $directory = $this->database->prepare('SELECT COUNT(*) FROM clinic_directory WHERE workspace_id=?');
+        $directory->execute([$workspaceId]);
+        return (int)$directory->fetchColumn() === 0 && $this->records->migrated($workspaceId);
+    }
+
+    public function append(string $workspaceId, int $revision, string $collection, object $row): ?int
+    {
+        if (!$this->appendable($workspaceId)) return null;
+        $own = !$this->database->inTransaction();
+        if ($own) $this->database->beginTransaction();
+        try {
+            $bump = $this->database->prepare('UPDATE clinic_workspace SET revision=revision+1,updated_at=CURRENT_TIMESTAMP(3) WHERE user_id=? AND revision=?');
+            $bump->execute([$workspaceId, $revision]);
+            if ($bump->rowCount() !== 1 || !$this->records->append($workspaceId, $collection, $row)) {
+                if ($own) $this->database->rollBack();
+                return null;
+            }
+            if ($own) $this->database->commit();
+            return $revision + 1;
+        } catch (\Throwable $error) {
+            if ($own && $this->database->inTransaction()) $this->database->rollBack();
+            throw $error;
+        }
+    }
+
     /** @return array{revision: int, state: object|null} */
     public function load(string $workspaceId, ?string $branch=null, ?array $actor=null): array
     {

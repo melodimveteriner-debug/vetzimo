@@ -1861,7 +1861,7 @@ try {
         '/api/saas/demo-checkout'=>'Aboneliği etkinleştirmek için destek talebi açın.',
     ];
     foreach ($unavailable as $prefix=>$message) {
-        if (str_starts_with($path,$prefix)) reply(['error'=>$message],503);
+        if (str_starts_with($path,$prefix)) reply(['error'=>$message],501);
     }
     if (wantsPage()) oopsPage(404, 'Bu adreste bir sayfa yok ya da taşınmış olabilir.');
     reply(['error'=>'İstenen işlem bulunamadı.'],404);

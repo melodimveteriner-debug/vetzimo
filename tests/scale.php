@@ -60,6 +60,17 @@ unset($part);
 ok(count($dir['clients'])===3000,'directory müşteri listesi');
 ok($dirMb<40,"directory belleği $dirMb MB (<40 olmalı)");
 
+// Tek kayıt ekleme (web randevu talebi): tüm klinik yazılmaz; revizyon artar, eski revizyonla ekleme reddedilir
+$rev=(int)$db->query("SELECT revision FROM clinic_workspace WHERE user_id='partner:$big'")->fetchColumn();
+$row=(object)['id'=>'web-'.str_repeat('a',32),'branch'=>'merkez','date'=>'2026-12-01','time'=>'10:00','status'=>'Onay Bekliyor','service'=>'Aşı'];
+[$newRev,$appMb,$appSec]=measure(fn()=>$repo->append('partner:'.$big,$rev,'appointments',$row));
+ok($newRev===$rev+1,'ekleme revizyonu artırmalı');
+ok($repo->append('partner:'.$big,$rev,'appointments',$row)===null,'eski revizyonla ekleme reddedilmeli');
+$after=(new ClinicRecords($db))->collections('partner:'.$big,['appointments','clients']);
+ok(end($after->appointments)->id===$row->id && count($after->clients)===3000,'eklenen randevu sonda, diğer tablolar aynı');
+ok($appSec<1 && $appMb<16,"ekleme ".round($appSec,2)." sn / $appMb MB");
+unset($after);
+
 // Hatırlatma işleri: seçici okuma ile tam yüklemedekiyle aynı işler çıkmalı
 $sel=(new ClinicRecords($db))->collections('partner:'.$big,['appointments','followups','patients','clients']);
 $all=$repo->load('partner:'.$big)['state'];

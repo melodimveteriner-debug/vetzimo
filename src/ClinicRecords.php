@@ -318,6 +318,27 @@ final class ClinicRecords
         return $state;
     }
 
+    /**
+     * Tek bir satırı listenin sonuna ekler (yalnız yeni kimlik; var olanı güncellemez). Çağıran, çalışma alanı satırını
+     * kilitleyip revizyonu artırmış olmalıdır. Eski biçimde (kayıt kümesi yok) false döner.
+     */
+    public function append(string $workspace, string $collection, object $row): bool
+    {
+        if (!in_array($collection, self::COLLECTIONS, true) || in_array($collection, ClinicProtocol::COLLECTIONS, true)) return false;
+        $id = self::key($row->id ?? null);
+        if ($id === null) return false;
+        $set = $this->db->prepare('SELECT id FROM clinic_record_set WHERE workspace_id=?');
+        $set->execute([$workspace]);
+        $setId = $set->fetchColumn();
+        if ($setId === false) return false;
+        $next = $this->db->prepare('SELECT COALESCE(MAX(ordinal),-1)+1 FROM clinic_record WHERE set_id=? AND collection=?');
+        $next->execute([$setId, $collection]);
+        $json = self::encode($row);
+        $this->db->prepare('INSERT INTO clinic_record(set_id,collection,row_key,ordinal,record_id,branch_id,owner_id,record_data,content_hash) VALUES (?,?,?,?,?,?,?,?,?)')
+            ->execute([$setId, $collection, '@'.$id, (int)$next->fetchColumn(), $id, self::key($row->branch ?? null), null, $json, hash('sha256', $json, true)]);
+        return true;
+    }
+
     public function migrated(string $workspace): bool
     {
         $query = $this->db->prepare('SELECT 1 FROM clinic_record_set WHERE workspace_id=?');

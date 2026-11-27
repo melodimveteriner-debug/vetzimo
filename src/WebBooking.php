@@ -289,7 +289,17 @@ final class WebBooking
         try {
             $current=$this->web->site($partner,true);
             if (!$current || $current['control_status']==='paused' || $current['published']!==$site['published']) throw new RuntimeException('Site yayın bilgisi değişti. Sayfayı yenileyin.',409);
-            $data=$this->workspace($partner);
+            // Ziyaretçi talebi (hasta sahibi oturumu yok): yalnız randevular okunur ve tek satır eklenir; büyük klinikte
+            // tüm çalışma alanı belleğe alınıp yeniden yazılmaz. Eski biçimde veya oturumlu talepte tam yol kullanılır.
+            $fast=false;
+            if ($patientId==='' && (new WorkspaceRepository($this->db))->appendable('partner:'.$partner)) {
+                $lock=$this->db->prepare('SELECT revision FROM clinic_workspace WHERE user_id=? FOR UPDATE');
+                $lock->execute(['partner:'.$partner]);
+                $revision=$lock->fetchColumn();
+                $light=$revision===false?null:(new ClinicRecords($this->db))->collections('partner:'.$partner,['appointments']);
+                if ($light) { $data=['revision'=>(int)$revision,'state'=>$light]; $fast=true; }
+            }
+            if (!$fast) $data=$this->workspace($partner);
             $state=$data['state'];
             if ($requested==='' && $state) {
                 $enabled=array_values(array_filter($state->branches??[],static fn($row)=>
@@ -319,8 +329,15 @@ final class WebBooking
             $slot->notes=implode("\n",array_filter(['Kaynak: Web Sitesi',($slot->patient?'Doğrulanmış hasta sahibi: ':'Ziyaretçi: ').$visitor['name'],
                 'Telefon: '.$visitor['phone'],$visitor['email']?'E-posta: '.$visitor['email']:'','Hayvan: '.$visitor['animal'].' · '.$visitor['species'],$visitor['notes']]));
             $slot->createdBy='Web Sitesi';$slot->createdAt=gmdate('c');
-            $state->appointments[]=$slot;
-            if (!(new WorkspaceRepository($this->db))->save('partner:'.$partner,$data['revision'],$state)) throw new RuntimeException('Takvim güncellendi. Saati yeniden seçin.',409);
+            $repository=new WorkspaceRepository($this->db);
+            if ($fast) {
+                if ($repository->append('partner:'.$partner,$data['revision'],'appointments',$slot)===null) throw new RuntimeException('Takvim güncellendi. Saati yeniden seçin.',409);
+            } else {
+                // Yalnız yeni randevu eklenir: önceki durum verilir ki değişmeyen tablolar yeniden yazılmasın.
+                $original=clone $state;
+                $state->appointments[]=$slot;
+                if (!$repository->save('partner:'.$partner,$data['revision'],$state,$original)) throw new RuntimeException('Takvim güncellendi. Saati yeniden seçin.',409);
+            }
             $this->web->query('INSERT INTO clinic_web_appointment(partner_id,id,visit_branch,visitor) VALUES (?,?,?,?)',[$partner,$slot->id,$requested,WebBuilder::json($visitor)]);
             $this->event($partner,$slot->id,['account_id'=>$slot->patient?$actor['account_id']:'','name'=>$slot->patient?$actor['name']:'Web Sitesi','role'=>$slot->patient?'customer':'visitor'],[],self::eventFields($slot));
             $this->web->query('INSERT INTO clinic_web_mail(partner_id,appointment_id,next_at) VALUES (?,?,?)',[$partner,$slot->id,time()]);
