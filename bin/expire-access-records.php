@@ -12,6 +12,7 @@ $root=dirname(__DIR__);
 require $root.'/src/Database.php';
 $configPath=getenv('VETNET_CPANEL_CONFIG')?:$root.'/config.php';
 if (!is_file($configPath)) {
+    if (class_exists('VetNet\\Cpanel\\CronGuard')) VetNet\Cpanel\CronGuard::finish('error',isset($error)&&$error instanceof Throwable?get_class($error):null);
     fwrite(STDERR,"VetZimo: yapılandırma bulunamadı.\n");
     exit(1);
 }
@@ -19,6 +20,7 @@ if (!is_file($configPath)) {
 try {
     $config=require $configPath;
     $db=Database::connect($config['dsn'],$config['username'],$config['password']);
+    require_once dirname(__DIR__).'/src/CronGuard.php'; VetNet\Cpanel\CronGuard::begin($db,'expire-access-records');
     $now=time();
     foreach ([
         ['DELETE FROM identity_session WHERE expires<=? ORDER BY expires LIMIT 500',$now],
@@ -33,6 +35,7 @@ try {
         }
     }
 } catch (Throwable $error) {
+    if (class_exists('VetNet\\Cpanel\\CronGuard')) VetNet\Cpanel\CronGuard::finish('error',isset($error)&&$error instanceof Throwable?get_class($error):null);
     fwrite(STDERR,'VetZimo: erişim kayıtları temizlenemedi ('.get_class($error).").\n");
     exit(1);
 }

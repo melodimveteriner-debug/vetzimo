@@ -12,6 +12,7 @@ foreach (['Database','Totp','Notifications','WorkspaceRepository','WebBuilder'] 
 try {
     $config=require (getenv('VETNET_CPANEL_CONFIG') ?: $root.'/config.php');
     $db=Database::connect($config['dsn'],$config['username'],$config['password']);
+    require_once dirname(__DIR__).'/src/CronGuard.php'; VetNet\Cpanel\CronGuard::begin($db,'web-builder-mail');
     if ((int)$db->query("SELECT GET_LOCK('vetnet.web.mail',0)")->fetchColumn()!==1) exit(0);
     $web=new WebBuilder($db,$config);
     $smtp=new Notifications($db,$config['encryptionKey']??'');
@@ -30,7 +31,7 @@ try {
         $result='';$sent=null;
         try {
             $recipient=$recipientFor($job['partner_id']);
-            $state=(new WorkspaceRepository($db))->load('partner:'.$job['partner_id'])['state'];
+            $state=(new WorkspaceRepository($db))->only('partner:'.$job['partner_id'],['appointments']);
             $appointment=array_column($state->appointments??[],null,'id')[$job['appointment_id']]??null;
             if (!$appointment) throw new RuntimeException('Randevu bulunamadı.',422);
             $visitor=WebBuilder::decode($job['visitor']);
@@ -40,9 +41,10 @@ try {
             $mailer=$dealer->settings()['smtpEnabled']?$dealer:$smtp;
             $mailer->send('smtp',$recipient,'VetZimo — Yeni Web Sitesi Randevu Talebi',
                 "Yeni bir web randevusu talebi alındı.\nHasta: ".$visitor['animal']."\nHasta sahibi: ".$visitor['name'].
-                "\nTarih: ".$appointment->date."\nSaat: ".$appointment->time."\nŞube: ".$branch."\nDurum: ".$appointment->status."\n\nVetZimo ile görüntüleyin: ".$link);
+                "\nTarih: ".$appointment->date."\nSaat: ".$appointment->time."\nŞube: ".$branch."\nDurum: ".$appointment->status."\n\nVetZimo ile görüntüleyin: ".$link,true);
             $sent=time();
         } catch (Throwable $e) {
+            if ($e->getCode()===429) { $web->query('UPDATE clinic_web_mail SET next_at=? WHERE partner_id=? AND appointment_id=?',[VetNet\Cpanel\OutboundLimit::nextHour($now),$job['partner_id'],$job['appointment_id']]); continue; }
             $result=$e instanceof RuntimeException && $e->getCode()===422?'Posta ayarı veya alıcı doğrulanamadı.':'Gönderim başarısız. SMTP bağlantısını kontrol edin.';
         }
         $web->query('UPDATE clinic_web_mail SET attempts=attempts+1,next_at=?,sent_at=?,last_error=? WHERE partner_id=? AND appointment_id=?',
@@ -55,15 +57,17 @@ try {
             $dealer=$smtp->dealer($job['partner_id']);
             $mailer=$dealer->settings()['smtpEnabled']?$dealer:$smtp;
             $mailer->send('smtp',$recipientFor($job['partner_id']),'VetZimo — Yeni Web Sitesi Mesajı',
-                "Web sitenizin iletişim formundan bir mesaj alındı.\n".$config['origin'].'/web-sitem?tab=genel');
+                "Web sitenizin iletişim formundan bir mesaj alındı.\n".$config['origin'].'/web-sitem?tab=genel',true);
             $sent=time();
         } catch (Throwable $e) {
+            if ($e->getCode()===429) { $web->query('UPDATE clinic_web_inbox SET notify_at=? WHERE partner_id=? AND id=?',[VetNet\Cpanel\OutboundLimit::nextHour($now),$job['partner_id'],$job['id']]); continue; }
             $failure=$e instanceof RuntimeException && $e->getCode()===422?'Posta ayarı veya alıcı doğrulanamadı.':'Gönderim başarısız. SMTP bağlantısını kontrol edin.';
         }
         $web->query('UPDATE clinic_web_inbox SET notify_attempts=notify_attempts+1,notify_at=?,notified_at=?,notify_error=? WHERE partner_id=? AND id=?',
             [$now+min(86400,120*2**min(10,(int)$job['notify_attempts'])),$sent,$failure,$job['partner_id'],$job['id']]);
     }
 } catch (Throwable $error) {
+    if (class_exists('VetNet\\Cpanel\\CronGuard')) VetNet\Cpanel\CronGuard::finish('error',isset($error)&&$error instanceof Throwable?get_class($error):null);
     fwrite(STDERR,'Web randevusu e-posta kuyruğu çalıştırılamadı ('.get_class($error).').'.PHP_EOL);
     exit(1);
 }

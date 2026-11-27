@@ -348,3 +348,9 @@ main:has(.owner-dashboard){max-width:1050px}
 .sp-sign{margin:0;padding:10px 12px;border-radius:10px;border:1px dashed var(--line,#d9d4ee);font:inherit;font-size:.88rem;white-space:pre-wrap;opacity:.85}
 .sp-actions{display:flex;flex-wrap:wrap;gap:8px}.sp-status{margin:0;color:#dc2626;font-weight:600}
 @media(max-width:640px){.sp-center{margin-left:0}}
+.ops-partner-picker{display:grid;gap:6px}
+.ops-partner-picker input[type=search]{width:100%;min-width:0}
+.ops-health{display:inline-block;padding:2px 9px;border-radius:999px;font-size:.8rem;font-weight:700;white-space:nowrap}
+.ops-health-ok{background:#e3f4e8;color:#17603a}.ops-health-warn{background:#fff3d6;color:#7a4b00}.ops-health-bad{background:#fde4e1;color:#9b1c12}
+.ops-health-summary{padding:10px 14px;border-radius:10px;font-weight:600}
+.center-suite.center-dark .ops-health-ok{background:#1f4a33;color:#bdf0cf}.center-suite.center-dark .ops-health-warn{background:#4a3a12;color:#ffe1a3}.center-suite.center-dark .ops-health-bad{background:#552421;color:#ffc9c2}

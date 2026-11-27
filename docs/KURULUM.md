@@ -85,3 +85,22 @@ Bayilere abonelik bitimine 3 ay, 1 ay ve son 48 saat kala (yenilenmemişse) e-po
 **Paketler:** Ücretsiz, Pro, Plus, Kurumsal (Yazılım Paketleri'nde fiyat, özellik ve sınırlar düzenlenir). Sınırsız için 999999 yazılır. Kapatılan özellik bayinin menüsünden kalkar ve sunucu da reddeder; hasta / hasta sahibi / şube sınırına ulaşan bayi yeni kayıt ekleyemez, mevcut kayıtlar korunur. Kartla (PayTR) ödenen paket otomatik yenilenir; üst pakete geçişte eski paketin kalan günleri bedel oranında yeni pakete eklenir. Havaleler Bayi departmanı / yönetici onayını bekler.
 
 **Hasta sahibi borç ödemesi:** bayi yöneticisi Ayarlar › Klinik › Hasta sahibi ödemeleri bölümünde kendi PayTR mağazasını ve/veya IBAN'ını girer. Borcu olan hasta sahibi, hasta sahibi girişinden kartla öder (otomatik kasaya işlenir) veya havale yapar (klinik onaylayınca işlenir). PayTR Bildirim URL: `https://ALANADINIZ/api/owner-pay/paytr`.
+
+## Ölçek ve sağlamlık (R46)
+
+SQL dosyası gerekmez: yeni tablolar (`clinic_change_log`, `clinic_cold_cache`, `outbound_rate`, `cron_heartbeat`) ilk kullanımda otomatik oluşur.
+
+**Önerilen zamanlanmış görevler (cPanel › Cron Jobs).** Her görev kendi kilidini alır; üst üste binmez. Merkez › Sistem Sağlığı ekranı her görevin son çalışmasını gösterir.
+
+```
+*/5 * * * * php /home/KULLANICI/public_html/bin/appointment-reminders.php
+*/5 * * * * php /home/KULLANICI/public_html/bin/home-visit-mail.php
+*/5 * * * * php /home/KULLANICI/public_html/bin/web-builder-mail.php
+* * * * *   php /home/KULLANICI/public_html/bin/app-push.php
+*/10 * * * * php /home/KULLANICI/public_html/bin/inbox-poll.php
+23 * * * *  php /home/KULLANICI/public_html/bin/center-analytics.php
+17 10 * * * php /home/KULLANICI/public_html/bin/subscription-reminders.php
+41 3 * * *  php /home/KULLANICI/public_html/bin/expire-access-records.php
+```
+
+**Saatlik e-posta sınırı:** Merkez › Bildirim Merkezi › E-posta · SMTP bölümüne hosting sağlayıcınızın saatlik kotasını yazın (varsayılan 300, 0 = sınırsız). Kota dolunca hatırlatmalar silinmez, sonraki saate ertelenir; kotanın %20'si hesap açma, onam ve destek yanıtı gibi anlık iletilere ayrılır.

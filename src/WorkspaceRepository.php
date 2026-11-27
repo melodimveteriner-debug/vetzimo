@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 namespace VetNet\Cpanel;
+require_once __DIR__ . '/ClinicChanges.php';
 
 use PDO;
 use PDOException;
@@ -34,6 +35,20 @@ final class WorkspaceRepository
         if ($bytes<($megabytes<<20)) @ini_set('memory_limit',$megabytes.'M');
     }
 
+    /**
+     * Tam yükleme için gereken bellek (MB): kayıt başına ~2 KB ölçüldü, 2,5 kat pay bırakılır. Böylece klinik büyüdükçe
+     * tam yükleme yapan her yol (yedek, aktarım, eski uç noktalar) kendiliğinden yeterli bellek ister; sınır 4 GB.
+     */
+    public function memoryFor(string $workspaceId): int
+    {
+        try {
+            $q = $this->database->prepare('SELECT COUNT(*) FROM clinic_record r JOIN clinic_record_set s ON s.id=r.set_id WHERE s.workspace_id=?');
+            $q->execute([$workspaceId]);
+            $rows = (int)$q->fetchColumn();
+        } catch (PDOException) { $rows = 0; }
+        return (int)min(4096, max(512, 192 + intdiv($rows * 5, 1024)));
+    }
+
     /** Yalnız istenen koleksiyonlar (şubeler ve tercihler her zaman gelir); eski biçimde tam yüklemeye düşer. */
     public function only(string $workspaceId, array $collections): ?object
     {
@@ -54,28 +69,13 @@ final class WorkspaceRepository
     /** Ekleme günlüğü tablosu: işlem (transaction) dışında çağrılmalı (CREATE TABLE açık işlemi onaylar). */
     public function ensureAppendLog(): void
     {
-        $this->database->exec('CREATE TABLE IF NOT EXISTS clinic_append_log (
-            workspace_id VARCHAR(120) NOT NULL, revision INT UNSIGNED NOT NULL, collection VARCHAR(40) NOT NULL, record_id VARCHAR(80) NOT NULL,
-            PRIMARY KEY (workspace_id, revision)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci');
+        ClinicChanges::ensure($this->database);
     }
 
-    /**
-     * Aradaki revizyonların hepsi yalnız tek kayıt eklemesiyse (web randevu talebi), eklenen kimlikleri döndürür
-     * (koleksiyon => [kimlik => true]); aksi halde null. Personelin eski revizyona dayanan kısmi kaydını güvenle taşımak için.
-     */
+    /** ($from, $to] aralığında değişen satırlar (koleksiyon => [kimlik => true]); günlük eksikse null. */
     public function appendsBetween(string $workspaceId, int $from, int $to): ?array
     {
-        if ($to <= $from || $to - $from > 200) return null;
-        try {
-            $q = $this->database->prepare('SELECT collection, record_id FROM clinic_append_log WHERE workspace_id=? AND revision>? AND revision<=?');
-            $q->execute([$workspaceId, $from, $to]);
-            $rows = $q->fetchAll(PDO::FETCH_NUM);
-        } catch (PDOException) { return null; }
-        if (count($rows) !== $to - $from) return null;
-        $ids = [];
-        foreach ($rows as [$collection, $id]) $ids[$collection][$id] = true;
-        return $ids;
+        return ClinicChanges::between($this->database, $workspaceId, $from, $to);
     }
 
     public function append(string $workspaceId, int $revision, string $collection, object $row): ?int
@@ -86,17 +86,12 @@ final class WorkspaceRepository
         try {
             $bump = $this->database->prepare('UPDATE clinic_workspace SET revision=revision+1,updated_at=CURRENT_TIMESTAMP(3) WHERE user_id=? AND revision=?');
             $bump->execute([$workspaceId, $revision]);
+            ClinicChanges::reset();
             if ($bump->rowCount() !== 1 || !$this->records->append($workspaceId, $collection, $row)) {
                 if ($own) $this->database->rollBack();
                 return null;
             }
-            try {
-                $this->database->prepare('INSERT INTO clinic_append_log(workspace_id,revision,collection,record_id) VALUES (?,?,?,?)')
-                    ->execute([$workspaceId, $revision + 1, $collection, (string)$row->id]);
-                if (($revision + 1) % 100 === 0) $this->database->prepare('DELETE FROM clinic_append_log WHERE workspace_id=? AND revision<?')->execute([$workspaceId, $revision - 400]);
-            } catch (PDOException $error) {
-                if ($error->getCode() !== '42S02') throw $error; // günlük tablosu yoksa yalnız otomatik taşıma devre dışı kalır
-            }
+            ClinicChanges::write($this->database, $workspaceId, $revision + 1, ClinicChanges::take());
             if ($own) $this->database->commit();
             return $revision + 1;
         } catch (\Throwable $error) {
@@ -108,7 +103,7 @@ final class WorkspaceRepository
     /** @return array{revision: int, state: object|null} */
     public function load(string $workspaceId, ?string $branch=null, ?array $actor=null): array
     {
-        self::headroom();
+        self::headroom($this->memoryFor($workspaceId));
         $result = $this->records->load($workspaceId,$branch,$actor);
         foreach (ClinicProtocol::COLLECTIONS as $collection) {
             foreach ($result['state']->$collection ?? [] as $row) {
@@ -177,6 +172,7 @@ final class WorkspaceRepository
         }
         $metadata = ClinicRecords::encode(ClinicRecords::metadata($state));
         $ownTransaction = !$this->database->inTransaction();
+        ClinicChanges::reset();
         if ($ownTransaction) $this->database->beginTransaction();
         try {
             if ($revision === 0) {
@@ -189,6 +185,18 @@ final class WorkspaceRepository
                     $updated = false;
                 }
             } else {
+                // Ayar/şube gibi liste dışı alanların değişimi günlüğe "tümü" olarak düşer (satır birleştirme yapılmaz).
+                ClinicChanges::reset();
+                $head = $this->database->prepare('SELECT payload FROM clinic_workspace WHERE user_id=? AND revision=? FOR UPDATE');
+                $head->execute([$workspaceId, $revision]);
+                $before = json_decode((string)$head->fetchColumn());
+                $after = json_decode($metadata);
+                if (is_object($before) && is_object($after)) {
+                    foreach (array_unique([...array_keys(get_object_vars($before)), ...array_keys(get_object_vars($after))]) as $key) {
+                        if (in_array($key, ClinicRecords::COLLECTIONS, true)) continue;
+                        if (($before->$key ?? null) != ($after->$key ?? null)) ClinicChanges::all($key);
+                    }
+                }
                 $update = $this->database->prepare(
                     'UPDATE clinic_workspace SET revision=revision+1,payload=?,updated_at=CURRENT_TIMESTAMP(3)
                      WHERE user_id=? AND revision=?'
@@ -208,6 +216,7 @@ final class WorkspaceRepository
                     (new ClinicDirectory($this->database))->sync($workspaceId, $revision, $state);
                 }
             }
+            if ($updated && $revision > 0) ClinicChanges::write($this->database, $workspaceId, $revision + 1, ClinicChanges::take());
             if ($ownTransaction) $this->database->commit();
             return $updated ? $revision + 1 : null;
         } catch (\Throwable $error) {

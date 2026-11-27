@@ -59,6 +59,10 @@ final class CenterAnalytics
         $out['exams'] = $read('exams', $current.'-01', "'$.id'");
         $out['appointments'] = $read('appointments', $current.'-01', "'$.id'");
         $out['patients'] = $read('patients', $from, "'$.id'");
+        // Klinik büyüklüğü (Sistem sağlığı ekranı için): birincil anahtar aralığında sayılır.
+        $count = $this->db->prepare('SELECT COUNT(*) FROM clinic_record WHERE set_id=?');
+        $count->execute([$set]);
+        $out['records'] = (int)$count->fetchColumn();
         return $out;
     }
 
@@ -123,7 +127,9 @@ final class CenterAnalytics
         }
         $stats = [];
         foreach ($this->db->query('SELECT set_id,version,payload FROM center_analytics_set')->fetchAll(PDO::FETCH_ASSOC) as $r) {
-            if (($versions[(int)$r['set_id']] ?? null) === $r['version']) $stats[(int)$r['set_id']] = json_decode($r['payload'], true);
+            if (($versions[(int)$r['set_id']] ?? null) !== $r['version']) continue;
+            $payload = json_decode($r['payload'], true);
+            if (is_array($payload) && isset($payload['records'])) $stats[(int)$r['set_id']] = $payload; // eski önbellek kademeli tazelenir
         }
         $deadline = microtime(true) + $budget;
         $store = $this->db->prepare('INSERT INTO center_analytics_set(set_id,version,payload,updated_at) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE version=VALUES(version),payload=VALUES(payload),updated_at=VALUES(updated_at)');

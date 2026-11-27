@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 namespace VetNet\Cpanel;
+require_once __DIR__ . '/ClinicChanges.php';
 
 use PDO;
 use RuntimeException;
@@ -41,21 +42,29 @@ final class DealerWorkspace
         return $this->workspaces->load($workspace);
     }
 
+    public function database(): PDO
+    {
+        return $this->database;
+    }
+
+    /** Son taşımada aradaki revizyonlarda değişen satırlar (istemciye eşitleme için); taşıma yoksa null. */
+    public ?array $rebased = null;
+
+    /**
+     * Eski revizyona dayanan kısmi kayıt (yama), aradaki yazımların değiştirdiği satırlara dokunmuyorsa güncel revizyona
+     * taşınır. Personel–personel ve web randevusu eşzamanlı yazımlarında "Kayıt alanı güncellendi" uyarısı yerine
+     * otomatik birleştirme yapılır. Aynı satır değiştiyse veya günlük eksikse 409 korunur (veri kaybı olmaz).
+     */
     public function rebase(array $actor, int $revision, mixed $patch): int
     {
+        $this->rebased = null;
         if (!$patch instanceof \stdClass) return $revision;
         $workspace = 'partner:'.$actor['partner_id'];
         $current = $this->workspaces->revision($workspace);
         if ($current <= $revision) return $revision;
-        $appended = $this->workspaces->appendsBetween($workspace, $revision, $current);
-        if ($appended === null) return $revision;
-        foreach ($patch as $collection => $ops) {
-            if (!isset($appended[$collection])) continue;
-            if (!$ops instanceof \stdClass || isset($ops->replace)) return $revision;
-            foreach (['update','prepend','append'] as $kind) foreach ((array)($ops->$kind ?? []) as $row) {
-                if (is_object($row) && isset($appended[$collection][(string)($row->id ?? '')])) return $revision;
-            }
-        }
+        $changed = $this->workspaces->appendsBetween($workspace, $revision, $current);
+        if ($changed === null || ClinicChanges::conflicts($patch, $changed)) return $revision;
+        $this->rebased = $changed;
         return $current;
     }
 

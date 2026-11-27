@@ -61,7 +61,7 @@ final class BulkClinicMessages
                 $lock=$this->db->prepare('SELECT id FROM partner_account WHERE id=? FOR UPDATE');
                 $lock->execute([$partner]); $lock->fetchColumn();
             }
-            $state=(new WorkspaceRepository($this->db))->load('partner:'.$partner)['state'];
+            $state=(new WorkspaceRepository($this->db))->only('partner:'.$partner,['clients','patients','followups','sales','collections','templates']);
             (new ClientPermit($this->db))->overlay($partner,$state->clients??[]);
             $visible=ClinicAccess::visible($state,$actor);
             $clinic=ClinicAccess::branch($visible,$branch);
@@ -273,7 +273,7 @@ final class BulkClinicMessages
                 $status='rejected';$reference='';
                 if ($member && $request && self::channelGrant($member,$row['channel'],true) && ClinicAccess::allowed($member,'clients') &&
                     ClinicAccess::allowed($member,'patients') && ($member['role']==='dealer' || $member['branch_id']===$row['branch_id'])) {
-                    $state=(new WorkspaceRepository($this->db))->load('partner:'.$row['partner_id'])['state'];
+                    $state=(new WorkspaceRepository($this->db))->only('partner:'.$row['partner_id'],['clients']);
                     (new ClientPermit($this->db))->overlay($row['partner_id'],$state->clients??[]);
                     $branch=ClinicAccess::branch($state,$row['branch_id']);
                     $client=array_column($state->clients??[],null,'id')[$row['client_id']]??null;

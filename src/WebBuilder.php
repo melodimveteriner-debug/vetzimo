@@ -323,7 +323,8 @@ final class WebBuilder
     }
     public function workspace(string $partner): ?object
     {
-        return (new WorkspaceRepository($this->db))->load('partner:'.$partner)['state'];
+        // Yönetim ekranı yalnız randevuları okur.
+        return (new WorkspaceRepository($this->db))->only('partner:'.$partner,['appointments']);
     }
     public function partnerName(string $partner): string
     {

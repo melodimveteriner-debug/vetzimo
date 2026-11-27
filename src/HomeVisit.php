@@ -95,6 +95,12 @@ final class HomeVisit
         return $this->workspaces->load('partner:'.$partner);
     }
 
+    /** Salt okunur ekranlar için yalnız istenen listeler (şubeler ve tercihler her zaman gelir). */
+    public function only(string $partner, array $collections): ?object
+    {
+        return $this->workspaces->only('partner:'.$partner, $collections);
+    }
+
     /** Şube listesi (personel erişim denetimi için; sık yoklanan uçlarda tüm klinik belleğe alınmaz). */
     public function branchesOnly(string $partner): ?object
     {
@@ -645,7 +651,7 @@ final class HomeVisit
 
     public function catalogProducts(array $row): array
     {
-        $state=$this->workspace($row['partner_id'])['state'];
+        $state=$this->only($row['partner_id'],['products']);
         $branch=ClinicAccess::branch($state,$row['branch_id']);
         $branchId=($branch->sharedWith??'')?:$row['branch_id'];
         return array_filter(Finance::index($state->products??[]),static fn($product)=>$product->branch===$branchId && ($product->archived??'')!=='Evet');

@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 namespace VetNet\Cpanel;
+require_once __DIR__ . '/ClinicChanges.php';
 
 use PDO;
 
@@ -251,6 +252,7 @@ final class ClinicRecords
                 $old = $previous[$collection][$key] ?? null;
                 unset($previous[$collection][$key]);
                 if ($old && (int)$old[0] === $ordinal && hash_equals($old[1], $hash)) continue;
+                if (!$old || !hash_equals($old[1], $hash)) ClinicChanges::row($collection, $key);
                 $upsert->execute([
                     $id, $collection, $key, $ordinal, $recordId, self::key($row->branch ?? null),
                     $collection === 'patients' ? self::key($row->owner ?? null) : null,
@@ -260,7 +262,7 @@ final class ClinicRecords
         }
         $delete = $this->db->prepare('DELETE FROM clinic_record WHERE set_id=? AND collection=? AND row_key=?');
         foreach ($previous as $collection => $rows) {
-            foreach (array_keys($rows) as $key) $delete->execute([$id, $collection, $key]);
+            foreach (array_keys($rows) as $key) { $delete->execute([$id, $collection, $key]); ClinicChanges::row($collection, $key); }
         }
     }
 
@@ -334,6 +336,7 @@ final class ClinicRecords
         $next = $this->db->prepare('SELECT COALESCE(MAX(ordinal),-1)+1 FROM clinic_record WHERE set_id=? AND collection=?');
         $next->execute([$setId, $collection]);
         $json = self::encode($row);
+        ClinicChanges::row($collection, '@'.$id);
         $this->db->prepare('INSERT INTO clinic_record(set_id,collection,row_key,ordinal,record_id,branch_id,owner_id,record_data,content_hash) VALUES (?,?,?,?,?,?,?,?,?)')
             ->execute([$setId, $collection, '@'.$id, (int)$next->fetchColumn(), $id, self::key($row->branch ?? null), null, $json, hash('sha256', $json, true)]);
         return true;

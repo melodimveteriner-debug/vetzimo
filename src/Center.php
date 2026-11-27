@@ -140,6 +140,41 @@ final class Center
         $page=min((int)$requested,$pages);
         return ['partners'=>$this->partnerDirectory($where,$params,($page-1)*25),'page'=>$page,'pages'=>$pages,'total'=>$total];
     }
+    /**
+     * Bayi seçici: tam liste yerine sunucuda arama (ad, kod, e-posta, telefon, şube adı). Bayi sayısından bağımsız
+     * olarak en fazla 50 satır döner. ids ile belirli bayilerin adları, phone ile telefonun son 10 hanesi eşleşenler gelir.
+     * @return list<array{id:string,code:string,name:string,phone:string,active:int}>
+     */
+    public function pick(mixed $search, mixed $ids, mixed $phone): array
+    {
+        $select='SELECT p.id,p.code,p.name,p.phone,p.active FROM partner_account p';
+        if (is_string($ids) && $ids!=='') {
+            $list=array_values(array_unique(array_filter(explode(',',$ids),static fn($id)=>preg_match('/\A[a-f0-9]{32}\z/',$id)===1)));
+            if (!$list || count($list)>200) throw new RuntimeException('Bayi listesi geçersiz.',422);
+            $q=$this->db->prepare($select.' WHERE p.id IN ('.implode(',',array_fill(0,count($list),'?')).')');
+            $q->execute($list);
+            return $q->fetchAll(PDO::FETCH_ASSOC);
+        }
+        if (is_string($phone) && preg_match('/\A[0-9]{10}\z/',$phone)) {
+            $q=$this->db->prepare($select." WHERE RIGHT(REGEXP_REPLACE(p.phone,'[^0-9]',''),10)=? ORDER BY p.name LIMIT 50");
+            $q->execute([$phone]);
+            return $q->fetchAll(PDO::FETCH_ASSOC);
+        }
+        if (!is_string($search) || !preg_match('/\A.{0,120}\z/us',$search)) throw new RuntimeException('Arama geçersiz.',422);
+        $search=trim($search);
+        if ($search==='') {
+            $q=$this->db->query($select.' WHERE p.active=1 ORDER BY p.created_at DESC,p.id LIMIT 50');
+            return $q->fetchAll(PDO::FETCH_ASSOC);
+        }
+        $like='%'.strtr($search,['!'=>'!!','%'=>'!%','_'=>'!_']).'%';
+        $q=$this->db->prepare($select." LEFT JOIN clinic_workspace w ON w.user_id=CONCAT('partner:',p.id)
+            WHERE CONCAT_WS(' ',p.name,p.code,p.email,p.phone) COLLATE utf8mb4_turkish_ci LIKE ? ESCAPE '!'
+               OR CONVERT(JSON_EXTRACT(w.payload,'$.branches[*].name') USING utf8mb4) COLLATE utf8mb4_turkish_ci LIKE ? ESCAPE '!'
+            ORDER BY (p.name COLLATE utf8mb4_turkish_ci LIKE ? ESCAPE '!') DESC, p.name LIMIT 50");
+        $q->execute([$like,$like,strtr($search,['!'=>'!!','%'=>'!%','_'=>'!_']).'%']);
+        return $q->fetchAll(PDO::FETCH_ASSOC);
+    }
+
     private function partnerDirectory(string $where='',array $params=[],?int $offset=null): array
     {
         $source=$offset===null?'partner_account p':"(SELECT id,code,name,email,phone,active,created_at

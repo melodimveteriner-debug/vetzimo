@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 namespace VetNet\Cpanel;
+require_once __DIR__ . '/OutboundLimit.php';
 
 use PDO;
 use PDOException;
@@ -143,9 +144,14 @@ final class DeliveryNotice
                     $email=$settings['admin']?:$recipient->fetchColumn();
                 }
                 if (!$email) throw new \RuntimeException('Bildirim e-posta adresi eksik.');
-                $mailer->send('smtp',$email,'VetZimo — '.$row['title'],$row['title']."\n\n".rtrim($origin,'/').$row['target']);
+                $mailer->send('smtp',$email,'VetZimo — '.$row['title'],$row['title']."\n\n".rtrim($origin,'/').$row['target'],true);
                 $sent=time();
             } catch (\Throwable $failure) {
+                if ($failure->getCode()===429) {
+                    // Sağlayıcı kotası doldu: deneme sayılmaz, bir sonraki saate ertelenir.
+                    $this->db->prepare('UPDATE clinic_delivery_notice SET next_at=? WHERE id=?')->execute([OutboundLimit::nextHour($now),$row['id']]);
+                    continue;
+                }
                 error_log('VetZimo bildirim e-postası yeniden denenecek. Kayıt: '.$row['id']);
             }
             $update->execute([$sent,$now+min(43200,180*2**min(8,(int)$row['attempts'])),$row['id']]);

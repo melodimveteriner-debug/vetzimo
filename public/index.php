@@ -12,7 +12,7 @@ use VetNet\Cpanel\SessionRepository;
 
 require_once dirname(__DIR__).'/src/StaffPlan.php';
 
-foreach (['AddonPackages','ClinicGuide','ClinicLegal','PartnerLifecycle','SiteContact','MarketFooter','MarketContactPage','AppHub','AppDownloads','DemoAuto','CenterContact','SubscriptionReminders','OwnerPayment','ClinicRecords','AppPush','DeviceHub','VisitTracker','ReviewLink','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','SaasPayment','DealerAgreement','CenterAnalytics','ClinicAlerts','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebThemeDemo','Pregnancy','DailyNote','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','TeamTotp','WebInbox','MinistryBridge','SiteLegal','OmniInbox','PhoneGateway','ClientPermit','PrintTemplates','Support','Commerce','Appearance'] as $class) {
+foreach (['AddonPackages','ClinicGuide','ClinicLegal','PartnerLifecycle','SiteContact','MarketFooter','MarketContactPage','AppHub','AppDownloads','DemoAuto','CenterContact','SubscriptionReminders','OwnerPayment','ClinicRecords','ClinicChanges','ColdStorage','OutboundLimit','CronGuard','SystemHealth','AppPush','DeviceHub','VisitTracker','ReviewLink','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','SaasPayment','DealerAgreement','CenterAnalytics','ClinicAlerts','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebThemeDemo','Pregnancy','DailyNote','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','TeamTotp','WebInbox','MinistryBridge','SiteLegal','OmniInbox','PhoneGateway','ClientPermit','PrintTemplates','Support','Commerce','Appearance'] as $class) {
     require_once dirname(__DIR__) . '/src/' . $class . '.php';
 }
 
@@ -830,6 +830,9 @@ try {
             if ($action==='backup' && $method==='GET') {
                 $branch=$_GET['branch'] ?? '';
                 if (!is_string($branch)) throw new RuntimeException('Şube geçersiz.',422);
+                // Büyük klinik yedeği bellekte kurulmadan doğrudan akıtılır (eski biçimdeki klinikte tam yükleme yolu).
+                $center->details($partner);
+                if ((new VetNet\Cpanel\WorkspaceStream($db))->backup($partner,$branch)) exit;
                 reply($management->backup($partner,$branch));
             }
             if ($action==='external-import' && $method==='POST') {
@@ -920,6 +923,7 @@ try {
         if ($method==='GET' && $action==='partners') {
             (new VetNet\Cpanel\PartnerLifecycle($db))->sweep($now,1);
             if (isset($_GET['page'])) reply($center->partnerPage($_GET['page'],$_GET['q']??'',$_GET['status']??''));
+            if (isset($_GET['pick'])) reply(['partners'=>$center->pick($_GET['q']??'',$_GET['ids']??'',$_GET['phone']??'')]);
             reply(['partners'=>$center->partners($actor)]);
         }
         if($method==='GET'&&$action==='partner') {
@@ -947,6 +951,7 @@ try {
             $center->audit($actor['account_id'],'partner.purged',$id);
             reply($result+['name'=>$info['partner']['name']]);
         }
+        if($method==='GET'&&$action==='health') reply((new VetNet\Cpanel\SystemHealth($db,dirname(__DIR__)))->report($now));
         if($method==='GET'&&$action==='audit') reply(['events'=>$db->query('SELECT action,target_id,created_at FROM center_audit ORDER BY id DESC LIMIT 100')->fetchAll()]);
         if($method==='POST') {
             if(!hash_equals($actor['account_id'],$_SERVER['HTTP_X_VETNET_SCOPE'] ?? '')) throw new RuntimeException('Yönetici oturumu değişti.',409);
@@ -1845,6 +1850,36 @@ try {
         $data=$workspaces->visibleFor($actor);
         reply($data + ['session'=>$session($data['state'])]);
     }
+    if ($path === '/api/workspace/history' && $method === 'GET') {
+        // Arşiv (soğuk kayıtlar): hasta geçmişi, tarih aralığı veya tamamı. Veri taşınmaz; yalnız istenince okunur.
+        $actor=$workspaces->actor($_COOKIE,$now);
+        if (!hash_equals((string)$actor['membership_id'],(string)($_SERVER['HTTP_X_VETNET_SCOPE'] ?? ''))) throw new RuntimeException('Çalışma alanı oturumu değişti.',409);
+        $cold=new VetNet\Cpanel\ColdStorage($db);
+        $set=$cold->setId('partner:'.$actor['partner_id']);
+        $ids=$set===null?[]:$cold->coldIds($set);
+        $filter=[];
+        $date=static fn($v)=>is_string($v)&&preg_match('/\A\d{4}-\d{2}-\d{2}\z/',$v)?$v:null;
+        if (isset($_GET['patient'])) {
+            $patient=(string)$_GET['patient'];
+            if (!preg_match('/\A[A-Za-z0-9_-]{1,80}\z/',$patient)) throw new RuntimeException('Hasta geçersiz.',422);
+            $q=$db->prepare("SELECT record_data FROM clinic_record WHERE set_id=? AND collection='patients' AND record_id=?");
+            $q->execute([(int)$set,$patient]);
+            $row=json_decode((string)$q->fetchColumn());
+            if (!is_object($row)) throw new RuntimeException('Hasta bulunamadı.',404);
+            $filter=['patient'=>$patient,'client'=>is_string($row->owner??null)?$row->owner:null];
+        } elseif (($_GET['all'] ?? '')!=='1') {
+            $filter=['from'=>$date($_GET['from'] ?? null),'to'=>$date($_GET['to'] ?? null)];
+            if ($filter['from']===null && $filter['to']===null) throw new RuntimeException('Tarih aralığı seçin.',422);
+        }
+        $branch=null;
+        if (in_array($actor['role'],['staff','branch'],true)) {
+            $branches=(new VetNet\Cpanel\DealerWorkspace($db))->visibleBranches($actor);
+            $branch=($branches[0]->sharedWith ?? '') ?: $branches[0]->id;
+        }
+        foreach (array_keys($ids) as $collection) if (!ClinicAccess::allowed($actor,$collection)) unset($ids[$collection]);
+        $rows=$set===null?[]:$cold->history($set,$ids,$filter,$branch);
+        reply(['collections'=>(object)$rows,'archive'=>VetNet\Cpanel\ColdStorage::summary($ids,VetNet\Cpanel\ColdStorage::cutoff())]);
+    }
     if ($path === '/api/workspace/delete-record' && $method === 'POST') {
         $body = input(4096);
         reply($workspaces->deleteRecord($_COOKIE, $_SERVER['HTTP_X_VETNET_SCOPE'] ?? '', $now, $body));
@@ -1852,8 +1887,10 @@ try {
     if ($path === '/api/workspace' && $method === 'PUT') {
         $body = input(VetNet\Cpanel\WorkspaceRepository::WRITE_REQUEST_BYTES);
         $clinicUpdates = [];
-        $revision = (new ClinicApi($workspaces))->save($_COOKIE, $_SERVER['HTTP_X_VETNET_SCOPE'] ?? '', $now, $body, $clinicUpdates);
-        reply(['revision'=>$revision, 'clinicUpdates'=>$clinicUpdates]);
+        VetNet\Cpanel\ClinicChanges::ensure($db);
+        $clinicApi = new ClinicApi($workspaces);
+        $revision = $clinicApi->save($_COOKIE, $_SERVER['HTTP_X_VETNET_SCOPE'] ?? '', $now, $body, $clinicUpdates);
+        reply(['revision'=>$revision, 'clinicUpdates'=>$clinicUpdates] + ($clinicApi->sync ? ['clinicSync'=>$clinicApi->sync] : []));
     }
     $unavailable=[
         '/api/migration'=>'Klinik veri aktarımı için merkez yönetimindeki Klinik Verisi İçe Aktar ekranını kullanın.',

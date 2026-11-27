@@ -834,7 +834,7 @@ final class HomeVisitPages
             if ($payment['status']==='paid') {
                 $html.='<p><strong>Tahsilat tarihi:</strong> '.self::e($payment['verified_at']).' UTC</p>'.
                     '<p><strong>İşlem referansı:</strong> '.self::e($row['id']).'</p>'.
-                    ($staff&&ClinicAccess::allowed($actor,'sales')&&isset(Finance::index($this->visits->workspace($row['partner_id'])['state']->sales)['visit-'.$row['id']])?'<p><a href="/clinic#record/sales/visit-'.rawurlencode($row['id']).'">Satış ve tahsilat kaydını aç</a></p>':'');
+                    ($staff&&ClinicAccess::allowed($actor,'sales')&&isset(Finance::index($this->visits->only($row['partner_id'],['sales'])->sales ?? [])['visit-'.$row['id']])?'<p><a href="/clinic#record/sales/visit-'.rawurlencode($row['id']).'">Satış ve tahsilat kaydını aç</a></p>':'');
             }
             if ($payment['destination']) {
                 $transfer=$this->visits->decode($payment['destination']);
@@ -925,7 +925,7 @@ final class HomeVisitPages
         }
         if ($staff&&$row['patient_id']&&in_array($status,['started','completed'],true)&&
             $this->visits->staffAllowed($actor,$settings,true)&&ClinicAccess::allowed($actor,'treatments')) {
-            $workspace=$this->visits->workspace($row['partner_id'])['state'];
+            $workspace=$this->visits->only($row['partner_id'],['treatments','products','stockLots']);
             $branch=ClinicAccess::branch($workspace,$row['branch_id']);
             $branchId=($branch->sharedWith??'')?:$row['branch_id'];
             $treatments=[];$lots=[];

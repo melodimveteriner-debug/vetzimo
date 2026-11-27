@@ -1047,3 +1047,5 @@ td [class*=badge],td [class*=status],td [class*=pill],td [class*=chip]{white-spa
  .pr-dot{width:26px;height:26px}
  .pr-upcoming-list{grid-template-columns:1fr}
 }
+.archive-note{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:0 0 14px}
+.archive-note .button{margin-inline-start:auto}

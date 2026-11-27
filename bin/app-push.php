@@ -6,6 +6,7 @@ $root = dirname(__DIR__);
 foreach (['Database', 'Totp', 'ClinicAccess', 'WorkspaceRepository', 'ClinicRecords', 'Commerce', 'ClinicAlerts', 'AppPush', 'AppHub'] as $class) require_once $root.'/src/'.$class.'.php';
 $config = require $root.'/config.php';
 $db = VetNet\Cpanel\Database::connect($config['dsn'], $config['username'], $config['password']);
+require_once dirname(__DIR__).'/src/CronGuard.php'; VetNet\Cpanel\CronGuard::begin($db,'app-push');
 $lock = fopen(sys_get_temp_dir().'/vetzimo-app-push.lock', 'c');
 if (!flock($lock, LOCK_EX | LOCK_NB)) exit(0); // önceki çalışma sürüyorsa çık
 $now = time();

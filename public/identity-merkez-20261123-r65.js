@@ -5,7 +5,7 @@ import {petPortrait} from "./pet-portrait.js";
 import {loadAppearance} from "./theme.js?v=2";
 import {mountAccessLayout} from "./access-layout.js?v=20261126-r66";
 import {paginate} from "./paged.js?v=2";
-import {mountCenterSuite,opsFetch} from "./center-ops-merkez-20261123-r65.js?v=20261204-r25";
+import {mountCenterSuite,opsFetch} from "./center-ops-merkez-20261123-r65.js?v=20261204-r26";
 import {vaccineLabels} from "./vaccine-progress.js";
 const view=document.querySelector("#view");
 const status=document.querySelector("#status");

@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 namespace VetNet\Cpanel;
+require_once __DIR__ . '/OutboundLimit.php';
 
 use PDO;
 use RuntimeException;
@@ -10,7 +11,7 @@ final class Notifications
     private const ID='00000000000000000000000000000002';
     private const DEFAULTS=['host'=>'','port'=>'465','username'=>'','sender'=>'','admin'=>'',
         'recipient'=>'','phoneId'=>'','apiVersion'=>'','template'=>'','language'=>'tr',
-        'smtpEnabled'=>false,'waEnabled'=>false,'password'=>'','token'=>''];
+        'smtpEnabled'=>false,'waEnabled'=>false,'password'=>'','token'=>'','hourlyLimit'=>'300'];
 
     public function __construct(private readonly PDO $db,private readonly string $key,private readonly ?string $partner=null) {}
 
@@ -60,6 +61,7 @@ final class Notifications
         foreach (['sender','admin'] as $field) {
             if ($current[$field]!=='' && !filter_var($current[$field],FILTER_VALIDATE_EMAIL)) throw new RuntimeException('E-posta adreslerini kontrol edin.',422);
         }
+        if (!preg_match('/\A\d{1,6}\z/',$current['hourlyLimit'])) throw new RuntimeException('Saatlik gönderim sınırı 0 (sınırsız) veya pozitif bir sayı olmalıdır.',422);
         if (!in_array($current['port'],['465','587'],true) ||
             ($current['host']!=='' && !preg_match('/\A[a-z0-9.-]{1,253}\z/i',$current['host']))) {
             throw new RuntimeException('SMTP sunucu adı ve portu geçersiz.',422);
@@ -84,7 +86,8 @@ final class Notifications
             'template'=>['name'=>$s['template'],'language'=>['code'=>$s['language']]]];
     }
 
-    public function send(string $channel,?string $recipient=null,string $subject='VetZimo bildirim testi',string $message='VetZimo bağlantı testi.'): void
+    /** @param bool $background Arka plan kuyruğu (hatırlatma vb.): saatlik kotanın yalnız %80'ini kullanabilir. */
+    public function send(string $channel,?string $recipient=null,string $subject='VetZimo bildirim testi',string $message='VetZimo bağlantı testi.',bool $background=false): void
     {
         if (!function_exists('curl_init')) throw new RuntimeException('Hosting hesabında PHP cURL uzantısını etkinleştirin.',503);
         $s=$this->read();
@@ -116,6 +119,10 @@ final class Notifications
                 CURLOPT_MAIL_FROM=>'<'.$s['sender'].'>',CURLOPT_MAIL_RCPT=>['<'.$recipient.'>'],CURLOPT_UPLOAD=>true,
                 CURLOPT_INFILE=>$stream,CURLOPT_INFILESIZE=>strlen($payload)]);
         } else throw new RuntimeException('Bildirim kanalı geçersiz.',422);
+        if (class_exists(OutboundLimit::class)) {
+            $hourly=preg_match('/\A\d{1,6}\z/',(string)($s['hourlyLimit'] ?? ''))?(int)$s['hourlyLimit']:300;
+            OutboundLimit::take($this->db,$this->scopeId(),$channel,$hourly,$background);
+        }
         try {
             curl_setopt_array($curl,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_CONNECTTIMEOUT=>5,CURLOPT_TIMEOUT=>12,
                 CURLOPT_SSL_VERIFYPEER=>true,CURLOPT_SSL_VERIFYHOST=>2,CURLOPT_PROXY=>'']);

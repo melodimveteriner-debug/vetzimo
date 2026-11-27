@@ -6,6 +6,7 @@ $root = dirname(__DIR__);
 foreach (['Database', 'CenterAnalytics'] as $class) require_once $root.'/src/'.$class.'.php';
 $config = require $root.'/config.php';
 $db = VetNet\Cpanel\Database::connect($config['dsn'], $config['username'], $config['password']);
+require_once dirname(__DIR__).'/src/CronGuard.php'; VetNet\Cpanel\CronGuard::begin($db,'center-analytics');
 $started = microtime(true);
 $data = (new VetNet\Cpanel\CenterAnalytics($db))->get(true, time(), 240.0);
 echo 'Panel verisi hesaplandı: '.round(microtime(true) - $started, 2).' sn'.(!empty($data['partial']) ? ' · sonraki çalışmada tamamlanacak bayi: '.$data['pendingPartners'] : '')."\n";

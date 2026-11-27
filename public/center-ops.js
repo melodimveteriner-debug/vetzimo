@@ -17,7 +17,7 @@ export async function mountCenterSuite(ui,session){
   ['tahsilatlar','Ek Tahsilatlar',()=>finance('collections')],['raporlar','Mali Raporlar',()=>finance('summary')],
   ['basvurular','Demo İstek-Değerlendirme',crm],['paketler','Yazılım Paketleri',plans],['ek-paketler','Ek Paketler',addonPackages],
   ['abonelikler','Bayi Abonelikleri',subscriptions],['destek','Destek Talepleri',support],
-  ['uygulamalar','Uygulama Yönetimi',nativeApps],['tema','Ayarlar ve Tema',theme],['bildirimler','Bildirim Merkezi',notifications],['guvenlik','Güvenlik',security],['kayitlar','İşlem Günlüğü',audit],
+  ['uygulamalar','Uygulama Yönetimi',nativeApps],['tema','Ayarlar ve Tema',theme],['bildirimler','Bildirim Merkezi',notifications],['guvenlik','Güvenlik',security],['kayitlar','İşlem Günlüğü',audit],['saglik','Sistem Sağlığı',health],
   ['odemeler','Ödeme Onayları',()=>manage('payments')],['odeme-kanallari','Ödeme Kanalları',paymentChannels],['magaza-banka','Mağaza Havale Ayarları',()=>manage('shop_bank')],['site','Satış Sitesi Stüdyosu',marketEditor],['yasal','Yasal Metinler',legalDocs],
   ['duyurular','Duyurular',()=>manage('announcements')],['reklam','Reklam Yönetimi',()=>manage('ads')],
   ['degisiklikler','Son Değişiklikler',()=>manage('releases')],
@@ -38,6 +38,35 @@ export async function mountCenterSuite(ui,session){
  // 10.000 bayilik liste birkaç sekmede kullanılır: oturum içinde 60 sn bellekte tutulur, yeni bayi eklenince yenilenir.
  let partnersCache=null;
  const partnersList=async()=>{if(partnersCache&&Date.now()-partnersCache.at<60000)return partnersCache.data;const data=await call('partners');partnersCache={at:Date.now(),data};return data;};
+ // Bayi seçici: tam liste indirilmez; sunucuda ad, kod, telefon, e-posta veya şube adıyla aranır (en fazla 50 sonuç).
+ const pickPartners=params=>call('partners?'+new URLSearchParams({pick:'1',...params})).then(data=>data.partners||[]);
+ const partnerNames=async ids=>{const list=[...new Set(ids.filter(id=>/^[a-f0-9]{32}$/.test(id||'')))];const map=new Map();
+  for(let i=0;i<list.length;i+=200)for(const row of await pickPartners({ids:list.slice(i,i+200).join(',')}))map.set(row.id,row.name);return map;};
+ function partnerPicker(label,{empty='Bayi seçin',required=true}={}){
+  const wrapper=el('label',label);wrapper.className='ops-partner-picker';
+  const select=el('select','',{name:'partner'});select.required=required;
+  const input=el('input','',{type:'search',placeholder:'Ad, kod, telefon, e-posta veya şube adıyla arayın',autocomplete:'off'});
+  input.setAttribute('aria-label','Bayi ara');
+  wrapper.append(select,input);
+  let seq=0,timer,pinned=null;
+  const fill=rows=>{
+   const prior=select.value;
+   if(pinned&&!rows.some(row=>row.id===pinned.id))rows=[pinned,...rows];
+   select.replaceChildren(el('option',empty,{value:''}));
+   for(const row of rows)select.append(el('option',row.name+(row.code?' · '+row.code:''),{value:row.id}));
+   const query=input.value.trim();
+   select.value=rows.some(row=>row.id===prior)?prior:(rows.length===1&&query?rows[0].id:'');
+   if(select.value!==prior)select.dispatchEvent(new Event('change',{bubbles:true}));
+  };
+  const load=async()=>{const my=++seq;const rows=await pickPartners({q:input.value.trim()});if(my===seq)fill(rows);};
+  input.addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(()=>load().catch(error=>{status.textContent=error.message;}),250);});
+  input.addEventListener('keydown',event=>{if(event.key==='Enter')event.preventDefault();});
+  const ready=load().catch(error=>{status.textContent=error.message;});
+  const setValue=async id=>{await ready;if(!id)return;const [row]=await pickPartners({ids:id});if(!row)return;pinned=row;
+   if(![...select.options].some(option=>option.value===id))select.append(el('option',row.name+(row.code?' · '+row.code:''),{value:id}));
+   select.value=id;select.dispatchEvent(new Event('change',{bubbles:true}));};
+  return {wrapper,select,input,setValue,ready};
+ }
  const applyAppearance=appearance=>{
   const palette=appearance.palette||'prizma';
   document.body.dataset.centerPalette=palette;
@@ -70,7 +99,7 @@ export async function mountCenterSuite(ui,session){
   ['İletişim ve bildirimler',['iletisim','bildirimler','merkez-iletisim','duyurular','reklam']],
   ['Satış sitesi',['site','yasal','degisiklikler']],
   ['Uygulamalar ve entegrasyonlar',['uygulamalar','okc']],
-  ['Sistem ve güvenlik',['tema','guvenlik','ekip','kayitlar','yedekleme','aktarim']],
+  ['Sistem ve güvenlik',['saglik','tema','guvenlik','ekip','kayitlar','yedekleme','aktarim']],
   ['Diğer',[]]
  ];
  // Her sayfanın ne işe yaradığı başlığın altında görünür.
@@ -82,7 +111,7 @@ export async function mountCenterSuite(ui,session){
   iletisim:'Satış sitesindeki iletişim formundan gelen mesajlar; buradan yazdığınız yanıt kişiye e-posta ile gider.',bildirimler:'E-posta (SMTP) ve bildirim kanalları.','merkez-iletisim':'Merkezin SMS/WhatsApp hattı ve yöneticiye giden uyarılar.',duyurular:'Bayi panelinde görünen duyurular.',reklam:'Bayi panelindeki tanıtım alanları.',
   site:'Satış sitesi sayfaları, metinler ve görseller.',yasal:'KVKK, gizlilik, kullanım şartları ve çerez metinleri.',degisiklikler:'Sürüm notları (Son değişiklikler).',
   uygulamalar:'Mobil/masaüstü uygulamalar, bildirim (push) anahtarları ve şablonlar.',okc:'Yazar kasa (ÖKC) entegrasyonları.',
-  tema:'Yönetim paneli görünümü.',guvenlik:'Doğrulama, oturum ve güvenlik ayarları.',ekip:'Merkez ekip hesapları ve departmanlar.',kayitlar:'Yönetim işlem günlüğü.',yedekleme:'Klinik verisi yedeği.',aktarim:'Başka yazılımlardan klinik verisi içe aktarma.'};
+  tema:'Yönetim paneli görünümü.',guvenlik:'Doğrulama, oturum ve güvenlik ayarları.',ekip:'Merkez ekip hesapları ve departmanlar.',kayitlar:'Yönetim işlem günlüğü.',saglik:'Sunucu kotaları, zamanlanmış görevler ve büyüyen klinikler.',yedekleme:'Klinik verisi yedeği.',aktarim:'Başka yazılımlardan klinik verisi içe aktarma.'};
  const assigned=groups.flatMap(([,keys])=>keys);
  // Sol menü yalnız bölümleri gösterir; bölümün sayfaları üstte sekme olarak açılır (aynı bağlantılar iki yerde tekrarlanmaz).
  const groupEntries=keys=>(keys.length?keys:tabs.map(([key])=>key).filter(key=>!assigned.includes(key))).filter(key=>tabs.some(entry=>entry[0]===key));
@@ -271,23 +300,10 @@ export async function mountCenterSuite(ui,session){
   const {plans:catalog,termFields,featureFields}=await call('plans');opsFeatureFields=featureFields||{};
   content.replaceChildren(button('Yeni paket',()=>editPackage({name:'',description:'',vat:'included',published:false,modules:{}},termFields)),el('p','Paket fiyatlarını, satış sitesindeki özellikleri ve bayi erişimini buradan yönetin.'),el('a','Satış sitesindeki paketleri aç',{href:'/platform/paketler'}),table(['Paket','İçerik','Aylık','Yıllık','İşlemler'],catalog.map(plan=>[
    plan.name,plan.description,plan.monthly==null?'Teklif ile':currency(plan.monthly),plan.yearly==null?'Teklif ile':currency(plan.yearly),packageActions(plan,termFields,async()=>{
-    const {partners}=await partnersList();
-    const {locations}=await call('branch-directory');
-    const search=field('search','Bayi veya şube ara',{type:'search',required:false});
-    const choice=selectField('partner','Bayi',[]);
-    const select=choice.querySelector('select');select.required=true;
-    const draw=()=>{
-     const query=search.querySelector('input').value.trim().toLocaleLowerCase('tr');
-     select.replaceChildren(el('option','Bayi seçin',{value:''}));
-     const matches=partners.filter(row=>[row.name,...(locations[row.id]||[]).map(branch=>branch.name)]
-      .some(name=>name.toLocaleLowerCase('tr').includes(query)));
-     for(const row of matches)select.append(el('option',[row.name,...(locations[row.id]||[]).map(branch=>branch.name)].join(' · '),{value:row.id}));
-     if(matches.length===1)select.value=matches[0].id;
-    };
-    search.addEventListener('input',draw);draw();
+    const picker=partnerPicker('Bayi');
     content.replaceChildren(button('Paketlere dön',plans),el('h3',plan.name),
      el('p','Şube adıyla bağlı bayiyi bulabilirsiniz. Abonelik bayi hesabına uygulanır.'),
-     makeForm([search,choice],'Abonelik dönemini aç',values=>subscription(values.partner,plan.id)));
+     makeForm([picker.wrapper],'Abonelik dönemini aç',values=>subscription(values.partner,plan.id)));
    })])));
  }
  function packageActions(plan,termFields,assign){
@@ -409,15 +425,16 @@ export async function mountCenterSuite(ui,session){
  }
  async function manage(kind,editing=null){
   const fields=managementFields[kind];
-  const [{rows},{partners}]=await Promise.all([call(kind),partnersList()]);
+  const {rows}=await call(kind);
   const paymentPlans=kind==='payments'?(await call('plans')).plans:[];
-  const names=new Map(partners.map(partner=>[partner.id,partner.name]));
+  const names=await partnerNames([...rows.map(row=>row.partner),editing?.partner]);
   const optionalPartner=['announcements','ads'].includes(kind);
+  let picker=null;
   const controls=fields.map(([name,label])=>{
    let control;
    if(name==='channel') control=selectField(name,label,[['sms','SMS'],['whatsapp','WhatsApp']]);
    else if(name==='enabled') control=selectField(name,label,[['no','Kapalı'],['yes','Açık']]);
-   else if(name==='partner') control=selectField(name,label,[['',optionalPartner?'Tüm bayiler':'Bayi seçin'],...names]);
+   else if(name==='partner'){picker=partnerPicker(label,{empty:optionalPartner?'Tüm bayiler':'Bayi seçin',required:!optionalPartner});control=picker.wrapper;}
    else if(name==='plan') control=selectField(name,label,[['','Yalnız ödeme kaydı'],...paymentPlans.map(plan=>[plan.id,plan.name])]);
    else if(name==='starts_on'||name==='ends_on') control=field(name,label,{type:'date',required:false});
    else if(name==='branch') control=selectField(name,label,[['','Önce bayi seçin']]);
@@ -425,7 +442,8 @@ export async function mountCenterSuite(ui,session){
    else if(name==='section_text'){control=textArea(name,label,1500);control.querySelector('textarea').required=false;}
    else if(name==='text'||name==='description') control=textArea(name,label,kind==='releases'?1500:kind==='announcements'?1600:kind==='ads'?500:350);
    else control=field(name,label,{required:!['url','note','section_title','section_url','taxOffice','taxNo','mersis','address','phone','email','kep'].includes(name),value:editing?.[name]||(name==='path'?'/platform':'')});
-   if(editing && name!=='branch') control.querySelector('input,select,textarea').value=editing[name]??'';
+   if(editing && name==='partner') picker.setValue(editing.partner||'');
+   else if(editing && name!=='branch') control.querySelector('input,select,textarea').value=editing[name]??'';
    if(editing && name==='path') control.querySelector('input').readOnly=true;
    if(optionalPartner && ['title','text'].includes(name))control.querySelector('input,textarea').required=false;
    return control;
@@ -518,16 +536,14 @@ export async function mountCenterSuite(ui,session){
   if(editing)content.append(button('Düzenlemeyi iptal et',()=>manage(kind)));
  }
  async function backup(importing){
-  const {partners}=await partnersList();
-  const partner=selectField('partner','Bayi',[['','Bayi seçin'],...partners.map(item=>[item.id,item.name])]);
-  partner.querySelector('select').required=true;
+  const picker=partnerPicker('Bayi');
+  const partner=picker.wrapper;
   const branch=selectField('branch',importing?'Hedef şube':'Şube',[['','Önce bayi seçin']]);
   const select=branch.querySelector('select');
-  const target=partner.querySelector('select');
-  const lookup=field('search','Bayi veya şube ara',{type:'search',required:false});
-  const input=lookup.querySelector('input');
-  const {locations}=await call('branch-directory');
-  let selectedBranches=[];
+  const target=picker.select;
+  const input=picker.input;
+  const lookup=document.createDocumentFragment();
+  let selectedBranches=[],branchSeq=0;
   function showBranches(){
    const prior=select.value;
    const query=input.value.trim().toLocaleLowerCase('tr');
@@ -538,24 +554,24 @@ export async function mountCenterSuite(ui,session){
    branch.hidden=selectedBranches.length===1;
    select.value=branch.hidden?selectedBranches[0].id:choices.some(row=>row.id===prior)?prior:(matching.length===1&&query?matching[0].id:'');
   }
-  target.addEventListener('change',()=>{
-   selectedBranches=(locations[target.value]||[]).filter(row=>!importing||row.status!=='Pasif'&&!row.sharedWith);
-   showBranches();
-  });
-  input.addEventListener('input',()=>{
-   const query=input.value.trim().toLocaleLowerCase('tr');
-   const prior=target.value;
-   const filtered=partners.filter(item=>[item.name,...(locations[item.id]||[]).map(row=>row.name)].some(name=>name.toLocaleLowerCase('tr').includes(query)));
-   target.replaceChildren(el('option','Bayi seçin',{value:''}));
-   for(const item of filtered)target.append(el('option',item.name,{value:item.id}));
-   target.value=filtered.some(item=>item.id===prior)?prior:filtered.length===1?filtered[0].id:'';
-   target.dispatchEvent(new Event('change'));
+  target.addEventListener('change',async()=>{
+   const id=target.value,my=++branchSeq;
+   selectedBranches=[];showBranches();
+   if(!id)return;
+   try{
+    const data=await call('partner?'+new URLSearchParams({id}));
+    if(my!==branchSeq)return;
+    selectedBranches=(data.branches||[]).filter(row=>!importing||row.status!=='Pasif'&&!row.sharedWith);
+    showBranches();
+   }catch(error){status.textContent=error.message;}
   });
   if(!importing){
    content.replaceChildren(el('p','Bayi çalışma alanını veya seçilen şubenin kayıtlarını JSON olarak indirin. Ortak şubelerde paylaşılan veri alanı kullanılır.'),
     makeForm([lookup,partner,branch],'JSON yedeğini indir',async values=>{
-     const data=await call('backup?'+new URLSearchParams({id:values.partner,branch:values.branch}));
-     const href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));
+     // Büyük klinik yedeği tarayıcıda ayrıştırılmadan doğrudan dosyaya yazılır.
+     const response=await fetch('/api/cpanel-center/backup?'+new URLSearchParams({id:values.partner,branch:values.branch}),{headers:{'X-VeTNet-Scope':session.scopeId}});
+     if(!response.ok){let message='Yedek alınamadı (HTTP '+response.status+').';try{message=(await response.json()).error||message;}catch{}throw Error(message);}
+     const href=URL.createObjectURL(await response.blob());
      el('a','',{href,download:['VetZimo',values.partner,values.branch,'yedek.json'].filter(Boolean).join('-')}).click();
      setTimeout(()=>URL.revokeObjectURL(href),1000);
     }));
@@ -800,6 +816,19 @@ export async function mountCenterSuite(ui,session){
   wrapper.append(select);
   return wrapper;
  }
+ async function health(){
+  const data=await call('health');
+  const levels={ok:'Uygun',warn:'Dikkat',bad:'Sorun'};
+  const badge=level=>{const b=el('span',levels[level]||level);b.className='ops-health ops-health-'+level;return b;};
+  const counts={ok:0,warn:0,bad:0};for(const row of data.checks)counts[row.level]=(counts[row.level]||0)+1;
+  const summary=el('p',counts.bad?'Hemen ilgilenilmesi gereken sorunlar var.':counts.warn?'Sistem çalışıyor; dikkat gerektiren noktalar var.':'Tüm kontroller uygun.');
+  summary.className='ops-health-summary ops-health-'+(counts.bad?'bad':counts.warn?'warn':'ok');
+  const parts=[summary,table(['Durum','Kontrol','Değer','Öneri'],data.checks.map(row=>[badge(row.level),row.label,row.value,row.advice]))];
+  if(data.clinics.length)parts.push(el('h3','Büyüyen klinikler'),table(['Klinik','Kayıt','Arşiv'],data.clinics.map(row=>[row.name,Number(row.records).toLocaleString('tr-TR'),row.archive?'Açık':'Gerekmiyor'])));
+  if(data.outbound.length)parts.push(el('h3','Bu saatteki gönderimler'),table(['Gönderen','Kanal','Adet'],data.outbound.map(row=>[String(row.scope).slice(0,8),row.channel==='smtp'?'E-posta':'WhatsApp',row.sent])));
+  parts.push(button('Yenile',health));
+  content.replaceChildren(...parts);
+ }
  async function legalDocs(){
   const module=await import('./legal-admin.js?v=2');
   await module.mountLegalAdmin(content,{call,reauthUrl:url('guvenlik',{returnTab:'yasal'})});
@@ -827,7 +856,9 @@ export async function mountCenterSuite(ui,session){
    entry('host','SMTP sunucusu'),entry('username','SMTP kullanıcı adı'),
    entry('sender','Gönderen e-posta',{type:'email'}),port,
    entry('password',settings.hasPassword?'SMTP parolası · boş bırakılırsa korunur':'SMTP parolası',{type:'password',value:'',autocomplete:'new-password'}),
-   check('clearPassword','Kayıtlı SMTP parolasını kaldır')
+   check('clearPassword','Kayıtlı SMTP parolasını kaldır'),
+   entry('hourlyLimit','Saatlik gönderim sınırı (0 = sınırsız)',{type:'number',min:0,max:999999,value:String(settings.hourlyLimit??'300')}),
+   el('p','Hosting sağlayıcınızın saatlik e-posta kotasını yazın. Sınır dolarsa hatırlatmalar silinmez, bir sonraki saate ertelenir.',{className:'muted'})
   ]);
   const free=el('section','',{className:'center-card center-free'});
   free.append(el('h2','SMS ve WhatsApp · ücretsiz'),
@@ -959,9 +990,8 @@ export async function mountCenterSuite(ui,session){
   const trial=history.find(event=>event.trial_partner);
   if(trial)content.append(button('Açılan abonelik dönemini göster',()=>subscription(trial.trial_partner)));
   else if(['demo','trial'].includes(lead.kind)&&lead.stage!=='lost'&&lead.phone&&plans.length){
-   const {partners}=await partnersList();
    const digits=value=>String(value??'').replace(/[^0-9]/g,'').slice(-10);
-   const matching=partners.filter(partner=>Number(partner.active)&&digits(partner.phone)===digits(lead.phone));
+   const matching=digits(lead.phone).length===10?(await pickPartners({phone:digits(lead.phone)})).filter(partner=>Number(partner.active)):[];
    const target=selectField('target','Demo hesabı',[['new','Yeni demo hesabı aç'],...matching.map(item=>[item.id,item.name])]);
    const plan=selectField('plan','Demo paketi',plans.map(item=>[item.id,item.name]));
    if(plans.some(item=>item.id===lead.plan_id))plan.querySelector('select').value=lead.plan_id;

@@ -199,9 +199,16 @@ final class AppointmentReminders
                     if ($email) {
                         $reference = '';
                         try {
-                            $notifications->send('smtp',$job['email'],'VetZimo klinik hatırlatması',$job['message']);
+                            $notifications->send('smtp',$job['email'],'VetZimo klinik hatırlatması',$job['message'],true);
                             $status = 'accepted';
-                        } catch (\Throwable) { $status = 'unknown'; }
+                        } catch (\Throwable $failure) {
+                            if ($failure->getCode() === 429) {
+                                // Kota doldu: kayıt geri alınır, hatırlatma bir sonraki çalışmada yeniden denenir.
+                                $this->db->prepare('DELETE FROM clinic_appointment_reminder WHERE dispatch_key=? AND status=\'sending\'')->execute([$key]);
+                                continue;
+                            }
+                            $status = 'unknown';
+                        }
                     } else {
                         [$status,$reference] = self::send($request, $job['channel']);
                     }

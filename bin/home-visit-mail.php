@@ -10,6 +10,7 @@ foreach (['Database','Totp','Notifications','WorkspaceRepository','WebBuilder','
 try {
     $config=require (getenv('VETNET_CPANEL_CONFIG')?:$root.'/config.php');
     $db=Database::connect($config['dsn'],$config['username'],$config['password']);
+    require_once dirname(__DIR__).'/src/CronGuard.php'; VetNet\Cpanel\CronGuard::begin($db,'home-visit-mail');
     if ((int)$db->query("SELECT GET_LOCK('vetnet.home-visit.mail',0)")->fetchColumn()!==1) exit(0);
     $visits=new HomeVisit($db,$config);
     $smtp=new Notifications($db,$config['encryptionKey']);
@@ -55,9 +56,13 @@ try {
                 }
                 $message="Evde Hizmet talebiniz güncellendi.\nDurum ".$state."\nBaşvuru ".$job['id']."\n".$target;
             }
-            $mailer->send('smtp',$email,'VetZimo — Evde Hizmet',$message);
+            $mailer->send('smtp',$email,'VetZimo — Evde Hizmet',$message,true);
             $sent=time();
         } catch (Throwable $error) {
+            if ($error->getCode()===429) {
+                $visits->web->query('UPDATE clinic_visit_mail SET retry_at=? WHERE event_id=? AND audience=?',[VetNet\Cpanel\OutboundLimit::nextHour($now),$job['event_id'],$job['audience']]);
+                continue;
+            }
             $failure='E-posta gönderilemedi. SMTP ve alıcı ayarlarını kontrol edin.';
         }
         $visits->web->query('UPDATE clinic_visit_mail SET attempts=attempts+1,retry_at=?,sent_at=?,failure=?,secret=IF(? IS NULL,secret,NULL)
@@ -71,6 +76,7 @@ try {
         if ($error->getCode()!=='42S02') throw $error;
     }
 } catch (Throwable $error) {
+    if (class_exists('VetNet\\Cpanel\\CronGuard')) VetNet\Cpanel\CronGuard::finish('error',isset($error)&&$error instanceof Throwable?get_class($error):null);
     fwrite(STDERR,'Evde Hizmet e-posta kuyruğu çalıştırılamadı ('.get_class($error).').'.PHP_EOL);
     exit(1);
 }

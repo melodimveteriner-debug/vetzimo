@@ -16,6 +16,7 @@ try {
     $config = require $root . '/config.php';
     $connections = $config['appointmentReminderConnections'] ?? [];
     $db = Database::connect($config['dsn'], $config['username'], $config['password']);
+    require_once dirname(__DIR__).'/src/CronGuard.php'; VetNet\Cpanel\CronGuard::begin($db,'appointment-reminders');
     // Günlük ekip notu: saati gelen kliniklerde personele anlık bildirim (sağlayıcı gerekmez).
     try { (new VetNet\Cpanel\DailyNote($db))->fanout(time()); } catch (Throwable $e) { fwrite(STDERR, 'Günlük ekip notu gönderilemedi.'.PHP_EOL); }
     $pregnant = 0;
@@ -28,6 +29,7 @@ try {
     }
     exit($stats['rejected'] || $stats['unknown'] ? 1 : 0);
 } catch (Throwable $error) {
+    if (class_exists('VetNet\\Cpanel\\CronGuard')) VetNet\Cpanel\CronGuard::finish('error',isset($error)&&$error instanceof Throwable?get_class($error):null);
     fwrite(STDERR, 'VetZimo randevu hatırlatmaları çalıştırılamadı (' . get_class($error) . '). PHP cURL, bağlantı ayarları ve 019 numaralı SQL dosyasını kontrol edin.' . PHP_EOL);
     exit(1);
 }

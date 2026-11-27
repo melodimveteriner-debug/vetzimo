@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 namespace VetNet\Cpanel;
+require_once __DIR__ . '/ClinicChanges.php';
 
 use PDO;
 
@@ -271,10 +272,11 @@ final class PartialSave
                     $old = $stored[$key] ?? null;
                     unset($stored[$key]);
                     if ($old && $old[0] === $ordinal && hash_equals($old[1], $hash)) continue;
+                    if (!$old || !hash_equals($old[1], $hash)) ClinicChanges::row($collection, $key);
                     $this->write($upsert, $set, $collection, $key, $ordinal, $row, $json, $hash);
                 }
                 $delete = $this->db->prepare('DELETE FROM clinic_record WHERE set_id=? AND collection=? AND row_key=?');
-                foreach (array_keys($stored) as $key) $delete->execute([$set, $collection, $key]);
+                foreach (array_keys($stored) as $key) { $delete->execute([$set, $collection, $key]); ClinicChanges::row($collection, $key); }
                 continue;
             }
 
@@ -345,6 +347,7 @@ final class PartialSave
         $branch = $row->branch ?? null;
         $owner = $collection === 'patients' ? ($row->owner ?? null) : null;
         $valid = static fn($value) => is_string($value) && preg_match(self::ID, $value) === 1 ? $value : null;
+        ClinicChanges::row($collection, $key);
         $upsert->execute([$set, $collection, $key, $ordinal, $valid($row->id ?? null), $valid($branch), $valid($owner), $json, $hash]);
     }
 }

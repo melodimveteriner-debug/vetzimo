@@ -26,7 +26,9 @@ final class IdentityApi
     }
     private function state(array $actor): ?object
     {
-        return (new WorkspaceRepository($this->db))->load('partner:'.$actor['partner_id'])['state'];
+        // Ekip, paylaşım ve görsel işlemleri yalnız sahip/hasta/muayene/tetkik listelerini kullanır (salt okunur).
+        return (new ClinicRecords($this->db))->collections('partner:'.$actor['partner_id'],['clients','patients','exams','labs'])
+            ?? (new WorkspaceRepository($this->db))->load('partner:'.$actor['partner_id'])['state'];
     }
     public function members(array $actor): array
     {

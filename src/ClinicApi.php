@@ -2,6 +2,8 @@
 declare(strict_types=1);
 
 namespace VetNet\Cpanel;
+require_once __DIR__ . '/ClinicChanges.php';
+require_once __DIR__ . '/ColdStorage.php';
 
 require_once __DIR__ . '/ClinicProtocol.php';
 require_once __DIR__ . '/VaccineInventory.php';
@@ -31,11 +33,32 @@ final class ClinicApi
     /** Yalnız testler için: yazmadan hemen önce doğrulanmış sonucu görür (null: kapalı). */
     public static ?\Closure $beforeWrite = null;
 
+    /** Otomatik birleştirmede istemcinin kaçırdığı değişiklikler: removed (koleksiyon => kimlikler), replace (alan => değer). */
+    public array $sync = [];
+
     public function __construct(private readonly DealerWorkspace $workspaces)
     {
     }
 
     public function save(array $cookies, string $scope, int $now, object $request, ?array &$clinicUpdates = null): int
+    {
+        // Yama kayıtlarında, kontrol ile yazım arasında başka bir yazım araya girerse birleştirme birkaç kez yeniden denenir.
+        $base = $request->revision ?? null;
+        for ($attempt = 0; ; $attempt++) {
+            try {
+                $this->sync = [];
+                $clinicUpdates = [];
+                return $this->saveOnce($cookies, $scope, $now, $request, $clinicUpdates);
+            } catch (RuntimeException $error) {
+                if ($error->getCode() !== 409 || $attempt >= 4 || !property_exists($request, 'patch') || $this->workspaces->rebased === null && $attempt > 0) throw $error;
+                if ($this->workspaces->database()->inTransaction()) throw $error;
+                $request->revision = $base;
+                usleep(random_int(2000, 15000) * ($attempt + 1));
+            }
+        }
+    }
+
+    private function saveOnce(array $cookies, string $scope, int $now, object $request, ?array &$clinicUpdates): int
     {
         if (!is_int($request->revision ?? null) || $request->revision < 1 ||
             (property_exists($request,'state') === property_exists($request,'patch'))) {
@@ -52,8 +75,25 @@ final class ClinicApi
         }
         $original = $current['state'];
         $fingerprint = self::fingerprint($original);
+        $visibleOriginal = ClinicAccess::visible($original,$actor);
+        $rebased = $this->workspaces->rebased;
+        if (property_exists($request,'patch') && $request->patch instanceof stdClass && class_exists(ColdStorage::class)) {
+            // Arşiv koruması: tarayıcıda olmayan soğuk satırlar, liste komple gönderilse (replace) bile silinmez.
+            $replaced = array_filter(array_keys(get_object_vars($request->patch)), static fn($c) =>
+                in_array($c, ColdStorage::COLLECTIONS, true) && $request->patch->$c instanceof stdClass && property_exists($request->patch->$c, 'replace'));
+            if ($replaced) {
+                $cold = new ColdStorage($this->workspaces->database());
+                $set = $cold->setId('partner:'.$actor['partner_id']);
+                if ($set !== null) ColdStorage::preserve($visibleOriginal, $request->patch, $cold->coldIds($set));
+            }
+        }
         $state = property_exists($request,'patch') ?
-            self::applyPatch(ClinicAccess::visible($original,$actor),$request->patch) : $request->state;
+            self::applyPatch($visibleOriginal,$request->patch) : $request->state;
+        if (!property_exists($request,'patch') && $state instanceof stdClass && class_exists(ColdStorage::class)) {
+            $cold = new ColdStorage($this->workspaces->database());
+            $set = $cold->setId('partner:'.$actor['partner_id']);
+            if ($set !== null) ColdStorage::preserveState($visibleOriginal, $state, $cold->coldIds($set));
+        }
         if (!$state instanceof stdClass || ($state->version ?? null) !== 1) {
             throw new RuntimeException('Kayıt biçimi geçersiz.', 422);
         }
@@ -260,7 +300,46 @@ final class ClinicApi
         if (self::$beforeWrite) (self::$beforeWrite)($next, $clinicUpdates, isset($current['partial']));
         $saved = $this->workspaces->writeValidated($cookies, $scope, $now, $current['revision'], $next, $preloaded);
         if ($saved === null) throw new RuntimeException('Kayıt alanı güncellendi.', 409);
+        if ($rebased) $this->syncRebased($actor, $rebased, $next, $clinicUpdates);
         return $saved;
+    }
+
+    /**
+     * Otomatik birleştirmeden sonra istemciye aradaki yazımların sonuçlarını gönderir (yetkisine ve şubesine göre süzülmüş):
+     * değişen/eklenen satırlar clinicUpdates'e, silinenler removed'a, ayar/şube gibi alanlar replace'e.
+     */
+    private function syncRebased(array $actor, array $changed, object $next, ?array &$clinicUpdates): void
+    {
+        $db = $this->workspaces->database();
+        $set = (new ColdStorage($db))->setId('partner:'.$actor['partner_id']);
+        $mini = (object)['version'=>1, 'demo'=>false, 'branches'=>$next->branches ?? [], 'preferences'=>$next->preferences ?? (object)[]];
+        $found = [];
+        foreach ($changed as $collection => $ids) {
+            if ($collection === 'activity' || !in_array($collection, ClinicRecords::COLLECTIONS, true) || isset($ids[ClinicChanges::ALL]) || $set === null) continue;
+            $mini->$collection = [];
+            foreach (array_chunk(array_keys($ids), 500) as $chunk) {
+                $q = $db->prepare('SELECT record_id, record_data FROM clinic_record WHERE set_id=? AND collection=? AND record_id IN ('.implode(',', array_fill(0, count($chunk), '?')).')');
+                $q->execute([$set, $collection, ...array_map('strval', $chunk)]);
+                while ($r = $q->fetch(\PDO::FETCH_NUM)) {
+                    $row = json_decode($r[1]);
+                    if (is_object($row)) { $mini->{$collection}[] = $row; $found[$collection][(string)$r[0]] = true; }
+                }
+            }
+        }
+        $visible = ClinicAccess::visible($mini, $actor);
+        $clinicUpdates ??= [];
+        foreach ($changed as $collection => $ids) {
+            if (!in_array($collection, ClinicRecords::COLLECTIONS, true)) {
+                // Liste dışı alan (ayarlar, şubeler): görünür hali komple gönderilir.
+                if (in_array($collection, ['preferences','branches'], true)) $this->sync['replace'][$collection] = $visible->$collection ?? null;
+                continue;
+            }
+            if ($collection === 'activity' || isset($ids[ClinicChanges::ALL])) continue;
+            $own = array_flip(array_map(static fn($row) => $row->id ?? '', $clinicUpdates[$collection] ?? []));
+            foreach ($visible->$collection ?? [] as $row) if (!isset($own[$row->id ?? ''])) $clinicUpdates[$collection][] = $row;
+            $gone = array_values(array_map('strval', array_keys(array_diff_key($ids, $found[$collection] ?? []))));
+            if ($gone) $this->sync['removed'][$collection] = $gone;
+        }
     }
 
     /** Durumun içerik özeti; satırlar tek tek kodlandığı için ek bellek kullanımı düşüktür. */
