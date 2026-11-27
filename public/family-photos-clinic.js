@@ -2,7 +2,7 @@
 // 1) Hasta sahibi kartında bölüm: ekle (bayi/şube yöneticisi/personel, hasta sahibi yazma yetkisiyle), onayla/reddet/sil.
 // 2) Müşteriler › Aile Fotoğrafları sayfası: tüm aileler, durum süzgeci, arama, sayfalama.
 const CSS = `
-.fam-clinic h2,.fam-page h1{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.fam-page h1{display:flex;align-items:center;gap:8px;flex-wrap:wrap}\n.fam-clinic .fam-body{padding:0 15px 15px}\n.fam-clinic .panel-head h2 .fam-badge{vertical-align:middle;margin-inline-start:6px}\n.fam-grid-card{grid-template-columns:repeat(auto-fill,minmax(min(100%,220px),260px))}\n.fam-emptystate .tile{font-size:1.1rem}\n.fam-err-line{margin:0 0 10px}
 .fam-badge{font-size:.72rem;font-weight:800;background:#fff3d6;color:#8a5a00;border-radius:999px;padding:2px 9px}
 .fam-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,200px),1fr));gap:12px}
 .fam-item{display:grid;gap:6px;align-content:start;border:1px solid var(--line,#e6e0f5);border-radius:14px;padding:8px;background:var(--paper,#fff);min-width:0}
@@ -143,33 +143,45 @@ function helpers(api, tr) {
   return {status, card, editor, send};
 }
 
-/** Hasta sahibi kartı: bölüm her zaman görünür (yazma yetkisi varsa ekleme düğmesiyle). */
+/** Hasta sahibi kartı: kartın diğer bölümleriyle aynı yapı (başlık şeridi + sağda ekleme düğmesi + içerik). */
 export function mountFamilyClinic(main, client, {api, tr = s => s, canWrite = false, clientName = ""}) {
   css();
   const h = helpers(api, tr);
-  const box = el("section", "", {className: "panel fam-clinic"});
+  const box = el("section", "", {className: "panel fam-clinic record-section-family"});
   box.dataset.client = client;
   const anchor = main.querySelector(".record-section-portal") || main.querySelector(".record-section-contact");
   anchor ? anchor.after(box) : main.append(box);
   const surname = String(clientName || "").trim().split(/\s+/).slice(-1)[0] || "";
-  const error = m => { const n = el("p", m, {className: "form-error", role: "alert"}); box.prepend(n); setTimeout(() => n.remove(), 5000); };
+  const error = m => { const n = el("p", m, {className: "form-error fam-err-line", role: "alert"}); box.querySelector(".fam-body")?.prepend(n); setTimeout(() => n.remove(), 5000); };
   async function load() {
     let data = {items: [], canDecide: false, max: 3};
     try { const r = await api("/api/family-photos?client=" + encodeURIComponent(client)); if (r.ok) data = await r.json(); } catch {}
     if (!box.isConnected) return;
     if (!data.items.length && !canWrite) { box.remove(); return; }
-    const pending = data.items.filter(p => p.status === "pending").length;
-    const head = el("h2", tr("Aile fotoğrafları"));
-    if (pending) head.append(el("span", pending + " " + tr("onay bekliyor"), {className: "fam-badge"}));
-    const grid = el("div", "", {className: "fam-grid"});
-    for (const p of data.items) grid.append(h.card(p, {canDecide: data.canDecide && canWrite, onChange: load, onError: error}));
-    if (canWrite && data.items.length < (data.max || 3)) {
-      const add = el("button", "", {type: "button", className: "fam-addcard"});
-      add.append(el("span", "📷"), el("strong", tr("Aile fotoğrafı ekle")), el("small", data.items.length + "/" + (data.max || 3)));
+    const max = data.max || 3, pending = data.items.filter(p => p.status === "pending").length;
+    const head = el("header", "", {className: "panel-head"});
+    const title = el("div"), h2 = el("h2", tr("Aile fotoğrafları"));
+    if (pending) h2.append(" ", el("span", pending + " " + tr("onay bekliyor"), {className: "fam-badge"}));
+    title.append(h2, el("p", data.items.length + "/" + max + " · " + tr("Onaylı ve paylaşım izni olan fotoğraflar web sitenizde “... Ailesi” kartı olarak yayınlanır.")));
+    head.append(title);
+    if (canWrite && data.items.length < max) {
+      const add = el("button", "", {type: "button", className: "button small primary"});
+      add.append(el("span", "📷", {ariaHidden: "true"}), " " + tr("Aile fotoğrafı ekle"));
       add.addEventListener("click", () => h.editor(client, surname, load));
-      grid.append(add);
+      head.append(add);
     }
-    box.replaceChildren(head, el("p", tr("Hasta sahibinin veya ekibin eklediği aile fotoğrafları (en fazla 3). Onaylanan ve paylaşım izni olan fotoğraflar web sitenizde “... Ailesi” kartı olarak yayınlanır."), {className: "muted"}), grid);
+    const body = el("div", "", {className: "fam-body"});
+    if (data.items.length) {
+      const grid = el("div", "", {className: "fam-grid fam-grid-card"});
+      for (const p of data.items) grid.append(h.card(p, {canDecide: data.canDecide && canWrite, onChange: load, onError: error}));
+      body.append(grid);
+    } else {
+      const empty = el("div", "", {className: "empty fam-emptystate"});
+      empty.append(el("span", "📷", {className: "tile mint"}), el("strong", tr("Henüz aile fotoğrafı yok")),
+        el("p", tr("Hasta sahibi panelinden ekleyebilir ya da siz “Aile fotoğrafı ekle” ile en fazla 3 fotoğraf ekleyebilirsiniz.")));
+      body.append(empty);
+    }
+    box.replaceChildren(head, body);
   }
   load();
 }

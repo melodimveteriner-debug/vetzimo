@@ -1118,3 +1118,10 @@ td [class*=badge],td [class*=status],td [class*=pill],td [class*=chip]{white-spa
 /* Ana sayfa: karşılama bandı ile altındaki bloklar arasında diğer bloklarla eşit boşluk */
 .kv-dashboard>.kv-welcome{margin-bottom:14px!important}
 .kv-dashboard>.vz-inbox-card{margin-bottom:14px}
+/* Müşteri kartı: portal hesabı bölümü — diğer bölümlerle aynı iç boşluk ve hizalama */
+.record-section-portal .customer-access{display:grid;gap:12px;padding:0 15px 15px}
+.record-section-portal .access-card{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0}
+.record-section-portal .access-card>div{display:grid;gap:2px;flex:1 1 180px;min-width:0}
+.record-section-portal .access-card small{opacity:.7;font-size:.76rem}
+.record-section-portal .access-card strong{font-size:.98rem;overflow-wrap:anywhere}
+.record-section-portal .panel-head .button svg{margin-inline-end:6px;vertical-align:-3px}
