@@ -85,6 +85,26 @@ ok($hub->mark($actor,(object)['action'=>'clearAll'],$now)['unread']===0 && !$hub
 $hub->manage((object)['action'=>'policy','category'=>'stock','role'=>'dealer','enabled'=>false],$now);
 ok(!$hub->notify($actor['account_id'],$actor['membership_id'],'dealer','stock','Kritik stok','','/clinic','s-9',$now),'Kapatılan kategori bildirim üretti');
 try { $hub->manage((object)['action'=>'policy','category'=>'security','role'=>'dealer','enabled'=>false],$now); ok(false,'Kritik kategori kapatıldı'); } catch (RuntimeException $e) { ok($e->getCode()===422,'Yanlış hata'); }
+// Üyelik ayrımı: aynı numara hem bayi hem hasta sahibi / başka klinik personeli olsa da gün sonu listesi yalnız ilgili klinik üyeliğinde görünür
+$cust=$actor; $cust['membership_id']='uyelik-hasta-sahibi'; $other=$actor; $other['membership_id']='uyelik-baska-klinik';
+$db->prepare("INSERT INTO identity_membership(id,account_id,partner_id,role,branch_id,customer_id,name,modules,status) VALUES ('uyelik-hasta-sahibi',?,?,'customer','sube-1','musteri-1','Hasta sahibi','{}','active')")->execute([$actor['account_id'],$p]);
+$hub->register($actor,'sessdev4',(object)['platform'=>'android','provider'=>'fcm','token'=>str_repeat('t',140)],$now);
+$hub->register($cust,'sessdev3',(object)['platform'=>'android','provider'=>'fcm','token'=>str_repeat('h',140)],$now);
+$custDev=(string)$db->query("SELECT id FROM app_device WHERE membership_id='uyelik-hasta-sahibi'")->fetchColumn();
+$hub->mark($actor,(object)['action'=>'clearAll'],$now);
+ok($hub->notify($actor['account_id'],$actor['membership_id'],'dealer','announcements','Gün sonu kontrol listesi','Kasa','/clinic','daily:test',$now),'Gün sonu bildirimi eklenmedi');
+$hub->notify($actor['account_id'],'uyelik-baska-klinik','dealer','announcements','Gün sonu kontrol listesi','B kliniği','/clinic','daily:test',$now);
+ok(!array_filter($hub->inbox($cust,null,null,false)['items'],fn($i)=>$i['title']==='Gün sonu kontrol listesi') && $hub->unread($cust)===0,'Gün sonu listesi hasta sahibi paneline düştü');
+$mine=$hub->inbox($actor,null,null,false)['items'];
+ok(count($mine)===1 && $mine[0]['body']==='Kasa' && count($hub->inbox($other,null,null,false)['items'])===1,'Klinikler birbirinin bildirimini görüyor');
+$hub->mark($cust,(object)['action'=>'clearAll'],$now); $hub->mark($cust,(object)['action'=>'readAll'],$now);
+$hub->mark($cust,(object)['action'=>'clear','ids'=>[(int)$mine[0]['id']]],$now);
+ok($hub->unread($actor)===1 && $hub->unread($actor['account_id'],$actor['membership_id'])===1,'Hasta sahibi oturumu ekip bildirimini değiştirdi');
+$push->work($now);
+$q=$db->prepare("SELECT COUNT(*) FROM app_push x JOIN app_notification n ON n.id=x.notification_id WHERE n.title='Gün sonu kontrol listesi' AND x.device_id=?");
+$q->execute([$custDev]); ok($custDev!=='' && (int)$q->fetchColumn()===0,'Gün sonu listesi hasta sahibi cihazına gönderildi');
+ok((int)$db->query("SELECT COUNT(*) FROM app_push x JOIN app_notification n ON n.id=x.notification_id WHERE n.title='Gün sonu kontrol listesi'")->fetchColumn()>0,'Gün sonu listesi ekip cihazına gitmedi');
+$hub->mark($actor,(object)['action'=>'clearAll'],$now); $hub->mark($other,(object)['action'=>'clearAll'],$now);
 // Duyuru, sürüm, hata
 ok($hub->announce((object)['title'=>'Bakım','body'=>'Pazar 02:00','roles'=>['dealer']],$now)===1,'Duyuru gitmedi');
 $hub->manage((object)['action'=>'release','platform'=>'android','version'=>'1.2.0','build'=>12,'minBuild'=>10,'publish'=>true],$now);

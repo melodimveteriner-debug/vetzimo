@@ -180,7 +180,7 @@ final class AppHub
         // Aynı oturum cihazında eski anahtarlar (yenilenen FCM anahtarı) devre dışı kalır.
         $this->q('UPDATE app_device SET revoked_at=? WHERE session_device=? AND token_hash<>? AND provider=? AND revoked_at IS NULL', [$now, $sessionDevice, $hash, $provider]);
         $row = $this->q('SELECT id,sound,muted FROM app_device WHERE token_hash=?', [$hash])->fetch();
-        return ['device' => $row['id'], 'sound' => $row['sound'], 'muted' => json_decode((string)$row['muted'], true) ?: [], 'badge' => $this->unread($actor['account_id'])];
+        return ['device' => $row['id'], 'sound' => $row['sound'], 'muted' => json_decode((string)$row['muted'], true) ?: [], 'badge' => $this->unread($actor)];
     }
 
     /** Oturum kapatılınca bu cihaza artık bildirim gitmez. */
@@ -217,7 +217,7 @@ final class AppHub
         $cats = [];
         foreach (self::CATEGORIES as $key => [$label, $critical]) if ($policies[$key][$role] ?? false) $cats[] = ['key' => $key, 'label' => $label, 'critical' => $critical];
         return ['scope' => ($actor['kind'] ?? '') === 'center' ? (string)$actor['account_id'] : (string)($actor['membership_id'] ?? ''), 'role' => $role, 'categories' => $cats, 'muted' => json_decode((string)$p['muted'], true) ?: [], 'sound' => $p['sound'], 'quiet' => json_decode((string)$p['quiet'], true),
-            'sounds' => self::SOUNDS, 'vapid' => (new AppPush($this->db, $this->config))->vapidPublic(), 'badge' => $this->unread($actor['account_id']),
+            'sounds' => self::SOUNDS, 'vapid' => (new AppPush($this->db, $this->config))->vapidPublic(), 'badge' => $this->unread($actor),
             'devices' => $this->q('SELECT id,platform,provider,app_version,model,seen_at FROM app_device WHERE account_id=? AND revoked_at IS NULL ORDER BY seen_at DESC LIMIT 20', [$actor['account_id']])->fetchAll()];
     }
 
@@ -228,15 +228,31 @@ final class AppHub
 
     // ───────────────────────── Bildirim merkezi ─────────────────────────
 
-    public function unread(string $account): int
+    /**
+     * Bildirim görünürlüğü: merkez hesabı kendi bildirimlerini; telefonla giren kişi yalnız o an açık olan üyeliğinin
+     * (hangi klinik, hangi rol) bildirimlerini görür. Böylece aynı numara hem personel hem hasta sahibi olsa da gün sonu
+     * listesi gibi ekip bildirimleri hasta sahibi panelinde, bir kliniğin bildirimleri diğer klinikte görünmez.
+     * @return array{0:string,1:list<string>}
+     */
+    private static function scope(array $actor): array
     {
-        return (int)$this->q('SELECT COUNT(*) FROM app_notification WHERE account_id=? AND read_at IS NULL AND cleared_at IS NULL', [$account])->fetchColumn();
+        if (($actor['kind'] ?? '') === 'center') return ['account_id=?', [(string)$actor['account_id']]];
+        return ["account_id=? AND membership_id IN (?,'')", [(string)$actor['account_id'], (string)($actor['membership_id'] ?? '')]];
+    }
+
+    /** $who: hesap kimliği (eski çağrılar, tüm üyelikler) veya actor dizisi (yalnız açık üyelik). */
+    public function unread(string|array $who, ?string $membership = null): int
+    {
+        if (is_array($who)) [$w, $a] = self::scope($who);
+        elseif ($membership !== null) [$w, $a] = ["account_id=? AND membership_id IN (?,'')", [$who, $membership]];
+        else [$w, $a] = ['account_id=?', [$who]];
+        return (int)$this->q("SELECT COUNT(*) FROM app_notification WHERE $w AND read_at IS NULL AND cleared_at IS NULL", $a)->fetchColumn();
     }
 
     public function inbox(array $actor, ?string $before, ?string $category, bool $unreadOnly): array
     {
-        $where = 'account_id=? AND cleared_at IS NULL';
-        $args = [$actor['account_id']];
+        [$where, $args] = self::scope($actor);
+        $where .= ' AND cleared_at IS NULL';
         if ($before !== null && ctype_digit($before)) { $where .= ' AND id<?'; $args[] = (int)$before; }
         if ($category !== null && isset(self::CATEGORIES[$category])) { $where .= ' AND category=?'; $args[] = $category; }
         if ($unreadOnly) $where .= ' AND read_at IS NULL';
@@ -245,25 +261,25 @@ final class AppHub
         foreach ($this->q('SELECT m.id,p.name FROM identity_membership m JOIN partner_account p ON p.id=m.partner_id WHERE m.account_id=?', [$actor['account_id']])->fetchAll() as $m) $names[$m['id']] = $m['name'];
         return ['items' => array_map(static fn($r) => ['id' => (int)$r['id'], 'membership' => $r['membership_id'], 'clinic' => $names[$r['membership_id']] ?? '',
             'category' => $r['category'], 'label' => self::CATEGORIES[$r['category']][0] ?? '', 'title' => $r['title'], 'body' => $r['body'], 'href' => $r['href'],
-            'time' => (int)$r['created_at'], 'unread' => $r['read_at'] === null], $rows), 'unread' => $this->unread($actor['account_id']), 'more' => count($rows) === 40];
+            'time' => (int)$r['created_at'], 'unread' => $r['read_at'] === null], $rows), 'unread' => $this->unread($actor), 'more' => count($rows) === 40];
     }
 
     public function mark(array $actor, object $body, int $now): array
     {
         $ids = array_values(array_filter(array_map('intval', array_slice((array)($body->ids ?? []), 0, 200))));
         $action = $body->action ?? '';
-        $acc = $actor['account_id'];
+        [$w, $sa] = self::scope($actor);
         $in = $ids ? implode(',', array_fill(0, count($ids), '?')) : '';
         match ($action) {
-            'read' => $ids && $this->q("UPDATE app_notification SET read_at=? WHERE account_id=? AND read_at IS NULL AND id IN ($in)", [$now, $acc, ...$ids]),
-            'unread' => $ids && $this->q("UPDATE app_notification SET read_at=NULL WHERE account_id=? AND id IN ($in)", [$acc, ...$ids]),
-            'clear' => $ids && $this->q("UPDATE app_notification SET cleared_at=?,read_at=COALESCE(read_at,?) WHERE account_id=? AND id IN ($in)", [$now, $now, $acc, ...$ids]),
-            'readAll' => $this->q('UPDATE app_notification SET read_at=? WHERE account_id=? AND read_at IS NULL'.(isset(self::CATEGORIES[$body->category ?? '']) ? ' AND category=?' : ''),
-                array_merge([$now, $acc], isset(self::CATEGORIES[$body->category ?? '']) ? [$body->category] : [])),
-            'clearAll' => $this->q('UPDATE app_notification SET cleared_at=?,read_at=COALESCE(read_at,?) WHERE account_id=? AND cleared_at IS NULL', [$now, $now, $acc]),
+            'read' => $ids && $this->q("UPDATE app_notification SET read_at=? WHERE $w AND read_at IS NULL AND id IN ($in)", [$now, ...$sa, ...$ids]),
+            'unread' => $ids && $this->q("UPDATE app_notification SET read_at=NULL WHERE $w AND id IN ($in)", [...$sa, ...$ids]),
+            'clear' => $ids && $this->q("UPDATE app_notification SET cleared_at=?,read_at=COALESCE(read_at,?) WHERE $w AND id IN ($in)", [$now, $now, ...$sa, ...$ids]),
+            'readAll' => $this->q("UPDATE app_notification SET read_at=? WHERE $w AND read_at IS NULL".(isset(self::CATEGORIES[$body->category ?? '']) ? ' AND category=?' : ''),
+                array_merge([$now, ...$sa], isset(self::CATEGORIES[$body->category ?? '']) ? [$body->category] : [])),
+            'clearAll' => $this->q("UPDATE app_notification SET cleared_at=?,read_at=COALESCE(read_at,?) WHERE $w AND cleared_at IS NULL", [$now, $now, ...$sa]),
             default => throw new RuntimeException('İşlem geçersiz.', 422),
         };
-        return ['unread' => $this->unread($acc)];
+        return ['unread' => $this->unread($actor)];
     }
 
     /**

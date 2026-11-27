@@ -265,7 +265,9 @@ final class AppPush
         $new = $this->q('SELECT id,account_id,membership_id,category,created_at FROM app_notification WHERE pushed=0 AND created_at>? ORDER BY id LIMIT '.(int)$limit, [$now - 86400])->fetchAll();
         foreach ($new as $n) {
             $devices = $this->q("SELECT d.id,d.provider,d.muted,p.quiet FROM app_device d LEFT JOIN app_preference p ON p.account_id=d.account_id
-                WHERE d.account_id=? AND d.revoked_at IS NULL AND d.provider<>'desktop'", [$n['account_id']])->fetchAll();
+                WHERE d.account_id=? AND d.revoked_at IS NULL AND d.provider<>'desktop'
+                AND (?='' OR d.membership_id=? OR (d.membership_id<>'' AND NOT EXISTS (SELECT 1 FROM identity_membership dm WHERE dm.id=d.membership_id AND dm.role='customer')
+                    AND NOT EXISTS (SELECT 1 FROM identity_membership nm WHERE nm.id=? AND nm.role='customer')))", [$n['account_id'], $mid = (string)$n['membership_id'], $mid, $mid])->fetchAll();
             foreach ($devices as $d) {
                 $muted = in_array($n['category'], json_decode((string)$d['muted'], true) ?: [], true) && !AppHub::CATEGORIES[$n['category']][1];
                 $quiet = !AppHub::CATEGORIES[$n['category']][1] && self::inQuiet(json_decode((string)$d['quiet'], true), $now);
@@ -277,7 +279,7 @@ final class AppPush
         }
         // 2) Sıradaki gönderimler.
         $jobs = $this->q("SELECT x.notification_id,x.device_id,x.attempts,n.account_id,n.membership_id,n.category,n.title,n.body,n.href,n.read_at,n.cleared_at,
-                d.provider,d.token,d.sound,d.revoked_at FROM app_push x JOIN app_notification n ON n.id=x.notification_id JOIN app_device d ON d.id=x.device_id
+                d.provider,d.token,d.sound,d.revoked_at,d.membership_id AS device_membership FROM app_push x JOIN app_notification n ON n.id=x.notification_id JOIN app_device d ON d.id=x.device_id
             WHERE x.status IN ('queued','retry') AND x.next_at<=? ORDER BY x.next_at LIMIT ".(int)$limit, [$now])->fetchAll();
         $badge = [];
         $up = $this->db->prepare('UPDATE app_push SET status=?,attempts=attempts+1,next_at=?,error=?,sent_at=? WHERE notification_id=? AND device_id=?');
@@ -285,9 +287,9 @@ final class AppPush
             if ($j['revoked_at'] !== null || $j['read_at'] !== null || $j['cleared_at'] !== null) { $up->execute(['skipped', $now, 'Okundu veya cihaz kapandı', null, $j['notification_id'], $j['device_id']]); $stat['skipped']++; continue; }
             [$label, $critical, $private] = AppHub::CATEGORIES[$j['category']] ?? ['Bildirim', false, true];
             $t = $templates[$j['category']] ?? ['title' => 'VetZimo', 'body' => ''];
-            $badge[$j['account_id']] ??= $hub->unread($j['account_id']);
+            $badge[$j['account_id'].'|'.$j['device_membership']] ??= $hub->unread($j['account_id'], (string)$j['device_membership']);
             $msg = ['id' => (int)$j['notification_id'], 'category' => $j['category'], 'critical' => $critical, 'private' => $private, 'membership' => $j['membership_id'],
-                'href' => $j['href'], 'badge' => $badge[$j['account_id']],
+                'href' => $j['href'], 'badge' => $badge[$j['account_id'].'|'.$j['device_membership']],
                 'title' => $private ? $t['title'] : $j['title'],
                 'body' => $private ? ($t['body'] ?: 'Ayrıntıları görmek için dokunun.') : trim(($t['body'] !== '' ? $t['body'].' · ' : '').$j['body'], ' ·')];
             try { [$out, $err] = $this->deliver($j, $msg, $now); } catch (\Throwable $e) { [$out, $err] = ['retry', mb_substr($e->getMessage(), 0, 160)]; }
