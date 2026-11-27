@@ -49,6 +49,8 @@ final class AppointmentReminders
                 if (!empty($row->patient) && (!$patient || $patient->branch!==$row->branch)) continue;
                 $client = $kind==='customerBirthday' ? $row : ($clients[$patient ? ($patient->owner ?? '') : ($row->client ?? '')] ?? null);
                 if (!$client || $client->branch!==$row->branch) continue;
+                // Pasife alınmış hasta veya hasta sahibine otomatik hatırlatma gönderilmez.
+                if (($client->status ?? '')==='Pasif' || ($patient->status ?? '')==='Pasif') continue;
                 $phone = DealerLogin::normalizePhone($client->phone ?? '');
                 $parameters = array_map(static fn(string $value): string => trim(preg_replace('/\s+/u',' ',$value) ?? ''),
                     [$patient->name ?? $client->name,$date->format('d.m.Y H:i'),$branch->name ?: $clinic]);

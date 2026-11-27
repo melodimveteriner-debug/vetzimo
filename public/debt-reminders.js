@@ -21,6 +21,12 @@ export function mountDebtReminders(root, api) {
   const all = api.debtors(); // [{client, name, phone, cents, oldest, count, sms, whatsapp}]
   const age = d => Math.max(0, Math.floor((Date.now() - Date.parse(d + "T12:00:00")) / 86400000));
   for (const d of all) d.age = d.oldest ? age(d.oldest) : 0;
+  // Hasta sahibi kartından gelindiyse o müşteri seçili ve süzülmüş açılır.
+  if (api.preset) {
+    const d = all.find(x => x.client === api.preset);
+    if (d) { state.text = d.name; state.selected.add(d.client); }
+    else state.status = tr("Bu müşterinin açık bakiyesi yok.");
+  }
 
   function filtered() {
     const min = Number(String(state.min).replace(",", ".")) || 0, days = Number(state.days) || 0;
