@@ -60,9 +60,82 @@ final class BusinessReport
         $q = $this->db->prepare('SELECT id FROM clinic_record_set WHERE workspace_id=?');
         $q->execute([$workspace]);
         $set = $q->fetchColumn();
-        WorkspaceRepository::headroom(768);
         $empty = ['period' => ['from' => $from, 'to' => $to, 'days' => $days, 'prevFrom' => $prevFrom, 'prevTo' => $prevTo]];
         if ($set === false) return $empty + self::blank();
+        // Önbellek: aynı klinik + şube + aralık + gün, klinikte yeni kayıt olana kadar (en çok 10 dk) yeniden hesaplanmaz.
+        // Aynı rapor eşzamanlı istenirse yalnız biri hesaplar; ağır hesaplar sunucu genelinde sınırlı sayıda yürür.
+        $revision = (int)(new WorkspaceRepository($this->db))->revision($workspace);
+        $key = sha1(json_encode([array_values($allowedBranches), $from, $to, date('Y-m-d')]));
+        $cached = $this->cached((int)$set, $key, $revision);
+        if ($cached !== null) return $cached;
+        $lockName = 'vzrep-'.$set.'-'.substr($key, 0, 20);
+        $lock = $this->db->prepare('SELECT GET_LOCK(?,25)'); $lock->execute([$lockName]);
+        $slot = null;
+        try {
+            if (($cached = $this->cached((int)$set, $key, $revision)) !== null) return $cached;
+            $slot = $this->slot();
+            WorkspaceRepository::headroom(768);
+            $result = $empty + $this->compute($set, $from, $to, $prevFrom, $prevTo, $days, $allowedBranches, $dataBranches);
+            $this->store((int)$set, $key, $revision, $result);
+            return $result;
+        } finally {
+            if ($slot !== null) $this->db->prepare('SELECT RELEASE_LOCK(?)')->execute([$slot]);
+            $this->db->prepare('SELECT RELEASE_LOCK(?)')->execute([$lockName]);
+        }
+    }
+
+    /** Sunucu genelinde aynı anda en çok SLOTS ağır rapor hesaplanır; boş yer 10 sn içinde açılmazsa 503 (istemci yeniden dener). */
+    private const SLOTS = 3;
+    private function slot(): string
+    {
+        $db = (string)$this->db->query('SELECT DATABASE()')->fetchColumn();
+        $q = $this->db->prepare('SELECT GET_LOCK(?,0)');
+        $until = microtime(true) + 10;
+        do {
+            for ($i = 0; $i < self::SLOTS; $i++) {
+                $name = 'vzrep-slot-'.substr(md5($db), 0, 8).'-'.$i;
+                $q->execute([$name]);
+                if ((int)$q->fetchColumn() === 1) return $name;
+            }
+            usleep(150000);
+        } while (microtime(true) < $until);
+        throw new RuntimeException('Sunucu şu an çok sayıda rapor hazırlıyor. Lütfen birkaç saniye sonra yeniden deneyin.', 503);
+    }
+
+    private function ensureCache(): void
+    {
+        $this->db->exec('CREATE TABLE IF NOT EXISTS business_report_cache (set_id INT UNSIGNED NOT NULL, cache_key CHAR(40) NOT NULL, revision BIGINT NOT NULL,
+            created_at INT UNSIGNED NOT NULL, payload MEDIUMBLOB NOT NULL, PRIMARY KEY (set_id,cache_key), KEY created_idx (created_at)) ENGINE=InnoDB');
+    }
+
+    private function cached(int $set, string $key, int $revision): ?array
+    {
+        try {
+            $q = $this->db->prepare('SELECT payload FROM business_report_cache WHERE set_id=? AND cache_key=? AND revision=? AND created_at>?');
+            $q->execute([$set, $key, $revision, time() - 600]);
+            $raw = $q->fetchColumn();
+        } catch (\PDOException $e) {
+            if ($e->getCode() === '42S02') { $this->ensureCache(); return null; }
+            throw $e;
+        }
+        if ($raw === false) return null;
+        $json = gzuncompress((string)$raw);
+        $data = $json === false ? null : json_decode($json, true);
+        return is_array($data) ? $data + ['cached' => true] : null;
+    }
+
+    private function store(int $set, string $key, int $revision, array $result): void
+    {
+        try {
+            $this->ensureCache();
+            $this->db->prepare('REPLACE INTO business_report_cache (set_id,cache_key,revision,created_at,payload) VALUES (?,?,?,?,?)')
+                ->execute([$set, $key, $revision, time(), gzcompress(json_encode($result, JSON_UNESCAPED_UNICODE), 6)]);
+            if (random_int(1, 50) === 1) $this->db->prepare('DELETE FROM business_report_cache WHERE created_at<?')->execute([time() - 3600]);
+        } catch (\PDOException) {}
+    }
+
+    private function compute(int|string $set, string $from, string $to, string $prevFrom, string $prevTo, int $days, array $allowedBranches, array $dataBranches): array
+    {
 
         $money = static function ($v): int {
             if (is_int($v)) return $v * 100;
@@ -331,7 +404,7 @@ final class BusinessReport
         $names = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'];
         $weekRows = []; foreach ($weekday as $i => [$v, $n]) $weekRows[] = ['name' => $names[$i], 'revenue' => $v, 'count' => $n];
 
-        return $empty + [
+        return [
             'branches' => array_keys($allowedBranches),
             'kpi' => $cur, 'previous' => $prev, 'grain' => $grain, 'timeline' => array_values($timeline),
             'products' => ['byRevenue' => $top($productRows, 'revenue'), 'byProfit' => $top($productRows, 'profit'), 'byQty' => $top($productRows, 'qty'), 'total' => count($productRows)],

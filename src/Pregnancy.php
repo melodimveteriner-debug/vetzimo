@@ -17,6 +17,26 @@ final class Pregnancy
     /** Ortalama gebelik süresi (gün) ve normal kabul edilen aralık. Köpek 58–68 (ort. 63), kedi 61–69 (ort. 65). */
     public const GESTATION = ['Köpek'=>[63,58,68],'Kedi'=>[65,61,69]];
     public const KEEP_DAYS = 30;
+    public const CHECKS = ['us','xray'];
+    public const PHOTOS = ['family','us','xray'];
+    private const PHOTO_MAX = 2_100_000; // base64 (≈1,5 MB görüntü)
+
+    private static function checks(?string $json): array
+    {
+        $v=$json?json_decode($json,true):null;
+        return is_array($v)?array_intersect_key($v,array_flip(self::CHECKS)):[];
+    }
+
+    /** Tek bir anı fotoğrafının görüntüsü (data URL); yoksa null. */
+    public function photo(string $partner,string $patient,string $kind): ?string
+    {
+        if (!in_array($kind,self::PHOTOS,true)) throw new RuntimeException('Fotoğraf türü geçersiz.',422);
+        if (!($this->forPatients($partner,[$patient])[$patient] ?? null)) return null;
+        $q=$this->db->prepare('SELECT image FROM clinic_pregnancy_photo WHERE partner_id=? AND patient_id=? AND kind=?');
+        $q->execute([$partner,$patient,$kind]);
+        $v=$q->fetchColumn();
+        return is_string($v)&&$v!==''?$v:null;
+    }
 
     public function __construct(private readonly PDO $db) {}
 
@@ -28,8 +48,12 @@ final class Pregnancy
             updated_at INT UNSIGNED NOT NULL, PRIMARY KEY (partner_id,patient_id), KEY mating_idx (mating)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci');
         $have=array_column($this->db->query('SHOW COLUMNS FROM clinic_pregnancy')->fetchAll(PDO::FETCH_ASSOC),'Field');
-        foreach (['litter'=>'TINYINT UNSIGNED NULL','healthy'=>'TINYINT UNSIGNED NULL','ended_by'=>'VARCHAR(12) NULL','ended_author'=>'VARCHAR(120) NULL','pet_name'=>"VARCHAR(120) NOT NULL DEFAULT ''"] as $col=>$type)
+        foreach (['litter'=>'TINYINT UNSIGNED NULL','healthy'=>'TINYINT UNSIGNED NULL','ended_by'=>'VARCHAR(12) NULL','ended_author'=>'VARCHAR(120) NULL','pet_name'=>"VARCHAR(120) NOT NULL DEFAULT ''",'expected'=>'TINYINT UNSIGNED NULL','checks'=>'TEXT NULL'] as $col=>$type)
             if (!in_array($col,$have,true)) $this->db->exec('ALTER TABLE clinic_pregnancy ADD COLUMN '.$col.' '.$type);
+        $this->db->exec('CREATE TABLE IF NOT EXISTS clinic_pregnancy_photo (
+            partner_id VARCHAR(80) NOT NULL, patient_id VARCHAR(80) NOT NULL, kind VARCHAR(8) NOT NULL, image MEDIUMTEXT NULL, note VARCHAR(500) NOT NULL DEFAULT \'\',
+            updated_at INT UNSIGNED NOT NULL, PRIMARY KEY (partner_id,patient_id,kind)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci');
         $this->db->exec('CREATE TABLE IF NOT EXISTS clinic_pregnancy_call (
             partner_id VARCHAR(80) NOT NULL, patient_id VARCHAR(80) NOT NULL, mating DATE NOT NULL, milestone VARCHAR(12) NOT NULL,
             called_by VARCHAR(120) NOT NULL, called_at INT UNSIGNED NOT NULL, PRIMARY KEY (partner_id,patient_id,mating,milestone)
@@ -69,7 +93,7 @@ final class Pregnancy
     private static function row(array $r): array
     {
         $plan=self::plan($r['mating'],$r['species']);
-        return ['patient'=>$r['patient_id'],'ended'=>$r['ended'],'litter'=>isset($r['litter'])?(int)$r['litter']:null,'healthy'=>isset($r['healthy'])?(int)$r['healthy']:null,
+        return ['patient'=>$r['patient_id'],'ended'=>$r['ended'],'litter'=>isset($r['litter'])?(int)$r['litter']:null,'healthy'=>isset($r['healthy'])?(int)$r['healthy']:null,'expected'=>isset($r['expected'])?(int)$r['expected']:null,'checks'=>self::checks($r['checks'] ?? null),'photos'=>[],
             'endedBy'=>$r['ended_by']??null,'endedAuthor'=>$r['ended_author']??null,'name'=>$r['pet_name']??'','source'=>$r['source'],'author'=>$r['author']]+$plan;
     }
 
@@ -99,7 +123,16 @@ final class Pregnancy
             $out[$r['patient_id']]=$item;
         }
         if ($expired) {
-            $this->db->prepare('DELETE FROM clinic_pregnancy WHERE partner_id=? AND patient_id IN ('.implode(',',array_fill(0,count($expired),'?')).')')->execute([$partner,...$expired]);
+            $in=implode(',',array_fill(0,count($expired),'?'));
+            $this->db->prepare('DELETE FROM clinic_pregnancy WHERE partner_id=? AND patient_id IN ('.$in.')')->execute([$partner,...$expired]);
+            try { $this->db->prepare('DELETE FROM clinic_pregnancy_photo WHERE partner_id=? AND patient_id IN ('.$in.')')->execute([$partner,...$expired]); } catch (\PDOException) {}
+        }
+        if ($out) {
+            try {
+                $q=$this->db->prepare('SELECT patient_id,kind,note,updated_at,image IS NOT NULL AS has_image FROM clinic_pregnancy_photo WHERE partner_id=? AND patient_id IN ('.implode(',',array_fill(0,count($out),'?')).')');
+                $q->execute([$partner,...array_keys($out)]);
+                foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $ph) $out[$ph['patient_id']]['photos'][$ph['kind']]=['note'=>$ph['note'],'image'=>(bool)$ph['has_image'],'v'=>(int)$ph['updated_at']];
+            } catch (\PDOException $e) { if ($e->getCode()!=='42S02') throw $e; }
         }
         return $out;
     }
@@ -113,7 +146,72 @@ final class Pregnancy
         $action=(string)($body->action ?? '');
         if ($action==='clear') {
             $this->db->prepare('DELETE FROM clinic_pregnancy WHERE partner_id=? AND patient_id=?')->execute([$partner,$patient]);
+            $this->db->prepare('DELETE FROM clinic_pregnancy_photo WHERE partner_id=? AND patient_id=?')->execute([$partner,$patient]);
             return ['pregnancy'=>null];
+        }
+        if ($action==='check') {
+            // Ultrason / röntgen kontrolü: tarih, görülen yavru sayısı, kalp atışı (canlılık), amnion sıvısı ve not. Yalnız klinik girer.
+            if ($source!=='clinic') throw new RuntimeException('Kontrol sonucunu klinik girer.',403);
+            $cur=$this->forPatients($partner,[$patient])[$patient] ?? null;
+            if (!$cur) throw new RuntimeException('Önce gebelik takibini başlatın.',422);
+            if ($cur['ended']) throw new RuntimeException('Doğum kaydedildi; kontrol sonucu eklenemez.',422);
+            $kind=(string)($body->kind ?? '');
+            if (!in_array($kind,self::CHECKS,true)) throw new RuntimeException('Kontrol türü geçersiz.',422);
+            $date=isset($body->date)&&$body->date!==''?self::date($body->date):self::today();
+            if ($date>self::today() || $date<$cur['mating']) throw new RuntimeException('Kontrol tarihi çiftleşme ile bugün arasında olmalı.',422);
+            $count=isset($body->count)&&$body->count!==''&&$body->count!==null?(int)$body->count:null;
+            if ($count!==null && ($count<0||$count>20)) throw new RuntimeException('Yavru sayısı 0 ile 20 arasında olmalı.',422);
+            $heart=(string)($body->heart ?? '');
+            if (!in_array($heart,['','heard','not'],true)) throw new RuntimeException('Kalp atışı seçimi geçersiz.',422);
+            $fluid=(string)($body->fluid ?? '');
+            if (!in_array($fluid,['','Az','Normal','Fazla'],true)) throw new RuntimeException('Amnion sıvısı seçimi geçersiz.',422);
+            $checks=$cur['checks'];
+            if (!empty($body->remove)) unset($checks[$kind]);
+            else $checks[$kind]=['date'=>$date,'count'=>$count,'heart'=>$heart,'fluid'=>$fluid,'note'=>mb_substr(trim((string)($body->note ?? '')),0,300,'UTF-8'),'by'=>mb_substr($author,0,120)];
+            // Beklenen yavru sayısı: röntgen (iskelet sayımı) varsa o, yoksa ultrason sayısı.
+            $expected=$checks['xray']['count'] ?? $checks['us']['count'] ?? $cur['expected'];
+            if ($expected===0) $expected=null;
+            $this->db->prepare('UPDATE clinic_pregnancy SET checks=?,expected=?,updated_at=? WHERE partner_id=? AND patient_id=?')
+                ->execute([$checks?json_encode($checks,JSON_UNESCAPED_UNICODE):null,$expected,$now,$partner,$patient]);
+            return ['pregnancy'=>$this->forPatients($partner,[$patient])[$patient] ?? null];
+        }
+        if ($action==='photo') {
+            // Anı fotoğrafları: Aile, Ultrason, Röntgen (+ not). Hasta sahibi yalnız Aile fotoğrafını değiştirebilir.
+            $cur=$this->forPatients($partner,[$patient])[$patient] ?? null;
+            if (!$cur) throw new RuntimeException('Önce gebelik takibini başlatın.',422);
+            $kind=(string)($body->kind ?? '');
+            if (!in_array($kind,self::PHOTOS,true)) throw new RuntimeException('Fotoğraf türü geçersiz.',422);
+            if ($source!=='clinic' && $kind!=='family') throw new RuntimeException('Ultrason ve röntgen fotoğrafını klinik ekler.',403);
+            if (!empty($body->remove)) {
+                $this->db->prepare('DELETE FROM clinic_pregnancy_photo WHERE partner_id=? AND patient_id=? AND kind=?')->execute([$partner,$patient,$kind]);
+                return ['pregnancy'=>$this->forPatients($partner,[$patient])[$patient] ?? null];
+            }
+            $image=null;
+            if (isset($body->image) && $body->image!==null && $body->image!=='') {
+                $image=(string)$body->image;
+                if (strlen($image)>self::PHOTO_MAX || !preg_match('#\Adata:image/(jpeg|png|webp);base64,[A-Za-z0-9+/]+=*\z#',$image)) throw new RuntimeException('Fotoğraf JPEG, PNG veya WEBP olmalı ve 1,5 MB\'ı geçmemeli.',422);
+                $raw=base64_decode(substr($image,strpos($image,',')+1),true);
+                if ($raw===false || @getimagesizefromstring($raw)===false) throw new RuntimeException('Fotoğraf okunamadı.',422);
+            }
+            $note=mb_substr(trim(preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F]/u','',(string)($body->note ?? '')) ?? ''),0,500,'UTF-8');
+            $keep=!isset($body->image);
+            $this->db->prepare('INSERT INTO clinic_pregnancy_photo(partner_id,patient_id,kind,image,note,updated_at) VALUES (?,?,?,?,?,?)
+                ON DUPLICATE KEY UPDATE image=IF(?,image,VALUES(image)),note=VALUES(note),updated_at=VALUES(updated_at)')
+                ->execute([$partner,$patient,$kind,$image,$note,$now,$keep?1:0]);
+            return ['pregnancy'=>$this->forPatients($partner,[$patient])[$patient] ?? null];
+        }
+        if ($action==='expected') {
+            // Ultrason / röntgende (45. gün) görülen yavru sayısı: cetvelin sonunda o kadar yavru gösterilir. Boş = bilinmiyor.
+            $expected=isset($body->expected)&&$body->expected!==''&&$body->expected!==null?(int)$body->expected:null;
+            if ($expected!==null && ($expected<1||$expected>20)) throw new RuntimeException('Beklenen yavru sayısı 1 ile 20 arasında olmalı.',422);
+            $q=$this->db->prepare('UPDATE clinic_pregnancy SET expected=?,updated_at=? WHERE partner_id=? AND patient_id=? AND ended IS NULL');
+            $q->execute([$expected,$now,$partner,$patient]);
+            if ($q->rowCount()===0) {
+                $cur=$this->forPatients($partner,[$patient])[$patient] ?? null;
+                if (!$cur) throw new RuntimeException('Önce gebelik takibini başlatın.',422);
+                if ($cur['ended']) throw new RuntimeException('Doğum kaydedildi; yavru sayısını doğum bilgisinden düzenleyin.',422);
+            }
+            return ['pregnancy'=>$this->forPatients($partner,[$patient])[$patient] ?? null];
         }
         if ($action==='end') {
             $ended=isset($body->ended)?self::date($body->ended):self::today();
@@ -131,8 +229,11 @@ final class Pregnancy
         if ($mating>$today) throw new RuntimeException('Çiftleşme tarihi ileri bir tarih olamaz.',422);
         if ($mating<self::add($today,-75)) throw new RuntimeException('Bu çiftleşme tarihine göre doğum süresi geçmiş görünüyor. Tarihi kontrol edin.',422);
         $name=mb_substr(trim((string)($body->name ?? '')),0,120);
+        $prev=$this->db->prepare('SELECT ended FROM clinic_pregnancy WHERE partner_id=? AND patient_id=?');
+        $prev->execute([$partner,$patient]);
+        if ($prev->fetchColumn()) $this->db->prepare('DELETE FROM clinic_pregnancy_photo WHERE partner_id=? AND patient_id=?')->execute([$partner,$patient]);
         $this->db->prepare('INSERT INTO clinic_pregnancy(partner_id,patient_id,species,mating,ended,source,author,pet_name,updated_at) VALUES (?,?,?,?,NULL,?,?,?,?)
-            ON DUPLICATE KEY UPDATE species=VALUES(species),mating=VALUES(mating),ended=NULL,litter=NULL,healthy=NULL,ended_by=NULL,ended_author=NULL,source=VALUES(source),author=VALUES(author),
+            ON DUPLICATE KEY UPDATE expected=IF(ended IS NULL,expected,NULL),checks=IF(ended IS NULL,checks,NULL),species=VALUES(species),mating=VALUES(mating),ended=NULL,litter=NULL,healthy=NULL,ended_by=NULL,ended_author=NULL,source=VALUES(source),author=VALUES(author),
             pet_name=IF(VALUES(pet_name)<>\'\',VALUES(pet_name),pet_name),updated_at=VALUES(updated_at)')
             ->execute([$partner,$patient,$species,$mating,$source,mb_substr($author,0,120),$name,$now]);
         return ['pregnancy'=>$this->forPatients($partner,[$patient])[$patient] ?? null];

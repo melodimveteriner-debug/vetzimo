@@ -615,14 +615,14 @@ async function portal() {
   // Doğum takip cetveli: dişi kedi/köpek için hasta sahibi çiftleşme tarihini girer, klinik kaydı da burada görünür.
   if (Array.isArray(data.pregnancies)) {
     const eligible=data.pets.filter(row=>["Kedi","Köpek"].includes(row.species)&&row.sex==="Dişi");
-    if (eligible.length) import("./pregnancy-ui.js?v=6").then(({mountPregnancy})=>{
+    if (eligible.length) import("./pregnancy-ui.js?v=8").then(({mountPregnancy})=>{
       for (const row of eligible) {
         const host=el("div","",{className:"owner-pregnancy"});
         const current=data.pregnancies.find(p=>p.patient===row.id)||null;
         if (current||session.scopeId) {
           if (eligible.length>1) host.append(el("h3",row.name,{className:"owner-pregnancy-name"}));
           const slot=el("div");host.append(slot);pets.append(host);
-          mountPregnancy(slot,{patient:row,owner:true,tr:uiLabel,canWrite:!!session.scopeId,load:()=>current,
+          mountPregnancy(slot,{patient:row,owner:true,tr:uiLabel,canWrite:!!session.scopeId,load:()=>current,photo:async kind=>(await api("pregnancy-photo?patient="+encodeURIComponent(row.id)+"&kind="+kind)).image||null,
             save:async body=>(await api("pregnancy",{...body,patient:row.id,name:row.name},session.scopeId)).pregnancy||null});
         }
       }

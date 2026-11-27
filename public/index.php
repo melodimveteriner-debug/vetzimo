@@ -659,11 +659,15 @@ try {
         $grant=ClinicAccess::modules($clinicActor)->patients ?? 'none';
         if ($clinicActor['role']!=='dealer' && !in_array($grant,$method==='POST'?['write']:['read','write'],true)) throw new RuntimeException('Hasta erişiminiz yok.',403);
         $pregnancy=new VetNet\Cpanel\Pregnancy($db);
+        if ($method==='GET' && isset($_GET['photo'])) {
+            header('Cache-Control: private, max-age=300');
+            reply(['image'=>$pregnancy->photo($clinicActor['partner_id'],(string)($_GET['patient'] ?? ''),(string)$_GET['photo'])]);
+        }
         if ($method==='GET') {
             $ids=is_string($_GET['ids'] ?? null)?array_slice(explode(',',$_GET['ids']),0,200):[];
             reply(['items'=>array_values($pregnancy->forPatients($clinicActor['partner_id'],$ids))]);
         }
-        $body=input(2048);
+        $body=input(2300000);
         if (!isset($body->action) && ($body->sex ?? '')!=='Dişi') throw new RuntimeException('Doğum takibi yalnızca dişi hastalar için eklenebilir.',422);
         reply($pregnancy->save($clinicActor['partner_id'],(string)($body->patient ?? ''),(string)($body->species ?? ''),$body,'clinic',(string)($clinicActor['name'] ?? ''),$now));
     }
@@ -1691,11 +1695,19 @@ try {
                 }
                 reply($portal);
             }
+            if($action==='pregnancy-photo') {
+                // Hasta sahibi kendi hayvanının gebelik anı fotoğraflarını görür.
+                $portal=$identity->portal($actor);
+                $petId=(string)($_GET['patient'] ?? '');
+                if(!in_array($petId,array_column($portal['pets'],'id'),true)) throw new RuntimeException('Hayvan bulunamadı.',404);
+                header('Cache-Control: private, max-age=300');
+                reply(['image'=>(new VetNet\Cpanel\Pregnancy($db))->photo($actor['partner_id'],$petId,(string)($_GET['kind'] ?? ''))]);
+            }
             if($action==='directory') reply($identity->directory($actor));
             if($action==='role-presets') reply(['presets'=>$identity->rolePresets($actor)]);
         }
         if($method==='POST') {
-            $body=input($action==='share'?550000:18000);
+            $body=input($action==='share'?550000:($action==='pregnancy'?2300000:18000));
             $scope=$_SERVER['HTTP_X_VETNET_SCOPE'] ?? '';
             if($action==='pregnancy') {
                 // Hasta sahibi kendi kedi/köpeği için çiftleşme tarihi girer; takip ve hatırlatmalar başlar.
@@ -1706,7 +1718,7 @@ try {
                 if(!$pet) throw new RuntimeException('Hayvan bulunamadı.',404);
                 if(($pet['sex'] ?? '')!=='Dişi') throw new RuntimeException('Doğum takibi yalnızca dişi hastalar için eklenebilir.',422);
                 $action2=(string)($body->action ?? '');
-                if($action2!=='' && $action2!=='end') throw new RuntimeException('İşlem geçersiz.',422);
+                if(!in_array($action2,['','end','expected','photo'],true)) throw new RuntimeException('İşlem geçersiz.',422);
                 reply((new VetNet\Cpanel\Pregnancy($db))->save($actor['partner_id'],$pet['id'],(string)($pet['species'] ?? ''),$body,'owner',(string)$actor['name'],$now));
             }
             if($action==='select') {
