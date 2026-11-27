@@ -538,7 +538,7 @@ final class OmniInbox
         if ($set === null) return '';
         $phones = [];
         if ($clientId !== '') {
-            $q = $this->db->prepare("SELECT record_data FROM clinic_record WHERE set_id=? AND collection='clients' AND row_key=?");
+            $q = $this->db->prepare("SELECT record_data FROM clinic_record WHERE set_id=? AND collection='clients' AND record_id=?");
             $q->execute([$set, $clientId]);
             $rows = $q->fetchAll(PDO::FETCH_COLUMN);
         } else {

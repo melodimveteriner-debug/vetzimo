@@ -22,7 +22,7 @@ export function compareBranches({ dealer, reports, salesAccess, collectionsAcces
     group.receipts += cents(sale.paid);
   }
   for (const collection of state.collections) {
-    if (included(collection)) groups.get(collection.branch).receipts += cents(collection.amount);
+    if (collection.method !== "Borç silme" && included(collection)) groups.get(collection.branch).receipts += cents(collection.amount);
   }
   return Array.from(groups.values());
 }

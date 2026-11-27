@@ -280,7 +280,21 @@ def main():
         else:
             sale['items'] = json.dumps([{'name': sale['detail'], 'quantity': '1', 'price': from_cents(amount), 'vat': '0', 'taxMode': 'KDV Dahil', 'stock': 'Hayır'}], ensure_ascii=False)
             report['sales']['kalem uyuşmadı: tek kalem olarak alındı'] += 1
-        sales[sid] = (sale, amount)
+        # İndirim adayları: satış kaydındaki indirim alanları ve (varsa) farklı ikinci toplam alanı. Kaynakta indirim
+        # tutardan düşülmemişse müşteri yalnız indirimli tutarı öder; fark sonradan "borç" görünmesin diye aşağıda
+        # tahsilat toplamıyla birebir doğrulanarak düzeltilir.
+        cands = set()
+        for k, v in x.items():
+            if isinstance(v, (dict, list)):
+                continue
+            if re.search(r'discount|indirim|iskonto', k, re.I):
+                d = cents(v)
+                if 0 < d < amount:
+                    cands.add(d)
+        alt = cents(x.get('total_price'))
+        if 0 < alt < amount:
+            cands.add(amount - alt)
+        sales[sid] = (sale, amount, lines if lines and len(lines) <= 30 else None, gross, cands)
     paid = Counter()
     method_map = {'Nakit': 'Nakit', 'Kredi Kartı': 'Kart', 'Banka Kartı': 'Kart', 'Havale & Eft': 'Havale', 'Çek - Senet': 'Çek / Senet', 'Diğer': 'Diğer'}
     last_method = {}
@@ -293,7 +307,7 @@ def main():
         if amt <= 0:
             report['collections']['atlandı: tutar 0'] += 1
             continue
-        sale, total = sales[oid]
+        sale, total = sales[oid][0], sales[oid][1]
         if paid[oid] + amt > total:
             amt = total - paid[oid]
             report['collections']['fazla tahsilat kırpıldı'] += 1
@@ -304,13 +318,29 @@ def main():
         last_method[oid] = method_map.get(s(t.get('payment_method')), 'Diğer')
         rec['collections'].append({k: v for k, v in {'id': 't-' + s(t.get('id')), 'sale': 's-' + oid, 'date': d,
                                                      'amount': from_cents(amt), 'method': last_method[oid], 'notes': s(t.get('notes'))}.items() if v != ''})
-    for oid, (sale, _) in sales.items():
+    # Kaynakta indirim satış tutarından düşülmemiş satışlar: tahsilat toplamı = tutar − indirim ise satış indirimli tutarla alınır.
+    for oid, (sale, total, lines, gross, cands) in list(sales.items()):
+        got = paid[oid]
+        if 0 < got < total and (total - got) in cands:
+            sale['amount'] = from_cents(got)
+            if lines and gross >= got:
+                sale['items'] = json.dumps(lines, ensure_ascii=False)
+                sale.pop('discount', None); sale.pop('discountType', None)
+                if gross > got:
+                    sale['discount'] = from_cents(gross - got)
+                    sale['discountType'] = 'GenelToplamTL'
+            else:
+                sale['items'] = json.dumps([{'name': sale['detail'], 'quantity': '1', 'price': from_cents(total), 'vat': '0', 'taxMode': 'KDV Dahil',
+                                             'stock': 'Hayır', 'discountAmount': from_cents(total - got)}], ensure_ascii=False)
+            sales[oid] = (sale, got, lines, gross, cands)
+            report['sales']['satış indirimi tutardan düşüldü (sahte borç önlendi)'] += 1
+    for oid, (sale, *_rest) in sales.items():
         if oid in last_method:
             sale['method'] = last_method[oid]
         rec['sales'].append({k: v for k, v in sale.items() if v != ''})
     report['sales']['aktarılacak'] = len(rec['sales'])
     report['collections']['aktarılacak'] = len(rec['collections'])
-    open_total = sum(t - paid[o] for o, (_, t) in sales.items())
+    open_total = sum(v[1] - paid[o] for o, v in sales.items())
 
     # Kimliklere tablo öneki (aynı numara farklı tablolarda çakışmasın)
     pref = {'clients': 'c-', 'patients': 'p-', 'vaccineCatalog': 'v-'}

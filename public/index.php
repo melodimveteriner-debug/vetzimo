@@ -12,7 +12,7 @@ use VetNet\Cpanel\SessionRepository;
 
 require_once dirname(__DIR__).'/src/StaffPlan.php';
 
-foreach (['AddonPackages','ClinicGuide','ClinicLegal','PartnerLifecycle','SiteContact','MarketFooter','MarketContactPage','AppHub','AppDownloads','DemoAuto','CenterContact','SubscriptionReminders','OwnerPayment','ClinicRecords','ClinicChanges','ColdStorage','OutboundLimit','CronGuard','SystemHealth','AppPush','DeviceHub','VisitTracker','ReviewLink','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','SaasPayment','DealerAgreement','CenterAnalytics','ClinicAlerts','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebThemeDemo','Pregnancy','DailyNote','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','TeamTotp','WebInbox','MinistryBridge','SiteLegal','OmniInbox','PhoneGateway','ClientPermit','PrintTemplates','Support','Commerce','Appearance'] as $class) {
+foreach (['AddonPackages','ClinicGuide','ClinicLegal','PartnerLifecycle','SiteContact','MarketFooter','MarketContactPage','AppHub','AppDownloads','DemoAuto','CenterContact','SubscriptionReminders','OwnerPayment','ClinicRecords','ClinicChanges','ColdStorage','OutboundLimit','CronGuard','SystemHealth','BusinessReport','AppPush','DeviceHub','VisitTracker','ReviewLink','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','SaasPayment','DealerAgreement','CenterAnalytics','ClinicAlerts','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebThemeDemo','Pregnancy','DailyNote','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','TeamTotp','WebInbox','MinistryBridge','SiteLegal','OmniInbox','PhoneGateway','ClientPermit','PrintTemplates','Support','Commerce','Appearance'] as $class) {
     require_once dirname(__DIR__) . '/src/' . $class . '.php';
 }
 
@@ -666,6 +666,15 @@ try {
         $body=input(2048);
         if (!isset($body->action) && ($body->sex ?? '')!=='Dişi') throw new RuntimeException('Doğum takibi yalnızca dişi hastalar için eklenebilir.',422);
         reply($pregnancy->save($clinicActor['partner_id'],(string)($body->patient ?? ''),(string)($body->species ?? ''),$body,'clinic',(string)($clinicActor['name'] ?? ''),$now));
+    }
+    if ($path==='/api/clinic/business-report' && $method==='GET') {
+        // İşletme analizi: arşiv dahil tüm kayıtlardan sunucuda hesaplanır; yalnız özet döner.
+        $reportActor=$workspaces->actor($_COOKIE,$now);
+        if (!hash_equals((string)$reportActor['membership_id'],(string)($_SERVER['HTTP_X_VETNET_SCOPE'] ?? ''))) throw new RuntimeException('Çalışma alanı oturumu değişti.',409);
+        $branchParam=isset($_GET['branch'])?(string)$_GET['branch']:null;
+        if ($branchParam!==null && $branchParam!=='' && !preg_match('/\A[A-Za-z0-9_-]{1,80}\z/',$branchParam)) throw new RuntimeException('Şube geçersiz.',422);
+        header('Cache-Control: private, no-store');
+        reply((new VetNet\Cpanel\BusinessReport($db))->build($reportActor,(string)($_GET['from'] ?? ''),(string)($_GET['to'] ?? ''),$branchParam));
     }
     if ($path==='/api/clinic/owner-payments' && in_array($method,['GET','POST'],true)) {
         $clinicActor=$workspaces->actor($_COOKIE,$now,$method==='POST');

@@ -63,4 +63,21 @@ $modules=json_decode((string)$db->query("SELECT modules FROM identity_membership
 ok($modules['appointments']==='write' && $modules['sales']==='read' && $modules['expenses']==='none','uygulanan şablon üyeliğe yazılmalı');
 ok((int)$db->query("SELECT COUNT(*) FROM identity_session WHERE membership_id=".$db->quote($member))->fetchColumn()===0,'izin değişince oturum kapanmalı');
 rejected(403,fn()=>$identity->saveRolePreset($staffActor,$member,(object)['label'=>'X','modules'=>(object)[]],$now),'personel şablon düzenleyememeli');
+// 5) Borç silme: kasaya girmez (defterde 0); tahsilat yazma izni olan ama "Tahsilat iptali ve borç silme" izni olmayan personel yapamaz
+$link2=$identity->invite($fresh,$scope,(object)['phone'=>'05551000044','name'=>'Muhasebe','role'=>'staff','branchId'=>'merkez','customerId'=>'','method'=>'in-person','verifiedInPerson'=>true,'modules'=>(object)['sales'=>'write','expenses'=>'write']],$now)['link'];
+$identity->redeem((object)['token'=>substr($link2,strrpos($link2,'/')+1),'password'=>'Muh-secret-4242'],$now);
+$acc=$cookies($login->signIn('05551000044','Muh-secret-4242','192.0.2.42',$now)); $accActor=$identity->actor($acc,$now);
+$wo=fn(string $id)=>['collections'=>['prepend'=>[['id'=>$id,'branch'=>'merkez','sale'=>'x2','date'=>'2026-11-02','amount'=>'50','method'=>'Borç silme','notes'=>'Borç silindi']],'update'=>[],'append'=>[]]];
+$d=$work->read($dealer,$now); $st=$d['state'];
+$st->sales[]=(object)['id'=>'x2','branch'=>'merkez','client'=>'c1','date'=>'2026-11-02','amount'=>'80','paid'=>'0','detail'=>'Aşı','method'=>'Nakit',
+  'items'=>json_encode([['name'=>'Aşı','quantity'=>'1','price'=>'80','vat'=>'0','taxMode'=>'KDV Dahil','stock'=>'Hayır']]),'stockAllocations'=>'[]'];
+$api->save($dealer,$scope,$now,(object)['revision'=>$d['revision'],'state'=>$st]);
+rejected(403,fn()=>$api->save($acc,$accActor['membership_id'],$now,(object)['revision'=>$work->read($acc,$now)['revision'],'patch'=>json_decode(json_encode($wo('w1')))]),'yetkisiz personel borç silmemeli');
+$api->save($dealer,$scope,$now,(object)['revision'=>$work->read($dealer,$now)['revision'],'patch'=>json_decode(json_encode($wo('w2')))]);
+ok((int)$db->query("SELECT amount_cents FROM finance_entry WHERE source_id='w2'")->fetchColumn()===0,'borç silme kasaya para olarak girmemeli');
+// 6) İşletme analizi: yönetici görür ve hesap doğrudur; "Ciro ve satış toplamları" izni olmayan personel göremez
+$rep=(new VetNet\Cpanel\BusinessReport($db))->build($identity->actor($dealer,$now),'2026-11-01','2026-11-30','');
+ok($rep['kpi']['revenue']===18000 && $rep['kpi']['count']===2 && $rep['kpi']['writeOffs']===5000 && $rep['debt']['total']===3000,'analiz toplamları: '.json_encode([$rep['kpi']['revenue'],$rep['kpi']['writeOffs'],$rep['debt']['total']]));
+ok(!VetNet\Cpanel\BusinessReport::allowed($accActor),'ciro izni olmayan personel analizi görmemeli');
+rejected(403,fn()=>(new VetNet\Cpanel\BusinessReport($db))->build($accActor,'2026-11-01','2026-11-30',null),'analiz yetkisiz personele kapalı olmalı');
 echo "permissions ok\n";

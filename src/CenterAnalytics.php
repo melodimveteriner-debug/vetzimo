@@ -52,7 +52,7 @@ final class CenterAnalytics
             return $rows;
         };
         $out['sales'] = $read('sales', $from);
-        $out['collections'] = $read('collections', $from);
+        $out['collections'] = $read('collections', $from, "'$.amount'", "AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(record_data,'$.method')),'')<>'Borç silme'");
         $out['expenses'] = $read('expenses', $from, "'$.amount'", "AND JSON_UNQUOTE(JSON_EXTRACT(record_data,'$.type'))='Gider'");
         $out['payments'] = $read('payments', $from);
         $out['income'] = $read('expenses', $from, "'$.amount'", "AND JSON_UNQUOTE(JSON_EXTRACT(record_data,'$.type'))='Gelir'");

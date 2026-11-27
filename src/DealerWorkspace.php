@@ -12,6 +12,8 @@ require_once __DIR__ . '/ClinicOperationDeletion.php';
 
 final class DealerWorkspace
 {
+    /** Satışın açık bakiyesini kapatan, kasaya girmeyen kayıt (tahsilat yöntemi). */
+    public const WRITE_OFF = 'Borç silme';
     private readonly WorkspaceRepository $workspaces;
     private readonly SessionRepository $sessions;
 
@@ -106,6 +108,12 @@ final class DealerWorkspace
                     foreach($state->$type ?? [] as $row) if(!isset($prior[$row->id])) {
                         $amount=Finance::money($type==='sales'?($row->paid ?? '0'):$row->amount);
                         if($type==='payments'||($type==='expenses'&&$row->type==='Gider')) $amount=-$amount;
+                        // Borç silme: satışın bakiyesini kapatır ama kasaya para girmez (defterde 0). Yalnız yönetici veya
+                        // "Tahsilat iptali" yetkisi olan personel yapabilir; yetkisizse tüm kayıt geri alınır.
+                        if($type==='collections' && ($row->method ?? '')===self::WRITE_OFF) {
+                            if(!ClinicAccess::action($actor,'deleteCollections',true)) throw new RuntimeException('Borç silmek için yönetici veya "Tahsilat iptali" yetkisi gerekir.',403);
+                            $amount=0;
+                        }
                         $this->database->prepare('INSERT INTO finance_entry(partner_id,branch_id,source_type,source_id,entry_date,amount_cents,account_id) VALUES (?,?,?,?,?,?,?)')
                             ->execute([$actor['partner_id'],$row->branch,$type,$row->id,$row->date,$amount,$actor['account_id']]);
                     }

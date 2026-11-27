@@ -1075,3 +1075,9 @@ td [class*=badge],td [class*=status],td [class*=pill],td [class*=chip]{white-spa
 .vz-statement .open td{font-style:italic;color:var(--muted)}
 .vz-statement-note{margin:10px 0 0}
 @media (max-width:640px){.vz-statement th:nth-child(3),.vz-statement td:nth-child(3),.vz-statement th:nth-child(4),.vz-statement td:nth-child(4){display:none}.vz-statement tfoot td[colspan]{display:table-cell}}
+/* Raporlar › İşletme Analizi giriş kartı */
+.vz-biz-card{display:flex;align-items:center;gap:14px;padding:16px 18px;margin:0 0 14px;text-decoration:none;color:inherit;border:1px solid color-mix(in srgb,var(--accent,#5b43c2) 35%,transparent);background:linear-gradient(120deg,color-mix(in srgb,var(--accent,#5b43c2) 14%,transparent),color-mix(in srgb,var(--ocean,#2364ca) 8%,transparent));border-radius:18px;transition:transform .2s,box-shadow .2s}
+.vz-biz-card:hover{transform:translateY(-2px);box-shadow:0 12px 26px color-mix(in srgb,var(--accent,#5b43c2) 22%,transparent)}
+.vz-biz-card>span{display:grid;place-items:center;width:44px;height:44px;border-radius:14px;background:var(--accent,#5b43c2);color:#fff;flex:none}
+.vz-biz-card div{display:grid;gap:2px;flex:1;min-width:0}.vz-biz-card small{opacity:.78}
+.vz-balance .button{margin-left:8px}

@@ -17,8 +17,8 @@ export const accessModules = {
 export const actionNames={
   deletePatients:"Hasta silme",deleteClients:"Hasta sahibi silme",deleteAppointments:"Randevu silme",
   deleteHomeVisit:"Evde Hizmet başvurusu silme",deleteProducts:"Ürün ve hizmet silme",
-  deleteSales:"Satış iptali",deleteCollections:"Tahsilat iptali",deleteCash:"Kasa hareketi iptali",deleteNotes:"Not ve alım listesi silme",deleteMessages:"Mesaj taslağı silme",deleteTemplates:"Mesaj şablonu silme",
-  overviewSales:"Genel Bakış · Satış grafiği",smsSend:"Toplu SMS gönderimi",whatsappSend:"Toplu WhatsApp gönderimi",
+  deleteSales:"Satış iptali",deleteCollections:"Tahsilat iptali ve borç silme",deleteCash:"Kasa hareketi iptali",deleteNotes:"Not ve alım listesi silme",deleteMessages:"Mesaj taslağı silme",deleteTemplates:"Mesaj şablonu silme",
+  overviewSales:"Ciro ve satış toplamları (Genel Bakış grafiği, satış geçmişi Bugün/Bu hafta/Bu ay tutarları, işletme analizi)",smsSend:"Toplu SMS gönderimi",whatsappSend:"Toplu WhatsApp gönderimi",
   smsHistory:"SMS gönderim geçmişi",whatsappHistory:"WhatsApp gönderim geçmişi",backup:"Şube yedeği",
   dataImport:"Aktarım ve yedeği içe aktarma",spreadsheet:"Excel olarak indirme",cashCorrect:"Manuel kasa kaydı düzeltme",
 };
