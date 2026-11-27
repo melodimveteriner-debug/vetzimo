@@ -105,7 +105,7 @@ final class PhoneGateway
         return $this->status($actor, $now);
     }
 
-    /** Gelen kutusunda telefon kanalı (SMS: Android ajanı, WhatsApp: bilgisayardaki WhatsApp Web). */
+    /** Sohbette telefon kanalı (SMS: Android ajanı, WhatsApp: bilgisayardaki WhatsApp Web). */
     public function channel(string $partner, string $kind, int $now, string $provider = ''): array
     {
         $provider = $provider !== '' ? $provider : ($kind === 'sms' ? 'phone' : 'device');

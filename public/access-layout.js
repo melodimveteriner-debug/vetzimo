@@ -34,7 +34,7 @@ const glyphs={
 };
 const glyph=name=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${glyphs[name]||icons[name]}</svg>`;
 const menus={
-  phone:[["ÇALIŞMA ALANI",[["home","Genel Bakış"],["calendar","Randevular"],["inbox","Gelen Kutusu"]]],["KLİNİK İŞLEMLERİ",[["users","Müşteriler"],["paw","Hastalar"],["syringe","Aşı Takvimi"]]],["TİCARİ İŞLEMLER",[["cart","Satışlar"],["box","Ürünler"],["chart","Raporlar"]]]],
+  phone:[["ÇALIŞMA ALANI",[["home","Genel Bakış"],["calendar","Randevular"],["inbox","Sohbet"]]],["KLİNİK İŞLEMLERİ",[["users","Müşteriler"],["paw","Hastalar"],["syringe","Aşı Takvimi"]]],["TİCARİ İŞLEMLER",[["cart","Satışlar"],["box","Ürünler"],["chart","Raporlar"]]]],
   center:[["YÖNETİM",[["home","Panel"],["users","Bayiler"],["box","Paketler ve satış"]]],["İŞLEMLER",[["cart","Ödemeler"],["chart","Finans ve raporlar"],["inbox","İletişim"]]]],
   owner:[["PORTALIM",[["home","Genel Bakış"],["paw","Hayvanlarım"],["syringe","Aşı takvimi"],["calendar","Randevularım"],["shield","Onam formlarım"]]]],
 };

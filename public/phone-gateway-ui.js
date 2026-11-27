@@ -14,7 +14,7 @@ export function mountPhoneGateway(root,api){
  let paid=null,notice=null;import("./agent-access.js?v=1").then(m=>{notice=m.paidNotice;return m.agentAccess()}).then(a=>{paid=a.paid;if(data)draw()}).catch(()=>{});
  root.classList.add("pg-root");
  const strip=h("div",{class:"pg-strip"}),tabs=h("div",{class:"pg-tabs",role:"tablist"}),body=h("div",{class:"pg-body"});
- fill(root,h("header",{class:"pg-head"},h("div",{},h("h2",{text:tr("Telefon Bağlantısı")}),h("p",{class:"pg-muted",text:tr("Hatırlatma, toplu mesaj ve gelen kutusu yanıtları kliniğin kendi telefon numarasından gider. Ücretli SMS veya WhatsApp sağlayıcısı gerekmez.")}))),strip,tabs,body);
+ fill(root,h("header",{class:"pg-head"},h("div",{},h("h2",{text:tr("Telefon Bağlantısı")}),h("p",{class:"pg-muted",text:tr("Hatırlatma, toplu mesaj ve sohbet yanıtları kliniğin kendi telefon numarasından gider. Ücretli SMS veya WhatsApp sağlayıcısı gerekmez.")}))),strip,tabs,body);
  const netMsg=e=>e instanceof TypeError||/failed to fetch|networkerror|load failed/i.test(e?.message||"")?tr("Sunucuya ulaşılamadı. İnternet bağlantınızı kontrol edip tekrar deneyin."):e.message;
  const act=async(payload,ok)=>{try{data=await post(payload);ok&&toast(ok);draw()}catch(e){toast(netMsg(e))}};
 
@@ -44,7 +44,7 @@ export function mountPhoneGateway(root,api){
    data.canManage?h("button",{type:"button",class:"pg-btn danger",text:tr("Bağlantıyı kaldır"),onclick:()=>{if(confirm(tr("Bu telefonun bağlantısı kaldırılsın mı?")))act({action:"revoke",id:d.id},tr("Telefon bağlantısı kaldırıldı."))}}):null));
   return [
    h("section",{class:"pg-card"},h("h3",{},"📱 "+tr("SMS için Android telefon")),
-    h("p",{class:"pg-muted",text:tr("Kliniğin hattının takılı olduğu Android telefona küçük bir ajan kurulur. SMS'ler bu hattan gider, gelen SMS'ler Gelen Kutusu'na düşer. Telefon şarjda ve internete bağlı kalmalıdır.")}),
+    h("p",{class:"pg-muted",text:tr("Kliniğin hattının takılı olduğu Android telefona küçük bir ajan kurulur. SMS'ler bu hattan gider, gelen SMS'ler Sohbet'e düşer. Telefon şarjda ve internete bağlı kalmalıdır.")}),
     devices.length?h("div",{class:"pg-devices"},devices):h("p",{class:"pg-muted",text:tr("Henüz telefon bağlanmadı.")}),
     data.canManage?h("ol",{class:"pg-steps"},
      h("li",{},tr("Telefona F-Droid'den şu üç uygulamayı kurun: Termux, Termux:API, Termux:Boot (Google Play sürümleri eskidir).")),
@@ -54,7 +54,7 @@ export function mountPhoneGateway(root,api){
      h("li",{},tr("Ayarlar › Pil bölümünden Termux ve Termux:API için pil optimizasyonunu kapatın; Termux:Boot uygulamasını bir kez açın (telefon yeniden başlayınca ajan kendiliğinden açılır)."))):h("p",{class:"pg-muted",text:tr("Telefon eklemek için klinik yöneticisi yetkisi gerekir.")})),
    h("section",{class:"pg-card"},h("h3",{},"💬 "+tr("WhatsApp kliniğin kendi numarasından")),
     h("p",{},h("b",{text:tr("Yarı otomatik")+": "}),tr("Mesaj hazır metniyle WhatsApp'ta açılır, personel tek dokunuşla gönderir. Android ajanı bildirim gösterir; bilgisayardan da Gönderim kuyruğu sekmesindeki düğmeyle açılır. Hiçbir hesap riski yoktur.")),
-    h("p",{},h("b",{text:tr("Otomatik")+": "}),tr("Klinik bilgisayarındaki VetZimo ajanı (Bakanlık Köprüsü ile aynı program) kliniğin WhatsApp numarasına QR kodla bağlı cihaz olarak bağlanır ve mesajları kendisi gönderir, gelen mesajları Gelen Kutusu'na aktarır.")),
+    h("p",{},h("b",{text:tr("Otomatik")+": "}),tr("Klinik bilgisayarındaki VetZimo ajanı (Bakanlık Köprüsü ile aynı program) kliniğin WhatsApp numarasına QR kodla bağlı cihaz olarak bağlanır ve mesajları kendisi gönderir, gelen mesajları Sohbet'e aktarır.")),
     h("p",{class:"pg-muted"},tr("Ajan kurulu değilse Bakanlık Köprüsü sayfasından indirip eşleştirin; ardından ajan panelinde (http://127.0.0.1:5199) \"WhatsApp'ı bağla\" düğmesiyle QR kodunu okutun."),
      " ",h("a",{href:"#bakanlik-koprusu",text:tr("Bakanlık Köprüsü sayfası")})),
     h("p",{class:"pg-muted",text:tr("Bilgisayar ajanı durumu")+": "+(data.whatsappAgent.lastSeen?tr({ready:"WhatsApp bağlı",qr:"QR kodu bekleniyor",closed:"WhatsApp penceresi kapalı",offline:"çevrimdışı",error:"hata",off:"WhatsApp bağlanmadı"}[data.whatsappAgent.state]??data.whatsappAgent.state)+" · "+ago(data.whatsappAgent.lastSeen,tr):tr("henüz bağlanmadı"))}))];
@@ -95,15 +95,15 @@ export function mountPhoneGateway(root,api){
    h("p",{class:"pg-link"},h("span",{text:tr("Hangi mesajların (aşı, randevu, kontrol, doğum günü, borç) otomatik gideceğini ve kaç saat önce gideceğini seçmek için:")})," ",h("a",{class:"pg-btn",href:"#hatirlaticilar",text:tr("Otomatik SMS ve WhatsApp")})),
    h("h3",{text:tr("Gönderim zamanı")}),
    h("div",{class:"pg-grid"},field("Her gün başlangıç saati",f.sendStart),field("Kaç saat boyunca gönderilsin",f.sendHours,"Bitmeyen mesajlar ertesi gün aynı saatte devam eder.")),
-   h("p",{class:"pg-muted",text:tr("Hatırlatma ve toplu mesajlar sıraya alınır ve bu pencerede tek tek, aralıklı gönderilir. Gelen kutusundan yazılan yanıtlar ve onay formu bağlantıları beklemeden gider. Randevu saati geçen hatırlatma gönderilmez.")}),
+   h("p",{class:"pg-muted",text:tr("Hatırlatma ve toplu mesajlar sıraya alınır ve bu pencerede tek tek, aralıklı gönderilir. Sohbetten yazılan yanıtlar ve onay formu bağlantıları beklemeden gider. Randevu saati geçen hatırlatma gönderilmez.")}),
    h("h3",{text:"SMS"}),h("label",{class:"pg-check"},f.sms,h("span",{text:tr("SMS'leri kliniğin telefonundan gönder (Netgsm gerekmez)")})),h("label",{class:"pg-check"},f.ascii,h("span",{text:tr("Türkçe karakterleri sadeleştir (ş→s, ğ→g, ı→i): mesaj 160 karakterlik tek SMS'e sığar; Türkçe karakterli SMS 70 karakterde bölünür.")})),
    h("div",{class:"pg-grid"},field("SIM kartı",f.simSlot),field("Kaç saniyede bir (en az 60)",f.smsInterval,"Önerilen 75 sn: Android'in 30 dakikada 30 SMS sınırının altında kalır."),field("Günde en fazla",f.smsPerDay)),
    h("h3",{text:"WhatsApp"}),modes,riskBox,
    h("div",{class:"pg-grid"},field("Kaç saniyede bir (otomatik, en az 30)",f.waInterval,"Önerilen 120 sn (saatte yaklaşık 30 mesaj)."),field("Günde en fazla (otomatik)",f.waPerDay,"Yeni numarada ilk hafta 20-50 ile başlayın.")),
    h("label",{class:"pg-check"},f.both,h("span",{text:tr("Hatırlatmaları SMS ve WhatsApp'tan aynı anda gönder (müşterinin iki kanalda da izni varsa)")})),
    h("h3",{text:tr("Instagram, Facebook, Telegram ve WhatsApp mesajları")}),
-   h("label",{class:"pg-check"},f.apps,h("span",{text:tr("Uygulama mesajlarını Gelen Kutusu'na aktar (API ve ücret gerekmez)")})),
-   h("ol",{class:"pg-steps"},...["Bu telefonda klinik hesaplarınızla Instagram, Facebook Messenger, Telegram ve WhatsApp (Business) uygulamaları açık olsun.","Telefonda Ayarlar › Bildirimler › Bildirim erişimi bölümünden Termux:API'ye izin verin.","Gelen mesajlar bildirimden okunur ve Gelen Kutusu'na düşer. Yanıtınız telefonda \"Kopyala ve aç\" bildirimi olarak çıkar: dokunun, sohbete yapıştırıp gönderin. WhatsApp'ta numara biliniyorsa yanıt yukarıdaki WhatsApp ayarıyla gider."].map(x=>h("li",{text:tr(x)}))),
+   h("label",{class:"pg-check"},f.apps,h("span",{text:tr("Uygulama mesajlarını Sohbet'e aktar (API ve ücret gerekmez)")})),
+   h("ol",{class:"pg-steps"},...["Bu telefonda klinik hesaplarınızla Instagram, Facebook Messenger, Telegram ve WhatsApp (Business) uygulamaları açık olsun.","Telefonda Ayarlar › Bildirimler › Bildirim erişimi bölümünden Termux:API'ye izin verin.","Gelen mesajlar bildirimden okunur ve Sohbet'e düşer. Yanıtınız telefonda \"Kopyala ve aç\" bildirimi olarak çıkar: dokunun, sohbete yapıştırıp gönderin. WhatsApp'ta numara biliniyorsa yanıt yukarıdaki WhatsApp ayarıyla gider."].map(x=>h("li",{text:tr(x)}))),
    h("p",{class:"pg-muted",text:tr("Yalnızca bildirimi gelen yazılı mesajlar aktarılır; fotoğraf, sesli mesaj ve uygulama açıkken okunan mesajlar aktarılmaz.")}),
    plan,
    h("p",{class:"pg-muted",text:tr("Not: Bilgilendirme amaçlı hatırlatmalar için izin gerekmez; kampanya ve tanıtım iletileri için müşterinin onayı (İYS) gerekir. Sistem yalnızca SMS/WhatsApp izni \"Var\" olan müşterilere gönderir.")}),
@@ -126,7 +126,7 @@ export function mountPhoneGateway(root,api){
  }
  function queue(){
   const label={queued:"Bekliyor",claimed:"Gönderiliyor",sent:"Gönderildi",failed:"Gönderilemedi",unknown:"Belirsiz",cancelled:"İptal",expired:"Süresi geçti"};
-  const source={reminder:"Hatırlatma",bulk:"Toplu mesaj",inbox:"Gelen kutusu",test:"Deneme",manual:"Elle"};
+  const source={reminder:"Hatırlatma",bulk:"Toplu mesaj",inbox:"Sohbet",test:"Deneme",manual:"Elle"};
   const rows=data.outbox.filter(o=>filter==="all"||(filter==="wait"?["queued","claimed"].includes(o.status):filter==="problem"?["failed","unknown","expired"].includes(o.status):o.channel===filter));
   const assist=data.settings.whatsapp==="assist"?data.outbox.filter(o=>o.channel==="whatsapp"&&o.status==="queued"):[];
   return [

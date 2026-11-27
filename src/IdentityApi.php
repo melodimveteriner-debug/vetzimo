@@ -295,6 +295,115 @@ final class IdentityApi
             $this->db->commit();
         } catch(\Throwable $e) { $this->db->rollBack(); throw $e; }
     }
+    /**
+     * Görev şablonları (Danışma, Klinik personeli, Kasa personeli…): bayi adını ve izinlerini düzenler, yenisini ekler.
+     * Şablon yalnız bir izin kalıbıdır; personele uygulandığında üyeliğin kendi izinleri olarak yazılır ve sunucu onu uygular.
+     * Şablonda belirtilmeyen her izin KAPALI sayılır (açıkça verilmeyen yetki yoktur).
+     */
+    public const PRESET_DEFAULTS = [
+        'reception'=>['Danışma / Resepsiyon',['appointments'=>'write','clients'=>'write','patients'=>'read','followups'=>'write','sales'=>'read','messages'=>'read','overviewClients'=>'read','overviewPatients'=>'read',
+            'inbox'=>'write','permits'=>'write','consents'=>'write','reminders'=>'read','onlineBooking'=>'write','homeVisit'=>'read','taskBoard'=>'write','vebot'=>'write','voice'=>'write']],
+        'clinical'=>['Klinik personeli (hekim)',['appointments'=>'write','clients'=>'read','patients'=>'write','followups'=>'write','sales'=>'write','products'=>'read','reports'=>'read','overviewClients'=>'read','overviewPatients'=>'read',
+            'inbox'=>'read','consents'=>'write','bridge'=>'write','icu'=>'write','surgery'=>'write','homeCare'=>'write','homeVisit'=>'write','xray'=>'write','dicom'=>'write','labAi'=>'write','calculators'=>'write','devices'=>'write','taskBoard'=>'write','vebot'=>'write','voice'=>'write']],
+        'cashier'=>['Kasa personeli',['sales'=>'write','expenses'=>'write','clients'=>'read','patients'=>'read','appointments'=>'read','products'=>'read','reports'=>'read','overviewSales'=>'read',
+            'okc'=>'write','edocs'=>'write','debtReminders'=>'write','taskBoard'=>'write']],
+        'inventory'=>['Stok sorumlusu',['products'=>'write','sales'=>'read','reports'=>'read','invoiceImport'=>'write','bulkPrice'=>'write','taskBoard'=>'write']],
+    ];
+    private function ensurePresets(): void
+    {
+        $this->db->exec('CREATE TABLE IF NOT EXISTS identity_role_preset (partner_id CHAR(32) NOT NULL, id VARCHAR(40) NOT NULL, label VARCHAR(80) NOT NULL,
+            modules TEXT NOT NULL, position SMALLINT NOT NULL DEFAULT 0, updated_at INT UNSIGNED NOT NULL, PRIMARY KEY (partner_id,id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci');
+    }
+    /** Şablon izinlerini tam ve kapalı-varsayılan biçime getirir. */
+    private static function presetGrants(array $values): array
+    {
+        $keys=[...array_keys(ClinicAccess::MODULES),...array_unique(array_values(ClinicAccess::ACTION_GRANTS)),...array_keys(ClinicAccess::FEATURES)];
+        $out=[];
+        foreach ($keys as $key) {
+            $value=$values[$key] ?? 'none';
+            if (!in_array($value,['none','read','write'],true)) throw new RuntimeException('İzin değeri geçersiz.',422);
+            $out[$key]=$value;
+        }
+        return $out;
+    }
+    /** @return list<array{id:string,label:string,modules:array<string,string>,custom:bool}> */
+    public function rolePresets(array $actor): array
+    {
+        if (!in_array($actor['role'],['dealer','branch'],true)) throw new RuntimeException('Yönetici yetkisi gerekli.',403);
+        $rows=[];
+        try {
+            $q=$this->db->prepare('SELECT id,label,modules FROM identity_role_preset WHERE partner_id=? ORDER BY position,label');
+            $q->execute([$actor['partner_id']]);
+            $rows=$q->fetchAll(PDO::FETCH_ASSOC);
+        } catch (\PDOException $e) { if ($e->getCode()!=='42S02') throw $e; }
+        if (!$rows) {
+            // Hiç kaydedilmemişse hazır şablonlar gösterilir; bayi ilk düzenlemede kendi kopyasını oluşturur.
+            return array_map(fn($id)=>['id'=>$id,'label'=>self::PRESET_DEFAULTS[$id][0],'modules'=>self::presetGrants(self::PRESET_DEFAULTS[$id][1]),'custom'=>false],array_keys(self::PRESET_DEFAULTS));
+        }
+        return array_map(static fn($r)=>['id'=>$r['id'],'label'=>$r['label'],'modules'=>self::presetGrants(json_decode($r['modules'],true) ?: []),'custom'=>true],$rows);
+    }
+    /** Şablon kaydet / sil. Bayi yöneticisi; ilk değişiklikte hazır şablonlar bayinin kendi listesine kopyalanır. */
+    public function saveRolePreset(array $actor,string $scope,object $input,int $now): array
+    {
+        if ($actor['role']!=='dealer' || !hash_equals($actor['membership_id'],$scope)) throw new RuntimeException('Bayi yöneticisi yetkisi gerekli.',403);
+        $this->ensurePresets();
+        $this->db->beginTransaction();
+        try {
+            $this->lockPartner($actor['partner_id']);
+            $count=$this->db->prepare('SELECT COUNT(*) FROM identity_role_preset WHERE partner_id=?');$count->execute([$actor['partner_id']]);
+            $upsert=$this->db->prepare('INSERT INTO identity_role_preset(partner_id,id,label,modules,position,updated_at) VALUES (?,?,?,?,?,?)
+                ON DUPLICATE KEY UPDATE label=VALUES(label),modules=VALUES(modules),updated_at=VALUES(updated_at)');
+            if ((int)$count->fetchColumn()===0) {
+                $i=0; foreach (self::PRESET_DEFAULTS as $id=>[$label,$values]) $upsert->execute([$actor['partner_id'],$id,$label,json_encode(self::presetGrants($values)),$i++,$now]);
+            }
+            $id=is_string($input->id ?? null)?$input->id:'';
+            if ($id!=='' && !preg_match('/\A[a-z0-9-]{1,40}\z/',$id)) throw new RuntimeException('Şablon geçersiz.',422);
+            if (($input->delete ?? false)===true) {
+                $this->db->prepare('DELETE FROM identity_role_preset WHERE partner_id=? AND id=?')->execute([$actor['partner_id'],$id]);
+            } else {
+                $label=trim((string)($input->label ?? ''));
+                if (!preg_match('/\A[^\x00-\x1f<>]{1,80}\z/u',$label)) throw new RuntimeException('Şablon adı 1–80 karakter olmalıdır.',422);
+                $values=is_object($input->modules ?? null)?(array)$input->modules:[];
+                if ($id==='') {
+                    $count->execute([$actor['partner_id']]);
+                    if ((int)$count->fetchColumn()>=30) throw new RuntimeException('En fazla 30 görev şablonu oluşturulabilir.',422);
+                    $id='p-'.bin2hex(random_bytes(6));
+                }
+                $position=$this->db->prepare('SELECT COALESCE(MAX(position),0)+1 FROM identity_role_preset WHERE partner_id=?');$position->execute([$actor['partner_id']]);
+                $upsert->execute([$actor['partner_id'],$id,$label,json_encode(self::presetGrants($values)),(int)$position->fetchColumn(),$now]);
+            }
+            $this->audit($actor,'membership.presets');
+            $this->db->commit();
+        } catch (\Throwable $e) { if ($this->db->inTransaction()) $this->db->rollBack(); throw $e; }
+        return ['presets'=>$this->rolePresets($actor),'id'=>$id];
+    }
+    /** Şablonu seçilen şube yöneticisi / personel üyeliklerine uygular; oturumları kapanır, yeni izinler hemen geçerli olur. */
+    public function applyRolePreset(array $actor,string $scope,object $input,int $now): int
+    {
+        $this->sensitive($actor,$scope,$now);
+        $ids=is_array($input->membershipIds ?? null)?array_values(array_filter($input->membershipIds,'is_string')):[];
+        if (!$ids || count($ids)>200) throw new RuntimeException('Şablonun uygulanacağı personeli seçin.',422);
+        $preset=null; foreach ($this->rolePresets($actor) as $row) if ($row['id']===($input->id ?? null)) $preset=$row;
+        if (!$preset) throw new RuntimeException('Şablon bulunamadı.',404);
+        $this->db->beginTransaction();
+        try {
+            $this->lockPartner($actor['partner_id']);
+            $find=$this->db->prepare("SELECT id FROM identity_membership WHERE id=? AND partner_id=? AND role IN ('branch','staff')");
+            $update=$this->db->prepare('UPDATE identity_membership SET modules=? WHERE id=?');
+            $sessions=$this->db->prepare('DELETE FROM identity_session WHERE membership_id=?');
+            $done=0;
+            foreach ($ids as $id) {
+                $find->execute([$id,$actor['partner_id']]);
+                if (!$find->fetchColumn()) continue;
+                $update->execute([json_encode($preset['modules'],JSON_THROW_ON_ERROR),$id]);
+                $sessions->execute([$id]);
+                $done++;
+            }
+            $this->audit($actor,'membership.grants');
+            $this->db->commit();
+            return $done;
+        } catch (\Throwable $e) { if ($this->db->inTransaction()) $this->db->rollBack(); throw $e; }
+    }
     public function manage(array $actor,string $scope,string $action,object $input,int $now): void
     {
         $this->sensitive($actor,$scope,$now);

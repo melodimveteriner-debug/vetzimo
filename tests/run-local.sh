@@ -24,6 +24,7 @@ fresh test_scale;  run scale.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbnam
 fresh test_conc;  run concurrency.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_conc' php tests/concurrency.php
 fresh test_merge empty; run merge.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_merge' php tests/merge.php
 fresh test_cold;   run cold.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_cold' php -d memory_limit=1G tests/cold.php
+fresh test_perm empty; run permissions.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_perm' php tests/permissions.php
 fresh test_triage empty;  run homecare-triage.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_triage' php tests/homecare-triage.php
 command -v node >/dev/null && run homecare-triage.mjs node tests/homecare-triage.mjs
 command -v node >/dev/null && run xray-rules.mjs node tests/xray-rules.mjs

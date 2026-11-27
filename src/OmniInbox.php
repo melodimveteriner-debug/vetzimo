@@ -41,7 +41,7 @@ final class OmniInbox
     private static function guard(array $actor, bool $write): void
     {
         if (!in_array($actor['role'] ?? '', ['dealer', 'branch', 'staff'], true) || !ClinicAccess::allowed($actor, 'clients', $write)) {
-            throw new RuntimeException('Gelen kutusu için müşteri yetkisi gerekir.', 403);
+            throw new RuntimeException('Sohbet için müşteri yetkisi gerekir.', 403);
         }
     }
 

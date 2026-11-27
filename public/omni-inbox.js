@@ -49,7 +49,7 @@ export function mountOmniInbox(root,api){
   const b=st.boxes||{};const box=(key,label,count,icon)=>h("button",{type:"button",class:"ox-box"+(st.view==="inbox"&&st.box===key&&!st.channel?" on":""),onclick:()=>{st.view="inbox";st.box=key;st.channel="";setPane(st.sel?"chat":"list");st.thread?(drawChat(),drawCard()):drawChat();reload(!0)}},h("span",{text:tr(label)}),count?h("b",{text:String(count)}):null);
   const chans=Object.keys(KIND).map(k=>h("button",{type:"button",class:"ox-box"+(st.view==="inbox"&&st.channel===k?" on":""),onclick:()=>{st.view="inbox";st.channel=k;st.box="all";setPane("list");st.thread?(drawChat(),drawCard()):drawChat();reload(!0)}},h("span",{class:"ox-chl"},badge(k),tr(KIND[k].label)),st.chan[k]?h("b",{text:String(st.chan[k])}):null));
   fill(side,
-   h("div",{class:"ox-side-head"},h("strong",{text:tr("Gelen kutusu")}),b.unread?h("span",{class:"ox-new",text:b.unread+" "+tr("yeni")}):null),
+   h("div",{class:"ox-side-head"},h("strong",{text:tr("Sohbet")}),b.unread?h("span",{class:"ox-new",text:b.unread+" "+tr("yeni")}):null),
    box("open","Açık",b.open),box("mine","Bana atanan",b.mine),box("unassigned","Atanmamış",b.unassigned),box("snoozed","Ertelenmiş",b.snoozed),box("closed","Çözüldü",b.closed),box("all","Tümü",b.total),
    h("p",{class:"ox-group",text:tr("KANAL")}),...chans,
    h("p",{class:"ox-group",text:tr("AYARLAR")}),
@@ -208,7 +208,7 @@ export function mountOmniInbox(root,api){
   const phoneCard=h("article",{class:"ox-free"},
    h("div",{class:"ox-free-kinds"},...["sms","whatsapp","instagram","messenger","telegram"].map(k=>badge(k,22))),
    h("strong",{text:tr("Önerilen: Telefon Bağlantısı (ücretsiz)")}),
-   h("p",{text:tr("Kliniğin Android telefonuna VetZimo telefon uygulamasını bir kez kurun. SMS telefonun kendi hattından, WhatsApp kliniğin numarasından gider; Instagram, Facebook, Telegram ve WhatsApp'a gelen mesajlar telefonun bildirimlerinden Gelen Kutusu'na aktarılır. Netgsm, Meta API veya başka ücretli hizmet gerekmez.")}),
+   h("p",{text:tr("Kliniğin Android telefonuna VetZimo telefon uygulamasını bir kez kurun. SMS telefonun kendi hattından, WhatsApp kliniğin numarasından gider; Instagram, Facebook, Telegram ve WhatsApp'a gelen mesajlar telefonun bildirimlerinden Sohbet'e aktarılır. Netgsm, Meta API veya başka ücretli hizmet gerekmez.")}),
    h("a",{class:"ox-btn dark",href:"#telefon-baglantisi",text:tr("Telefon Bağlantısı'nı aç ve kur")}));
   const add=d.canManage?h("div",{class:"ox-add"},h("p",{class:"ox-group",text:tr("YENİ KANAL BAĞLA")}),phoneCard,
    h("p",{class:"ox-group",text:tr("ÜCRETSİZ · KENDİ HESABINIZLA")}),h("div",{class:"ox-add-grid"},addBtn("email","E-posta"),addBtn("telegram","Telegram botu")),

@@ -675,6 +675,7 @@ try {
         $body=input(20000);
         if (($body->op ?? '')==='settings') reply($pay->saveSettings($clinicActor,$body)+['callback'=>$origin.'/api/owner-pay/paytr']);
         if (($body->op ?? '')==='request') {
+            requireFeature($clinicActor,'debtReminders',true);
             (new DealerLogin($db,$config['rateSecret']))->throttle('pay-request:'.$clinicActor['account_id'],$now);
             reply($pay->request((new VetNet\Cpanel\Commerce($db))->packageActor($clinicActor),$body,$now,$origin));
         }
@@ -1682,6 +1683,7 @@ try {
                 reply($portal);
             }
             if($action==='directory') reply($identity->directory($actor));
+            if($action==='role-presets') reply(['presets'=>$identity->rolePresets($actor)]);
         }
         if($method==='POST') {
             $body=input($action==='share'?550000:18000);
@@ -1714,6 +1716,8 @@ try {
             if($action==='invite') reply($identity->invite($actor,$scope,$body,$now,$config));
             if($action==='resend') reply($identity->resend($actor,$scope,$body,$now,$config));
             if(in_array($action,['permissions','revoke','edit','delete'],true)) { $identity->manage($actor,$scope,$action,$body,$now); reply(['ok'=>true]); }
+            if($action==='role-presets') reply($identity->saveRolePreset($actor,$scope,$body,$now));
+            if($action==='role-presets-apply') reply(['updated'=>$identity->applyRolePreset($actor,$scope,$body,$now)]);
         }
     }
     if ($path === '/api/clinic/esmm' && in_array($method,['GET','POST'],true)) {

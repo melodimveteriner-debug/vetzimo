@@ -16,7 +16,7 @@ final class ClinicAccess
     ];
     /** Paketle açılıp kapatılan ve bayi yöneticisinin rol bazında verebildiği özellikler (anahtar => etiket). */
     public const FEATURES = [
-        'inbox'=>'Gelen kutusu (WhatsApp, Instagram, Facebook, Telegram, SMS, e-posta)','phoneGateway'=>'Telefon bağlantısı (kendi hattından SMS ve WhatsApp)',
+        'inbox'=>'Sohbet (WhatsApp, Instagram, Facebook, Telegram, SMS, e-posta)','phoneGateway'=>'Telefon bağlantısı (kendi hattından SMS ve WhatsApp)',
         'reminders'=>'Otomatik hatırlatmalar','bulkMessages'=>'Toplu mesaj','permits'=>'Müşteri onay formu (KVKK ve ileti izni)',
         'consents'=>'Dijital onam ve imza','edocs'=>'e-Fatura / e-Arşiv / e-SMM','bridge'=>'ATS (aşı takip) ve İTS (ilaç takip) · Bakanlık kayıtları',
         'icu'=>'Yoğun bakım panosu','surgery'=>'Ameliyat modülü','homeCare'=>'Evden takip','homeVisit'=>'Eve hizmet',
@@ -112,7 +112,10 @@ final class ClinicAccess
         if ($actor['role']==='dealer' && (!isset($actor['packageModules']) || self::module($collection)===null)) return !in_array($collection,['users','dealers'],true);
         if (!in_array($actor['role'],['dealer','branch','staff'],true)) return false;
         if($collection==='clinicNotes') return !$write || $actor['role']==='branch';
-        if($collection==='tasks') return true; // İş takibi panosu: klinik ekibinin ortak listesi.
+        // İş takibi panosu: klinik ekibinin ortak listesi; "İş takibi panosu" izni kapalıysa görülmez ve değiştirilemez.
+        if($collection==='tasks') return self::feature($actor,'taskBoard',$write);
+        // Ameliyat kayıtları hasta modülüne bağlıdır ama "Ameliyat modülü" izni kapalıysa erişilemez.
+        if($collection==='surgeries' && !self::feature($actor,'surgery',$write)) return false;
         $module=self::module($collection);
         $grant=self::modules($actor)->{$module ?? ''} ?? 'none';
         return $write ? $grant==='write' : in_array($grant,['read','write'],true);

@@ -7,7 +7,7 @@ const outcomes={active:"Personel hesabı etkin. Telefon ve belirlediğiniz şifr
 const memberStatus={pending:"Aktivasyon bekliyor",active:"Aktif",revoked:"Kapatıldı"};
 const rolePresets={reception:{appointments:"write",clients:"write",patients:"read",followups:"read"},clinical:{appointments:"read",clients:"read",patients:"write",followups:"write"},inventory:{products:"write",reports:"read"}};
 // Yeni özellikler (sunucu ClinicAccess::FEATURES): paket açıksa varsayılan olarak verilir, buradan kapatılabilir.
-const featureNames={inbox:"Gelen kutusu (tüm kanallar)",phoneGateway:"Telefon bağlantısı (kendi hattından SMS/WhatsApp)",reminders:"Otomatik hatırlatmalar",bulkMessages:"Toplu mesaj",
+const featureNames={inbox:"Sohbet (tüm kanallar)",phoneGateway:"Telefon bağlantısı (kendi hattından SMS/WhatsApp)",reminders:"Otomatik hatırlatmalar",bulkMessages:"Toplu mesaj",
   permits:"Müşteri onay formu (KVKK ve ileti izni)",consents:"Dijital onam ve imza",edocs:"e-Fatura / e-Arşiv / e-SMM",bridge:"Bakanlık köprüsü (e-Reçete ve aşı)",
   icu:"Yoğun bakım panosu",surgery:"Ameliyat modülü",homeCare:"Evden takip",homeVisit:"Eve hizmet",webSite:"Web sitesi ve web mesajları",onlineBooking:"Web randevu",
   vebot:"VeBot asistan",voice:"Sesli komut",xray:"Röntgen yapay zekâ yorumu",dicom:"DICOM görüntüleyici",labAi:"Laboratuvar yorum desteği",calculators:"Klinik hesaplayıcılar",
@@ -48,13 +48,24 @@ export async function mountClinicAccounts(ui,params) {
   function moduleFields(current={},customer=false) {
     return permissionMatrix({el,selectField,modules:customer?customerSections:{...moduleNames,...actionNames,...featureNames},current:customer?{...customerDefaults,...current}:{...Object.fromEntries(Object.keys(featureNames).map(k=>[k,"write"])),...current},
       readOnly:customer,initial:customer?"read":"none",title:customer?"Hasta sahibi portalı":"Modül erişim tablosu",
-      presets:customer?{}:{
-        reception:{label:"Resepsiyon",values:rolePresets.reception},
-        clinical:{label:"Klinik ekibi",values:rolePresets.clinical},
-        inventory:{label:"Stok sorumlusu",values:rolePresets.inventory},
-      },
+      presets:customer?{}:Object.fromEntries(presetList.map(item=>[item.id,{label:item.label,values:item.modules}])),
     });
   }
+
+  // Görev şablonları sunucudan gelir (bayi düzenler); yüklenemezse eski hazır kalıplar kullanılır.
+  let presetList=[{id:"reception",label:"Danışma / Resepsiyon",modules:rolePresets.reception},{id:"clinical",label:"Klinik personeli (hekim)",modules:rolePresets.clinical},{id:"inventory",label:"Stok sorumlusu",modules:rolePresets.inventory}];
+  // Güvenlik doğrulaması gereken işlemler: şifre sorulur, doğrulanınca işlem aynen tekrarlanır (sessizce başarısız olmaz).
+  const askReauth=anchor=>new Promise((resolve,reject)=>{
+    anchor.querySelector(".ca-reauth")?.remove();
+    const box=el("div","",{className:"ca-reauth"}),pass=field("reauthPassword","Güvenlik için mevcut şifreniz",{type:"password",autocomplete:"current-password",required:false});
+    const ok=el("button","Doğrula ve devam et",{type:"button",className:"button primary"}),cancel=el("button","Vazgeç",{type:"button",className:"button"}),msg=el("p","",{className:"muted",role:"status"});
+    box.append(el("p","Bu işlem için kimliğinizi yeniden doğrulayın (15 dakika geçerli).",{className:"muted"}),pass,ok,cancel,msg);
+    const submit=anchor.querySelector('button[type="submit"]');submit?submit.after(box):anchor.append(box);pass.querySelector("input").focus();
+    pass.querySelector("input").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();ok.click();}});
+    ok.addEventListener("click",async()=>{ok.disabled=true;try{await api("reauth",{password:pass.querySelector("input").value});box.remove();resolve();}catch(e){msg.textContent=e.message;ok.disabled=false;}});
+    cancel.addEventListener("click",()=>{box.remove();reject(Error("Kimlik doğrulaması yapılmadı; değişiklik kaydedilmedi."));});
+  });
+  const withReauth=async(anchor,fn)=>{try{return await fn();}catch(e){if(!/yeniden doğrula/i.test(e.message))throw e;await askReauth(anchor);return fn();}};
 
   const readModules=data=>Object.fromEntries(Object.entries(data).filter(([name,value])=>name.startsWith("module-")).map(([name,value])=>[name.slice(7),value]));
 
@@ -87,16 +98,6 @@ export async function mountClinicAccounts(ui,params) {
     const modules=moduleFields(), portalModules=moduleFields({},true);
     const reopen=field("reopen","Kapalı üyeliği yeniden aç ve aktivasyon gönder",{type:"checkbox",required:false});
     const summary=quota?.userCap?el("p",quota.users+" / "+(quota.unlimitedUsers?"SINIRSIZ":quota.userCap)+" ekip hesabı. "+(quotaFull?"Kota dolu. Yalnızca mevcut ekip hesaplarına yeni üyelik verilebilir.":"Bekleyen davetler kotaya dahildir."),{className:"muted"}):null;
-    // Yetkili işlem kimlik doğrulaması isterse formun altında şifre sorulur; doğrulanınca işlem kendiliğinden sürer.
-    const askReauth=form=>new Promise((resolve,reject)=>{
-      form.querySelector(".ca-reauth")?.remove();
-      const box=el("div","",{className:"ca-reauth"}),pass=field("reauthPassword","Güvenlik için mevcut şifreniz",{type:"password",autocomplete:"current-password",required:false});
-      const ok=el("button","Doğrula ve devam et",{type:"button",className:"button primary"}),cancel=el("button","Vazgeç",{type:"button",className:"button"}),msg=el("p","",{className:"muted",role:"status"});
-      box.append(el("p","Bu işlem için kimliğinizi yeniden doğrulayın (15 dakika geçerli).",{className:"muted"}),pass,ok,cancel,msg);
-      form.querySelector('button[type="submit"]').after(box);pass.querySelector("input").focus();
-      ok.addEventListener("click",async()=>{ok.disabled=true;try{await api("reauth",{password:pass.querySelector("input").value});box.remove();resolve();}catch(e){msg.textContent=e.message;ok.disabled=false;}});
-      cancel.addEventListener("click",()=>{box.remove();reject(Error("Kimlik doğrulaması yapılmadı."));});
-    });
     const form=makeForm([...(summary?[summary]:[]),role,branch,customer,name,phone,method,email,password,generate,approval,reopen,visitHint,modules,portalModules],"Üyelik aç ve aktivasyonu başlat",async input=>{
       const send=()=>api("invite",{...input,partnerId:data.partnerId,verifiedInPerson:input.verifiedInPerson==="on",reopen:input.reopen==="on",modules:readModules(input)});
       let result;
@@ -182,7 +183,7 @@ export async function mountClinicAccounts(ui,params) {
       const revoke=el("button","Üyeliği kapat",{type:"button",className:"button"});
       revoke.addEventListener("click",async()=>{
         if (!window.confirm("Bu kurum üyeliği kapatılsın mı?")) return;
-        try { await api("revoke",{membershipId:row.id});await management();status.textContent="Üyelik kapatıldı."; }
+        try { await withReauth(controls,()=>api("revoke",{membershipId:row.id}));await management();status.textContent="Üyelik kapatıldı."; }
         catch(error) {status.textContent=error.message;}
       });
       controls.append(revoke);
@@ -191,7 +192,7 @@ export async function mountClinicAccounts(ui,params) {
     remove.addEventListener("click",async()=>{
       if (!window.confirm("Bu kurum üyeliği kalıcı olarak silinsin mi?")) return;
       remove.disabled=true;
-      try { await api("delete",{membershipId:row.id,confirm:true});await management();status.textContent="Üyelik silindi."; }
+      try { await withReauth(controls,()=>api("delete",{membershipId:row.id,confirm:true}));await management();status.textContent="Üyelik silindi."; }
       catch(error) {status.textContent=error.message;remove.disabled=false;}
     });
     controls.append(remove);
@@ -202,16 +203,17 @@ export async function mountClinicAccounts(ui,params) {
     const memberBranch=selectField("branchId","Şube",editableBranches.map(item=>[item.id,item.name]));
     memberBranch.querySelector("select").value=editableBranches.length===1?editableBranches[0].id:row.branch_id;
     memberBranch.hidden=editableBranches.length===1;
-    edit.append(el("summary","Üyelik bilgilerini düzenle"),makeForm([memberName,...(row.role==="customer"?[]:[memberBranch])],"Üyeliği güncelle",async input=>{
-      await api("edit",{membershipId:row.id,...input});
+    edit.append(el("summary","Üyelik bilgilerini düzenle"),makeForm([memberName,...(row.role==="customer"?[]:[memberBranch])],"Üyeliği güncelle",async (input,form)=>{
+      await withReauth(form,()=>api("edit",{membershipId:row.id,...input}));
       await management();
       status.textContent="Üyelik güncellendi.";
     }));
     details.append(edit);
-    if (row.status!=="revoked") details.append(makeForm([moduleFields(row.role==="branch" && row.modules==="{}"?Object.fromEntries(Object.keys(moduleNames).map(key=>[key,key==="esmm"?"none":"write"])):JSON.parse(row.modules),row.role==="customer")],"İzinleri kaydet",async input=>{
-      await api("permissions",{membershipId:row.id,modules:readModules(input)});
+    if (row.status!=="revoked") details.append(makeForm([moduleFields(row.role==="branch" && row.modules==="{}"?Object.fromEntries(Object.keys(moduleNames).map(key=>[key,key==="esmm"?"none":"write"])):JSON.parse(row.modules),row.role==="customer")],"İzinleri kaydet",async (input,form)=>{
+      await withReauth(form,()=>api("permissions",{membershipId:row.id,modules:readModules(input)}));
       await management();
-      status.textContent="İzinler güncellendi.";
+      status.textContent="İzinler kaydedildi. Bu kişinin açık oturumları kapatıldı; yeniden girişte yalnız verdiğiniz yetkilerle çalışır.";
+      status.scrollIntoView?.({block:"nearest"});
     }));
     if (row.role==="customer" && row.status==="active") {
       const picker=selectField("record","Paylaşılacak kayıt",[["notice/","Bildirim"],...Object.entries(data.sharedRecords).filter(([type])=>!["lab","xray"].includes(type)).flatMap(([type,rows])=>
@@ -244,9 +246,66 @@ export async function mountClinicAccounts(ui,params) {
     return details;
   }
 
+  // Görev şablonları paneli: ad ve izinler düzenlenir, yeni şablon eklenir, seçilen personele tek seferde uygulanır.
+  function presetPanel(data) {
+    const panel=el("details","",{className:"panel suite-panel ca-presets"});
+    panel.append(el("summary","Görev şablonları (Danışma, Klinik personeli, Kasa personeli…)"));
+    panel.append(el("p","Şablonun adını ve izinlerini değiştirip kaydedin. Şablonda kapalı olan her yetki personelde de kapalıdır. Değişiklik, şablonu personele uyguladığınızda geçerli olur; uygulanınca o kişilerin açık oturumları kapanır.",{className:"suite-muted"}));
+    const team=data.members.filter(row=>["branch","staff"].includes(row.role)&&row.status!=="revoked");
+    const editor=(item)=>{
+      const box=el("details","",{className:"ca-preset"});
+      box.append(el("summary",item?item.label:"+ Yeni görev şablonu"));
+      const name=field("label","Şablon adı",{maxLength:80,value:item?.label||"",required:true});
+      const matrix=permissionMatrix({el,selectField,modules:{...moduleNames,...actionNames,...featureNames},current:item?.modules||{},initial:"none",prefix:"preset-",title:"Şablonun izinleri"});
+      const form=makeForm([name,matrix],item?"Şablonu kaydet":"Şablonu oluştur",async (input,f)=>{
+        const modules=Object.fromEntries(Object.entries(input).filter(([k])=>k.startsWith("preset-")).map(([k,v])=>[k.slice(7),v]));
+        const result=await api("role-presets",{id:item?.id||"",label:input.label,modules});
+        presetList=result.presets;await management();
+        status.textContent="Görev şablonu kaydedildi.";
+      });
+      box.append(form);
+      if (item) {
+        const remove=el("button","Şablonu sil",{type:"button",className:"button danger-outline"});
+        remove.addEventListener("click",async()=>{
+          if (!window.confirm("“"+item.label+"” şablonu silinsin mi? Personelin mevcut izinleri değişmez.")) return;
+          try { const result=await api("role-presets",{id:item.id,delete:true});presetList=result.presets;await management();status.textContent="Şablon silindi."; }
+          catch(error) {status.textContent=error.message;}
+        });
+        box.append(remove);
+        if (team.length) {
+          const apply=el("form","",{className:"suite-form ca-preset-apply"});
+          const list=el("fieldset");list.append(el("legend","Bu şablonu uygula"));
+          for (const row of team) {
+            const label=el("label","",{className:"check-field"});
+            label.append(el("input","",{type:"checkbox",name:"member",value:row.id}),document.createTextNode(" "+(row.name||row.phone)+" · "+roles[row.role]));
+            list.append(label);
+          }
+          const go=el("button","Seçilen kişilere uygula",{type:"submit",className:"button primary"}),out=el("p","",{className:"suite-muted",role:"status"});
+          apply.append(list,go,out);
+          apply.addEventListener("submit",async e=>{
+            e.preventDefault();
+            const ids=[...apply.querySelectorAll('input[name="member"]:checked')].map(x=>x.value);
+            if (!ids.length) {out.textContent="En az bir kişi seçin.";return;}
+            if (!window.confirm("“"+item.label+"” izinleri seçilen "+ids.length+" kişiye uygulansın mı? Mevcut izinlerinin yerine geçer.")) return;
+            go.disabled=true;
+            try { const r=await withReauth(apply,()=>api("role-presets-apply",{id:item.id,membershipIds:ids}));await management();status.textContent=r.updated+" kişinin izinleri güncellendi; açık oturumları kapatıldı."; }
+            catch(error) {out.textContent=error.message;}
+            finally {go.disabled=false;}
+          });
+          box.append(apply);
+        }
+      }
+      return box;
+    };
+    for (const item of presetList) panel.append(editor(item));
+    panel.append(editor(null));
+    return panel;
+  }
+
   let searchValue="",roleValue="",branchValue="",statusValue="";
   async function management() {
-    const [session,data]=await Promise.all([api("session"),api("directory")]);
+    const [session,data,presets]=await Promise.all([api("session"),api("directory"),api("role-presets").catch(()=>null)]);
+    if (presets?.presets?.length) presetList=presets.presets;
     if (!view.isConnected) return;
     heading(data.quotas.userCap?"Klinik hesapları ve yetkileri":"Hasta sahibi yetkileri","Şube ve personel erişimini, aktivasyonları ve hasta sahibi paylaşımlarını yönetin.");
     const tools=el("div","",{className:"suite-tabs"});
@@ -346,7 +405,7 @@ export async function mountClinicAccounts(ui,params) {
     filters.addEventListener("input",render);
     filters.addEventListener("change",render);
     catalog.append(el("h2","Kurum üyelikleri"),filters,list);
-    view.append(tools,reauth(session.previewReauth),metrics,invitation,catalog,detail,brandForm(data.partnerId));
+    view.append(tools,reauth(session.previewReauth),metrics,invitation,...(data.quotas.userCap&&presets?[presetPanel(data)]:[]),catalog,detail,brandForm(data.partnerId));
     render();
   }
 

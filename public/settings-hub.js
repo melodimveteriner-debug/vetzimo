@@ -13,9 +13,8 @@ export const GROUPS = [
     ["hasta-sahibi-odemeleri", "Hasta sahibi ödemeleri", "Borcu olan hasta sahipleri kartla (PayTR) veya havale ile öder; havale onayları"],
   ]],
   ["ekip", "Ekip ve yetkiler", [
-    ["users", "Kullanıcı ve ekip", "Personel hesapları ve roller"],
-    ["merkezi-hesaplar", "Şube · kullanıcı · hasta sahibi yetkileri", "Kim neyi görür, hangi özellik açık"],
-    ["bayi-yetkiler", "Şube ve kullanıcı yetkileri", "Bayi düzeyinde yetki matrisi"],
+    ["merkezi-hesaplar", "Personel hesapları ve yetkiler", "Kim neyi görür ve yapar · görev şablonları (Danışma, Klinik personeli, Kasa personeli) · hasta sahibi erişimi"],
+    ["users", "Personel adları (takvim listesi)", "Takvim ve hekim seçimlerinde görünen adlar · giriş hesabı açmaz, yetki vermez"],
     ["bayi-admin", "Bayi yönetimi", "Bayi bilgileri ve şubeler"],
     ["personel-plani", "Vardiya ve izinler", "Çalışma planı, izin ve nöbet"],
     ["iki-adimli-dogrulama", "İki adımlı doğrulama", "Ekip hesapları için ek güvenlik"],
@@ -24,7 +23,7 @@ export const GROUPS = [
     ["telefon-baglantisi", "1 · Gönderim hattı ve saatleri", "SMS ve WhatsApp kliniğin telefonundan gider: telefonu bağlama, gönderim saatleri, mesaj arası bekleme, günlük sınır, Instagram/Facebook/Telegram aktarımı"],
     ["hatirlaticilar", "2 · Otomatik SMS ve WhatsApp", "Aşı, randevu, kontrol, doğum günü ve borç mesajları: açık/kapalı, kaç saat önce, hangi kanal, metin"],
     ["templates", "3 · Mesaj şablonları", "Elle ve toplu gönderilen hazır SMS ve WhatsApp metinleri"],
-    ["gelen-kutusu", "4 · Gelen Kutusu kanalları", "WhatsApp, Instagram, Facebook, Telegram, SMS ve e-posta mesajlarını tek yerde yanıtlama"],
+    ["gelen-kutusu", "4 · Sohbet kanalları", "WhatsApp, Instagram, Facebook, Telegram, SMS ve e-posta mesajlarını tek yerde yanıtlama"],
     ["bayi-hesabim", "Aylık gönderim hakkı", "Paketinize göre bu ay gönderilen SMS ve WhatsApp sayısı"],
   ]],
   ["iletisim", "Bildirimler", [
