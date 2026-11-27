@@ -77,6 +77,8 @@ final class ClinicAccess
 
     public static function deleteAllowed(array $actor,string $collection): bool
     {
+        // İş Takibi: tamamlanan görevi yalnız bayi ve şube yöneticisi siler (arşiv yok).
+        if ($collection==='tasks') return in_array($actor['role'],['dealer','branch'],true) && self::allowed($actor,'tasks',true);
         $grant=self::DELETE_GRANTS[$collection]??'';
         if ($grant==='' || !self::action($actor,$grant,true)) return false;
         if ($collection==='clinicNotes') return in_array($actor['role'],['dealer','branch','staff'],true);

@@ -35,6 +35,9 @@ final class ClinicOperationDeletion
             case 'sales':
                 $this->removeSale($state,$actor,$row);
                 break;
+            case 'tasks':
+                if (!in_array($row->status ?? '',['Tamamlandı','Arşiv'],true)) throw new RuntimeException('Yalnız tamamlanan görev silinebilir.',422);
+                break;
             case 'templates':
                 foreach ($state->messages??[] as $draft) {
                     if (($draft->template??'')===$row->id) unset($draft->template);

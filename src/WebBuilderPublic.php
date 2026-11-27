@@ -8,6 +8,24 @@ use RuntimeException;
 final class WebBuilderPublic
 {
     public function __construct(private readonly WebBuilder $web,private readonly WebBooking $booking,private readonly array $config) {}
+    /** Onaylı ve web sitesinde paylaşım izni olan aileler (FamilyPhotos::publicFamilies). */
+    public array $families = [];
+
+    /** Aile kartları: her aile 3'lü iskambil yelpazesi; kartın üstünde fotoğraftakilerin adları, altında "... Ailesi". */
+    private function familyFans(array $families,string $base): string
+    {
+        if (!$families) return '';
+        $html='<div class="family-fans">';
+        foreach ($families as $f) {
+            $cards='';
+            foreach ($f['photos'] as $i=>$p) $cards.='<figure class="family-card fc-n'.count($f['photos']).' fc-i'.$i.'">'.
+                ($p['caption']!==''?'<figcaption class="family-names">'.self::e($p['caption']).'</figcaption>':'').
+                '<img src="'.self::e($base.'/aile-foto/'.$p['id']).'" alt="'.self::e(trim($f['family'].' · '.$p['caption'],' ·')).'" loading="lazy" decoding="async">'.
+                '<span class="family-surname">'.self::e($f['family']).'</span></figure>';
+            $html.='<article class="family-fan" aria-label="'.self::e($f['family']).'"><div class="family-deck">'.$cards.'</div><h3>'.self::e($f['family']).'</h3></article>';
+        }
+        return $html.'</div>';
+    }
 
     private static function e(mixed $value): string { return WebBuilderAdmin::e($value); }
     private static function label(array $draft,string $page): string
@@ -219,6 +237,13 @@ final class WebBuilderPublic
                 default=>'',
             };
             if ($inner) $html.='<section class="block section-'.$section.'"><h2>'.self::e(WebBuilder::SECTIONS[$section]).'</h2>'.$inner.'</section>';
+        }
+        if ($this->families) {
+            $fans='<section class="block section-families"><h2>Mutlu ailelerimiz</h2>'.$this->familyFans(array_slice($this->families,0,4),$base).
+                (count($this->families)>4?'<p class="family-more"><a class="button" href="'.self::href($base,'ailemiz').'">Tüm ailelerimiz</a></p>':'').'</section>';
+            // İletişim bölümü en altta kalsın: aileler ondan önce gösterilir.
+            $pos=strpos($html,'<section class="block section-contact">');
+            $html=$pos===false?$html.$fans:substr($html,0,$pos).$fans.substr($html,$pos);
         }
         return $html;
     }
@@ -459,6 +484,7 @@ final class WebBuilderPublic
                     if ($category!=='') $records=array_values(array_filter($records,static fn($item)=>
                         WebBuilder::gallerySpecies($item)===$category || ($item['category']??'')===$category));
                 }
+                if ($type==='gallery' && $this->families) $body.='<section class="block section-families"><h2>Mutlu ailelerimiz</h2>'.$this->familyFans($this->families,$base).'</section>';
                 $body.=self::cards($records,$type,$base,$media);
             } elseif ($page==='blog') {
                 $body.=$blog;
@@ -509,7 +535,7 @@ final class WebBuilderPublic
         $strip=$phone!==''?'<div class="top-strip"><div><span>Acil durumda bizi arayın</span><a href="tel:'.self::e($phone).'" data-ui-preserve>'.self::e($phone).'</a></div></div>':'';
         $homeCareLink=$preview?'':' <a href="'.self::href($base,'evden-takip').'">Evden Takip</a>';
         $html='<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'.
-            self::e($seoTitle).'</title>'.$head.'<link rel="stylesheet" href="/web-builder-site.css?v=55"><link rel="stylesheet" href="/web-builder-themes.css?v=3"><script src="/web-builder-site.js?v=39" defer></script><script src="/scroll-top.js?v=1" defer></script>'.
+            self::e($seoTitle).'</title>'.$head.'<link rel="stylesheet" href="/web-builder-site.css?v=57"><link rel="stylesheet" href="/web-builder-themes.css?v=3"><script src="/web-builder-site.js?v=39" defer></script><script src="/scroll-top.js?v=1" defer></script>'.
             ($toolsPage&&!$notFound?'<link rel="stylesheet" href="/web-tools.css?v=1"><script type="module" src="/web-tools.js?v=1"></script>':'').
             ($visitPage?'<script src="/visit-live-map.js?v=1" defer></script><script src="/home-visits.js?v=62" defer></script>':'').'</head>'.
             '<body class="theme-'.self::e($d['theme']).' palette-'.self::e($d['palette']).'"><a class="skip" href="#icerik">İçeriğe geç</a><header class="site-header">'.$strip.'<div class="header-inner">'.

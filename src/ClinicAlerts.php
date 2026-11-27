@@ -12,7 +12,7 @@ use PDO;
  */
 final class ClinicAlerts
 {
-    private const KINDS = ['inbox', 'permit', 'job', 'phone', 'web', 'subscription', 'device', 'pregnancy', 'daily'];
+    private const KINDS = ['inbox', 'permit', 'job', 'phone', 'web', 'subscription', 'device', 'pregnancy', 'daily', 'family'];
 
     public function __construct(private readonly PDO $db) {}
 
@@ -94,6 +94,9 @@ final class ClinicAlerts
             $items[] = ['key' => 'subscription:'.$end, 'kind' => 'subscription', 'tone' => 'warn', 'title' => 'Abonelik bitiyor',
                 'body' => 'VetZimo aboneliğiniz '.(new \DateTimeImmutable($end))->format('d.m.Y').' tarihinde bitiyor. Kesinti olmaması için yenileyin.', 'href' => '#kredi-magazasi', 'time' => $now, 'auto' => false];
         });
+        // Aile fotoğrafı onayı: bayi, şube yöneticisi ve personel (hasta sahibi izni olanlar). Onaylanınca listeden düşer.
+        if (class_exists(FamilyPhotos::class) && in_array($actor['role'] ?? '', ['dealer', 'branch', 'staff'], true) && ClinicAccess::allowed($actor, 'clients'))
+            $safe(function () use (&$items, $actor) { foreach ((new FamilyPhotos($this->db))->pendingAlerts($actor) as $i) $items[] = $i; });
         if (class_exists(DailyNote::class)) $safe(function () use (&$items, $actor, $now) {
             $item = (new DailyNote($this->db))->alert($actor, $now);
             if ($item) $items[] = $item;

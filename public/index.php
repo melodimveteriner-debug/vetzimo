@@ -12,7 +12,7 @@ use VetNet\Cpanel\SessionRepository;
 
 require_once dirname(__DIR__).'/src/StaffPlan.php';
 
-foreach (['AddonPackages','ClinicGuide','ClinicLegal','PartnerLifecycle','SiteContact','MarketFooter','MarketContactPage','AppHub','AppDownloads','DemoAuto','CenterContact','SubscriptionReminders','OwnerPayment','ClinicRecords','ClinicChanges','ColdStorage','OutboundLimit','CronGuard','SystemHealth','BusinessReport','AppPush','DeviceHub','VisitTracker','ReviewLink','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','SaasPayment','DealerAgreement','CenterAnalytics','ClinicAlerts','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebThemeDemo','Pregnancy','DailyNote','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','TeamTotp','WebInbox','MinistryBridge','SiteLegal','OmniInbox','PhoneGateway','ClientPermit','PrintTemplates','Support','Commerce','Appearance'] as $class) {
+foreach (['AddonPackages','ClinicGuide','ClinicLegal','PartnerLifecycle','SiteContact','MarketFooter','MarketContactPage','AppHub','AppDownloads','DemoAuto','CenterContact','SubscriptionReminders','OwnerPayment','ClinicRecords','ClinicChanges','ColdStorage','OutboundLimit','CronGuard','SystemHealth','BusinessReport','AppPush','DeviceHub','VisitTracker','ReviewLink','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','SaasPayment','DealerAgreement','CenterAnalytics','FamilyPhotos','ClinicAlerts','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebThemeDemo','Pregnancy','DailyNote','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','TeamTotp','WebInbox','MinistryBridge','SiteLegal','OmniInbox','PhoneGateway','ClientPermit','PrintTemplates','Support','Commerce','Appearance'] as $class) {
     require_once dirname(__DIR__) . '/src/' . $class . '.php';
 }
 
@@ -1319,10 +1319,39 @@ try {
         (new DealerLogin($db,$config['rateSecret']))->throttle('activation-info:'.($_SERVER['REMOTE_ADDR'] ?? ''),$now);
         reply($identity->activationInfo(is_string($_GET['token'] ?? null)?$_GET['token']:'',$now));
     }
+    if ($path === '/api/identity/phone/recover' && $method === 'POST') {
+        $body=input(2048);
+        $login=new DealerLogin($db,$config['rateSecret']);
+        $login->throttle('recover:'.($_SERVER['REMOTE_ADDR'] ?? ''),$now);
+        $login->throttle('recover-phone:'.DealerLogin::normalizePhone(is_string($body->phone ?? null)?$body->phone:''),$now);
+        reply($identity->recover($body,$now,$config));
+    }
     if ($path === '/api/identity/phone/redeem' && $method === 'POST') {
         (new DealerLogin($db,$config['rateSecret']))->throttle('redeem:'.($_SERVER['REMOTE_ADDR'] ?? ''),$now);
         $identity->redeem(input(420000),$now);
         reply(['ok'=>true]);
+    }
+    // Aile fotoğrafları (hasta sahibi ekler, klinik onaylar, izin varsa web sitesinde yayınlanır).
+    if (preg_match('~^/api/family-photo/([a-f0-9]{32})$~D',$path,$famRoute) && $method==='GET') {
+        $found=(new VetNet\Cpanel\FamilyPhotos($db))->image($famRoute[1],$sessions->resolve($_COOKIE,$now));
+        if (!$found) reply(['error'=>'Fotoğraf bulunamadı.'],404);
+        header('Content-Type: '.$found[0]);
+        header('Cache-Control: '.($found[2]?'public, max-age=86400':'private, max-age=600'));
+        header('X-Content-Type-Options: nosniff');
+        echo $found[1]; exit;
+    }
+    if (preg_match('~^/api/family-photos(?:/(delete|decide))?$~D',$path,$famApi)) {
+        $family=new VetNet\Cpanel\FamilyPhotos($db);
+        $actor=(new IdentityApi($db))->actor($_COOKIE,$now);
+        if ($method==='GET' && empty($famApi[1])) reply($family->list($actor,$_GET));
+        if ($method!=='POST') reply(['error'=>'İstenen işlem bulunamadı.'],405);
+        if (!hash_equals((string)$actor['membership_id'],(string)($_SERVER['HTTP_X_VETNET_SCOPE'] ?? ''))) throw new RuntimeException('Çalışma alanı oturumu değişti.',409);
+        $body=input(2_400_000);
+        $id=is_string($body->id ?? null)?$body->id:'';
+        if (($famApi[1] ?? '')==='delete') reply($family->delete($actor,$id));
+        if (($famApi[1] ?? '')==='decide') reply($family->decide($actor,$id,($body->approve ?? null)===true,$now));
+        (new DealerLogin($db,$config['rateSecret']))->throttle('family-photo:'.$actor['membership_id'],$now);
+        reply($family->upload($actor,$body,$now));
     }
     if (preg_match('~^/api/customers/([A-Za-z0-9_-]{1,80})$~D',$path,$customerRoute) && in_array($method,['GET','POST'],true)) {
         $identity=new IdentityApi($db);
@@ -1877,13 +1906,15 @@ try {
     }
     if ($path === '/api/workspace' && $method === 'GET') {
         $actor=$workspaces->actor($_COOKIE,$now);
-        $session=static function(?object $visible) use($actor,$db,$appearance): array {
+        $session=static function(?object $visible) use($actor,$db,$appearance,$config): array {
             $branches=$actor['role']==='dealer' ? ($visible->branches??[]) :
                 (new VetNet\Cpanel\WorkspaceRepository($db))->branches('partner:'.$actor['partner_id']);
             $multipleBranches=count(array_filter($branches,static fn($row)=>($row->status??'')!=='Pasif'))>1;
             return [
             'php'=>true,'userName'=>(static function() use ($db,$actor): string { if ($actor['role']!=='dealer') return (string)($actor['name'] ?? ''); try { $q=$db->prepare('SELECT signer_name FROM dealer_agreement WHERE account_id=? ORDER BY signed_at DESC LIMIT 1'); $q->execute([$actor['account_id']]); $n=(string)$q->fetchColumn(); } catch (\Throwable) { $n=''; } return $n!=='' ? $n : (string)($actor['name'] ?? ''); })(),'workspacePatch'=>true,'recordDeletion'=>$actor['role']==='dealer','packageRestricted'=>isset($actor['packageModules']),'guide'=>(new VetNet\Cpanel\ClinicGuide($db,dirname(__DIR__).'/guide'))->allowed($actor),'renewal'=>(new VetNet\Cpanel\PartnerLifecycle($db))->renewal((string)$actor['partner_id']),'agreementRequired'=>!(new VetNet\Cpanel\DealerAgreement($db))->signed($actor['partner_id']),'personalPalette'=>$appearance->read('account:'.$actor['account_id'])['palette'],'role'=>$actor['role']==='dealer'?'dealer':'staff','central'=>true,'memberRole'=>$actor['role'],'member'=>['role'=>$actor['role']],'modules'=>ClinicAccess::modules($actor),'branches'=>[$actor['branch_id']],'scopeId'=>$actor['membership_id'],
             'partnerId'=>$actor['partner_id'],'partnerName'=>$actor['partner_name'],'multipleBranches'=>$multipleBranches,'name'=>$actor['name'],'author'=>$actor['name'],
+            // Tarayıcı önbelleği şifre anahtarı: üyeliğe ve hesap sürümüne bağlı, yalnız oturum açıkken verilir (çıkıştan sonra önbellek okunamaz).
+            'cacheKey'=>base64_encode(hash_hmac('sha256','vz-ws-cache|'.$actor['membership_id'].'|'.($actor['account_version'] ?? $actor['version'] ?? ''),(string)($config['rateSecret'] ?? $config['encryptionKey'] ?? ''),true)),
         ];
         };
         // Yavaş bağlantı: tarayıcıdaki kopyanın revizyonundan bu yana yalnız değişenler gönderilir.

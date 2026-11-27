@@ -181,7 +181,7 @@ function login(mode="login") {
   const activation=mode==="redeem"&&fragment[0]==="aktivasyon";
   const title=mode==="recover"?"Şifremi unuttum":mode==="redeem"?(activation?"Hesabınızı etkinleştirin":"Yeni şifre belirleyin"):
     uiText(center?"centerSignIn":entryKind==="owner"?"ownerSignIn":"clinicSignIn");
-  const defaultDescription=mode==="recover"?"Şifre yenileme bağlantısı istemek için hesap bilgilerinizi girin.":
+  const defaultDescription=mode==="recover"?(center?"Şifre yenileme bağlantısı istemek için hesap bilgilerinizi girin.":"Cep telefonu numaranızı yazın. Kayıtlı hesabınız varsa kliniğinizin hattından SMS ile şifre yenileme bağlantısı gelir."):
     mode==="redeem"?(activation?"İlk hesabınız için yeni şifre belirleyin. Hesabınız varsa mevcut şifrenizi kullanın.":"Hesabınız için yeni şifrenizi belirleyin."):
     center?"E-posta, şifre ve doğrulama kodunuzla devam edin.":
     (entryKind==="owner"?"Telefon numaranız ve şifrenizle kliniğinize bağlanın.":"Bayi, şube, personel ve hasta sahibi hesapları.");
@@ -192,7 +192,8 @@ function login(mode="login") {
   const username=center?field("email",uiText("email"),{type:"email",autocomplete:"username",placeholder:"ornek@klinik.com",maxLength:254}):phoneField();
   const otp=field("otp",uiText("otp"),{inputMode:"numeric",autocomplete:"one-time-code",pattern:"[0-9]{6}",maxLength:6});
   let fields=[username,password("password",uiText("password")),...(center?[otp]:[])];
-  if (mode==="recover") fields=[username,...(center?[]:[field("clinic",uiLabel("Klinik veya bayi kodu"),{value:config.clinic?.code||"",maxLength:32})])];
+  // Şifremi unuttum: yalnız telefon numarası (aynı numara başka hesapta yok; klinik adı/kodu sorulmaz).
+  if (mode==="recover") fields=[username];
   if (mode==="redeem") {
     fields=[password("password",uiLabel("Yeni hesap şifresi"),"new-password",!activation)];
     if (activation) fields.push(password("currentPassword",uiLabel("Mevcut VetZimo hesabınızın şifresi"),"current-password",false));
@@ -285,7 +286,7 @@ function login(mode="login") {
 }
 
 async function logout() {
-  try{indexedDB.deleteDatabase("vetzimo-cache");localStorage.removeItem("vz-ws-scope");}catch{}
+  // Klinik önbelleği şifreli tutulur (anahtar yalnız oturumla gelir); çıkışta silinmez, sonraki giriş anında açılır.
   await api("logout",{});
   location.assign(center?"/yonetim":"/app");
 }
@@ -613,6 +614,8 @@ async function portal() {
   }
   pets.append(data.pets.length?petGrid:el("p",uiLabel("Bağlı hasta kaydı yok.")));
   overview.append(pets);
+  // Aile fotoğrafları: küçük şerit (en fazla 3), klinik onayından sonra yayınlanır; izin varsa web sitesinde de.
+  if (session.scopeId) import("./family-photos-owner.js?v=1").then(m=>m.mountFamilyOwner(overview,{scope:session.scopeId,tr:uiLabel})).catch(()=>{});
   // Doğum takip cetveli: dişi kedi/köpek için hasta sahibi çiftleşme tarihini girer, klinik kaydı da burada görünür.
   if (Array.isArray(data.pregnancies)) {
     const eligible=data.pets.filter(row=>["Kedi","Köpek"].includes(row.species)&&row.sex==="Dişi");

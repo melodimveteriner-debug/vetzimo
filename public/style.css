@@ -1652,3 +1652,10 @@ td.dealer-message-body{min-width:16em;max-width:28em;font-size:.88rem}td.dealer-
 .sl-appdisc input{width:20px;height:20px;flex:none}
 .sl-appdisc span{display:grid}
 .sl-appdisc small{font-size:.8rem}
+/* İş Takibi: tamamlanan görevi silme (yönetici) */
+.tb-card{position:relative}
+.tb-del{position:absolute;top:6px;right:6px;border:1px solid #f1c4cc;background:#fff5f7;color:#b3261e;border-radius:999px;font:inherit;font-size:.72rem;font-weight:700;padding:2px 9px;cursor:pointer;line-height:1.6}
+.tb-del:hover,.tb-del:focus-visible{background:#ffe3e8}
+.tb-del.armed{background:#b3261e;color:#fff;border-color:#b3261e}
+.tb-card:has(.tb-del)>strong{padding-right:54px}
+.ox-retention{display:block;margin-top:6px;opacity:.7;font-size:.78rem}

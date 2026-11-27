@@ -108,7 +108,7 @@ export function mountOmniInbox(root,api){
  const sendBtn=h("button",{type:"button",class:"ox-send",onclick:()=>send()},tr("Gönder"),h("kbd",{text:"Ctrl ↵"}));
  function drawChat(scroll){
   const t=st.thread;
-  if(!t){fill(chat,h("div",{class:"ox-empty ox-chat-empty"},h("strong",{text:tr("Bir konuşma seçin")}),h("p",{text:tr("WhatsApp, Facebook, Instagram, Telegram, SMS, e-posta ve web sitesi mesajları burada tek listede toplanır.")})));return}
+  if(!t){fill(chat,h("div",{class:"ox-empty ox-chat-empty"},h("strong",{text:tr("Bir konuşma seçin")}),h("small",{class:"ox-retention",text:tr("Konuşmalar son mesajdan 3 gün sonra otomatik ve kalıcı olarak silinir.")}),h("p",{text:tr("WhatsApp, Facebook, Instagram, Telegram, SMS, e-posta ve web sitesi mesajları burada tek listede toplanır.")})));return}
   const c=t.conversation,k=KIND[c.kind]||KIND.sms;
   const assign=h("select",{class:"ox-assign","aria-label":tr("Atanan kişi"),disabled:!api.canWrite,onchange:async e=>{try{st.thread=await post({action:"assign",id:c.id,to:e.target.value});drawChat(!0);refreshList()}catch(x){toast(x.message);drawChat()}}},
    h("option",{value:"",text:tr("Atanmamış")}),...st.team.map(m=>h("option",{value:m.id,selected:m.id===c.assignee,text:m.id===st.me?m.name+" ("+tr("ben")+")":m.name})));

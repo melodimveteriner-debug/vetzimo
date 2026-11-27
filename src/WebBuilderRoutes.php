@@ -265,6 +265,14 @@ final class WebBuilderRoutes
             $draft=WebBuilder::decode($row['snapshot']);
             if (!$external && in_array($route,['randevu','evde-hizmet','evden-takip'],true)) $actor=$sessions->resolve($_COOKIE,$now);
         }
+        // Aile fotoğrafı: yalnız onaylı ve hasta sahibinin web sitesinde paylaşıma izin verdiği fotoğraflar sunulur.
+        if ($method==='GET' && preg_match('~\Aaile-foto/([a-f0-9]{32})\z~D',$route,$m)) {
+            $found=class_exists(FamilyPhotos::class)?(new FamilyPhotos($db))->image($m[1],null,$row['partner_id']):null;
+            if (!$found) self::missing();
+            header('Content-Type: '.$found[0]);header('Cache-Control: public, max-age=86400');header('X-Content-Type-Options: nosniff');
+            echo $found[1]; exit;
+        }
+        if (class_exists(FamilyPhotos::class)) $public->families=(new FamilyPhotos($db))->publicFamilies($row['partner_id']);
         if ($method==='GET' && preg_match('~\Amedya/([a-f0-9]{32})\z~D',$route,$m)) {
             if (!$preview) {
                 $publicDraft=$draft;

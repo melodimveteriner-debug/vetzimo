@@ -19,6 +19,11 @@ export function mountTasksBoard(root, api) {
   const whoLabel = a => a === TEAM ? tr("Tüm ekip") : a;
   // Görev kime verildiyse yalnızca o ilerletir/tamamlar; "Tüm ekip" ya da sorumlusu olmayan görevi herkes ilerletebilir.
   const canProgress = t => api.canWrite && (!t.assignee || t.assignee === TEAM || t.assignee === api.me());
+  const canRemove = t => api.canWrite && isManager() && !!api.remove && (t.status === "Tamamlandı" || t.status === "Arşiv");
+  const remove = async t => {
+    try { await api.remove(t); api.toast(tr("Görev silindi")); } catch (e) { api.toast(e.message); }
+    draw();
+  };
   const canEdit = t => api.canWrite && (!t || canProgress(t) || isManager() || t.createdBy === api.me());
   const lockText = t => tr("Bu görevi yalnızca şu kişi ilerletebilir ve tamamlayabilir:") + " " + t.assignee;
   const lang = document.documentElement.lang || "tr";
@@ -68,7 +73,19 @@ export function mountTasksBoard(root, api) {
     if (t.patient) { const p = el("a", "🐾 " + api.patientName(t.patient), {href: "#patient/" + encodeURIComponent(t.patient), className: "tb-patient"}); p.setAttribute("data-ui-preserve", ""); meta.append(p); }
     if (t.assignee) { const a = el("span", t.assignee === TEAM ? "👥" : initials(t.assignee), {className: "tb-avatar", title: whoLabel(t.assignee)}); meta.append(a); }
     c.append(meta);
-    c.addEventListener("click", e => { if (!e.target.closest("a")) editor(t); });
+    // Tamamlanan görev: yönetici (bayi/şube) kartın üstünden siler; arşiv yok. İkinci dokunuşta silinir.
+    if (canRemove(t)) {
+      // Onay durumu pano yeniden çizilse de korunur (görev kimliğiyle, 4 sn).
+      const armed = () => ui.armed?.id === t.id && Date.now() - ui.armed.at < 4000;
+      const del = el("button", armed() ? tr("Silinsin mi?") : "🗑 " + tr("Sil"), {type: "button", className: "tb-del" + (armed() ? " armed" : ""), title: tr("Görevi sil")});
+      del.addEventListener("click", async e => {
+        e.stopPropagation();
+        if (!armed()) { ui.armed = {id: t.id, at: Date.now()}; del.textContent = tr("Silinsin mi?"); del.classList.add("armed"); setTimeout(() => { if (ui.armed?.id === t.id && !armed()) { ui.armed = null; if (del.isConnected) { del.textContent = "🗑 " + tr("Sil"); del.classList.remove("armed"); } } }, 4100); return; }
+        ui.armed = null; del.disabled = true; await remove(t);
+      });
+      c.append(del);
+    }
+    c.addEventListener("click", e => { if (!e.target.closest("a,button")) editor(t); });
     c.addEventListener("keydown", e => { if (e.key === "Enter") editor(t); });
     return c;
   }
@@ -168,10 +185,13 @@ export function mountTasksBoard(root, api) {
     const cancel = el("button", tr("Vazgeç"), {type: "button", className: "button"});
     const ok = el("button", tr("Kaydet"), {type: "submit", className: "button primary"});
     cancel.addEventListener("click", () => dialog.close());
-    if (!isNew && api.canWrite && t.status !== "Arşiv" && (progress || isManager())) {
-      const arch = el("button", tr("Arşivle"), {type: "button", className: "button ghost tb-left"});
-      arch.addEventListener("click", async () => { dialog.close(); await save({...t, status: "Arşiv"}, t, "Görev arşivlendi"); });
-      foot.append(arch);
+    if (!isNew && canRemove(t)) {
+      const del = el("button", tr("Görevi sil"), {type: "button", className: "button danger-outline tb-left"});
+      del.addEventListener("click", async () => {
+        if (!del.dataset.armed) { del.dataset.armed = "1"; del.textContent = tr("Kalıcı olarak silinsin mi? Tekrar dokunun"); return; }
+        dialog.close(); await remove(t);
+      });
+      foot.append(del);
     }
     if (api.canWrite && editable) foot.append(cancel, ok); else foot.append(cancel);
     form.append(el("h2", tr(isNew ? "Yeni görev" : "Görevi düzenle")), grid, error, foot);
@@ -223,7 +243,8 @@ export function mountTasksBoard(root, api) {
     search.addEventListener("input", () => { ui.text = search.value; clearTimeout(search.t); search.t = setTimeout(() => { draw(); root.querySelector(".tb-bar input[type=search]")?.focus(); }, 250); });
     const archive = el("button", tr(ui.archive ? "Panoya dön" : "Arşiv"), {type: "button", className: "button small"});
     archive.addEventListener("click", () => { ui.archive = !ui.archive; draw(); });
-    bar.append(who, search, archive);
+    // Arşiv artık kullanılmıyor (tamamlanan görev silinir); eski arşivlenmiş görev varsa görünür kalır.
+    bar.append(who, search, ...(ui.archive || api.list().some(t => t.status === "Arşiv") ? [archive] : []));
     if (late) bar.append(el("span", late + " " + tr("gecikmiş görev"), {className: "tb-late"}));
     let board;
     if (ui.archive) {

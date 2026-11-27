@@ -144,7 +144,7 @@ final class DealerWorkspace
         $collection = $input->collection ?? null;
         $id = $input->id ?? null;
         $revision = $input->revision ?? null;
-        if (!is_string($collection) || !isset(ClinicAccess::DELETE_GRANTS[$collection]) || !is_string($id) ||
+        if (!is_string($collection) || (!isset(ClinicAccess::DELETE_GRANTS[$collection]) && $collection!=='tasks') || !is_string($id) ||
             !preg_match('/\A[A-Za-z0-9_-]{1,80}\z/D', $id) || !is_int($revision) || $revision < 1 ||
             ($input->confirm ?? null) !== true) {
             throw new RuntimeException('Silinecek kaydı ve silme onayını kontrol edin.',422);
@@ -189,6 +189,8 @@ final class DealerWorkspace
 
             if (in_array($collection,['patients','clients'],true)) {
                 (new ClinicRecordDeletion($this->database))->apply($state,$partner,$collection,$id);
+                // Hasta sahibi silinince aile fotoğrafları da kalıcı olarak silinir (web sitesinden de kalkar).
+                if ($collection==='clients') { try { $this->database->prepare('DELETE FROM clinic_family_photo WHERE partner_id=? AND client_id=?')->execute([$partner,$id]); } catch (\PDOException $e) { if ($e->getCode()!=='42S02') throw $e; } }
             } else {
                 (new ClinicOperationDeletion($this->database))->apply($state,$actor,$collection,$row);
             }

@@ -91,3 +91,12 @@ html:has(.visit-embedded){background:transparent;color:var(--visit-ink,#20352c)}
 .vis-live-board{display:grid;gap:10px;margin:0 0 18px}.vis-live-board h3{margin:0}
 .vis-live-list{list-style:none;margin:0;padding:0;display:grid;gap:6px}.vis-live-list li{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;padding:8px 12px;border-radius:12px;background:color-mix(in srgb,var(--theme-primary,#6a3df0) 7%,transparent)}
 .vis-live-list b{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;color:#fff;font-size:.8rem}
+/* Hasta sahibi: Evde hizmet talep et düğmesi */
+.vis-cta{display:flex;gap:14px;align-items:center;margin:4px 0 16px;padding:16px 18px;border-radius:16px;text-decoration:none;color:#fff;background:linear-gradient(120deg,var(--visit-accent,#6a3df0),#c2367a);box-shadow:0 10px 24px -14px rgba(90,40,180,.7);transition:transform .15s}
+.vis-cta:hover,.vis-cta:focus-visible{transform:translateY(-1px)}
+.vis-cta>span:first-child{font-size:1.9rem;line-height:1}
+.vis-cta span{display:grid;gap:2px}
+.vis-cta strong{font-size:1.08rem}
+.vis-cta small{opacity:.9;font-size:.86rem}
+.vis-cta-off{color:inherit;background:#f6f3ff;border:1px dashed #cdbff5;box-shadow:none}
+.vis-cta-off:hover{transform:none}

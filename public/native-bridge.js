@@ -187,7 +187,7 @@ async function biometricGate() {
   document.body.append(cover);
   const unlock = async () => { try { await Bio.authenticate({reason: tr("VetZimo'yu açmak için doğrulayın"), cancelTitle: tr("Vazgeç"), allowDeviceCredential: true}); cover.remove(); } catch {} };
   cover.querySelector("button").addEventListener("click", unlock);
-  cover.querySelector("[data-out]").addEventListener("click", async e => { e.preventDefault(); try { indexedDB.deleteDatabase("vetzimo-cache"); localStorage.removeItem("vz-ws-scope"); } catch {} try { await fetch("/api/identity/logout", {method: "POST", credentials: "same-origin", headers: {"X-VeTNet-Scope": scope}}); } catch {} location.assign("/app"); });
+  cover.querySelector("[data-out]").addEventListener("click", async e => { e.preventDefault(); try { await fetch("/api/identity/logout", {method: "POST", credentials: "same-origin", headers: {"X-VeTNet-Scope": scope}}); } catch {} location.assign("/app"); });
   unlock();
 }
 export async function setBiometric(on) {

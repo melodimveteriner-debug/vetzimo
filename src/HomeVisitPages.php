@@ -77,7 +77,7 @@ final class HomeVisitPages
         http_response_code($code);
         $classes=trim(($notificationSkin?'notification-center ':'').(self::$clinicPanel?'clinic-visit-panel':'').($surface?'visit-surface':''));
         echo '<!doctype html><html lang="tr"'.($palette!==''?' data-theme="'.self::e($palette).'" class="'.$classes.'"':'').'><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'.
-            '<title>'.self::e($title).' · VetZimo</title><link rel="icon" href="/favicon.ico?v=51" type="image/x-icon"><link rel="stylesheet" href="/home-visits.css?v=66"><script src="/visit-live-map.js?v=1" defer></script><script src="/home-visits.js?v=62" defer></script>'.
+            '<title>'.self::e($title).' · VetZimo</title><link rel="icon" href="/favicon.ico?v=51" type="image/x-icon"><link rel="stylesheet" href="/home-visits.css?v=67"><script src="/visit-live-map.js?v=1" defer></script><script src="/home-visits.js?v=62" defer></script>'.
             ($palette!==''?'<link rel="stylesheet" href="/themes.css?v=20261126-r9">':'').
             ($surface?'<link rel="stylesheet" href="/surface-themes.css?v=20261126-r5">':'').
             ($notificationSkin?'<link rel="stylesheet" href="/notification-center.css?v=53">':'').
@@ -682,10 +682,13 @@ final class HomeVisitPages
         $links=$staff?'<a class="visit-link" href="?gorunum=rota"'.($show==='rota'?' aria-current="page"':'').'>Harita ve rota</a> ':'';
         if ($staff&&$actor['role']==='dealer') $links.='<a class="visit-link" href="?gorunum=ayarlar">Hizmet, bölge ve ödeme ayarları</a>';
         if ($staff) $links.=' <a class="visit-link" href="?gorunum=takvim"'.($show==='takvim'?' aria-current="page"':'').'>Günlük takvim</a>';
-        if ($canRequest) $links.='<a class="visit-link" href="#yeni">Yeni talep</a>';
         $html='<nav class="vis-actions" aria-label="Evde Hizmet görünümleri">'.
             ($staff?'<a class="visit-link" href="?"'.($show===''?' aria-current="page"':'').'>Başvurular</a>':
                 ($embedded?'':'<a href="/hasta-sahibi">← Hasta sahibi paneli</a>')).$links.'</nav>';
+        // Hasta sahibi: her zaman görünen "Evde hizmet talep et" düğmesi. Klinik henüz açmadıysa ne yapılacağı yazılır.
+        if (!$staff) $html.=$canRequest
+            ? '<a class="vis-cta" href="#yeni"><span aria-hidden="true">🏠</span><span><strong>Evde hizmet talep et</strong><small>Veteriner hekim evinize gelsin: muayene, aşı, kan alma ve daha fazlası.</small></span></a>'
+            : '<div class="vis-cta vis-cta-off" role="note"><span aria-hidden="true">🏠</span><span><strong>Evde hizmet talep et</strong><small>Kliniğiniz evde hizmet taleplerini şu an çevrimiçi almıyor. Talebiniz için kliniğinizi arayın; klinik bu özelliği açtığında talebinizi buradan oluşturabilirsiniz.</small></span></div>';
         $counts=array_count_values(array_column($items,'status'));
         $statuses=['new','quoted','payment','verification','assigned','completed','cancelled'];
         if ($staff) {

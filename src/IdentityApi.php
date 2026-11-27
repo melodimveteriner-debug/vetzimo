@@ -267,11 +267,66 @@ final class IdentityApi
         $required=$row['role']==='dealer' && !$agreement->signed($row['partner_id']);
         return ['role'=>$row['role'],'clinic'=>$row['name'],'agreementRequired'=>$required,'agreement'=>$required?$agreement->current():null];
     }
+    /**
+     * Şifremi unuttum: yalnız telefon numarası. Numara kayıtlıysa hasta sahibinin/ekibin bağlı olduğu kliniğin kendi hattından
+     * 30 dakika geçerli yenileme bağlantısı gönderilir. Yanıt her durumda aynıdır (numaranın kayıtlı olup olmadığı açığa çıkmaz).
+     */
+    public function recover(object $input,int $now,array $config): array
+    {
+        $generic=['message'=>'Bu numaraya kayıtlı bir hesap varsa şifre yenileme bağlantısı kliniğinizin hattından SMS ile gönderildi. Birkaç dakika içinde gelmezse kliniğinizi arayın.'];
+        $phone=DealerLogin::normalizePhone(is_string($input->phone ?? null)?$input->phone:'');
+        if($phone==='') throw new RuntimeException('Geçerli bir cep telefonu numarası girin (05xx xxx xx xx).',422);
+        $q=$this->db->prepare("SELECT a.id, m.partner_id, p.name FROM identity_account a JOIN identity_membership m ON m.account_id=a.id AND m.status='active'
+            JOIN partner_account p ON p.id=m.partner_id AND p.active=1 WHERE a.kind='phone' AND a.identifier=? AND a.blocked=0 AND a.password_hash IS NOT NULL
+            ORDER BY FIELD(m.role,'customer','staff','branch','dealer') DESC");
+        $q->execute([$phone]);
+        $rows=$q->fetchAll(PDO::FETCH_ASSOC);
+        if(!$rows) return $generic;
+        self::ensureReset($this->db);
+        $account=$rows[0]['id'];
+        // Aynı hesaba 2 dakikada en fazla bir bağlantı.
+        $last=$this->db->prepare('SELECT MAX(created) FROM identity_password_reset WHERE account_id=?'); $last->execute([$account]);
+        if($now-(int)$last->fetchColumn()<120) return $generic;
+        $token=bin2hex(random_bytes(32));
+        $this->db->prepare('UPDATE identity_password_reset SET used=1 WHERE account_id=?')->execute([$account]);
+        $this->db->prepare('INSERT INTO identity_password_reset(token_hash,account_id,created,expires) VALUES (?,?,?,?)')->execute([hash('sha256',$token),$account,$now,$now+1800]);
+        $link=rtrim((string)($config['origin'] ?? ''),'/').'/app#yenile/'.$token;
+        foreach($rows as $r) {
+            try {
+                $gw=new PhoneGateway($this->db);
+                if(!$gw->route($r['partner_id'],'sms')) continue;
+                $gw->enqueue($r['partner_id'],'sms',$phone,$r['name'].': VetZimo şifrenizi yenilemek için (30 dk geçerli): '.$link,'manual','reset:'.$account.':'.$now,0,$now,$now+1800,'Şifre yenileme');
+                break;
+            } catch(\Throwable) {}
+        }
+        return $generic;
+    }
+    public static function ensureReset(PDO $db): void
+    {
+        $db->exec('CREATE TABLE IF NOT EXISTS identity_password_reset (token_hash CHAR(64) NOT NULL PRIMARY KEY, account_id VARCHAR(80) NOT NULL,
+            created INT UNSIGNED NOT NULL, expires INT UNSIGNED NOT NULL, used TINYINT NOT NULL DEFAULT 0, KEY account (account_id)) ENGINE=InnoDB DEFAULT CHARSET=ascii COLLATE=ascii_bin');
+    }
+    /** Şifre yenileme bağlantısıyla yeni şifre: hesap sürümü artar, tüm oturumlar kapanır. */
+    private function resetPassword(string $token,object $input,int $now): bool
+    {
+        try { $q=$this->db->prepare('SELECT account_id FROM identity_password_reset WHERE token_hash=? AND used=0 AND expires>? FOR UPDATE'); $q->execute([hash('sha256',$token),$now]); }
+        catch(\PDOException $e) { if($e->getCode()==='42S02') return false; throw $e; }
+        $account=$q->fetchColumn();
+        if($account===false) return false;
+        $password=$input->password ?? '';
+        if(!is_string($password)||strlen($password)<12||strlen($password)>512) throw new RuntimeException('En az 12 karakterli bir şifre belirleyin.',422);
+        $this->db->prepare('UPDATE identity_account SET password_hash=?,version=version+1 WHERE id=? AND blocked=0')->execute([password_hash($password,PASSWORD_ARGON2ID),$account]);
+        $this->db->prepare('UPDATE identity_password_reset SET used=1 WHERE account_id=?')->execute([$account]);
+        $this->db->prepare('DELETE FROM identity_session WHERE account_id=?')->execute([$account]);
+        return true;
+    }
     public function redeem(object $input,int $now): void
     {
         $token=$input->token ?? '';
         if(!is_string($token)||!preg_match('/\A[a-f0-9]{64}\z/',$token)) throw new RuntimeException('Bağlantı geçersiz veya süresi dolmuş.',422);
         $this->db->beginTransaction();
+        try { if($this->resetPassword($token,$input,$now)) { $this->db->commit(); return; } }
+        catch(\Throwable $e) { $this->db->rollBack(); throw $e; }
         try {
             $q=$this->db->prepare("SELECT t.*,m.account_id,m.status,m.partner_id,m.role AS member_role,a.password_hash,a.blocked FROM identity_activation t JOIN identity_membership m ON m.id=t.membership_id JOIN identity_account a ON a.id=m.account_id JOIN partner_account p ON p.id=m.partner_id WHERE token_hash=? AND t.used=0 AND t.expires>? AND m.status='pending' AND a.blocked=0 AND p.active=1 FOR UPDATE");
             $q->execute([hash('sha256',$token),$now]); $row=$q->fetch();

@@ -272,3 +272,22 @@ footer>.site-platform-credit{justify-content:flex-end;margin-top:15px;padding-to
 }
 @media print{.sa-launcher,.sa-panel{display:none!important}}
 .site-language{flex:0 0 auto;margin-inline-start:12px}
+/* Aile fotoğrafları: 3'lü iskambil yelpazesi (temanın renkleriyle). Üstte fotoğraftakilerin adları, altta "... Ailesi". */
+.section-families h2{margin-bottom:6px}
+.family-fans{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:28px 22px;margin-top:18px}
+.family-fan{display:grid;justify-items:center;gap:10px;min-width:0}
+.family-fan h3{margin:0;font-size:1.02rem;color:var(--accent,#6a3df0);text-align:center}
+.family-deck{position:relative;width:min(70%,200px);aspect-ratio:3/4;margin:10px auto 6px}
+.family-card{position:absolute;inset:0;margin:0;display:grid;grid-template-rows:auto 1fr auto;background:var(--paper,#fff);border:1px solid var(--line,#e5e1f2);border-radius:14px;padding:7px 7px 6px;box-shadow:0 10px 26px -14px rgba(20,10,60,.45);transform-origin:50% 92%;transition:transform .35s cubic-bezier(.2,.8,.2,1),box-shadow .35s;--r:0;--x:0px}
+/* Yelpaze açısı ve kayması (satır içi stil güvenlik kuralına takıldığı için sınıflarla) */
+.fc-n2.fc-i0{--r:-7deg;--x:-22px;z-index:1}.fc-n2.fc-i1{--r:7deg;--x:22px;z-index:2}
+.fc-n3.fc-i0{--r:-12deg;--x:-36px;z-index:1}.fc-n3.fc-i1{--r:0deg;--x:0px;z-index:3}.fc-n3.fc-i2{--r:12deg;--x:36px;z-index:2}
+.family-card{transform:rotate(var(--r)) translateX(var(--x))}
+.family-card img{width:100%;height:100%;min-height:0;object-fit:cover;border-radius:9px;display:block;background:var(--soft,#f3f0fb)}
+.family-names{font-size:.74rem;font-weight:700;color:var(--ink,#22183f);text-align:center;padding:2px 4px 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.family-surname{font-size:.72rem;font-weight:800;letter-spacing:.02em;text-align:center;padding-top:5px;color:var(--accent,#6a3df0)}
+.family-fan:hover .family-card,.family-fan:focus-within .family-card{transform:rotate(calc(var(--r) * 1.45)) translateX(calc(var(--x) * 1.5))}
+.family-fan:hover .family-card:last-child{box-shadow:0 18px 34px -16px rgba(20,10,60,.55)}
+.family-more{text-align:center;margin-top:18px}
+@media (prefers-reduced-motion:reduce){.family-card{transition:none}}
+@media (max-width:560px){.family-fans{grid-template-columns:1fr;gap:30px}.family-deck{width:min(62%,180px)}.family-names{font-size:.66rem}.family-surname{font-size:.64rem}}
