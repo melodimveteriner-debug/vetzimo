@@ -120,7 +120,7 @@ export function createEngine(ctx) {
     if (!can("sales") && !can("expenses")) return denied("Kasa ve Muhasebe");
     const p = period(text, "today");
     const first = can("sales") ? rows("sales").filter(row => active(row) && inRange(row, p.range)).reduce((sum, row) => sum + cents(row.paid), 0) : 0;
-    const later = can("sales") ? rows("collections").filter(row => row.method !== "Borç silme" && inRange(row, p.range)).reduce((sum, row) => sum + cents(row.amount), 0) : 0;
+    const later = can("sales") ? rows("collections").filter(row => row.method !== "Borç silme" && row.method !== "İndirim" && inRange(row, p.range)).reduce((sum, row) => sum + cents(row.amount), 0) : 0;
     const other = can("expenses") ? rows("expenses").filter(row => row.type === "Gelir" && inRange(row, p.range)).reduce((sum, row) => sum + cents(row.amount), 0) : 0;
     const spent = can("expenses") ? rows("expenses").filter(row => row.type === "Gider" && inRange(row, p.range)).reduce((sum, row) => sum + cents(row.amount), 0) : 0;
     return answer(fill("Kasa özeti · {0}", p.label), {

@@ -110,8 +110,9 @@ final class DealerWorkspace
                         if($type==='payments'||($type==='expenses'&&$row->type==='Gider')) $amount=-$amount;
                         // Borç silme: satışın bakiyesini kapatır ama kasaya para girmez (defterde 0). Yalnız yönetici veya
                         // "Tahsilat iptali" yetkisi olan personel yapabilir; yetkisizse tüm kayıt geri alınır.
-                        if($type==='collections' && ($row->method ?? '')===self::WRITE_OFF) {
-                            if(!ClinicAccess::action($actor,'deleteCollections',true)) throw new RuntimeException('Borç silmek için yönetici veya "Tahsilat iptali" yetkisi gerekir.',403);
+                        // Tahsilat indirimi ("İndirim"): satışın kalanını indirimle kapatır, kasaya girmez; aynı yetki kuralı.
+                        if($type==='collections' && in_array($row->method ?? '',[self::WRITE_OFF,'İndirim'],true)) {
+                            if(!ClinicAccess::action($actor,'deleteCollections',true)) throw new RuntimeException(($row->method==='İndirim'?'Tahsilat indirimi':'Borç silmek').' için yönetici veya "Tahsilat iptali" yetkisi gerekir.',403);
                             $amount=0;
                         }
                         $this->database->prepare('INSERT INTO finance_entry(partner_id,branch_id,source_type,source_id,entry_date,amount_cents,account_id) VALUES (?,?,?,?,?,?,?)')

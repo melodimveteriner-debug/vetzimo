@@ -341,6 +341,21 @@ def main():
         last_method[oid] = method_map.get(s(t.get('payment_method')), 'Diğer')
         rec['collections'].append({k: v for k, v in {'id': 't-' + s(t.get('id')), 'sale': 's-' + oid, 'date': d, 'createdAt': stamp(t.get('date') or t.get('created_at')),
                                                      'amount': from_cents(amt), 'method': last_method[oid], 'notes': s(t.get('notes'))}.items() if v != ''})
+        # Tahsilatta yapılan indirim: indirim alanı veya brüt (price) > tahsil edilen (price2) farkı. Kalan bakiye borç
+        # görünmesin diye kasaya girmeyen "İndirim" kaydıyla kapatılır (satış kaydı değişmez).
+        disc = 0
+        for k, v in t.items():
+            if not isinstance(v, (dict, list)) and re.search(r'discount|indirim|iskonto', k, re.I):
+                disc = max(disc, cents(v))
+        p1, p2 = cents(t.get('price')), cents(t.get('price2'))
+        if not disc and p1 > 0 and p2 > 0 and p1 > p2:
+            disc = p1 - p2
+        disc = min(disc, total - paid[oid])
+        if disc > 0:
+            paid[oid] += disc
+            rec['collections'].append({'id': 't-' + s(t.get('id')) + '-ind', 'sale': 's-' + oid, 'date': d, 'amount': from_cents(disc),
+                                       'method': 'İndirim', 'notes': 'Tahsilat indirimi (aktarım)'})
+            report['collections']['tahsilat indirimi kaydedildi'] += 1
     # Kaynakta indirim satış tutarından düşülmemiş satışlar: tahsilat toplamı = tutar − indirim ise satış indirimli tutarla alınır.
     for oid, (sale, total, lines, gross, cands) in list(sales.items()):
         got = paid[oid]

@@ -75,9 +75,14 @@ $api->save($dealer,$scope,$now,(object)['revision'=>$d['revision'],'state'=>$st]
 rejected(403,fn()=>$api->save($acc,$accActor['membership_id'],$now,(object)['revision'=>$work->read($acc,$now)['revision'],'patch'=>json_decode(json_encode($wo('w1')))]),'yetkisiz personel borç silmemeli');
 $api->save($dealer,$scope,$now,(object)['revision'=>$work->read($dealer,$now)['revision'],'patch'=>json_decode(json_encode($wo('w2')))]);
 ok((int)$db->query("SELECT amount_cents FROM finance_entry WHERE source_id='w2'")->fetchColumn()===0,'borç silme kasaya para olarak girmemeli');
+// 5b) Tahsilat indirimi ("İndirim"): kalan bakiyeyi kasaya para girmeden kapatır; yetki kuralı borç silme ile aynı
+$disc=fn(string $id)=>['collections'=>['prepend'=>[['id'=>$id,'branch'=>'merkez','sale'=>'x2','date'=>'2026-11-02','amount'=>'10','method'=>'İndirim','notes'=>'Tahsilat indirimi']],'update'=>[],'append'=>[]]];
+rejected(403,fn()=>$api->save($acc,$accActor['membership_id'],$now,(object)['revision'=>$work->read($acc,$now)['revision'],'patch'=>json_decode(json_encode($disc('i1')))]),'yetkisiz personel indirim kaydetmemeli');
+$api->save($dealer,$scope,$now,(object)['revision'=>$work->read($dealer,$now)['revision'],'patch'=>json_decode(json_encode($disc('i2')))]);
+ok((int)$db->query("SELECT amount_cents FROM finance_entry WHERE source_id='i2'")->fetchColumn()===0,'tahsilat indirimi kasaya para olarak girmemeli');
 // 6) İşletme analizi: yönetici görür ve hesap doğrudur; "Ciro ve satış toplamları" izni olmayan personel göremez
 $rep=(new VetNet\Cpanel\BusinessReport($db))->build($identity->actor($dealer,$now),'2026-11-01','2026-11-30','');
-ok($rep['kpi']['revenue']===18000 && $rep['kpi']['count']===2 && $rep['kpi']['writeOffs']===5000 && $rep['debt']['total']===3000,'analiz toplamları: '.json_encode([$rep['kpi']['revenue'],$rep['kpi']['writeOffs'],$rep['debt']['total']]));
+ok($rep['kpi']['revenue']===18000 && $rep['kpi']['count']===2 && $rep['kpi']['writeOffs']===6000 && $rep['debt']['total']===2000,'analiz toplamları: '.json_encode([$rep['kpi']['revenue'],$rep['kpi']['writeOffs'],$rep['debt']['total']]));
 ok(!VetNet\Cpanel\BusinessReport::allowed($accActor),'ciro izni olmayan personel analizi görmemeli');
 rejected(403,fn()=>(new VetNet\Cpanel\BusinessReport($db))->build($accActor,'2026-11-01','2026-11-30',null),'analiz yetkisiz personele kapalı olmalı');
 // 7) Satış yapan personel: stok takipli ürün satışı (stok düşümü) ve tahsilat; fiyat/manuel stok/kasa yasak.

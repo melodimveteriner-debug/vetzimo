@@ -199,7 +199,7 @@ final class BusinessReport
         $collectedBySale = []; $writeOffBySale = []; $cashIn = ['cur' => 0, 'prev' => 0]; $writeOffs = ['cur' => 0, 'prev' => 0]; $methods = []; $collectionSeries = [];
         $stream('collections', function (array $c) use (&$collectedBySale, &$writeOffBySale, &$cashIn, &$writeOffs, &$methods, &$collectionSeries, $money, $from, $to, $prevFrom, $prevTo) {
             $amount = $money($c['amount'] ?? '0'); $sale = (string)($c['sale'] ?? ''); $d = (string)($c['date'] ?? '');
-            $wo = ($c['method'] ?? '') === self::WRITE_OFF;
+            $wo = in_array($c['method'] ?? '', [self::WRITE_OFF, 'İndirim'], true); // borç silme ve tahsilat indirimi kasaya girmez
             if ($wo) $writeOffBySale[$sale] = ($writeOffBySale[$sale] ?? 0) + $amount; else $collectedBySale[$sale] = ($collectedBySale[$sale] ?? 0) + $amount;
             $slot = $d >= $from && $d <= $to ? 'cur' : ($d >= $prevFrom && $d <= $prevTo ? 'prev' : null);
             if ($slot === null) return;
