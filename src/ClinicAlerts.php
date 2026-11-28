@@ -53,17 +53,41 @@ final class ClinicAlerts
             }
         });
         if (ClinicAccess::feature($actor, 'phoneGateway') && ClinicAccess::allowed($actor, 'clients')) $safe(function () use (&$items, $partner, $now) {
-            $q = $this->db->prepare("SELECT COUNT(*) FROM phone_outbox WHERE partner_id=? AND status='queued' AND created_at<?");
-            $q->execute([$partner, $now - 1800]);
-            $waiting = (int)$q->fetchColumn();
-            if (!$waiting) return;
-            $d = $this->db->prepare('SELECT MAX(last_seen) FROM phone_device WHERE partner_id=? AND revoked_at IS NULL');
-            $d->execute([$partner]);
-            $seen = (int)$d->fetchColumn();
-            if ($seen > $now - 1800) return;
-            $items[] = ['key' => 'phone:'.intdiv($now, 21600), 'kind' => 'phone', 'tone' => 'warn', 'title' => 'Telefon hattı bağlantısı yok',
-                'body' => $waiting.' mesaj gönderilmeyi bekliyor. Klinik telefonunda VetZimo uygulamasının açık ve internete bağlı olduğunu kontrol edin.',
-                'href' => '#telefon-baglantisi', 'time' => $seen ?: $now, 'auto' => true];
+            // Gönderim penceresi dışında (ör. gece) bekleyen hatırlatmalar normaldir: o saatlerde yalnız öncelikli
+            // (pencereyi beklemeyen) mesajlar için uyarılır.
+            $s = (new PhoneGateway($this->db))->settings($partner);
+            $quiet = PhoneGateway::untilWindow($s, $now) > 0 ? 1 : 0;
+            $q = $this->db->prepare("SELECT channel,COUNT(*) FROM phone_outbox WHERE partner_id=? AND status='queued' AND not_before<=? AND created_at<? AND (priority=0 OR ?=0) GROUP BY channel");
+            $q->execute([$partner, $now, $now - 1800, $quiet]);
+            $waiting = array_map('intval', $q->fetchAll(PDO::FETCH_KEY_PAIR));
+            if (!empty($waiting['sms'])) {
+                $d = $this->db->prepare('SELECT MAX(last_seen) FROM phone_device WHERE partner_id=? AND revoked_at IS NULL');
+                $d->execute([$partner]);
+                $seen = (int)$d->fetchColumn();
+                if ($seen <= $now - 1800) $items[] = ['key' => 'phone:'.intdiv($now, 21600), 'kind' => 'phone', 'tone' => 'warn', 'title' => 'Telefon hattı bağlantısı yok',
+                    'body' => $waiting['sms'].' SMS gönderilmeyi bekliyor. Klinik telefonunda VetZimo uygulamasının açık ve internete bağlı olduğunu kontrol edin.',
+                    'href' => '#telefon-baglantisi', 'time' => $seen ?: $now, 'auto' => true];
+            }
+            if (!empty($waiting['whatsapp'])) {
+                if ($s['whatsapp'] === 'assist') {
+                    $items[] = ['key' => 'phone:wa:'.intdiv($now, 21600), 'kind' => 'phone', 'tone' => 'warn', 'title' => 'WhatsApp mesajları elle gönderilmeyi bekliyor',
+                        'body' => $waiting['whatsapp'].' WhatsApp mesajı bekliyor. WhatsApp "Yardımlı" modda: mesajlar Telefon Bağlantısı ekranından tek tek gönderilir. Otomatik gönderim için "Otomatik" modu ve bilgisayar programını açın.',
+                        'href' => '#telefon-baglantisi', 'time' => $now, 'auto' => true];
+                    return;
+                }
+                $g = $this->db->prepare('SELECT wa_state,wa_seen FROM phone_gateway WHERE partner_id=?');
+                $g->execute([$partner]);
+                $wa = $g->fetch(PDO::FETCH_ASSOC) ?: ['wa_state' => '', 'wa_seen' => null];
+                $online = $wa['wa_seen'] !== null && $now - (int)$wa['wa_seen'] < 300;
+                if (!$online || $wa['wa_state'] !== 'ready') {
+                    $why = !$wa['wa_seen'] ? 'WhatsApp bilgisayar programı bu kliniğe hiç bağlanmadı.'
+                        : (!$online ? 'WhatsApp bilgisayar programı kapalı veya internete bağlı değil.'
+                        : ($wa['wa_state'] === 'qr' ? 'WhatsApp Web oturumu kapanmış; programdaki QR kodunu telefonunuzla yeniden okutun.' : 'WhatsApp Web oturumu hazır değil.'));
+                    $items[] = ['key' => 'phone:wa:'.intdiv($now, 21600), 'kind' => 'phone', 'tone' => 'warn', 'title' => 'WhatsApp otomatik gönderim durdu',
+                        'body' => $waiting['whatsapp'].' WhatsApp mesajı gönderilmeyi bekliyor. '.$why,
+                        'href' => '#telefon-baglantisi', 'time' => $wa['wa_seen'] ? (int)$wa['wa_seen'] : $now, 'auto' => true];
+                }
+            }
         });
         if (ClinicAccess::feature($actor, 'webSite') && ClinicAccess::allowed($actor, 'clients')) $safe(function () use (&$items, $partner) {
             $q = $this->db->prepare('SELECT id,message,UNIX_TIMESTAMP(created_at) t FROM clinic_web_inbox WHERE partner_id=? AND handled_at IS NULL ORDER BY id DESC LIMIT 10');

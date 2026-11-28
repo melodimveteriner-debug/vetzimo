@@ -13,7 +13,7 @@ import {chromium} from "playwright-core";
 import {createWhatsApp} from "./whatsapp.mjs";
 import {createDevices} from "./devices.mjs";
 
-const VERSION = "1.3.0";
+const VERSION = "1.3.1";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const HOME = process.env.VZ_BRIDGE_HOME || path.join(process.env.APPDATA || path.join(os.homedir(), ".config"), "VetZimoKopru");
 const PORT = Number(process.env.VZ_BRIDGE_PORT || 5199);

@@ -554,7 +554,7 @@ final class IdentityApi
                 if (($client->sms ?? '')!=='Var') throw new RuntimeException('Müşteri kartında SMS iznini Var olarak seçin.',422);
                 if (!function_exists('curl_init')) throw new RuntimeException('SMS için sunucuda PHP cURL gerekli.',503);
                 $provider=$config['appointmentReminderConnections'][$actor['partner_id']]['sms'] ?? [];
-                $clinic=ClinicAccess::branch($state,$client->branch)->name;
+                $clinic=AppointmentReminders::clinicName((string)($state->preferences->clinic ?? '') ?: (string)$this->db->query('SELECT name FROM partner_account WHERE id='.$this->db->quote($actor['partner_id']))->fetchColumn(),ClinicAccess::branch($state,$client->branch));
                 $template=$state->preferences->customerReminder_welcome_text ?? 'Sayın {musteri}, {klinik} ailesine hoş geldiniz.';
                 $message=trim(strtr($template,['{musteri}'=>$client->name,'{klinik}'=>$clinic]));
                 $site=preg_replace('~\Ahttps://~','',rtrim((string)$config['origin'],'/'));

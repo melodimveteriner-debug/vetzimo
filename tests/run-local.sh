@@ -28,6 +28,8 @@ fresh test_perm empty; run permissions.php env VETNET_TEST_DSN='mysql:host=127.0
 fresh test_usage empty; run app-usage.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_usage' php tests/app-usage.php
 fresh test_reset empty; run password-reset.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_reset' php tests/password-reset.php
 fresh test_family empty; run family-photos.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_family' php tests/family-photos.php
+fresh test_rtpl empty; run reminder-templates.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_rtpl' php tests/reminder-templates.php
+run agent-download.php php tests/agent-download.php
 fresh test_triage empty;  run homecare-triage.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_triage' php tests/homecare-triage.php
 command -v node >/dev/null && run homecare-triage.mjs node tests/homecare-triage.mjs
 command -v node >/dev/null && run xray-rules.mjs node tests/xray-rules.mjs

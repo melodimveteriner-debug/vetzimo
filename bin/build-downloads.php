@@ -9,6 +9,7 @@ declare(strict_types=1);
 if (PHP_SAPI !== 'cli') { http_response_code(404); exit(1); }
 $root = dirname(__DIR__);
 $config = require getenv('VETNET_CPANEL_CONFIG') ?: $root.'/config.php';
+require_once $root.'/src/AppDownloads.php';
 $origin = rtrim((string)$config['origin'], '/');
 $out = $root.'/public/download';
 $agents = $out.'/agents';
@@ -72,19 +73,8 @@ $files['ios'] = ['file' => 'VetZimo-iOS.mobileconfig', 'version' => $mobile];
 $keep[] = 'VetZimo-iOS.mobileconfig';
 
 // Klinik ajanı (Bakanlık köprüsü, e-belge, WhatsApp, cihaz entegrasyonu): anahtar içermez, eşleştirme kodla yapılır.
-$zipName = 'VetZimo-Klinik-Ajani'.($agentVersion ? "-$agentVersion" : '').'.zip';
-$tmp = $agents.'/.'.$zipName.'.tmp';
-$zip = new ZipArchive();
-$zip->open($tmp, ZipArchive::OVERWRITE | ZipArchive::CREATE);
-foreach (['agent.mjs','whatsapp.mjs','devices.mjs','device-parsers.mjs','recorder.js','panel.html','package.json','kur.cmd','kur.ps1','baslat.vbs','baslat.sh','OKU-BENI.txt'] as $f) {
-    $zip->addFile($root.'/bridge-agent/'.$f, 'VetZimoKopru/'.$f);
-    $zip->setMtimeName('VetZimoKopru/'.$f, filemtime($root.'/bridge-agent/'.$f));
-}
-$zip->addFromString('VetZimoKopru/config.json', json_encode(['server' => $origin, 'token' => '', 'ministryUrl' => 'https://vetbis.tarimorman.gov.tr'], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
-$zip->setMtimeName('VetZimoKopru/config.json', filemtime($root.'/bridge-agent/agent.mjs'));
-$zip->close();
-rename($tmp, $agents.'/'.$zipName);
-$files['agent'] = ['file' => $zipName, 'version' => $agentVersion];
+$files['agent'] = ['file' => VetNet\Cpanel\AppDownloads::buildAgent($root, $origin)['file'], 'version' => $agentVersion];
+$zipName = $files['agent']['file'];
 $agentKeep = [$zipName];
 
 // Telefon ajanı (Android SMS hattı, Termux): sunucu adresi yerleştirilmiş kurulum betiği.

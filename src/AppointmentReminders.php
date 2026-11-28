@@ -20,6 +20,8 @@ final class AppointmentReminders
         $clients = array_column($state->clients ?? [], null, 'id');
         $zone = new DateTimeZone('Europe/Istanbul');
         $today = (new DateTimeImmutable('@'.$now))->setTimezone($zone)->format('Y-m-d');
+        // {klinik}: Ayarlar'daki klinik adı (yazdırma şablonlarıyla aynı), yoksa bayi hesabının adı.
+        $clinic = self::clinicName((string)($prefs->clinic ?? ''), null) ?: $clinic;
         $jobs = [];
         $defaults = [
             'appointments'=>'{hasta} için randevunuz {tarih}. {klinik}',
@@ -52,12 +54,18 @@ final class AppointmentReminders
                 // Pasife alınmış hasta veya hasta sahibine otomatik hatırlatma gönderilmez.
                 if (($client->status ?? '')==='Pasif' || ($patient->status ?? '')==='Pasif') continue;
                 $phone = DealerLogin::normalizePhone($client->phone ?? '');
+                // Saat yalnız gerçek saati olan kayıtta (randevu) yazılır; aşı/takip ve doğum günü yalnız tarihtir.
+                // Şablonda {saat} ayrıca kullanılmışsa {tarih} yalnız tarih olur (saat iki kez yazılmaz).
+                $template = (string)($prefs->{$setting.'text'} ?? $defaults[$kind]);
+                $timed = $kind==='appointments';
+                $time = $timed ? $date->format('H:i') : '';
+                $dateText = $date->format($timed && !str_contains($template,'{saat}') ? 'd.m.Y H:i' : 'd.m.Y');
                 $parameters = array_map(static fn(string $value): string => trim(preg_replace('/\s+/u',' ',$value) ?? ''),
-                    [$patient->name ?? $client->name,$date->format('d.m.Y H:i'),$branch->name ?: $clinic]);
+                    [$patient->name ?? $client->name,$dateText,self::clinicName($clinic,$branch)]);
                 if (in_array('',$parameters,true)) continue;
-                $message = strtr($prefs->{$setting.'text'} ?? $defaults[$kind],[
-                    '{musteri}'=>$client->name,'{hasta}'=>$parameters[0],'{tarih}'=>$parameters[1],
-                    '{islem}'=>$row->title ?? $row->service ?? '', '{klinik}'=>$parameters[2],
+                $message = strtr($template,[
+                    '{musteri}'=>$client->name,'{hasta}'=>$parameters[0],'{tarih}'=>$parameters[1],'{saat}'=>$time,
+                    '{islem}'=>$row->title ?? $row->service ?? '', '{klinik}'=>$parameters[2],'{sube}'=>(string)($branch->name ?? ''),
                 ]);
                 foreach (['sms','whatsapp','email'] as $channel) {
                     $permission = $channel==='email' ? 'emailPermission' : $channel;
@@ -66,7 +74,10 @@ final class AppointmentReminders
                     if ($channel==='email' ? !filter_var($client->email ?? '',FILTER_VALIDATE_EMAIL) : !$phone) continue;
                     $jobs[] = ['appointment'=>$row->id,'kind'=>$kind,'branch'=>$row->branch,'due'=>$due,'phone'=>$phone,
                         'email'=>$client->email ?? '', 'channel'=>$channel,'parameters'=>$parameters,'message'=>$message,
-                        'waTemplate'=>$prefs->{$setting.'waTemplate'} ?? '','birthday'=>$birthday];
+                        'waTemplate'=>$prefs->{$setting.'waTemplate'} ?? '','birthday'=>$birthday,
+                        // Saatsiz kayıtlar (aşı) o gün akşama kadar geçerli: gönderim penceresi (ör. 10:00) sabahki
+                        // iç saatten (09:00) sonra açılsa da mesaj süresi dolmadan gider.
+                        'expires'=>$birthday || !$timed ? substr($due,0,10).' 21:00' : $due];
                 }
             }
         }
@@ -90,10 +101,10 @@ final class AppointmentReminders
                     $at=$date->getTimestamp();
                     if ($at<=$now || $at>$now+10*3600) continue;
                     $type=str_starts_with($milestone,'parasite')?'parasite':$milestone;
-                    $message=strtr($prefs->{$setting.$type.'_text'} ?? Pregnancy::TEMPLATES[$type],['{hasta}'=>$patient->name ?? '','{musteri}'=>$client->name ?? '','{klinik}'=>$branch->name ?: $clinic,'{tarih}'=>$date->format('d.m.Y')]);
-                    $parameters=[$patient->name ?? '',$date->format('d.m.Y'),$branch->name ?: $clinic];
+                    $message=strtr($prefs->{$setting.$type.'_text'} ?? Pregnancy::TEMPLATES[$type],['{hasta}'=>$patient->name ?? '','{musteri}'=>$client->name ?? '','{klinik}'=>self::clinicName($clinic,$branch),'{sube}'=>(string)($branch->name ?? ''),'{tarih}'=>$date->format('d.m.Y'),'{saat}'=>'']);
+                    $parameters=[$patient->name ?? '',$date->format('d.m.Y'),self::clinicName($clinic,$branch)];
                     $base=['appointment'=>'preg:'.$patient->id.':'.$plan['mating'].':'.$milestone,'kind'=>'pregnancy','branch'=>$patient->branch,'due'=>$due,'phone'=>$phone,
-                        'email'=>$client->email ?? '','parameters'=>$parameters,'message'=>$message,'waTemplate'=>$prefs->{$setting.'waTemplate'} ?? '','birthday'=>false,
+                        'email'=>$client->email ?? '','parameters'=>$parameters,'message'=>$message,'waTemplate'=>$prefs->{$setting.'waTemplate'} ?? '','birthday'=>false,'expires'=>$day.' 21:00',
                         'client'=>$client->id ?? '','title'=>['us'=>'Ultrason zamanı','xray'=>'Röntgen zamanı','birth'=>'Küçük patiler yakında','parasite'=>'Parazit uygulaması'][$type]];
                     $jobs[]=$base+['channel'=>'app'];
                     foreach (['sms','whatsapp'] as $channel) {
@@ -106,6 +117,13 @@ final class AppointmentReminders
         }
         usort($jobs, static fn(array $a,array $b): int => strcmp($a['due'],$b['due']));
         return $jobs;
+    }
+
+    /** Mesajlardaki {klinik}: kliniğin (bayi hesabının) adı; şube adı ("Merkez") yalnız {sube} ile yazılır. */
+    public static function clinicName(string $clinic, ?object $branch): string
+    {
+        $clinic = trim(preg_replace('/\s+/u',' ',$clinic) ?? '');
+        return $clinic !== '' ? $clinic : trim((string)($branch->name ?? ''));
     }
 
     public function run(array $connections, int $now, ?Notifications $notifications=null): array
@@ -121,6 +139,7 @@ final class AppointmentReminders
             $claim = $this->db->prepare("INSERT INTO clinic_appointment_reminder (dispatch_key,status) VALUES (?,'sending')");
             $finish = $this->db->prepare('UPDATE clinic_appointment_reminder SET status=?,provider_reference=? WHERE dispatch_key=?');
             $deadline = microtime(true) + 240;
+            $refresh = $this->db->prepare("UPDATE phone_outbox SET body=?,expires_at=? WHERE source='reminder' AND source_ref=? AND partner_id=? AND status='queued'");
             // Telefon Bağlantısı açık klinikler: SMS kliniğin kendi hattından, WhatsApp kendi numarasından gider (sağlayıcı gerekmez).
             $gateway = class_exists(PhoneGateway::class) ? new PhoneGateway($this->db) : null;
             $routes = $gateway ? $gateway->routesAll() : [];
@@ -181,11 +200,16 @@ final class AppointmentReminders
                     if (!$job['birthday'] && (strtotime($job['due'].' +03:00') ?: 0) <= time()) continue;
                     $key = hash('sha256', json_encode([$partner,$job['branch'],$job['appointment'],($job['birthday'] ? substr($job['due'],0,10) : $job['due']),$job['channel'],...($job['kind']==='appointments'?[]:[$job['kind']])], JSON_THROW_ON_ERROR));
                     $exists->execute([$key]);
-                    if ($exists->fetchColumn()) continue;
+                    if ($exists->fetchColumn()) {
+                        // Henüz gönderilmemiş (kuyrukta) hatırlatma güncel metin ve süreyle yenilenir: şablon/klinik adı
+                        // düzeltmesi ya da eski "09:00" süresi yüzünden mesaj yanlış gitmez veya süresi dolmaz.
+                        if ($viaPhone) $refresh->execute([$job['message'], strtotime(($job['expires'] ?? $job['due']).' +03:00') ?: null, $key, $partner]);
+                        continue;
+                    }
                     if ($viaPhone) {
                         $claim->execute([$key]);
                         try {
-                            $expires = $job['birthday'] ? (strtotime(substr($job['due'],0,10).' 21:00 +03:00') ?: null) : (strtotime($job['due'].' +03:00') ?: null);
+                            $expires = strtotime(($job['expires'] ?? $job['due']).' +03:00') ?: null;
                             $id = $gateway->enqueue($partner, $job['channel'], $job['phone'], $job['message'], 'reminder', $key, 1, $now, $expires);
                             $finish->execute(['accepted', 'phone:'.$id, $key]);
                             $stats['accepted']++;

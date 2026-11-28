@@ -361,13 +361,16 @@ try {
         if ((VetNet\Cpanel\AppDownloads::APPS[$key][2] ?? '')==='paid') {
             try { $actor=(new VetNet\Cpanel\IdentityApi($db))->actor($_COOKIE,$now); } catch (RuntimeException) { $actor=null; }
         }
+        if ($key==='agent' && $actor) $downloads->freshAgent((string)$origin);
         $downloads->serve($key,$_SERVER,$actor,$now);
     }
     if (!$externalWeb && $path==='/api/clinic/agents' && $method==='GET') {
         try { $agentActor=(new VetNet\Cpanel\IdentityApi($db))->actor($_COOKIE,$now); } catch (RuntimeException) { $agentActor=null; }
         if (!$agentActor) throw new RuntimeException('Oturum doğrulanamadı.',401);
         header('Cache-Control: private, no-store');
-        reply((new VetNet\Cpanel\AppDownloads($db,dirname(__DIR__),(string)$config['rateSecret']))->agents($agentActor));
+        $agentDownloads=new VetNet\Cpanel\AppDownloads($db,dirname(__DIR__),(string)$config['rateSecret']);
+        if ($agentDownloads->agentAccess($agentActor)) $agentDownloads->freshAgent((string)$origin);
+        reply($agentDownloads->agents($agentActor));
     }
     if (!$externalWeb && str_starts_with($path,'/api/app/')) {
         // Uygulama merkezi: Android, iOS, masaüstü ve web aynı oturumla çalışır (çerez, aynı köken).

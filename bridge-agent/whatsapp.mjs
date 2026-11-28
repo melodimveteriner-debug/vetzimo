@@ -93,25 +93,41 @@ export function createWhatsApp({launchPersistent, home, api, log}) {
       await sleep(500);
     }
     if (!box) throw new Error("WhatsApp yazma alanı açılmadı.");
-    const before = await page.$$eval("[data-id^='true_'], .message-out", els => els.length).catch(() => 0);
+    // Doğrulama: WhatsApp Web uzun sohbetlerde yalnız son mesajları ekranda tutar; yeni mesaj eklenince eskisi
+    // listeden düşer ve mesaj SAYISI değişmeyebilir. Bu yüzden son giden mesajın kimliği/metni ve yazma alanının
+    // boşalması (mesaj WhatsApp'a teslim edildi) birlikte denetlenir.
+    const lastOut = () => page.evaluate(() => {
+      const els = document.querySelectorAll("[data-id^='true_'], [data-id*='true_'], .message-out");
+      const el = els[els.length - 1];
+      if (!el) return {id: "", text: "", clock: false};
+      const holder = el.closest("[data-id]") || el;
+      return {id: holder.getAttribute("data-id") || "", text: (el.innerText || "").replace(/\s+/g, " ").trim().slice(-600),
+        clock: !!el.querySelector("span[data-icon='msg-time']")};
+    }).catch(() => ({id: "", text: "", clock: false}));
+    const norm = t => String(t || "").replace(/\s+/g, " ").trim();
+    const head = norm(job.body).slice(0, 40), tail = norm(job.body).slice(-40);
+    const before = await lastOut();
     await sleep(rand(800, 2200)); // insan benzeri kısa bekleme
     const button = await any(page, ["button[aria-label='Gönder']", "button[aria-label='Send']", "span[data-icon='send']", "span[data-icon='wds-ic-send-filled']"]);
     if (button) await button.click(); else await box.press("Enter");
     const end = Date.now() + 30000;
+    let cleared = false;
     while (Date.now() < end) {
-      const after = await page.$$eval("[data-id^='true_'], .message-out", els => els.length).catch(() => before);
-      if (after > before) {
+      const now = await lastOut();
+      const field = await any(page, COMPOSE);
+      cleared = cleared || !field || !(await field.innerText().catch(() => "")).trim();
+      const changed = now.id !== before.id || now.text !== before.text;
+      const ours = now.text.includes(head) || now.text.includes(tail);
+      if (cleared && (changed || ours)) {
         // Saat simgesi (gönderiliyor) kaybolana kadar kısa süre bekle.
-        for (let i = 0; i < 20; i++) {
-          const clock = await page.$("[data-id^='true_']:last-of-type span[data-icon='msg-time'], .message-out:last-of-type span[data-icon='msg-time']").catch(() => null);
-          if (!clock) break;
-          await sleep(500);
-        }
+        for (let i = 0; i < 20 && (await lastOut()).clock; i++) await sleep(500);
         return;
       }
       await sleep(500);
     }
-    throw new Error("Mesajın gönderildiği doğrulanamadı.");
+    // Yazma alanı boşaldıysa WhatsApp mesajı almıştır (ekranda doğrulanamasa da); yeniden göndermek çift mesaj olur.
+    if (cleared) return;
+    throw new Error("Mesaj WhatsApp'a iletilemedi (yazma alanı boşalmadı).");
   }
 
   /** Okunmamış bireysel sohbetlerdeki gelen mesajları toplar (grup sohbetleri alınmaz). */

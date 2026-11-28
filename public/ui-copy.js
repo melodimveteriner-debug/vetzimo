@@ -15,7 +15,7 @@ if (languages.has(selected)) {
 async function start(language) {
   // Sürüm sunucunun eklediği preload bağlantısından okunur (dosyalar bir yıl önbellekte; sabit sürüm yeni çevirileri gizler).
   const preload=document.querySelector('link[rel="preload"][href^="/ui-copy/'+language+'.json"]')?.getAttribute("href");
-  const response=await fetch(preload||"/ui-copy/"+language+".json?v=r142",{credentials:"same-origin"});
+  const response=await fetch(preload||"/ui-copy/"+language+".json?v=r143",{credentials:"same-origin"});
   if (!response.ok) return;
   const published=await response.json();
   const labels=new Map(Object.entries(published));

@@ -36,6 +36,66 @@ final class AppDownloads
 
     public function dir(): string { return $this->root.'/public/download'; }
 
+    public const AGENT_FILES = ['agent.mjs','whatsapp.mjs','devices.mjs','device-parsers.mjs','recorder.js','panel.html','package.json','kur.cmd','kur.ps1','baslat.vbs','baslat.sh','OKU-BENI.txt'];
+
+    /** Klinik ajanı zip'ini bridge-agent/ kaynağından üretir; manifest satırını döndürür. */
+    public static function buildAgent(string $root, string $origin): array
+    {
+        $version = self::agentVersion($root);
+        $dir = $root.'/public/download/agents';
+        if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) throw new RuntimeException('Ajan klasörü oluşturulamadı.', 500);
+        $name = 'VetZimo-Klinik-Ajani'.($version !== '' ? '-'.$version : '').'.zip';
+        $tmp = $dir.'/.'.$name.'.'.getmypid().'.tmp';
+        $zip = new \ZipArchive();
+        if ($zip->open($tmp, \ZipArchive::OVERWRITE | \ZipArchive::CREATE) !== true) throw new RuntimeException('Ajan paketi oluşturulamadı.', 500);
+        foreach (self::AGENT_FILES as $f) {
+            $zip->addFile($root.'/bridge-agent/'.$f, 'VetZimoKopru/'.$f);
+            $zip->setMtimeName('VetZimoKopru/'.$f, (int)filemtime($root.'/bridge-agent/'.$f));
+        }
+        $zip->addFromString('VetZimoKopru/config.json', json_encode(['server' => rtrim($origin, '/'), 'token' => '', 'ministryUrl' => 'https://vetbis.tarimorman.gov.tr'], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        $zip->setMtimeName('VetZimoKopru/config.json', (int)filemtime($root.'/bridge-agent/agent.mjs'));
+        $zip->close();
+        rename($tmp, $dir.'/'.$name);
+        $path = $dir.'/'.$name;
+        return ['file' => $name, 'version' => $version, 'size' => filesize($path), 'sha256' => hash_file('sha256', $path), 'date' => date('Y-m-d', (int)filemtime($path))];
+    }
+
+    public static function agentVersion(string $root): string
+    {
+        return preg_match('~const VERSION\s*=\s*"([^"]+)"~', (string)@file_get_contents($root.'/bridge-agent/agent.mjs'), $m) ? $m[1] : '';
+    }
+
+    /**
+     * Ajan kaynağı (bridge-agent/) güncellendiyse indirme paketi ilk istekte yeni sürümle kendiliğinden üretilir;
+     * sunucuda elle "php bin/build-downloads.php" çalıştırmak gerekmez. Eşzamanlı isteklerde tek süreç üretir.
+     */
+    public function freshAgent(string $origin): void
+    {
+        $version = self::agentVersion($this->root);
+        $current = $this->manifest()['agent'] ?? null;
+        if ($version === '' || !class_exists(\ZipArchive::class)) return;
+        if (($current['version'] ?? '') === $version && is_file($this->dir().'/agents/'.basename((string)$current['file']))) return;
+        $lock = @fopen($this->dir().'/agents/.build.lock', 'c');
+        if (!$lock || !flock($lock, LOCK_EX)) return;
+        try {
+            clearstatcache();
+            $raw = @file_get_contents($this->dir().'/manifest.json');
+            $doc = is_string($raw) ? (json_decode($raw, true) ?: []) : [];
+            $old = $doc['files']['agent'] ?? null;
+            if (($old['version'] ?? '') === $version && is_file($this->dir().'/agents/'.basename((string)$old['file']))) return;
+            $row = self::buildAgent($this->root, $origin);
+            $doc['files'] = ($doc['files'] ?? []);
+            $doc['files']['agent'] = $row;
+            $doc['generated'] = gmdate('c');
+            $tmp = $this->dir().'/.manifest.'.getmypid().'.tmp';
+            file_put_contents($tmp, json_encode($doc, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)."\n");
+            rename($tmp, $this->dir().'/manifest.json');
+            if ($old && basename((string)$old['file']) !== $row['file']) @unlink($this->dir().'/agents/'.basename((string)$old['file']));
+        } catch (\Throwable $e) {
+            error_log('VetZimo agent build: '.$e->getMessage());
+        } finally { flock($lock, LOCK_UN); fclose($lock); }
+    }
+
     public function manifest(): array
     {
         $raw = @file_get_contents($this->dir().'/manifest.json');
