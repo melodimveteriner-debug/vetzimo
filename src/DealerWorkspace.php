@@ -211,6 +211,14 @@ final class DealerWorkspace
         }
     }
 
+    /** Aşı devamları: önizleme (GET) veya oluşturma (POST, çalışma alanı kilitli). */
+    public function vaccineContinuations(array $cookies, string $scope, int $now, bool $apply): array
+    {
+        $actor = $this->actor($cookies, $now);
+        if ($apply && !hash_equals($actor['membership_id'], $scope)) throw new RuntimeException('Çalışma alanı oturumu değişti.',409);
+        return VaccineContinuation::run($this->database, $this->workspaces, $actor, $apply, $now);
+    }
+
     public function visible(array $cookies,int $now): array
     {
         $actor=$this->actor($cookies,$now);

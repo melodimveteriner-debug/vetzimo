@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 // KolayVET aktarımı: randevu, muayene, satış ve tahsilat tabloları; isteğe bağlı bağlantılar ve tekrar yüklemede yinelenmeme.
-foreach (['ClinicProtocol','ClinicAccess','Finance','ExternalImport'] as $c) require_once __DIR__.'/../src/'.$c.'.php';
+foreach (['ClinicProtocol','ClinicAccess','Finance','VaccineContinuation','ExternalImport'] as $c) require_once __DIR__.'/../src/'.$c.'.php';
 use VetNet\Cpanel\ExternalImport;
 function check(bool $ok,string $msg): void { if(!$ok){fwrite(STDERR,"HATA: $msg\n");exit(1);} }
 $state=(object)['branches'=>[(object)['id'=>'merkez','name'=>'Merkez','status'=>'Aktif']]];

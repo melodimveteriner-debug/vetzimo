@@ -1125,3 +1125,51 @@ td [class*=badge],td [class*=status],td [class*=pill],td [class*=chip]{white-spa
 .record-section-portal .access-card small{opacity:.7;font-size:.76rem}
 .record-section-portal .access-card strong{font-size:.98rem;overflow-wrap:anywhere}
 .record-section-portal .panel-head .button svg{margin-inline-end:6px;vertical-align:-3px}
+/* Hasta kartı › Aşı ve takip: yapılacak / yapılan aşılar */
+.vz-vac{display:grid;gap:16px}
+.vz-vac-sec>header{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;margin:2px 0 8px}
+.vz-vac-sec>header h3{margin:0;font-size:1rem;display:flex;align-items:center;gap:8px}
+.vz-vac-sec>header p{margin:0;font-size:.8rem;opacity:.7}
+.vz-vac-count{font-size:.74rem;font-weight:800;border-radius:999px;padding:1px 9px;background:var(--soft,#efeaff);color:var(--accent,#5b3df0)}
+.vz-vac-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.vz-vac-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--line,#e6e0f5);border-inline-start:4px solid #8f7bf2;border-radius:12px;background:var(--paper,#fff)}
+.vz-vac-row.is-late{border-inline-start-color:#d6365d;background:color-mix(in srgb,#d6365d 5%,var(--paper,#fff))}
+.vz-vac-row.is-soon{border-inline-start-color:#e3a21a}
+.vz-vac-row.is-done{border-inline-start-color:#1f9d6b}
+.vz-vac-dot{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:#efeaff;color:#5b3df0}
+.vz-vac-row.is-late .vz-vac-dot{background:#fdebef;color:#b4234a}.vz-vac-row.is-soon .vz-vac-dot{background:#fff3d6;color:#8a5a00}.vz-vac-row.is-done .vz-vac-dot{background:#e3f6ee;color:#0b6b48}
+.vz-vac-main{display:grid;gap:2px;min-width:0}
+.vz-vac-main strong{overflow-wrap:anywhere}
+.vz-vac-main small{opacity:.78;font-size:.8rem;overflow-wrap:anywhere}
+.vz-vac-row .row-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.vz-vac-empty{margin:0;padding:12px;border:1px dashed var(--line,#ddd5f2);border-radius:12px;font-size:.85rem;opacity:.75}
+@media (max-width:560px){.vz-vac-row{grid-template-columns:auto minmax(0,1fr)}.vz-vac-row .row-actions{grid-column:1/-1;justify-content:flex-start}}
+/* Aşı devamları eksik uyarısı */
+.vz-cont{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:14px;align-items:center;padding:14px 16px;margin-bottom:14px;border:1px solid #f0d58a;background:color-mix(in srgb,#fff3d6 55%,var(--paper,#fff))}
+.vz-cont p{margin:4px 0 0;font-size:.84rem;opacity:.85}
+@media (max-width:640px){.vz-cont{grid-template-columns:auto minmax(0,1fr)}.vz-cont .button{grid-column:1/-1}}
+/* Hasta sahibi kartı: özet şeridi + sekmeler */
+.vz-owner-sum{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,170px),1fr));gap:10px;margin:0 0 14px}
+.vz-os-card{display:grid;gap:3px;align-content:start;padding:12px 14px;border:1px solid var(--line,#e6e0f5);border-radius:14px;background:var(--paper,#fff);min-width:0}
+.vz-os-card small{font-size:.74rem;font-weight:700;opacity:.65;text-transform:uppercase;letter-spacing:.03em}
+.vz-os-card strong{font-size:1.05rem;overflow-wrap:anywhere}
+.vz-os-card strong a{color:inherit;text-decoration:none}
+.vz-os-card span{font-size:.78rem;opacity:.7;overflow-wrap:anywhere}
+.vz-os-card.is-debt{border-color:#f2b8c6;background:color-mix(in srgb,#fdebef 55%,var(--paper,#fff))}
+.vz-os-card.is-debt strong{color:#a3203f}
+.vz-os-link{font-size:.78rem;font-weight:700;color:#128c4a;text-decoration:none}
+.vz-perms{display:flex;flex-wrap:wrap;gap:4px;margin-top:2px}
+.vz-perm{font-size:.72rem;font-weight:700;border-radius:999px;padding:2px 8px;background:#f1eff6;color:#7b7690;text-decoration:line-through}
+.vz-perm.on{background:#e3f6ee;color:#0b6b48;text-decoration:none}
+.vz-otabs{display:grid;gap:12px;grid-template-columns:minmax(0,1fr);min-width:0}
+.vz-otab{min-width:0}
+.vz-otab-bar{position:sticky;top:0;z-index:2;background:var(--bg,transparent);padding:4px 0;overflow-x:auto;flex-wrap:nowrap;max-width:100%;min-width:0}
+.vz-otab-bar button{white-space:nowrap}
+.vz-otab>.panel+.panel,.vz-otab>section+section{margin-top:12px}
+/* Hasta kartı: Diğer işlemler menüsü */
+.vz-more{position:relative;display:inline-block}
+.vz-more>summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.vz-more>summary::-webkit-details-marker{display:none}
+.vz-more-pop{position:absolute;inset-inline-end:0;top:calc(100% + 6px);z-index:30;display:grid;gap:6px;min-width:210px;padding:8px;border:1px solid var(--line,#e6e0f5);border-radius:14px;background:var(--paper,#fff);box-shadow:0 18px 40px -18px rgba(30,20,70,.35)}
+.vz-more-pop>.button,.vz-more-pop>a.button{justify-content:flex-start;width:100%}
+@media (max-width:640px){.vz-more-pop{inset-inline-end:auto;inset-inline-start:0}}

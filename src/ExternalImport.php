@@ -118,6 +118,12 @@ final class ExternalImport
             $known[$kind]=array_filter($items,static fn($row)=>$row->branch===$branch);
             $next->$kind=array_values($items);
         }
+        // Aktarımdan sonra: Aşı Listesi birimleri düzeltilir ve yapılmış aşıların devamları (sonraki doz) oluşturulur.
+        if (isset($next->followups) && !$restore) {
+            $today=(new \DateTimeImmutable('now',new \DateTimeZone('Europe/Istanbul')))->format('Y-m-d');
+            $done=VaccineContinuation::apply($next,$today,$branch);
+            if ($done['added']) $counts['followups']['added']=($counts['followups']['added'] ?? 0)+$done['added'];
+        }
         Finance::validate($state,$next);
         return [$next,$counts];
     }

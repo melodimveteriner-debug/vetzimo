@@ -12,7 +12,7 @@ use PDO;
  */
 final class ClinicAlerts
 {
-    private const KINDS = ['inbox', 'permit', 'job', 'phone', 'web', 'subscription', 'device', 'pregnancy', 'daily', 'family', 'reset'];
+    private const KINDS = ['inbox', 'permit', 'job', 'phone', 'web', 'subscription', 'device', 'pregnancy', 'daily', 'family', 'reset', 'stay'];
 
     public function __construct(private readonly PDO $db) {}
 
@@ -87,6 +87,39 @@ final class ClinicAlerts
                         'body' => $waiting['whatsapp'].' WhatsApp mesajı gönderilmeyi bekliyor. '.$why,
                         'href' => '#telefon-baglantisi', 'time' => $wa['wa_seen'] ? (int)$wa['wa_seen'] : $now, 'auto' => true];
                 }
+            }
+        });
+        // Süresi dolan yatışlar: durumu "Yatışta" olup çıkış tarihi/saati geçmiş konaklamalar (taburcu edilmemiş).
+        if (ClinicAccess::allowed($actor, 'patients')) $safe(function () use (&$items, $partner, $actor, $now) {
+            $local = (new \DateTimeImmutable('@'.$now))->setTimezone(new \DateTimeZone('Europe/Istanbul'))->format('Y-m-d\TH:i');
+            $args = ['partner:'.$partner];
+            $branch = '';
+            if (($actor['role'] ?? '') !== 'dealer') { $branch = ' AND r.branch_id=?'; $args[] = (string)($actor['branch_id'] ?? ''); }
+            $q = $this->db->prepare("SELECT r.record_id, r.record_data FROM clinic_record r JOIN clinic_record_set s ON s.id=r.set_id
+                WHERE s.workspace_id=? AND r.collection='stays'$branch AND JSON_VALUE(r.record_data,'$.status')='Yatışta'
+                AND JSON_VALUE(r.record_data,'$.end')<>'' LIMIT 500");
+            $q->execute($args);
+            $late = [];
+            foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $r) {
+                $stay = json_decode((string)$r['record_data'], true) ?: [];
+                $end = substr((string)($stay['end'] ?? ''), 0, 16);
+                if ($end === '' || $end >= $local) continue;
+                $late[] = $stay;
+            }
+            if (!$late) return;
+            $ids = array_values(array_unique(array_filter(array_column($late, 'patient'))));
+            $names = [];
+            if ($ids) {
+                $n = $this->db->prepare("SELECT r.record_id, JSON_VALUE(r.record_data,'$.name') FROM clinic_record r JOIN clinic_record_set s ON s.id=r.set_id
+                    WHERE s.workspace_id=? AND r.collection='patients' AND r.record_id IN (".implode(',', array_fill(0, count($ids), '?')).')');
+                $n->execute(array_merge(['partner:'.$partner], $ids));
+                $names = $n->fetchAll(PDO::FETCH_KEY_PAIR);
+            }
+            foreach (array_slice($late, 0, 20) as $stay) {
+                $items[] = ['key' => 'stay:'.preg_replace('/[^A-Za-z0-9_-]/', '', (string)($stay['id'] ?? '')).':'.preg_replace('/[^0-9]/', '', (string)$stay['end']),
+                    'kind' => 'stay', 'tone' => 'warn', 'title' => 'Yatış süresi doldu',
+                    'body' => trim(($names[$stay['patient'] ?? ''] ?? 'Hasta').' · '.($stay['room'] ?? '').' · çıkış '.str_replace('T', ' ', substr((string)$stay['end'], 0, 16)).'. Taburcu edin veya çıkış tarihini uzatın.', ' ·'),
+                    'href' => '#patient/'.rawurlencode((string)($stay['patient'] ?? '')), 'time' => strtotime(substr((string)$stay['end'], 0, 16).' Europe/Istanbul') ?: $now, 'auto' => true];
             }
         });
         // Şifremi unuttum: SMS'i gidemeyen ve henüz şifresini yenilememiş istekler.

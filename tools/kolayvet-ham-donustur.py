@@ -199,11 +199,18 @@ def main():
     report['products']['aktarılacak'] = len(rec['products'])
 
     # ── Aşı tanımları ve aşı kayıtları
+    def unit(v):
+        # "aylık", "ay", "yıllık", "yil", "gün", "hafta" → VetZimo birimleri (sonraki aşı tarihi bunlarla hesaplanır)
+        t = s(v).lower().translate(str.maketrans('ıüöşçğİ', 'iuoscgi'))
+        for prefix, name in (('gun', 'Gün'), ('day', 'Gün'), ('haf', 'Hafta'), ('week', 'Hafta'), ('ay', 'Ay'), ('mon', 'Ay'), ('yil', 'Yıl'), ('year', 'Yıl')):
+            if t.startswith(prefix):
+                return name
+        return s(v)
     catalog = {}
     for a in (P.get('asi_tanimlari') or {}).get('kayitlar', []):
         if s(a.get('id')) and s(a.get('asi_adi')):
             catalog[s(a['id'])] = {'id': s(a['id']), 'name': s(a['asi_adi']), 'species': s(a.get('tur_name')),
-                                   'renewEvery': s(a.get('yenileme_araligi')), 'renewUnit': s(a.get('yenileme_formati'))}
+                                   'renewEvery': s(a.get('yenileme_araligi')), 'renewUnit': unit(a.get('yenileme_formati'))}
     for a in L.get('asilar', []):
         vid = s(a.get('asi_id'))
         if vid and vid not in catalog and s(a.get('asi_adi')):

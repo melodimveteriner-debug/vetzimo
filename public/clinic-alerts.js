@@ -2,7 +2,7 @@
 // Yeni uyarı gelince kart düşer (önemli olanlar kapatılana kadar kalır); "Tamamlandı" ya da "Aç" ile işlem yapılan uyarı
 // kişi bazında listeden kalkar. Okunan mesaj ve çözülen işler sunucuda kendiliğinden düşer.
 const STYLE = "/clinic-alerts.css?v=2";
-const ICON = {daily: "📋", pregnancy: "🍼", inbox: "💬", permit: "🛡", job: "⚠", phone: "📱", web: "🌐", subscription: "⏳", device: "🧪", family: "📷", reset: "🔑"};
+const ICON = {daily: "📋", pregnancy: "🍼", inbox: "💬", permit: "🛡", job: "⚠", phone: "📱", web: "🌐", subscription: "⏳", device: "🧪", family: "📷", reset: "🔑", stay: "🛏"};
 let dailyEditable = false, api, scope, tr = s => s, onChange = () => {}, items = [], seen = new Set(), timer = 0, stack, started = false;
 
 const h = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
