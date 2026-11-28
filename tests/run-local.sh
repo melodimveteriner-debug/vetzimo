@@ -31,6 +31,7 @@ fresh test_family empty; run family-photos.php env VETNET_TEST_DSN='mysql:host=1
 fresh test_rtpl empty; run reminder-templates.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_rtpl' php tests/reminder-templates.php
 run agent-download.php php tests/agent-download.php
 fresh test_vc empty; run vaccine-continuation.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_vc' php tests/vaccine-continuation.php
+fresh test_saledisc empty; run sale-discounts.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_saledisc' php tests/sale-discounts.php
 fresh test_triage empty;  run homecare-triage.php env VETNET_TEST_DSN='mysql:host=127.0.0.1;dbname=test_triage' php tests/homecare-triage.php
 command -v node >/dev/null && run homecare-triage.mjs node tests/homecare-triage.mjs
 command -v node >/dev/null && run xray-rules.mjs node tests/xray-rules.mjs

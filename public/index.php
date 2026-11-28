@@ -12,7 +12,7 @@ use VetNet\Cpanel\SessionRepository;
 
 require_once dirname(__DIR__).'/src/StaffPlan.php';
 
-foreach (['AddonPackages','ClinicGuide','ClinicLegal','PartnerLifecycle','SiteContact','MarketFooter','MarketContactPage','AppHub','AppDownloads','DemoAuto','CenterContact','SubscriptionReminders','OwnerPayment','ClinicRecords','ClinicChanges','ColdStorage','OutboundLimit','CronGuard','SystemHealth','BusinessReport','AppPush','DeviceHub','VisitTracker','ReviewLink','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','SaasPayment','DealerAgreement','CenterAnalytics','FamilyPhotos','PasswordResets','VaccineContinuation','ClinicAlerts','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebThemeDemo','Pregnancy','DailyNote','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','TeamTotp','WebInbox','MinistryBridge','SiteLegal','OmniInbox','PhoneGateway','ClientPermit','PrintTemplates','Support','Commerce','Appearance'] as $class) {
+foreach (['AddonPackages','ClinicGuide','ClinicLegal','PartnerLifecycle','SiteContact','MarketFooter','MarketContactPage','AppHub','AppDownloads','DemoAuto','CenterContact','SubscriptionReminders','OwnerPayment','ClinicRecords','ClinicChanges','ColdStorage','OutboundLimit','CronGuard','SystemHealth','BusinessReport','AppPush','DeviceHub','VisitTracker','ReviewLink','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','SaasPayment','DealerAgreement','CenterAnalytics','FamilyPhotos','PasswordResets','VaccineContinuation','SaleDiscounts','ClinicAlerts','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebThemeDemo','Pregnancy','DailyNote','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','TeamTotp','WebInbox','MinistryBridge','SiteLegal','OmniInbox','PhoneGateway','ClientPermit','PrintTemplates','Support','Commerce','Appearance'] as $class) {
     require_once dirname(__DIR__) . '/src/' . $class . '.php';
 }
 
@@ -1969,6 +1969,10 @@ try {
         foreach (array_keys($ids) as $collection) if (!ClinicAccess::allowed($actor,$collection)) unset($ids[$collection]);
         $rows=$set===null?[]:$cold->history($set,$ids,$filter,$branch);
         reply(['collections'=>(object)$rows,'archive'=>VetNet\Cpanel\ColdStorage::summary($ids,VetNet\Cpanel\ColdStorage::cutoff())]);
+    }
+    if ($path === '/api/workspace/sale-discounts' && in_array($method,['GET','POST'],true)) {
+        header('Cache-Control: private, no-store');
+        reply($workspaces->saleDiscounts($_COOKIE, $_SERVER['HTTP_X_VETNET_SCOPE'] ?? '', $now, $method==='POST' ? input(500000) : null));
     }
     if ($path === '/api/workspace/vaccine-continuations' && in_array($method,['GET','POST'],true)) {
         if ($method==='POST') input(512);

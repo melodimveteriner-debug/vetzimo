@@ -212,6 +212,15 @@ final class DealerWorkspace
         }
     }
 
+    /** Kalanı indirimle kapatma: liste (GET) veya seçilenleri kapat (POST, sunucuda gerçek kalanla). */
+    public function saleDiscounts(array $cookies, string $scope, int $now, ?object $body): array
+    {
+        $actor = $this->actor($cookies, $now);
+        if ($body === null) return SaleDiscounts::list($this->workspaces, $actor);
+        if (!hash_equals($actor['membership_id'], $scope)) throw new RuntimeException('Çalışma alanı oturumu değişti.',409);
+        return SaleDiscounts::close($this->database, $this->workspaces, $actor, is_array($body->ids ?? null) ? $body->ids : [], $now);
+    }
+
     /** Aşı devamları: önizleme (GET) veya oluşturma (POST, çalışma alanı kilitli). */
     public function vaccineContinuations(array $cookies, string $scope, int $now, bool $apply): array
     {
