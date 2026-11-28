@@ -1,5 +1,5 @@
 import {permissionMatrix} from "./permission-matrix.js";
-import {actionNames} from "./access.js";
+import {actionNames,clinicFetch} from "./access.js";
 import {paginate} from "./paged.js?v=2";
 
 const roles={branch:"Şube yöneticisi",staff:"Personel",customer:"Hasta sahibi"};
@@ -483,6 +483,9 @@ export async function mountClinicAccounts(ui,params) {
     view.append(tools,reauth(session.previewReauth),metrics,invitation,...(data.quotas.userCap&&presets?[presetPanel(data)]:[]),...(data.quotas.userCap?[catalog]:[]),usage,detail,brandForm(data.partnerId));
     render();
     appUsage(usage,data,openMember,resendTools).catch(e=>usage.replaceChildren(el("h2","Uygulamayı kullananlar"),el("p",e.message,{className:"suite-muted"})));
+    // Şifremi unuttum istekleri (SMS gidemediyse tek dokunuşla SMS/WhatsApp) — yalnız istek varsa görünür.
+    const resets=el("div");usage.before(resets);
+    import("./password-resets-clinic.js?v=1").then(m=>m.mountResetList(resets,{api:clinicFetch,tr:s=>s})).catch(()=>{});
   }
 
   await management();

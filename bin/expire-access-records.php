@@ -35,21 +35,29 @@ try {
         }
     }
     // Sohbet (çok kanallı gelen kutusu): son mesajı 3 günden eski konuşmalar mesajlarıyla birlikte tamamen silinir
-    // (arşiv tutulmaz; veritabanı şişmez). Partiler hâlinde, kısa işlemlerle.
+    // (arşiv tutulmaz; veritabanı şişmez). Okunmamış veya yanıt bekleyen (son mesaj müşteriden, kapatılmamış)
+    // konuşmalar yanıtsız mesaj kaybolmasın diye 30 gün korunur, sonra onlar da silinir. Partiler hâlinde, kısa işlemlerle.
     try {
-        $old=$db->prepare('SELECT id FROM inbox_conversation WHERE last_message_at<? ORDER BY last_message_at LIMIT 300');
+        $old=$db->prepare("SELECT id FROM inbox_conversation WHERE last_message_at<? AND (last_message_at<? OR (unread=0
+            AND NOT (last_direction='in' AND status<>'closed'))) ORDER BY last_message_at LIMIT 300");
         for ($batch=0;$batch<50;$batch++) {
-            $old->execute([$now-3*86400]);
+            $old->execute([$now-3*86400,$now-30*86400]);
             $ids=array_map('intval',$old->fetchAll(PDO::FETCH_COLUMN));
             if (!$ids) break;
             $in=implode(',',$ids);
-            $db->exec("DELETE FROM inbox_message WHERE conversation_id IN ($in)");
-            $db->exec("DELETE FROM inbox_conversation WHERE id IN ($in)");
+            // Seçimle silme arasında yeni mesaj gelen konuşma silinmez (koşul silmede yeniden denetlenir);
+            // mesajlar yalnız gerçekten silinen konuşmalardan temizlenir.
+            $gone=$db->prepare("DELETE FROM inbox_conversation WHERE id IN ($in) AND last_message_at<? AND (last_message_at<? OR (unread=0 AND NOT (last_direction='in' AND status<>'closed')))");
+            $gone->execute([$now-3*86400,$now-30*86400]);
+            $db->exec("DELETE m FROM inbox_message m LEFT JOIN inbox_conversation c ON c.id=m.conversation_id WHERE m.conversation_id IN ($in) AND c.id IS NULL");
             if (count($ids)<300) break;
         }
     } catch (PDOException $error) {
         if ($error->getCode()!=='42S02') throw $error;
     }
+    // Aile fotoğrafları: veritabanındaki eski fotoğraflar diske taşınır, kaydı silinmiş fotoğraf dosyaları temizlenir.
+    require_once $root.'/src/FamilyPhotos.php';
+    for ($i=0;$i<10;$i++) { if ((new VetNet\Cpanel\FamilyPhotos($db))->maintain($now)['moved']<200) break; }
 } catch (Throwable $error) {
     if (class_exists('VetNet\\Cpanel\\CronGuard')) VetNet\Cpanel\CronGuard::finish('error',isset($error)&&$error instanceof Throwable?mb_substr(get_class($error).': '.$error->getMessage(),0,240):null);
     fwrite(STDERR,'VetZimo: erişim kayıtları temizlenemedi ('.get_class($error).").\n");

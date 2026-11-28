@@ -12,7 +12,7 @@ use PDO;
  */
 final class ClinicAlerts
 {
-    private const KINDS = ['inbox', 'permit', 'job', 'phone', 'web', 'subscription', 'device', 'pregnancy', 'daily', 'family'];
+    private const KINDS = ['inbox', 'permit', 'job', 'phone', 'web', 'subscription', 'device', 'pregnancy', 'daily', 'family', 'reset'];
 
     public function __construct(private readonly PDO $db) {}
 
@@ -88,6 +88,10 @@ final class ClinicAlerts
                         'href' => '#telefon-baglantisi', 'time' => $wa['wa_seen'] ? (int)$wa['wa_seen'] : $now, 'auto' => true];
                 }
             }
+        });
+        // Şifremi unuttum: SMS'i gidemeyen ve henüz şifresini yenilememiş istekler.
+        if (ClinicAccess::allowed($actor, 'clients')) $safe(function () use (&$items, $actor, $now) {
+            foreach ((new PasswordResets($this->db))->alerts($actor, $now) as $item) $items[] = $item;
         });
         if (ClinicAccess::feature($actor, 'webSite') && ClinicAccess::allowed($actor, 'clients')) $safe(function () use (&$items, $partner) {
             $q = $this->db->prepare('SELECT id,message,UNIX_TIMESTAMP(created_at) t FROM clinic_web_inbox WHERE partner_id=? AND handled_at IS NULL ORDER BY id DESC LIMIT 10');

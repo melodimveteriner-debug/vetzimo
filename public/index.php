@@ -12,7 +12,7 @@ use VetNet\Cpanel\SessionRepository;
 
 require_once dirname(__DIR__).'/src/StaffPlan.php';
 
-foreach (['AddonPackages','ClinicGuide','ClinicLegal','PartnerLifecycle','SiteContact','MarketFooter','MarketContactPage','AppHub','AppDownloads','DemoAuto','CenterContact','SubscriptionReminders','OwnerPayment','ClinicRecords','ClinicChanges','ColdStorage','OutboundLimit','CronGuard','SystemHealth','BusinessReport','AppPush','DeviceHub','VisitTracker','ReviewLink','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','SaasPayment','DealerAgreement','CenterAnalytics','FamilyPhotos','ClinicAlerts','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebThemeDemo','Pregnancy','DailyNote','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','TeamTotp','WebInbox','MinistryBridge','SiteLegal','OmniInbox','PhoneGateway','ClientPermit','PrintTemplates','Support','Commerce','Appearance'] as $class) {
+foreach (['AddonPackages','ClinicGuide','ClinicLegal','PartnerLifecycle','SiteContact','MarketFooter','MarketContactPage','AppHub','AppDownloads','DemoAuto','CenterContact','SubscriptionReminders','OwnerPayment','ClinicRecords','ClinicChanges','ColdStorage','OutboundLimit','CronGuard','SystemHealth','BusinessReport','AppPush','DeviceHub','VisitTracker','ReviewLink','UiLocale','Totp','AppointmentReminders','Center','CenterManagement','MarketText','SaasPayment','DealerAgreement','CenterAnalytics','FamilyPhotos','PasswordResets','ClinicAlerts','Notifications','ClinicContact','Weather','ExternalImport','ClinicTransfer','BulkClinicMessages','ClinicAccess','WebBuilder','WebBuilderAdmin','WebThemeDemo','Pregnancy','DailyNote','WebBuilderPublic','WebBooking','WebBuilderRoutes','HomeCare','HomeVisit','HomeVisitPages','DeliveryNotice','WorkspaceRepository','Database','DealerLogin','SessionRepository','DealerWorkspace','WorkspaceStream','Finance','ClinicApi','IdentityApi','ClinicConsent','TeamTotp','WebInbox','MinistryBridge','SiteLegal','OmniInbox','PhoneGateway','ClientPermit','PrintTemplates','Support','Commerce','Appearance'] as $class) {
     require_once dirname(__DIR__) . '/src/' . $class . '.php';
 }
 
@@ -1355,6 +1355,18 @@ try {
         if (($famApi[1] ?? '')==='decide') reply($family->decide($actor,$id,($body->approve ?? null)===true,$now));
         (new DealerLogin($db,$config['rateSecret']))->throttle('family-photo:'.$actor['membership_id'],$now);
         reply($family->upload($actor,$body,$now));
+    }
+    // Şifremi unuttum istekleri: durum (SMS sırada/gönderildi/iletilemedi/şifre yenilendi) ve ekibin tek dokunuşla gönderimi.
+    if (preg_match('~^/api/password-resets(?:/(send))?$~D',$path,$resetApi)) {
+        $resets=new VetNet\Cpanel\PasswordResets($db);
+        $actor=(new VetNet\Cpanel\Commerce($db))->packageActor((new IdentityApi($db))->actor($_COOKIE,$now));
+        header('Cache-Control: private, no-store');
+        if ($method==='GET' && empty($resetApi[1])) reply(['items'=>$resets->list($actor,$_GET,$now)]);
+        if ($method!=='POST' || empty($resetApi[1])) reply(['error'=>'İstenen işlem bulunamadı.'],405);
+        if (!hash_equals((string)$actor['membership_id'],(string)($_SERVER['HTTP_X_VETNET_SCOPE'] ?? ''))) throw new RuntimeException('Çalışma alanı oturumu değişti.',409);
+        $body=input(2048);
+        (new DealerLogin($db,$config['rateSecret']))->throttle('password-reset-send:'.$actor['membership_id'],$now);
+        reply($resets->send($actor,is_string($body->id ?? null)?$body->id:'',is_string($body->channel ?? null)?$body->channel:'',(string)$origin,$now));
     }
     if (preg_match('~^/api/customers/([A-Za-z0-9_-]{1,80})$~D',$path,$customerRoute) && in_array($method,['GET','POST'],true)) {
         $identity=new IdentityApi($db);

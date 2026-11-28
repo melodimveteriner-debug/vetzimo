@@ -19,15 +19,89 @@ final class FamilyPhotos
 
     public function __construct(private readonly PDO $db) {}
 
+    /**
+     * Fotoğraf dosyaları veritabanında değil diskte tutulur (veritabanı ve yedekleri şişmez): uygulama kökündeki
+     * storage/family-photos/ — web'e açık public/ klasörünün dışındadır, ayrıca kendi .htaccess'i her erişimi reddeder.
+     * Disk yazılamazsa (izin/kota) fotoğraf eskisi gibi veritabanına kaydedilir; yükleme kaybolmaz.
+     */
+    public static function dir(): string
+    {
+        return rtrim((string)(getenv('VETNET_STORAGE') ?: dirname(__DIR__).'/storage'), '/').'/family-photos';
+    }
+
+    private static function path(string $id): string { return self::dir().'/'.substr($id, 0, 2).'/'.$id.'.img'; }
+
+    /** Baytları atomik olarak diske yazar; başarısızsa false (çağıran veritabanına kaydeder). */
+    private static function writeFile(string $id, string $bytes): bool
+    {
+        $root = self::dir();
+        $dir = dirname(self::path($id));
+        if (!is_dir($dir) && !@mkdir($dir, 0750, true) && !is_dir($dir)) return false;
+        if (!is_file($root.'/.htaccess')) @file_put_contents($root.'/.htaccess', "Require all denied\nDeny from all\n");
+        $tmp = $dir.'/.'.$id.'.'.bin2hex(random_bytes(4)).'.tmp';
+        if (@file_put_contents($tmp, $bytes, LOCK_EX) !== strlen($bytes)) { @unlink($tmp); return false; }
+        @chmod($tmp, 0640);
+        if (!@rename($tmp, self::path($id))) { @unlink($tmp); return false; }
+        return true;
+    }
+
+    private static function readFile(string $id): ?string
+    {
+        $bytes = @file_get_contents(self::path($id));
+        return is_string($bytes) && $bytes !== '' ? $bytes : null;
+    }
+
+    public static function removeFile(string $id): void
+    {
+        if (preg_match('/\A[a-f0-9]{32}\z/', $id)) @unlink(self::path($id));
+    }
+
+    /**
+     * Bakım (günlük görev): veritabanındaki eski fotoğrafları partiler hâlinde diske taşır; kaydı silinmiş
+     * (hasta sahibi/bayi silindi) fotoğraf dosyalarını temizler. Yeni yüklemeyle yarışmamak için 1 saatten eski
+     * sahipsiz dosyalara dokunur. @return array{moved:int,removed:int}
+     */
+    public function maintain(int $now, int $batch = 200): array
+    {
+        $moved = 0; $removed = 0;
+        try {
+            self::ensure($this->db);
+            $q = $this->db->prepare('SELECT id,image FROM clinic_family_photo WHERE image IS NOT NULL LIMIT '.max(1, $batch));
+            $q->execute();
+            foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $r) {
+                if (!self::writeFile($r['id'], (string)$r['image'])) break;
+                $u = $this->db->prepare('UPDATE clinic_family_photo SET image=NULL WHERE id=? AND image IS NOT NULL');
+                $u->execute([$r['id']]);
+                $moved += $u->rowCount();
+            }
+        } catch (PDOException $e) { if ($e->getCode() !== '42S02') throw $e; }
+        $exists = $this->db->prepare('SELECT 1 FROM clinic_family_photo WHERE id=?');
+        foreach (glob(self::dir().'/??/*.img') ?: [] as $file) {
+            $id = basename($file, '.img');
+            if (!preg_match('/\A[a-f0-9]{32}\z/', $id) || (int)@filemtime($file) > $now - 3600) continue;
+            try { $exists->execute([$id]); $keep = (bool)$exists->fetchColumn(); } catch (PDOException) { $keep = true; }
+            if (!$keep && @unlink($file)) $removed++;
+        }
+        foreach (glob(self::dir().'/??/.*.tmp') ?: [] as $tmp) if ((int)@filemtime($tmp) < $now - 3600) @unlink($tmp);
+        return ['moved' => $moved, 'removed' => $removed];
+    }
+
     public static function ensure(PDO $db): void
     {
         $db->exec('CREATE TABLE IF NOT EXISTS clinic_family_photo (id CHAR(32) NOT NULL PRIMARY KEY, partner_id VARCHAR(80) NOT NULL,
             branch_id VARCHAR(80) NOT NULL DEFAULT \'\', membership_id VARCHAR(80) NOT NULL, client_id VARCHAR(80) NOT NULL DEFAULT \'\',
             surname VARCHAR(60) NOT NULL, caption VARCHAR(160) NOT NULL DEFAULT \'\', publish TINYINT NOT NULL DEFAULT 0,
-            status VARCHAR(10) NOT NULL DEFAULT \'pending\', mime VARCHAR(20) NOT NULL, image MEDIUMBLOB NOT NULL,
+            status VARCHAR(10) NOT NULL DEFAULT \'pending\', mime VARCHAR(20) NOT NULL, image MEDIUMBLOB NULL,
             created_at INT UNSIGNED NOT NULL, decided_at INT UNSIGNED NULL, decided_by VARCHAR(120) NOT NULL DEFAULT \'\',
             KEY partner_status (partner_id,status,created_at), KEY member (membership_id), KEY client (partner_id,client_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci');
+        // İlk sürümde image NOT NULL idi; dosyaya taşıma için NULL olabilir yapılır (bir kez, küçük tablo).
+        static $checked = false;
+        if (!$checked) {
+            $checked = true;
+            $n = $db->query("SELECT IS_NULLABLE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='clinic_family_photo' AND COLUMN_NAME='image'")->fetchColumn();
+            if ($n === 'NO') $db->exec('ALTER TABLE clinic_family_photo MODIFY image MEDIUMBLOB NULL');
+        }
     }
 
     private const COLUMNS = 'id,branch_id,membership_id,client_id,surname,caption,publish,status,created_at,decided_at,decided_by';
@@ -160,11 +234,16 @@ final class FamilyPhotos
             $count->execute([$actor['partner_id'], $client]);
             if ((int)$count->fetchColumn() >= self::MAX) throw new RuntimeException('En fazla '.self::MAX.' aile fotoğrafı ekleyebilirsiniz. Yenisi için birini silin.', 422);
             $id = bin2hex(random_bytes(16));
+            $onDisk = self::writeFile($id, $bytes);
             $this->db->prepare('INSERT INTO clinic_family_photo(id,partner_id,branch_id,membership_id,client_id,surname,caption,publish,status,mime,image,created_at,decided_at,decided_by)
                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)')->execute([$id, $actor['partner_id'], $branch, $membership, $client, $surname, $caption, $body->publish ? 1 : 0,
-                $customer ? 'pending' : 'approved', $m[1], $bytes, $now, $customer ? null : $now, $customer ? '' : (string)($actor['name'] ?? '')]);
+                $customer ? 'pending' : 'approved', $m[1], $onDisk ? null : $bytes, $now, $customer ? null : $now, $customer ? '' : (string)($actor['name'] ?? '')]);
             $this->db->commit();
-        } catch (\Throwable $e) { if ($this->db->inTransaction()) $this->db->rollBack(); throw $e; }
+        } catch (\Throwable $e) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            if (isset($id)) self::removeFile($id); // kayıt oluşmadıysa dosya da kalmaz
+            throw $e;
+        }
         return $this->list($actor, $customer ? [] : ['client' => $client]);
     }
 
@@ -178,6 +257,7 @@ final class FamilyPhotos
         try { $q = $this->db->prepare('DELETE FROM clinic_family_photo WHERE '.$where); $q->execute($args); }
         catch (PDOException $e) { if ($e->getCode() !== '42S02') throw $e; $q = null; }
         if (!$q || !$q->rowCount()) throw new RuntimeException('Fotoğraf bulunamadı.', 404);
+        self::removeFile($id);
         return ['ok' => true];
     }
 
@@ -204,6 +284,10 @@ final class FamilyPhotos
             $r = $q->fetch(PDO::FETCH_ASSOC);
         } catch (PDOException) { return null; }
         if (!$r || ($partner !== null && $r['partner_id'] !== $partner)) return null;
+        if ($r['image'] === null) {
+            $r['image'] = self::readFile($id);
+            if ($r['image'] === null) return null;
+        }
         $public = $r['status'] === 'approved' && (bool)$r['publish'];
         if ($public) return [$r['mime'], $r['image'], true];
         if ($partner !== null || !$actor || ($actor['partner_id'] ?? '') !== $r['partner_id'] || $r['status'] === 'rejected' && ($actor['role'] ?? '') === 'customer') return null;

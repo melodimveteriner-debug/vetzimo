@@ -276,29 +276,24 @@ final class IdentityApi
         $generic=['message'=>'Bu numaraya kayıtlı bir hesap varsa şifre yenileme bağlantısı kliniğinizin hattından SMS ile gönderildi. Birkaç dakika içinde gelmezse kliniğinizi arayın.'];
         $phone=DealerLogin::normalizePhone(is_string($input->phone ?? null)?$input->phone:'');
         if($phone==='') throw new RuntimeException('Geçerli bir cep telefonu numarası girin (05xx xxx xx xx).',422);
-        $q=$this->db->prepare("SELECT a.id, m.partner_id, p.name FROM identity_account a JOIN identity_membership m ON m.account_id=a.id AND m.status='active'
+        $q=$this->db->prepare("SELECT a.id, m.partner_id, p.name, m.id AS mid, m.role, m.branch_id, m.customer_id, m.name AS mname FROM identity_account a JOIN identity_membership m ON m.account_id=a.id AND m.status='active'
             JOIN partner_account p ON p.id=m.partner_id AND p.active=1 WHERE a.kind='phone' AND a.identifier=? AND a.blocked=0 AND a.password_hash IS NOT NULL
             ORDER BY FIELD(m.role,'customer','staff','branch','dealer') DESC");
         $q->execute([$phone]);
         $rows=$q->fetchAll(PDO::FETCH_ASSOC);
         if(!$rows) return $generic;
-        self::ensureReset($this->db);
+        PasswordResets::ensure($this->db);
         $account=$rows[0]['id'];
-        // Aynı hesaba 2 dakikada en fazla bir bağlantı.
-        $last=$this->db->prepare('SELECT MAX(created) FROM identity_password_reset WHERE account_id=?'); $last->execute([$account]);
-        if($now-(int)$last->fetchColumn()<120) return $generic;
-        $token=bin2hex(random_bytes(32));
-        $this->db->prepare('UPDATE identity_password_reset SET used=1 WHERE account_id=?')->execute([$account]);
-        $this->db->prepare('INSERT INTO identity_password_reset(token_hash,account_id,created,expires) VALUES (?,?,?,?)')->execute([hash('sha256',$token),$account,$now,$now+1800]);
-        $link=rtrim((string)($config['origin'] ?? ''),'/').'/app#yenile/'.$token;
-        foreach($rows as $r) {
-            try {
-                $gw=new PhoneGateway($this->db);
-                if(!$gw->route($r['partner_id'],'sms')) continue;
-                $gw->enqueue($r['partner_id'],'sms',$phone,$r['name'].': VetZimo şifrenizi yenilemek için (30 dk geçerli): '.$link,'manual','reset:'.$account.':'.$now,0,$now,$now+1800,'Şifre yenileme');
-                break;
-            } catch(\Throwable) {}
-        }
+        // Aynı hesaba 2 dakikada en fazla bir bağlantı (eşzamanlı isteklerde de: hesap satırı kilitlenir).
+        $this->db->beginTransaction();
+        try {
+            $this->db->prepare('SELECT id FROM identity_account WHERE id=? FOR UPDATE')->execute([$account]);
+            $last=$this->db->prepare('SELECT MAX(created) FROM identity_password_reset WHERE account_id=?'); $last->execute([$account]);
+            if($now-(int)$last->fetchColumn()<120) { $this->db->commit(); return $generic; }
+            // İstek kaydı açılır; SMS kliniğin hattından gider. Gidemezse klinik panelinde uyarı çıkar, ekip tek dokunuşla gönderir.
+            (new PasswordResets($this->db))->request($account,$phone,$rows,(string)($config['origin'] ?? ''),$now);
+            $this->db->commit();
+        } catch(\Throwable $e) { if($this->db->inTransaction()) $this->db->rollBack(); throw $e; }
         return $generic;
     }
     public static function ensureReset(PDO $db): void
@@ -318,6 +313,7 @@ final class IdentityApi
         $this->db->prepare('UPDATE identity_account SET password_hash=?,version=version+1 WHERE id=? AND blocked=0')->execute([password_hash($password,PASSWORD_ARGON2ID),$account]);
         $this->db->prepare('UPDATE identity_password_reset SET used=1 WHERE account_id=?')->execute([$account]);
         $this->db->prepare('DELETE FROM identity_session WHERE account_id=?')->execute([$account]);
+        (new PasswordResets($this->db))->complete((string)$account,$now);
         return true;
     }
     public function redeem(object $input,int $now): void

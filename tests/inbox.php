@@ -178,3 +178,30 @@ $inbox->deleteChannel($actor,(object)['id'=>$tg['id']]);
 ok($code===404,'Kaldırılan kanal mesaj almaya devam etti');
 ok(count($inbox->list($actor,['channel'=>'telegram','box'=>'all'],$now)['items'])===1,'Kanal kaldırılınca geçmiş silindi');
 echo "inbox ok\n";
+
+// ── Saklama: 3 günden eski yanıtlanmış konuşma silinir; okunmamış / yanıt bekleyen 30 gün korunur; yenisi kalır
+$chan=(string)$db->query("SELECT channel_id FROM inbox_conversation LIMIT 1")->fetchColumn();
+$mk=function(string $key,int $at,int $unread,string $dir,string $status) use ($db,$chan,$actor,$now) {
+    $db->prepare("INSERT INTO inbox_conversation (partner_id,channel_id,contact_key,last_message_at,unread,last_direction,status,created_at) VALUES (?,?,?,?,?,?,?,?)")
+        ->execute([$actor['partner_id'],$chan,$key,$at,$unread,$dir,$status,$now]);
+    $id=(int)$db->lastInsertId();
+    $db->prepare("INSERT INTO inbox_message (conversation_id,partner_id,channel_id,direction,body,created_at) VALUES (?,?,?,?,?,?)")->execute([$id,$actor['partner_id'],$chan,$dir,'x',$at]);
+    return $id;
+};
+$old=$now-4*86400;
+$ids=['replied'=>$mk('ret-1',$old,0,'out','open'),'closed'=>$mk('ret-2',$old,0,'in','closed'),'unread'=>$mk('ret-3',$old,2,'in','open'),
+    'waiting'=>$mk('ret-4',$old,0,'in','open'),'recent'=>$mk('ret-5',$now-2*86400,0,'out','closed'),'stale'=>$mk('ret-6',$now-31*86400,3,'in','open')];
+$cfg=tempnam(sys_get_temp_dir(),'vzcfg');
+preg_match('~dbname=([A-Za-z0-9_]+)~',(string)getenv('VETNET_TEST_DSN'),$dbm);
+file_put_contents($cfg,'<?php return '.var_export(['dsn'=>getenv('VETNET_TEST_DSN'),'username'=>'root','password'=>''],true).';');
+$procs=[];
+for ($k=0;$k<4;$k++) $procs[]=proc_open([PHP_BINARY,dirname(__DIR__).'/bin/expire-access-records.php'],[1=>['pipe','w'],2=>['pipe','w']],$pp[$k],null,['VETNET_CPANEL_CONFIG'=>$cfg]);
+foreach ($procs as $k=>$p) { stream_get_contents($pp[$k][1]); $err=stream_get_contents($pp[$k][2]); proc_close($p); ok($err==='','Temizlik hatası: '.$err); }
+unlink($cfg);
+$left=fn(int $id)=>(bool)$db->query("SELECT 1 FROM inbox_conversation WHERE id=$id")->fetchColumn();
+ok(!$left($ids['stale']),'30 günden eski okunmamış konuşma silinmedi');
+ok(!$left($ids['replied']) && !$left($ids['closed']),'3 günden eski yanıtlanmış/kapalı konuşma silinmedi');
+ok((int)$db->query("SELECT COUNT(*) FROM inbox_message WHERE conversation_id IN ({$ids['replied']},{$ids['closed']})")->fetchColumn()===0,'Silinen konuşmanın mesajları kaldı');
+ok($left($ids['unread']) && $left($ids['waiting']) && $left($ids['recent']),'Okunmamış/yanıt bekleyen/yeni konuşma silindi');
+ok((int)$db->query("SELECT COUNT(*) FROM inbox_message WHERE conversation_id={$ids['unread']}")->fetchColumn()===1,'Korunan konuşmanın mesajı silindi');
+echo "inbox saklama ok\n";

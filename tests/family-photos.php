@@ -8,6 +8,7 @@ require_once dirname(__DIR__).'/src/FamilyPhotos.php';
 function ok(bool $v,string $m): void { if(!$v) throw new RuntimeException($m); }
 function fails(callable $f,int $code): bool { try { $f(); return false; } catch (RuntimeException $e) { return $e->getCode()===$code; } }
 $dsn=getenv('VETNET_TEST_DSN');
+if (!getenv('VETNET_STORAGE')) { $st=sys_get_temp_dir().'/vz-fam-'.getmypid(); putenv('VETNET_STORAGE='.$st); }
 function jpeg(int $seed): string { $im=imagecreatetruecolor(400,300); imagefill($im,0,0,imagecolorallocate($im,$seed%255,120,200)); ob_start(); imagejpeg($im,null,80); return 'data:image/jpeg;base64,'.base64_encode((string)ob_get_clean()); }
 $customer=fn(string $m,string $partner,string $branch='merkez',string $client='c1')=>['role'=>'customer','membership_id'=>$m,'partner_id'=>$partner,'branch_id'=>$branch,'customer_id'=>$client,'name'=>'Sahip'];
 if (($argv[1] ?? '')==='child') {
@@ -79,8 +80,41 @@ ok(count($f->list($owner,[])['items'])===2,'Silinmedi');
 
 // Eşzamanlı: 6 süreç aynı anda yükler → en fazla 3
 $procs=[];
-for ($k=0;$k<6;$k++) $procs[]=proc_open([PHP_BINARY,__FILE__,'child',$p,(string)$k],[1=>['pipe','w'],2=>['pipe','w']],$pipes[$k],null,['VETNET_TEST_DSN'=>$dsn]);
+for ($k=0;$k<6;$k++) $procs[]=proc_open([PHP_BINARY,__FILE__,'child',$p,(string)$k],[1=>['pipe','w'],2=>['pipe','w']],$pipes[$k],null,['VETNET_TEST_DSN'=>$dsn,'VETNET_STORAGE'=>getenv('VETNET_STORAGE')]);
 $out=[];foreach ($procs as $k=>$pr) { $out[]=stream_get_contents($pipes[$k][1]); proc_close($pr); }
 $n=(int)$db->query("SELECT COUNT(*) FROM clinic_family_photo WHERE membership_id='m-conc'")->fetchColumn();
 ok($n===3,"Eşzamanlı yüklemede sınır aşıldı: $n (".implode(',',$out).')');
+
+// ── Disk depolama: fotoğraf dosyada, veritabanında boş; eski (veritabanındaki) kayıt taşınır; sahipsiz dosya temizlenir
+$dir=FamilyPhotos::dir();
+$ids=$db->query("SELECT id FROM clinic_family_photo")->fetchAll(PDO::FETCH_COLUMN);
+ok((int)$db->query("SELECT COUNT(*) FROM clinic_family_photo WHERE image IS NOT NULL")->fetchColumn()===0,'Yeni fotoğraf veritabanına yazıldı');
+foreach ($ids as $id) ok(is_file($dir.'/'.substr($id,0,2).'/'.$id.'.img'),'Fotoğraf dosyası yok: '.$id);
+ok(is_file($dir.'/.htaccess') && str_contains((string)file_get_contents($dir.'/.htaccess'),'denied'),'Klasör erişim engeli yok');
+ok(!str_starts_with(realpath($dir),realpath(dirname(__DIR__).'/public')),'Depolama web klasörünün içinde');
+ok($f->image($public['id'],$dealer)[1]===base64_decode(explode(',',jpeg(1))[1]) || $f->image($public['id'],$dealer)!==null,'Dosyadan okunamadı');
+// Eski kayıt: dosyası olmayan, veritabanında baytı duran fotoğraf
+$legacy=$ids[0]; $bytes=(string)file_get_contents($dir.'/'.substr($legacy,0,2).'/'.$legacy.'.img');
+unlink($dir.'/'.substr($legacy,0,2).'/'.$legacy.'.img');
+$db->prepare("UPDATE clinic_family_photo SET image=? WHERE id=?")->execute([$bytes,$legacy]);
+ok($f->image($legacy,$dealer)[1]===$bytes,'Eski (veritabanındaki) fotoğraf okunamadı');
+// Eşzamanlı bakım (4 süreç) aynı kaydı bozmadan taşır
+$m=[];for ($k=0;$k<4;$k++) $m[]=proc_open([PHP_BINARY,'-r','require "'.__DIR__.'/bootstrap.php"; require_once "'.dirname(__DIR__).'/src/FamilyPhotos.php"; echo json_encode((new VetNet\\Cpanel\\FamilyPhotos(VetNet\\Cpanel\\Database::connect(getenv("VETNET_TEST_DSN"),"root","")))->maintain(time()));'],[1=>['pipe','w'],2=>['pipe','w']],$mp[$k],null,['VETNET_TEST_DSN'=>$dsn,'VETNET_STORAGE'=>getenv('VETNET_STORAGE')]);
+foreach ($m as $k=>$pr) { stream_get_contents($mp[$k][1]); $e=stream_get_contents($mp[$k][2]); proc_close($pr); ok($e==='','Bakım hatası: '.$e); }
+ok($db->query("SELECT image IS NULL FROM clinic_family_photo WHERE id=".$db->quote($legacy))->fetchColumn()==1 && file_get_contents($dir.'/'.substr($legacy,0,2).'/'.$legacy.'.img')===$bytes,'Eski fotoğraf diske taşınmadı veya bozuldu');
+// Sahipsiz dosya (kaydı başka yoldan silinmiş, ör. hasta sahibi silindi) 1 saatten eskiyse temizlenir; yenisine dokunulmaz
+$orphan=str_repeat('ab',16); @mkdir($dir.'/ab',0750,true); file_put_contents($dir.'/ab/'.$orphan.'.img','x'); touch($dir.'/ab/'.$orphan.'.img',time()-7200);
+$fresh=str_repeat('ac',16); @mkdir($dir.'/ac',0750,true); file_put_contents($dir.'/ac/'.$fresh.'.img','x');
+$r=$f->maintain(time());
+ok(!is_file($dir.'/ab/'.$orphan.'.img') && is_file($dir.'/ac/'.$fresh.'.img'),'Sahipsiz dosya temizliği yanlış: '.json_encode($r));
+foreach ($ids as $id) ok(is_file($dir.'/'.substr($id,0,2).'/'.$id.'.img'),'Bakım kayıtlı fotoğrafı sildi');
+// Silme dosyayı da kaldırır
+$del=$ids[1]; $f->delete($dealer,$del);
+ok(!is_file($dir.'/'.substr($del,0,2).'/'.$del.'.img'),'Silinen fotoğrafın dosyası kaldı');
+// Disk yazılamazsa veritabanına kaydedilir (yükleme kaybolmaz)
+putenv('VETNET_STORAGE=/proc/vz-yazilamaz');
+$db->exec("DELETE FROM clinic_family_photo WHERE client_id='c3'");
+$f->upload($customer('m-conc',$p,'merkez','c3'),(object)['surname'=>'Yedek','publish'=>false,'image'=>jpeg(9)],$now);
+$fb=$db->query("SELECT id,image IS NOT NULL FROM clinic_family_photo WHERE client_id='c3'")->fetch(PDO::FETCH_NUM);
+ok($fb && (int)$fb[1]===1 && $f->image($fb[0],$dealer)!==null,'Disk yazılamazken fotoğraf kaybedildi');
 echo "Aile fotoğrafları testleri geçti\n";
